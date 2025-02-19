@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -15,37 +15,42 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class Objective(BaseModel):
     uid: str
-    name: str | None = Field(None, nullable=True)
-    name_plain: str | None = Field(None, nullable=True)
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_plain: Annotated[str | None, Field(nullable=True)] = None
 
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the objective. "
-            "Actions are: 'approve', 'edit', 'inactivate', 'reactivate' and 'delete'."
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the objective. "
+                "Actions are: 'approve', 'edit', 'inactivate', 'reactivate' and 'delete'."
+            )
         ),
-    )
+    ] = []
 
     template: ObjectiveTemplateNameUidLibrary | None
-    parameter_terms: list[MultiTemplateParameterTerm] = Field(
-        [],
-        description="Holds the parameter terms that are used within the objective. The terms are ordered as they occur in the objective name.",
-    )
-    library: Library | None = Field(None, nullable=True)
+    parameter_terms: Annotated[
+        list[MultiTemplateParameterTerm],
+        Field(
+            description="Holds the parameter terms that are used within the objective. The terms are ordered as they occur in the objective name.",
+        ),
+    ] = []
+    library: Annotated[Library | None, Field(nullable=True)] = None
 
-    study_count: int = Field(0, description="Count of studies referencing objective")
+    study_count: Annotated[
+        int, Field(description="Count of studies referencing objective")
+    ] = 0
 
     @classmethod
     def from_objective_ar(cls, objective_ar: ObjectiveAR) -> Self:
@@ -76,7 +81,7 @@ class Objective(BaseModel):
             status=objective_ar.item_metadata.status.value,
             version=objective_ar.item_metadata.version,
             change_description=objective_ar.item_metadata.change_description,
-            user_initials=objective_ar.item_metadata.user_initials,
+            author_username=objective_ar.item_metadata.author_username,
             possible_actions=sorted(
                 {_.value for _ in objective_ar.get_possible_actions()}
             ),
@@ -98,42 +103,55 @@ class ObjectiveVersion(Objective):
     Class for storing Objectives and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class ObjectiveParameterInput(BaseModel):
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        None,
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the objective template.",
-    )
+class ObjectiveEditInput(PatchInputModel):
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput] | None,
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the objective template.",
+        ),
+    ] = None
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
-class ObjectiveEditInput(ObjectiveParameterInput):
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
-
-
-class ObjectiveCreateInput(ObjectiveParameterInput):
-    objective_template_uid: str = Field(
-        ...,
-        title="objective_template_uid",
-        description="The unique id of the objective template that is used as the basis for the new objective.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the objective will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the objective template will be used.",
-    )
+class ObjectiveCreateInput(PostInputModel):
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput] | None,
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the objective template.",
+        ),
+    ] = None
+    objective_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the objective template that is used as the basis for the new objective.",
+            min_length=1,
+        ),
+    ]
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the objective will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the objective template will be used.",
+            min_length=1,
+        ),
+    ] = None

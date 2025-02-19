@@ -1,23 +1,32 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domain_repositories.models.syntax import ObjectiveValue
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyComponentEnum,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections.study import Study
+from clinical_mdr_api.models.syntax_instances.objective import (
+    Objective,
+    ObjectiveCreateInput,
+    ObjectiveEditInput,
+    ObjectiveVersion,
+)
+from clinical_mdr_api.models.syntax_templates.template_parameter import (
+    TemplateParameter,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers._generic_descriptions import study_section_description
 from clinical_mdr_api.services.syntax_instances.objectives import ObjectiveService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/objectives"
 router = APIRouter()
@@ -25,7 +34,7 @@ router = APIRouter()
 Service = ObjectiveService
 
 # Argument definitions
-ObjectiveUID = Path(None, description="The unique id of the objective.")
+ObjectiveUID = Path(description="The unique id of the objective.")
 
 
 @router.get(
@@ -33,14 +42,14 @@ ObjectiveUID = Path(None, description="The unique id of the objective.")
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all final versions of objectives referenced by any study.",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.Objective],
+    response_model=CustomPage[Objective],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","template","uid","objective","start_date","end_date","status","version","change_description","user_initials"
+"library","template","uid","objective","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","First  [ComparatorIntervention]","826d80a7-0b6a-419d-8ef1-80aa241d7ac7",First Intervention,"2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -62,7 +71,7 @@ ObjectiveUID = Path(None, description="The unique id of the objective.")
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -75,25 +84,33 @@ ObjectiveUID = Path(None, description="The unique id of the objective.")
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     all_items = Service().get_all(
         page_number=page_number,
@@ -129,28 +146,36 @@ def get_all(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those objective templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the objective template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those objective templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the objective template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -158,16 +183,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.Objective],
+    response_model=CustomPage[Objective],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -175,24 +198,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -214,7 +243,7 @@ def retrieve_audit_trail(
     summary="Returns the latest/newest version of a specific objective identified by 'objective_uid'.",
     description="""If multiple request query parameters are used, then they need to
     match all at the same time (they are combined with the AND operation).""",
-    response_model=models.Objective | None,
+    response_model=Objective | None,
     status_code=200,
     responses={
         404: {
@@ -225,25 +254,27 @@ def retrieve_audit_trail(
     },
 )
 def get(
-    objective_uid: str = ObjectiveUID,
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, the representation of the objective in that status is returned (if existent). "
-        "This may be particularly useful if the objective has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    version: str
-    | None = Query(
-        None,
-        description=r"If specified, the latest/newest representation of the objective in that version is returned. "
-        r"Only exact matches are considered. "
-        r"The version is specified in the following format: \<major\>.\<minor\> where \<major\> and \<minor\> are digits. "
-        r"E.g. '0.1', '0.2', '1.0', ...",
-    ),
+    objective_uid: Annotated[str, ObjectiveUID],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, the representation of the objective in that status is returned (if existent). "
+            "This may be particularly useful if the objective has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    version: Annotated[
+        str | None,
+        Query(
+            description=r"If specified, the latest/newest representation of the objective in that version is returned. "
+            r"Only exact matches are considered. "
+            r"The version is specified in the following format: \<major\>.\<minor\> where \<major\> and \<minor\> are digits. "
+            r"E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ] = None,
 ):
     return Service().get_by_uid(uid=objective_uid, version=version, status=status)
 
@@ -254,7 +285,7 @@ def get(
     summary="Returns the version history of a specific objective identified by 'objective_uid'.",
     description="The returned versions are ordered by\n"
     "0. start_date descending (newest entries first)",
-    response_model=list[models.ObjectiveVersion],
+    response_model=list[ObjectiveVersion],
     status_code=200,
     responses={
         404: {
@@ -264,15 +295,13 @@ def get(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(objective_uid: str = ObjectiveUID):
+def get_versions(objective_uid: Annotated[str, ObjectiveUID]):
     return Service().get_version_history(uid=objective_uid)
 
 
 @router.get(
     "/{objective_uid}/studies",
     dependencies=[rbac.STUDY_READ],
-    summary="",
-    description="",
     response_model=list[Study],
     status_code=200,
     responses={
@@ -284,11 +313,15 @@ def get_versions(objective_uid: str = ObjectiveUID):
     },
 )
 def get_studies(
-    objective_uid: str = ObjectiveUID,
-    include_sections: list[StudyComponentEnum]
-    | None = Query(None, description=study_section_description("include")),
-    exclude_sections: list[StudyComponentEnum]
-    | None = Query(None, description=study_section_description("exclude")),
+    objective_uid: Annotated[str, ObjectiveUID],
+    include_sections: Annotated[
+        list[StudyComponentEnum] | None,
+        Query(description=study_section_description("include")),
+    ] = None,
+    exclude_sections: Annotated[
+        list[StudyComponentEnum] | None,
+        Query(description=study_section_description("exclude")),
+    ] = None,
 ):
     return Service().get_referencing_studies(
         uid=objective_uid,
@@ -305,14 +338,14 @@ def get_studies(
     description="""This request is only valid if
 * the specified objective template is in 'Final' status and
 * the specified library allows creating objectives (the 'is_editable' property of the library needs to be true) and
-* the objective does not yet exist (no objective with the same content in 'Final' or 'Draft' status).
+* the objective doesn't yet exist (no objective with the same content in 'Final' or 'Draft' status).
 
 If the request succeeds:
 * The status will be automatically set to 'Draft'.
 * The 'change_description' property will be set automatically.
 * The 'version' property will be set to '0.1'.
 """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=201,
     responses={
         201: {"description": "Created - The objective was successfully created."},
@@ -320,7 +353,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to create objectives.\n"
+            "- The library doesn't allow to create objectives.\n"
             "- The objective does already exist.",
         },
         404: {
@@ -333,9 +366,10 @@ If the request succeeds:
     },
 )
 def create(
-    objective: models.ObjectiveCreateInput = Body(
-        description="Related parameters of the objective that shall be created."
-    ),
+    objective: Annotated[
+        ObjectiveCreateInput,
+        Body(description="Related parameters of the objective that shall be created."),
+    ],
 ):
     return Service().create(objective)
 
@@ -347,12 +381,12 @@ def create(
     description="""This request is only valid if
 * the specified objective template is in 'Final' status and
 * the specified library allows creating objectives (the 'is_editable' property of the library needs to be true) and
-* the objective does not yet exist (no objective with the same content in 'Final' or 'Draft' status).
+* the objective doesn't yet exist (no objective with the same content in 'Final' or 'Draft' status).
 
 If the request succeeds:
 * No objective will be created, but the result of the request will show what the objective will look like.
 """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=200,
     responses={
         200: {"description": "Success - The objective is able to be created."},
@@ -360,7 +394,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to create objectives.\n"
+            "- The library doesn't allow to create objectives.\n"
             "- The objective does already exist.",
         },
         404: {
@@ -373,9 +407,12 @@ If the request succeeds:
     },
 )
 def preview(
-    objective: models.ObjectiveCreateInput = Body(
-        description="Related parameters of the objective that shall be previewed."
-    ),
+    objective: Annotated[
+        ObjectiveCreateInput,
+        Body(
+            description="Related parameters of the objective that shall be previewed."
+        ),
+    ],
 ):
     return Service().create(objective, preview=True)
 
@@ -392,7 +429,7 @@ If the request succeeds:
 * The 'version' property will be increased automatically by +0.1.
 * The status will remain in 'Draft'.
 """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -402,7 +439,7 @@ If the request succeeds:
             "- The objective is not in draft status.\n"
             "- The objective had been in 'Final' status before.\n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The objective does already exist.",
         },
         404: {
@@ -413,10 +450,13 @@ If the request succeeds:
     },
 )
 def edit(
-    objective_uid: str = ObjectiveUID,
-    objective: models.ObjectiveEditInput = Body(
-        description="The new parameter terms for the objective including the change description.",
-    ),
+    objective_uid: Annotated[str, ObjectiveUID],
+    objective: Annotated[
+        ObjectiveEditInput,
+        Body(
+            description="The new parameter terms for the objective including the change description.",
+        ),
+    ],
 ):
     return Service().edit_draft(objective_uid, objective)
 
@@ -434,7 +474,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -442,7 +482,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective is not in draft status.\n"
-            "- The library does not allow to approve objective.\n",
+            "- The library doesn't allow to approve objective.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -451,7 +491,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(objective_uid: str = ObjectiveUID):
+def approve(objective_uid: Annotated[str, ObjectiveUID]):
     return Service().approve(objective_uid)
 
 
@@ -467,7 +507,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -483,7 +523,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(objective_uid: str = ObjectiveUID):
+def inactivate(objective_uid: Annotated[str, ObjectiveUID]):
     return Service().inactivate_final(uid=objective_uid)
 
 
@@ -499,7 +539,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.Objective,
+    response_model=Objective,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -515,7 +555,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(objective_uid: str = ObjectiveUID):
+def reactivate(objective_uid: Annotated[str, ObjectiveUID]):
     return Service().reactivate_retired(objective_uid)
 
 
@@ -544,7 +584,7 @@ def reactivate(objective_uid: str = ObjectiveUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(objective_uid: str = ObjectiveUID):
+def delete(objective_uid: Annotated[str, ObjectiveUID]):
     Service().soft_delete(objective_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
 
@@ -556,7 +596,7 @@ def delete(objective_uid: str = ObjectiveUID):
     description="Returns all template parameters used in the objective template "
     "that is the basis for the objective identified by 'objective_uid'. "
     "Includes the available values per parameter.",
-    response_model=list[models.TemplateParameter],
+    response_model=list[TemplateParameter],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -564,12 +604,13 @@ def delete(objective_uid: str = ObjectiveUID):
     },
 )
 def get_parameters(
-    objective_uid: str = Path(None, description="The unique id of the objective."),
-    study_uid: str
-    | None = Query(
-        None,
-        description="Optionally, the uid of the study to subset the parameters to (e.g. for StudyEndpoints parameters)",
-    ),
+    objective_uid: Annotated[str, ObjectiveUID],
+    study_uid: Annotated[
+        str | None,
+        Query(
+            description="Optionally, the uid of the study to subset the parameters to (e.g. for StudyEndpoints parameters)",
+        ),
+    ] = None,
 ):
     return Service().get_parameters(
         uid=objective_uid, study_uid=study_uid, include_study_endpoints=True

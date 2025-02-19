@@ -12,7 +12,7 @@ class StudyStandardVersionVO:
     study_status: StudyStatus
     description: str
     start_date: datetime.datetime
-    author: str
+    author_id: str
     ct_package_uid: str
     automatically_created: bool = False
     uid: str | None = None

@@ -1,8 +1,8 @@
 ARG NEO4J_IMAGE=neo4j:5.19.0-enterprise
-ARG PYTHON_IMAGE=python:3.11.9-slim
+ARG PYTHON_IMAGE=python:3.13.0-slim
 
 # --- Build stage ----
-FROM $PYTHON_IMAGE as build-stage
+FROM $PYTHON_IMAGE AS build-stage
 
 ARG NEO4J_DOWNLOAD_URL=https://dist.neo4j.org/neo4j-enterprise-5.19.0-unix.tar.gz
 ARG NEO4J_CHECKSUM=6dc5af32f8e01f1cb8f8618d1314d91713172db14f53c695b77ca733ff504356
@@ -98,7 +98,9 @@ COPY ./clinical-mdr-api clinical-mdr-api
 ENV NEO4J_DSN="bolt://${NEO4J_MDR_AUTH_USER}:${NEO4J_MDR_AUTH_PASSWORD}@localhost:7687/" \
     NEO4J_DATABASE=mdrdb \
     OAUTH_ENABLED=false \
-    ALLOW_ORIGIN_REGEX=".*"
+    ALLOW_ORIGIN_REGEX=".*" \
+    TRACING_DISABLED="true" \
+    LOG_LEVEL="WARN"
 
 # Set up environments for studybuilder-import
 COPY ./studybuilder-import/.env.import studybuilder-import/.env
@@ -130,9 +132,9 @@ RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$NEO4J_MDR_AUTH_PASSWORD" 
     && while ! netstat -tna | grep 'LISTEN\>' | grep -q '8000\>'; do sleep 2; done \
     && set -x \
     # imports
-    && sleep 10 && cd ../studybuilder-import && pipenv run import_all && pipenv run import_dummydata && pipenv run import_feature_flags \
+    && sleep 10 && cd ../studybuilder-import && pipenv run import_all && pipenv run import_dummydata && pipenv run import_feature_flags && pipenv run activities \
     # stop the api
-    && sleep 10 && kill -TERM $api_pid && wait $api_pid \
+    && sleep 10 && kill -INT $api_pid && wait $api_pid \
     # get database name
     && dbName=$(/neo4j/bin/cypher-shell -u "$NEO4J_MDR_AUTH_USER" -p "$NEO4J_MDR_AUTH_PASSWORD" -a "neo4j://localhost:$NEO4J_MDR_BOLT_PORT" "SHOW ALIASES FOR DATABASE YIELD * WHERE name=\"$NEO4J_MDR_DATABASE\" RETURN database;" | tail -n 1 | tr -d '"') && echo $dbName \
     # run backup of database
@@ -147,7 +149,7 @@ RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$NEO4J_MDR_AUTH_PASSWORD" 
 
 # --- Prod stage ----
 # Copy database directory from build-stage to the official neo4j docker image
-FROM $NEO4J_IMAGE as production-stage
+FROM $NEO4J_IMAGE AS production-stage
 
 ARG UID=1000
 ARG USER=neo4j

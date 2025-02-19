@@ -209,6 +209,7 @@ CONSTRAINTS = [
     ("OdmStudyEventRoot", "uid", CONSTRAINT_TYPE_NODE_KEY),
     ("TemplateParameterValueRoot", "uid", CONSTRAINT_TYPE_NODE_KEY),
     ("TextValueRoot", "uid", CONSTRAINT_TYPE_NODE_KEY),
+    ("User", "user_id", CONSTRAINT_TYPE_NODE_KEY),
 ]
 
 

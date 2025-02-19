@@ -7,15 +7,23 @@ from neomodel.sync_.core import db
 # Helpers
 from starlette.routing import Mount
 
-from clinical_mdr_api import config
-
 # Models
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTCatalogue,
     Library,
 )
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
 from clinical_mdr_api.models.study_selections.study import Study
-from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.services._meta_repository import MetaRepository
+from clinical_mdr_api.services.concepts.unit_definitions.unit_definition import (
+    UnitDefinitionService,
+)
+from clinical_mdr_api.services.controlled_terminologies.ct_codelist import (
+    CTCodelistService,
+)
+from clinical_mdr_api.services.controlled_terminologies.ct_term import CTTermService
+from clinical_mdr_api.tests.integration.utils.utils import LIBRARY_NAME, TestUtils
+from common import config
 
 library_data = {"name": "Test library", "is_editable": True}
 
@@ -35,7 +43,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -71,7 +79,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -107,7 +115,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -139,7 +147,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -164,7 +172,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -189,7 +197,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -215,7 +223,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -259,24 +267,24 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties,
 {
 start_date: datetime(),
-user_initials: "Dictionary Codelist Test"
+author_id: "Dictionary Codelist Test"
 } AS has_term_properties
 
 MERGE (library:Library {name:"Sponsor", is_editable:true})
 MERGE (library)-[:CONTAINS_CONCEPT]->(unit_def_root:ConceptRoot:UnitDefinitionRoot {uid:"unit_definition_root1"})
-MERGE (unit_def_value:ConceptValue:UnitDefinitionValue { name:"name1", unit_ct_uid: "unit1-ct-uid", convertible_unit: true, display_unit: true, master_unit: true, si_unit: true, us_conventional_unit: true, unit_dimension_uid: "unit1-dimension", legacy_code: "unit1-legacy-code", molecular_weight_conv_expon: 0, conversion_factor_to_master: 1.0 })
+MERGE (unit_def_value:ConceptValue:UnitDefinitionValue { name:"name1", unit_ct_uid: "unit1-ct-uid", convertible_unit: true, display_unit: true, master_unit: true, si_unit: true, us_conventional_unit: true, use_complex_unit_conversion: true, unit_dimension_uid: "unit1-dimension", legacy_code: "unit1-legacy-code", use_molecular_weight: false, conversion_factor_to_master: 1.0 })
 MERGE (unit_def_root)-[ld1:LATEST_DRAFT]-(unit_def_value)
 MERGE (unit_def_root)-[l1:LATEST]->(unit_def_value)
 MERGE (unit_def_root)-[hv1:HAS_VERSION]->(unit_def_value)
@@ -315,7 +323,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -359,7 +367,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -396,7 +404,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -432,7 +440,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -452,14 +460,14 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -542,7 +550,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -569,7 +577,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -620,7 +628,7 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MERGE (library:Library {name:"Sponsor", is_editable:true})
@@ -691,7 +699,7 @@ WITH
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 // Create codelist
@@ -739,7 +747,7 @@ WITH {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MATCH (lib {name:"Sponsor"})
@@ -752,9 +760,10 @@ display_unit: true,
 master_unit: true,
 si_unit: true,
 us_conventional_unit: true,
+use_complex_unit_conversion: true,
 unit_dimension_uid: "unit1-dimension",
 legacy_code: "unit1-legacy-code",
-molecular_weight_conv_expon: 0,
+use_molecular_weight: false,
 conversion_factor_to_master: 1.0
 })
 MERGE (unit_def_root)-[unit_final1:LATEST_FINAL]-(unit_def_value)
@@ -787,7 +796,7 @@ set has_term.order = 1
 set lf.change_description = "Approved version"
 set lf.start_date = datetime()
 set lf.status = "Final"
-set lf.user_initials = "TODO initials"
+set lf.author_id = "unknown-user"
 set lf.version = "1.0"
 """
 
@@ -798,7 +807,7 @@ WITH {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 MATCH (lib {name:"Sponsor"})
@@ -811,9 +820,10 @@ display_unit: true,
 master_unit: true,
 si_unit: true,
 us_conventional_unit: true,
+use_complex_unit_conversion: true,
 unit_dimension_uid: "unit1-dimension",
 legacy_code: "unit1-legacy-code",
-molecular_weight_conv_expon: 0,
+use_molecular_weight: false,
 conversion_factor_to_master: 1.0
 })
 
@@ -845,7 +855,7 @@ WITH
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -1139,7 +1149,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 
@@ -1147,7 +1157,7 @@ version: "0.1"
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -1220,7 +1230,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
@@ -1228,14 +1238,14 @@ change_description: "Approved version",
 start_date: datetime('2021-10-01T12:00:00.0+0200'),
 end_date: datetime('2021-10-03T12:00:00.0+0200'),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties,
 {
 change_description: "Approved version",
 start_date: datetime('2021-10-03T12:00:00.0+0200'),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "2.0"
 } AS final2_properties
 
@@ -1297,7 +1307,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 
@@ -1305,7 +1315,7 @@ version: "0.1"
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -1350,7 +1360,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 
@@ -1358,7 +1368,7 @@ version: "0.1"
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -1427,7 +1437,7 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 
@@ -1435,7 +1445,7 @@ version: "0.1"
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
@@ -1528,14 +1538,14 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 CREATE (library:Library {name:"SNOMED", is_editable:true})
@@ -1557,14 +1567,14 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 CREATE (library:Library {name:"UNII", is_editable:true})
@@ -1581,14 +1591,14 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 CREATE (library:Library {name:"MED-RT", is_editable:true})
@@ -1605,19 +1615,19 @@ WITH  {
 change_description: "New draft version",
 start_date: datetime(),
 status: "Draft",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "0.1"
 } AS draft_properties,
 {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties,
 {
 start_date: datetime(),
-user_initials: "Dictionary Codelist Test"
+author_id: "Dictionary Codelist Test"
 } AS has_term_properties
 MATCH (library:Library {name:"SNOMED"})
 MERGE (codelist_root1:DictionaryCodelistRoot {uid:"codelist_root1_uid"})
@@ -1675,14 +1685,14 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime("2020-03-27T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS old_props,
 {
 change_description: "Approved version",
 start_date: datetime("2020-06-26T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS new_props
 MERGE (catalogue:CTCatalogue {name:"catalogue"})-[:HAS_CODELIST]->
@@ -1732,14 +1742,14 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime("2020-03-27T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS old_props,
 {
 change_description: "Approved version",
 start_date: datetime("2020-06-26T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "2.0"
 } AS new_props
 MERGE (catalogue:CTCatalogue {name:"catalogue"})-[:CONTAINS_PACKAGE]->(old_package:CTPackage{
@@ -1752,7 +1762,7 @@ description:"description",
 source:"source",
 registration_status:"status",
 import_date:datetime("2020-03-27T00:00:00Z"),
-user_initials:"initials"
+author_id:"unknown-user"
 })
 MERGE (catalogue)-[:CONTAINS_PACKAGE]->(new_package:CTPackage{
 uid:"new_package_uid", 
@@ -1764,7 +1774,7 @@ description:"description",
 source:"source",
 registration_status:"status",
 import_date:datetime("2020-03-27T00:00:00Z"),
-user_initials:"initials"
+author_id:"unknown-user"
 })
 
 MERGE (old_package)-[:CONTAINS_CODELIST]->(package_codelist1:CTPackageCodelist)-[:CONTAINS_ATTRIBUTES]->(codelist_attr_value_to_update:CTCodelistAttributesValue 
@@ -1821,14 +1831,14 @@ WITH  {
 change_description: "Approved version",
 start_date: datetime("2020-03-27T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS old_props,
 {
 change_description: "Approved version",
 start_date: datetime("2020-06-26T00:00:00"),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS new_props
 
@@ -1862,7 +1872,7 @@ description:"description",
 source:"source",
 registration_status:"status",
 import_date:datetime("2020-03-27T00:00:00Z"),
-user_initials:"initials"
+author_id:"unknown-user"
 })
 MERGE (catalogue)-[:CONTAINS_PACKAGE]->(new_package:CTPackage{
 uid:"new_package_uid", 
@@ -1874,7 +1884,7 @@ description:"description",
 source:"source",
 registration_status:"status",
 import_date:datetime("2020-03-27T00:00:00Z"),
-user_initials:"initials"
+author_id:"unknown-user"
 })
 
 MERGE (old_package)-[:CONTAINS_CODELIST]->(package_codelist1:CTPackageCodelist {uid:"old_package_uid_codelist_code1"})-[:CONTAINS_ATTRIBUTES]->(cav1:CTCodelistAttributesValue 
@@ -1957,13 +1967,13 @@ MERGE (car)-[lf:LATEST_FINAL]->(cav)
 set hv1.change_description = "Approved version"
 set hv1.start_date = datetime("2020-06-26T00:00:00")
 set hv1.status = "Final"
-set hv1.user_initials = "TODO initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "1.0"
 set hv2.change_description = "Initial version"
 set hv2.start_date = datetime("2020-03-27T00:00:00")
 set hv2.end_date = datetime("2020-06-26T00:00:00")
 set hv2.status = "Draft"
-set hv2.user_initials = "TODO initials"
+set hv2.author_id = "unknown-user"
 set hv2.version = "0.1"
 MERGE (lib:Library{name:"Sponsor", is_editable:true})
 MERGE (lib)-[:CONTAINS_CODELIST]->(cr)
@@ -1984,12 +1994,12 @@ set hv3.change_description = "Approved version"
 set hv3.start_date = datetime("2020-03-27T00:00:00")
 set hv3.end_date = datetime("2020-06-26T00:00:00")
 set hv3.status = "Final"
-set hv3.user_initials = "TODO initials"
+set hv3.author_id = "unknown-user"
 set hv3.version = "1.0"
 set hv4.change_description = "latest draft"
 set hv4.start_date = datetime("2020-06-26T00:00:00")
 set hv4.status = "Draft"
-set hv4.user_initials = "TODO initials"
+set hv4.author_id = "unknown-user"
 set hv4.version = "1.1"
 MERGE (lib2:Library{name:"CDISC", is_editable:false})-[:CONTAINS_CODELIST]->(cr2)
 
@@ -2006,7 +2016,7 @@ MERGE (car3)-[hv5:HAS_VERSION]->(cav3)
 set hv5.change_description = "latest draft"
 set hv5.start_date = datetime("2020-06-26T00:00:00")
 set hv5.status = "Draft"
-set hv5.user_initials = "TODO initials"
+set hv5.author_id = "unknown-user"
 set hv5.version = "0.1"
 
 
@@ -2017,13 +2027,13 @@ CREATE (cnr)-[hv7:HAS_VERSION]->(cnv)
 set hv7.change_description = "Approved version"
 set hv7.start_date = datetime("2020-06-26T00:00:00")
 set hv7.status = "Final"
-set hv7.user_initials = "TODO initials"
+set hv7.author_id = "unknown-user"
 set hv7.version = "1.0"
 set hv6.change_description = "Initial version"
 set hv6.start_date = datetime("2020-03-27T00:00:00")
 set hv6.end_date = datetime("2020-06-26T00:00:00")
 set hv6.status = "Draft"
-set hv6.user_initials = "TODO initials"
+set hv6.author_id = "unknown-user"
 set hv6.version = "0.1"
 MERGE (lib)-[:CONTAINS_CODELIST]->(cr3)
 """
@@ -2039,13 +2049,13 @@ MERGE (cnr)-[lf:LATEST_FINAL]->(cnv)
 set hv2.change_description = "Approved version"
 set hv2.start_date = datetime("2020-06-26T00:00:00")
 set hv2.status = "Final"
-set hv2.user_initials = "TODO initials"
+set hv2.author_id = "unknown-user"
 set hv2.version = "1.0"
 set hv1.change_description = "Initial version"
 set hv1.start_date = datetime("2020-03-27T00:00:00")
 set hv1.end_date = datetime("2020-06-26T00:00:00")
 set hv1.status = "Draft"
-set hv1.user_initials = "TODO initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "0.1"
 MERGE (lib:Library{name:"Sponsor", is_editable:true})
 MERGE (lib)-[:CONTAINS_CODELIST]->(cr)
@@ -2063,18 +2073,18 @@ set hv5.change_description = "Approved version"
 set hv5.start_date = datetime("2020-03-27T00:00:00")
 set hv5.end_date = datetime("2020-06-26T00:00:00")
 set hv5.status = "Final"
-set hv5.user_initials = "TODO initials"
+set hv5.author_id = "unknown-user"
 set hv5.version = "1.0"
 set hv4.change_description = "latest draft"
 set hv4.start_date = datetime("2020-06-26T00:00:00")
 set hv4.status = "Draft"
-set hv4.user_initials = "TODO initials"
+set hv4.author_id = "unknown-user"
 set hv4.version = "1.1"
 set hv3.change_description = "Initial version"
 set hv3.start_date = datetime("2020-03-27T00:00:00")
 set hv3.end_date = datetime("2020-06-26T00:00:00")
 set hv3.status = "Draft"
-set hv3.user_initials = "TODO initials"
+set hv3.author_id = "unknown-user"
 set hv3.version = "0.1"
 MERGE (lib2:Library{name:"CDISC", is_editable:false})-[:CONTAINS_CODELIST]->(cr2)
 
@@ -2087,14 +2097,14 @@ MERGE (cnr3)-[hv6:HAS_VERSION]->(cnv3)
 set hv6.change_description = "latest draft"
 set hv6.start_date = datetime("2020-06-26T00:00:00")
 set hv6.status = "Draft"
-set hv6.user_initials = "TODO initials"
+set hv6.author_id = "unknown-user"
 set hv6.version = "0.1"
 MERGE (lib)-[:CONTAINS_CODELIST]->(cr3)
 """
 
 STARTUP_CT_TERM_ATTRIBUTES_CYPHER = """
 MERGE (cc:CTCatalogue {name: "SDTM CT"})-[:HAS_CODELIST]->(cr:CTCodelistRoot {uid:"editable_cr"})-[:HAS_NAME_ROOT]
-->(codelist_ver_root:CTCodelistNameRoot)-[:HAS_VERSION{change_description: "Approved version",start_date: datetime(),status: "Final",user_initials: "TODO initials",version : "1.0"}]->(codelist_ver_value:CTCodelistNameValue)
+->(codelist_ver_root:CTCodelistNameRoot)-[:HAS_VERSION{change_description: "Approved version",start_date: datetime(),status: "Final",author_id: "unknown-user",version : "1.0"}]->(codelist_ver_value:CTCodelistNameValue)
 MERGE (cr)-[:HAS_ATTRIBUTES_ROOT]->(car:CTCodelistAttributesRoot)-[:LATEST]->(cav:CTCodelistAttributesValue {name: "codelist attributes value1", submission_value: "codelist submission value1", preferred_term: "codelist preferred term", definition: "codelist definition", extensible: true})
 
 CREATE (codelist_ver_root)-[:LATEST]->(codelist_ver_value)
@@ -2105,13 +2115,13 @@ MERGE (car)-[lf1:LATEST_FINAL]->(cav)
 set hv2.change_description = "Approved version"
 set hv2.start_date = datetime("2020-06-26T00:00:00")
 set hv2.status = "Final"
-set hv2.user_initials = "TODO initials"
+set hv2.author_id = "unknown-user"
 set hv2.version = "1.0"
 set hv1.change_description = "Initial version"
 set hv1.start_date = datetime("2020-03-27T00:00:00")
 set hv1.end_date = datetime("2020-06-26T00:00:00")
 set hv1.status = "Draft"
-set hv1.user_initials = "TODO initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "0.1"
 
 MERGE (editable_lib:Library{name:"Sponsor", is_editable:true})
@@ -2136,18 +2146,18 @@ set has_term1.order = 1
 set hv4.change_description = "Approved version"
 set hv4.start_date = datetime()
 set hv4.status = "Final"
-set hv4.user_initials = "TODO initials"
+set hv4.author_id = "unknown-user"
 set hv4.version = "1.0"
 set latest_final_hv.change_description = "Approved version"
 set latest_final_hv.start_date = datetime()
 set latest_final_hv.status = "Final"
-set latest_final_hv.user_initials = "TODO initials"
+set latest_final_hv.author_id = "unknown-user"
 set latest_final_hv.version = "1.0"
 set hv3.change_description = "Initial version"
 set hv3.start_date = datetime()
 set hv3.end_date = datetime()
 set hv3.status = "Draft"
-set hv3.user_initials = "TODO initials"
+set hv3.author_id = "unknown-user"
 set hv3.version = "0.1"
 
 MERGE (cr)-[has_term2:HAS_TERM]->(term_root2:CTTermRoot {uid:"term_root_draft"})-[:HAS_ATTRIBUTES_ROOT]->
@@ -2160,7 +2170,7 @@ set has_term2.order = 2
 set hv5.change_description = "latest draft"
 set hv5.start_date = datetime()
 set hv5.status = "Draft"
-set hv5.user_initials = "TODO initials"
+set hv5.author_id = "unknown-user"
 set hv5.version = "0.1"
 
 MERGE (cr2)-[has_term3:HAS_TERM]->(term_root3:CTTermRoot {uid:"term_root_final_non_edit"})-[:HAS_ATTRIBUTES_ROOT]->
@@ -2174,13 +2184,13 @@ set has_term3.order = 3
 set hv7.change_description = "Approved version"
 set hv7.start_date = datetime()
 set hv7.status = "Final"
-set hv7.user_initials = "TODO initials"
+set hv7.author_id = "unknown-user"
 set hv7.version = "1.0"
 set hv6.change_description = "Initial version"
 set hv6.start_date = datetime()
 set hv6.end_date = datetime()
 set hv6.status = "Draft"
-set hv6.user_initials = "TODO initials"
+set hv6.author_id = "unknown-user"
 set hv6.version = "0.1"
 
 MERGE (cr2)-[has_term4:HAS_TERM]->(term_root4:CTTermRoot {uid:"term_root_draft_non_edit"})-[:HAS_ATTRIBUTES_ROOT]->
@@ -2193,7 +2203,7 @@ set has_term4.order = 4
 set hv8.change_description = "latest draft"
 set hv8.start_date = datetime()
 set hv8.status = "Draft"
-set hv8.user_initials = "TODO initials"
+set hv8.author_id = "unknown-user"
 set hv8.version = "0.1"
 """
 
@@ -2202,7 +2212,7 @@ MERGE (cc:CTCatalogue {name: "SDTM CT"})
 MERGE (cc)-[:HAS_CODELIST]->(cr:CTCodelistRoot {uid:"editable_cr"})-[:HAS_NAME_ROOT]
 ->(codelist_ver_root:CTCodelistNameRoot)-[:LATEST_FINAL]->(codelist_ver_value:CTCodelistNameValue {name:"Objective Level"})
 CREATE (codelist_ver_root)-[:LATEST]->(codelist_ver_value)
-CREATE (codelist_ver_root)-[:HAS_VERSION{change_description: "Approved version",start_date: datetime(),status: "Final",user_initials: "TODO initials",version : "1.0"}]->(codelist_ver_value)
+CREATE (codelist_ver_root)-[:HAS_VERSION{change_description: "Approved version",start_date: datetime(),status: "Final",author_id: "unknown-user",version : "1.0"}]->(codelist_ver_value)
 MERGE (editable_lib:Library{ name:"Sponsor", is_editable:true})
 MERGE (editable_lib)-[:CONTAINS_CODELIST]->(cr)
 
@@ -2223,13 +2233,13 @@ set has_term.order = 1
 set hv2.change_description = "Approved version"
 set hv2.start_date = datetime()
 set hv2.status = "Final"
-set hv2.user_initials = "TODO initials"
+set hv2.author_id = "unknown-user"
 set hv2.version = "1.0"
 set hv1.change_description = "Initial version"
 set hv1.start_date = datetime()
 set hv1.end_date = datetime()
 set hv1.status = "Draft"
-set hv1.user_initials = "TODO initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "0.1"
 
 MERGE (cr)-[has_term2:HAS_TERM]->(term_root2:CTTermRoot {uid:"term_root_draft"})-[:HAS_NAME_ROOT]->
@@ -2248,16 +2258,16 @@ MERGE (term_attributes_root)-[hv_attributes:HAS_VERSION]->(term_attributes_value
 MERGE (editable_lib)-[:CONTAINS_TERM]->(term_root2)
 set has_term2.order = 2
 set has_term2.start_date=datetime()
-set has_term2.user_initials='cttest'
+set has_term2.author_id= "unknown-user"
 set hv3.change_description = "latest draft"
 set hv3.start_date = datetime()
 set hv3.status = "Draft"
-set hv3.user_initials = "TODO initials"
+set hv3.author_id = "unknown-user"
 set hv3.version = "0.1"
 set hv_attributes.change_description = "latest draft"
 set hv_attributes.start_date = datetime()
 set hv_attributes.status = "Draft"
-set hv_attributes.user_initials = "TODO initials"
+set hv_attributes.author_id = "unknown-user"
 set hv_attributes.version = "0.1"
 
 MERGE (cr2)-[has_term3:HAS_TERM]->(term_root3:CTTermRoot {uid:"term_root_final_non_edit"})-[:HAS_NAME_ROOT]->
@@ -2271,13 +2281,13 @@ set has_term3.order = 3
 set hv5.change_description = "Approved version"
 set hv5.start_date = datetime()
 set hv5.status = "Final"
-set hv5.user_initials = "TODO initials"
+set hv5.author_id = "unknown-user"
 set hv5.version = "1.0"
 set hv4.change_description = "Initial version"
 set hv4.start_date = datetime()
 set hv4.end_date = datetime()
 set hv4.status = "Draft"
-set hv4.user_initials = "TODO initials"
+set hv4.author_id = "unknown-user"
 set hv4.version = "0.1"
 
 MERGE (cr2)-[has_term4:HAS_TERM]->(term_root4:CTTermRoot {uid:"term_root_draft_non_edit"})-[:HAS_NAME_ROOT]->
@@ -2290,7 +2300,7 @@ set has_term4.order = 4
 set hv6.change_description = "latest draft"
 set hv6.start_date = datetime()
 set hv6.status = "Draft"
-set hv6.user_initials = "TODO initials"
+set hv6.author_id = "unknown-user"
 set hv6.version = "0.1"
 
 MERGE (cr)-[has_term5:HAS_TERM]->(term_root5:CTTermRoot {uid:"term_root_final5"})-[:HAS_NAME_ROOT]->
@@ -2304,13 +2314,13 @@ set has_term5.order = 1
 set hv8.change_description = "Approved version"
 set hv8.start_date = datetime()
 set hv8.status = "Final"
-set hv8.user_initials = "TODO initials"
+set hv8.author_id = "unknown-user"
 set hv8.version = "1.0"
 set hv7.change_description = "Initial version"
 set hv7.start_date = datetime()
 set hv7.end_date = datetime()
 set hv7.status = "Draft"
-set hv7.user_initials = "TODO initials"
+set hv7.author_id = "unknown-user"
 set hv7.version = "0.1"
 """
 
@@ -2319,7 +2329,7 @@ WITH {{
     change_description: "Approved version",
     start_date: datetime(),
     status: "Final",
-    user_initials: "TODO initials",
+    author_id: "unknown-user",
     version: "1.0"
 }} AS final_properties
 MERGE (l:Library {{name:"Library", is_editable:true}})
@@ -2362,6 +2372,8 @@ STARTUP_STUDY_FIELD_CYPHER = """
 MERGE (l:Library {name:"CDISC", is_editable:false})
 MERGE (catalogue:CTCatalogue {uid:"CTCatalogue_000001", name:"catalogue_name"})
 MERGE (catalogue)-[:HAS_CODELIST]->(codelist:CTCodelistRoot {uid:"CTCodelist_000001"})
+// Set counter for CTCodelist
+MERGE (:Counter:CTCodelistCounter {count: 1, counterId:'CTCodelistCounter'})
 MERGE (c:ClinicalProgramme)
 SET c.name = "CP",
     c.uid = "cp_001"
@@ -2380,7 +2392,7 @@ WITH {
     change_description: "Approved version",
     start_date: datetime(),
     status: "Final",
-    user_initials: "TODO initials",
+    author_id: "unknown-user",
     version: "1.0"
 } AS final_properties
 MERGE (sr:StudyRoot {uid: "study_root"})-[:LATEST]->(sv:StudyValue)
@@ -2399,7 +2411,7 @@ MERGE (cp)-[:HOLDS_PROJECT]->(p)-[:HAS_FIELD]->(:StudyField:StudyProjectField)<-
 
 // Compound
 CREATE (cr:ConceptRoot:CompoundRoot:TemplateParameterTermRoot {uid : "TemplateParameter_000001"})
-CREATE (cv:ConceptValue:CompoundValue:TemplateParameterTermValue {definition: "definition", is_sponsor_compound: true, is_name_inn: true, name: "name", user_initials: "user_initials"})
+CREATE (cv:ConceptValue:CompoundValue:TemplateParameterTermValue {definition: "definition", is_sponsor_compound: true, is_name_inn: true, name: "name", author_id: "author_id"})
 MERGE (cr)-[lat:LATEST]->(cv)
 MERGE (cr)-[lf:LATEST_FINAL]->(cv)
 MERGE (cr)-[hv2:HAS_VERSION]->(cv)
@@ -2409,7 +2421,7 @@ SET hv2 = final_properties
 
 // Compound Alias
 CREATE (car:ConceptRoot:CompoundAliasRoot:TemplateParameterTermRoot {uid : "TemplateParameter_000002"})
-CREATE (cav:ConceptValue:CompoundAliasValue:TemplateParameterTermValue {definition: "definition", name: "name", user_initials: "user_initials"})
+CREATE (cav:ConceptValue:CompoundAliasValue:TemplateParameterTermValue {definition: "definition", name: "name", author_id: "author_id"})
 MERGE (car)-[lat1:LATEST]->(cav)
 MERGE (car)-[lf1:LATEST_FINAL]->(cav)
 MERGE (car)-[hv3:HAS_VERSION]->(cav)
@@ -2424,7 +2436,7 @@ set sc.order = 1
 set sc.uid = "StudyCompound_000001"
 CREATE (sa:StudyAction:Create)-[:AFTER]->(sc)
 set sa.date = datetime()
-set sa.user_initials = "TODO user initials"
+set sa.author_id = "unknown-user"
 
 WITH sc
 MATCH (term_root:CTTermRoot {uid: "term_root_final"})
@@ -2435,6 +2447,8 @@ STARTUP_STUDY_CYPHER = """
 MERGE (l:Library {name:"CDISC", is_editable:false})
 MERGE (catalogue:CTCatalogue {uid:"CTCatalogue_000001", name:"catalogue_name"})
 MERGE (catalogue)-[:HAS_CODELIST]->(codelist:CTCodelistRoot {uid:"CTCodelist_000001"})
+// Set counter for CTCodelist
+MERGE (:Counter:CTCodelistCounter {count: 1, counterId:'CTCodelistCounter'})
 MERGE (c:ClinicalProgramme)
 SET c.name = "CP",
     c.uid = "cp_001"
@@ -2515,61 +2529,67 @@ MERGE (ot4)-[:HAS_OBJECTIVE]->(or4)
 set relthv.change_description="Approved version"
 set relthv.start_date= datetime()
 set relthv.status = "Final"
-set relthv.user_initials = "TODO Initials"
+set relthv.author_id = "unknown-user"
 set relthv.version = "1.0"
 set relt2hv.change_description="Approved version"
 set relt2hv.start_date= datetime()
 set relt2hv.status = "Final"
-set relt2hv.user_initials = "TODO Initials"
+set relt2hv.author_id = "unknown-user"
 set relt2hv.version = "1.0"
 set relt3hv.change_description="Approved version"
 set relt3hv.start_date= datetime()
 set relt3hv.status = "Final"
-set relt3hv.user_initials = "TODO Initials"
+set relt3hv.author_id = "unknown-user"
 set relt3hv.version = "1.0"
 set relt4hv.change_description="Approved version"
 set relt4hv.start_date= datetime()
 set relt4hv.status = "Final"
-set relt4hv.user_initials = "TODO Initials"
+set relt4hv.author_id = "unknown-user"
 set relt4hv.version = "1.0"
 
 set relhv.change_description="Approved version"
 set relhv.start_date= datetime()
 set relhv.status = "Final"
-set relhv.user_initials = "TODO Initials"
+set relhv.author_id = "unknown-user"
 set relhv.version = "1.0"
 set rel2hv.change_description="Approved version"
 set rel2hv.start_date= datetime()
 set rel2hv.status = "Final"
-set rel2hv.user_initials = "TODO Initials"
+set rel2hv.author_id = "unknown-user"
 set rel2hv.version = "1.0"
 set rel3hv.change_description="Initial version"
 set rel3hv.start_date= datetime()
 set rel3hv.status = "Draft"
-set rel3hv.user_initials = "TODO Initials"
+set rel3hv.author_id = "unknown-user"
 set rel3hv.version = "0.1"
 
 set rel4hv.change_description="Retired version"
 set rel4hv.start_date= datetime()
 set rel4hv.status = "Retired"
-set rel4hv.user_initials = "TODO Initials"
+set rel4hv.author_id = "unknown-user"
 set rel4hv.version = "1.0"
 """
 
 STARTUP_STUDY_ENDPOINT_CYPHER = """
-WITH {
-change_description: "Approved version",
-start_date: datetime(),
-status: "Final",
-user_initials: "TODO initials",
-version: "1.0"
-} AS final_properties
-
 MERGE (l:Library {name:"CDISC"})
 ON CREATE 
     SET l.is_editable=false
 MERGE (catalogue:CTCatalogue {uid:"CTCatalogue_000001", name:"catalogue_name"})
 MERGE (catalogue)-[:HAS_CODELIST]->(codelist:CTCodelistRoot {uid:"CTCodelist_000001"})
+// Set counter for CTCodelist
+MERGE (counter:Counter{counterId:"CTCodelistCounter"})
+ON CREATE SET counter:CTCodelistCounter, counter.count=0
+WITH counter
+CALL apoc.atomic.add(counter,'count',1,1) yield oldValue, newValue
+
+WITH {
+change_description: "Approved version",
+start_date: datetime(),
+status: "Final",
+author_id: "unknown-user",
+version: "1.0"
+} AS final_properties
+
 MERGE (c:ClinicalProgramme)
 SET c.name = "CP",
     c.uid = "cp_001"
@@ -2596,7 +2616,7 @@ CREATE (sr)-[hv2:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set hv2 = hv
 set ld = hv
 
@@ -2619,7 +2639,7 @@ set so.order = 1
 set so.uid = "StudyObjective_000001"
 CREATE (sa:StudyAction:Create)-[:AFTER]->(so)
 set sa.date = datetime()
-set sa.user_initials = "TODO user initials"
+set sa.author_id = "unknown-user"
 
 // Set counter for study objective UID 
 MERGE (:Counter:StudyObjectiveCounter {count: 1, counterId:'StudyObjectiveCounter'})
@@ -2690,7 +2710,7 @@ MERGE (sr)-[hv:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set ld = hv
 
 MERGE (ot:ObjectiveTemplateRoot:SyntaxTemplateRoot:SyntaxIndexingTemplateRoot {uid:"ObjectiveTemplate_000001", sequence_id: "O1"})-[relt:LATEST_FINAL]->(otv:ObjectiveTemplateValue:SyntaxTemplateValue:SyntaxIndexingTemplateValue {name : "objective_1", name_plain : "objective_1"})
@@ -2706,13 +2726,13 @@ MERGE (lib)-[:CONTAINS_SYNTAX_TEMPLATE]->(ot)
 set relt_hv.change_description="Approved version"
 set relt_hv.start_date= datetime()
 set relt_hv.status = "Final"
-set relt_hv.user_initials = "TODO Initials"
+set relt_hv.author_id = "unknown-user"
 set relt_hv.version = "1.0"
 
 set rel_hv.change_description="Approved version"
 set rel_hv.start_date= datetime()
 set rel_hv.status = "Final"
-set rel_hv.user_initials = "TODO Initials"
+set rel_hv.author_id = "unknown-user"
 set rel_hv.version = "1.0"
 
 MERGE (sv)-[:HAS_STUDY_OBJECTIVE]->(so:StudyObjective:StudySelection)-[:HAS_SELECTED_OBJECTIVE]->(ov)
@@ -2720,7 +2740,7 @@ set so.order = 1
 set so.uid = "StudyObjective_000001"
 CREATE (sa:StudyAction:Create)-[:AFTER]->(so)
 set sa.date = datetime()
-set sa.user_initials = "TODO user initials"
+set sa.author_id = "unknown-user"
 
 
 MERGE (et:EndpointTemplateRoot:SyntaxTemplateRoot:SyntaxIndexingTemplateRoot)-[end_relt:LATEST_FINAL]->(etv:EndpointTemplateValue:SyntaxTemplateValue:SyntaxIndexingTemplateValue {name : "endpoint_1", name_plain : "endpoint_1"})
@@ -2735,13 +2755,13 @@ MERGE (lib)-[:CONTAINS_SYNTAX_TEMPLATE]->(et)
 set end_relt_hv.change_description="Approved version"
 set end_relt_hv.start_date= datetime()
 set end_relt_hv.status = "Final"
-set end_relt_hv.user_initials = "TODO Initials"
+set end_relt_hv.author_id = "unknown-user"
 set end_relt_hv.version = "1.0"
 
 set end_rel_hv.change_description="Approved version"
 set end_rel_hv.start_date= datetime()
 set end_rel_hv.status = "Final"
-set end_rel_hv.user_initials = "TODO Initials"
+set end_rel_hv.author_id = "unknown-user"
 set end_rel_hv.version = "1.0"
 
 MERGE (sv)-[:HAS_STUDY_ENDPOINT]->(se:StudyEndpoint:StudySelection)-[:HAS_SELECTED_ENDPOINT]->(ev)
@@ -2749,7 +2769,7 @@ set se.order = 1
 set se.uid = "StudyEndpoint_000001"
 CREATE (saa:StudyAction:Create)-[:AFTER]->(se)
 set saa.date = datetime()
-set saa.user_initials = "TODO user initials"
+set saa.author_id = "unknown-user"
 
 MERGE (cp:ClinicalProgramme{uid: "ClinicalProgramme_000001"})
     SET cp.name="Test CP"
@@ -2775,12 +2795,12 @@ MERGE (sr)-[hv:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set ld = hv
 
 // Compound
 CREATE (cr:ConceptRoot:CompoundRoot:TemplateParameterTermRoot {uid : "TemplateParameter_000001"})
-CREATE (cv:ConceptValue:CompoundValue:TemplateParameterTermValue {definition: "definition", is_sponsor_compound: true, is_name_inn: true, name: "name", user_initials: "user_initials"})
+CREATE (cv:ConceptValue:CompoundValue:TemplateParameterTermValue {definition: "definition", is_sponsor_compound: true, is_name_inn: true, name: "name", author_id: "author_id"})
 MERGE (cr)-[lat:LATEST]->(cv)
 MERGE (cr)-[lf:LATEST_FINAL]->(cv)
 MERGE (cr)-[fhvc:HAS_VERSION]->(cv)
@@ -2790,18 +2810,18 @@ MERGE (n:TemplateParameter {name : "Compound"})-[:HAS_PARAMETER_TERM]->(cr)
 set fhvc.change_description = "Approved version"
 set fhvc.start_date = datetime()
 set fhvc.status = "Final"
-set fhvc.user_initials = "TODO initials"
+set fhvc.author_id = "unknown-user"
 set fhvc.version = "1.0"
 set dhvc.change_description = "Initial version"
 set dhvc.start_date = datetime()
 set dhvc.end_date = datetime()
 set dhvc.status = "Draft"
-set dhvc.user_initials = "TODO initials"
+set dhvc.author_id = "unknown-user"
 set dhvc.version = "0.1"
 
 // Compound Alias
 CREATE (car:ConceptRoot:CompoundAliasRoot:TemplateParameterTermRoot {uid : "TemplateParameter_000002"})
-CREATE (cav:ConceptValue:CompoundAliasValue:TemplateParameterTermValue {definition: "definition", name: "name", user_initials: "user_initials"})
+CREATE (cav:ConceptValue:CompoundAliasValue:TemplateParameterTermValue {definition: "definition", name: "name", author_id: "author_id"})
 MERGE (car)-[lat1:LATEST]->(cav)
 MERGE (car)-[lf1:LATEST_FINAL]->(cav)
 MERGE (car)-[hv1:HAS_VERSION]->(cav)
@@ -2811,7 +2831,7 @@ MERGE (:TemplateParameter {name : "CompoundAlias"})-[:HAS_PARAMETER_TERM]->(car)
 set hv1.change_description = "Approved version"
 set hv1.start_date = datetime()
 set hv1.status = "Final"
-set hv1.user_initials = "TODO initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "1.0"
 
 // Pharmaceutical dosage form
@@ -2876,7 +2896,7 @@ set se.code = "Code1"
 set se.description = "Description"
 CREATE (sa1:StudyAction:Create)-[:AFTER]->(se)
 set sa1.date = datetime()
-set sa1.user_initials = "TODO user initials"
+set sa1.author_id = "unknown-user"
 
 WITH sv
 MATCH (cav:CompoundAliasValue)<-[:LATEST]-(car:CompoundAliasRoot {uid: "TemplateParameter_000002"})
@@ -2885,7 +2905,7 @@ set sc.order = 1
 set sc.uid = "StudyCompound_000001"
 CREATE (sa2:StudyAction:Create)-[:AFTER]->(sc)
 set sa2.date = datetime()
-set sa2.user_initials = "TODO user initials"
+set sa2.author_id = "unknown-user"
 
 WITH sc
 MATCH (term_root:CTTermRoot {uid: "CTTerm_000001"})
@@ -2923,22 +2943,22 @@ MERGE (ctr4)-[hv4:HAS_VERSION]->(ctv4)
 set hv1.change_description="Approved version"
 set hv1.start_date= datetime()
 set hv1.status = "Final"
-set hv1.user_initials = "TODO Initials"
+set hv1.author_id = "unknown-user"
 set hv1.version = "1.0"
 set hv2.change_description="Approved version"
 set hv2.start_date= datetime()
 set hv2.status = "Final"
-set hv2.user_initials = "TODO Initials"
+set hv2.author_id = "unknown-user"
 set hv2.version = "1.0"
 set hv3.change_description="Approved version"
 set hv3.start_date= datetime()
 set hv3.status = "Final"
-set hv3.user_initials = "TODO Initials"
+set hv3.author_id = "unknown-user"
 set hv3.version = "1.0"
 set hv4.change_description="Approved version"
 set hv4.start_date= datetime()
 set hv4.status = "Final"
-set hv4.user_initials = "TODO Initials"
+set hv4.author_id = "unknown-user"
 set hv4.version = "1.0"
 MERGE (library)-[:CONTAINS_SYNTAX_TEMPLATE]->(ctr1)
 MERGE (library)-[:CONTAINS_SYNTAX_TEMPLATE]->(ctr2)
@@ -2953,12 +2973,12 @@ MERGE (ctr6)-[hv6:HAS_VERSION]->(ctv6)
 set hv5.change_description="Approved version"
 set hv5.start_date= datetime()
 set hv5.status = "Final"
-set hv5.user_initials = "TODO Initials"
+set hv5.author_id = "unknown-user"
 set hv5.version = "1.0"
 set hv6.change_description="Approved version"
 set hv6.start_date= datetime()
 set hv6.status = "Final"
-set hv6.user_initials = "TODO Initials"
+set hv6.author_id = "unknown-user"
 set hv6.version = "1.0"
 MERGE (library)-[:CONTAINS_SYNTAX_TEMPLATE]->(ctr5)
 MERGE (library)-[:CONTAINS_SYNTAX_TEMPLATE]->(ctr6)
@@ -2975,10 +2995,10 @@ MERGE (sr)-[hv:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set ld.status = "DRAFT"
 set ld.start_date = datetime()
-set ld.user_initials = "TODO Initials"
+set ld.author_id = "unknown-user"
 """
 
 REMOVE_TRIGGERS = """
@@ -3067,7 +3087,7 @@ CREATE_NA_TEMPLATE_PARAMETER = """
     WITH r
     MERGE (r)-[:LATEST]->(v:TemplateParameterTermValue{name: "NA"})
     MERGE (r)-[:LATEST_FINAL]->(v)
-    MERGE (r)-[:HAS_VERSION{change_description: "initial version", start_date: datetime(), end_date: datetime(), status: "Final", user_initials: "import-procedure", version: "1.0"}]->(v)
+    MERGE (r)-[:HAS_VERSION{change_description: "initial version", start_date: datetime(), end_date: datetime(), status: "Final", author_id: "import-procedure", version: "1.0"}]->(v)
     WITH r
     MATCH (n:TemplateParameter) 
     MERGE (n)-[:HAS_PARAMETER_TERM]->(r)
@@ -3085,7 +3105,7 @@ WITH {
   change_description: "Approved version",
   start_date: datetime("2020-06-26T00:00:00"),
   status: "Final",
-  user_initials: "TODO initials",
+  author_id: "unknown-user",
   version: "1.0"
 } AS final_version_props
 MERGE (clr:CTCodelistRoot {uid: "%(codelist_uid)s"})
@@ -3125,13 +3145,15 @@ WITH {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
 MERGE (l:Library {name:"CDISC", is_editable:false})
 MERGE (catalogue:CTCatalogue {uid:"CTCatalogue_000001", name:"catalogue_name"})
 MERGE (catalogue)-[:HAS_CODELIST]->(codelist:CTCodelistRoot {uid:"CTCodelist_000001"})
+// Set counter for CTCodelist
+MERGE (:Counter:CTCodelistCounter {count: 1, counterId:'CTCodelistCounter'})
 MERGE (c:ClinicalProgramme)
 SET c.name = "CP",
     c.uid = "cp_001"
@@ -3157,7 +3179,7 @@ MERGE (sr)-[hv:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set ld = hv
 
 
@@ -3180,7 +3202,7 @@ set so.order = 1
 set so.uid = "StudyObjective_000001"
 CREATE (sa:StudyAction:Create)-[:AFTER]->(so)
 set sa.date = datetime()
-set sa.user_initials = "TODO user initials"
+set sa.author_id = "unknown-user"
 
 // Set counter for study objective UID 
 MERGE (:Counter:StudyObjectiveCounter {count: 1, counterId:'StudyObjectiveCounter'})
@@ -3232,13 +3254,15 @@ WITH {
 change_description: "Approved version",
 start_date: datetime(),
 status: "Final",
-user_initials: "TODO initials",
+author_id: "unknown-user",
 version: "1.0"
 } AS final_properties
 
 MERGE (l:Library {name:"CDISC", is_editable:false})
 MERGE (catalogue:CTCatalogue {uid:"CTCatalogue_000001", name:"catalogue_name"})
 MERGE (catalogue)-[:HAS_CODELIST]->(codelist:CTCodelistRoot {uid:"CTCodelist_000001"})
+// Set counter for CTCodelist
+MERGE (:Counter:CTCodelistCounter {count: 1, counterId:'CTCodelistCounter'})
 MERGE (c:ClinicalProgramme)
 SET c.name = "CP",
     c.uid = "cp_001"
@@ -3262,7 +3286,7 @@ MERGE (sr)-[hv:HAS_VERSION]->(sv)
 MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
 set hv.status = "DRAFT"
 set hv.start_date = datetime()
-set hv.user_initials = "TODO Initials"
+set hv.author_id = "unknown-user"
 set ld = hv
 
 MERGE (ot:ObjectiveTemplateRoot:SyntaxTemplateRoot:SyntaxIndexingTemplateRoot {uid:"ObjectiveTemplate_000001", sequence_id: "O1"})-[relt:LATEST_FINAL]->(otv:ObjectiveTemplateValue:SyntaxTemplateValue:SyntaxIndexingTemplateValue {name : "objective_1", name_plain : "objective_1"})
@@ -3284,7 +3308,7 @@ set so.order = 1
 set so.uid = "StudyObjective_000001"
 CREATE (sa:StudyAction:Create)-[:AFTER]->(so)
 set sa.date = datetime()
-set sa.user_initials = "TODO user initials"
+set sa.author_id = "unknown-user"
 
 // Set counter for study objective UID 
 MERGE (:Counter:StudyObjectiveCounter {count: 1, counterId:'StudyObjectiveCounter'})
@@ -3337,7 +3361,7 @@ set sar.name = "StudyArm_000001"
 set sar.short_name = "StudyArm_000001"
 CREATE (sa2:StudyAction:Create)-[:AFTER]->(sar)
 set sa2.date = datetime()
-set sa2.user_initials = "TODO user initials"
+set sa2.author_id = "unknown-user"
 MERGE (sr)-[:AUDIT_TRAIL]->(sa2)
 // Set counter for study arm UID 
 MERGE (:Counter:StudyArmCounter {count: 1, counterId:'StudyArmCounter'})
@@ -3358,7 +3382,7 @@ set sar.name = "StudyArm_000002"
 set sar.short_name = "StudyArm_000002"
 CREATE (sa2:StudyAction:Create)-[:AFTER]->(sar)
 set sa2.date = datetime()
-set sa2.user_initials = "TODO user initials"
+set sa2.author_id = "unknown-user"
 MERGE (sr)-[:AUDIT_TRAIL]->(sa2)
 // Set counter for study arm UID 
 MERGE (:Counter:StudyArmCounter {count: 2, counterId:'StudyArmCounter2'})
@@ -3377,7 +3401,7 @@ set sar.name = "StudyArm_000003"
 set sar.short_name = "StudyArm_000003"
 CREATE (sa3:StudyAction:Create)-[:AFTER]->(sar)
 set sa3.date = datetime()
-set sa3.user_initials = "TODO user initials"
+set sa3.author_id = "unknown-user"
 MERGE (sr)-[:AUDIT_TRAIL]->(sa3)
 // Set counter for study arm UID 
 MERGE (:Counter:StudyArmCounter {count: 3, counterId:'StudyArmCounter3'})
@@ -3484,6 +3508,8 @@ def inject_base_data(
     """
 
     # Inject generic base data
+    TestUtils.create_dummy_user()
+
     ## Parent objects for study
     clinical_programme = TestUtils.create_clinical_programme(name="CP")
     project = TestUtils.create_project(
@@ -3533,6 +3559,16 @@ def inject_base_data(
         unit_subsets=unit_subsets,
     )
     TestUtils.create_unit_definition(
+        name=config.DAYS_UNIT_NAME,
+        convertible_unit=True,
+        display_unit=True,
+        master_unit=False,
+        si_unit=True,
+        us_conventional_unit=True,
+        conversion_factor_to_master=config.DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
+        unit_subsets=unit_subsets,
+    )
+    TestUtils.create_unit_definition(
         name=config.WEEK_UNIT_NAME,
         convertible_unit=True,
         display_unit=True,
@@ -3558,3 +3594,84 @@ def inject_base_data(
     )
 
     return study
+
+
+def fix_study_preferred_time_unit(study_uid):
+    """Fix up Cypher-injected study to have a preferred time unit for the protocol SOA which is mandatory for locking"""
+
+    unit_definition_service = UnitDefinitionService(meta_repository=MetaRepository())
+
+    unit_definitions = {
+        u.name: u
+        for u in unit_definition_service.get_all(library_name=LIBRARY_NAME).items
+    }
+    if unit_definition := unit_definitions.get(config.DAY_UNIT_NAME):
+        if unit_definition.status in {
+            LibraryItemStatus.DRAFT,
+            LibraryItemStatus.RETIRED,
+        }:
+            unit_definition_service.approve(unit_definition.uid)
+
+    else:
+        codelists = (
+            CTCodelistService()
+            .get_all_codelists(
+                filter_by={"codelist_name_value.name": {"v": ["Unit Subset"]}}
+            )
+            .items
+        )
+        if codelists:
+            unit_subset_codelist = codelists[0]
+        else:
+            unit_subset_codelist = TestUtils.create_ct_codelist(
+                name="Unit Subset",
+                sponsor_preferred_name="unit subset",
+                extensible=True,
+                approve=True,
+            )
+
+        if (
+            terms := CTTermService()
+            .get_all_terms(
+                codelist_name=None,
+                codelist_uid=None,
+                library=unit_subset_codelist.library_name,
+                package=None,
+                filter_by={"name.sponsor_preferred_name": {"v": ["Study Time"]}},
+            )
+            .items
+        ):
+            unit_subset_term = terms[0]
+        else:
+            unit_subset_term = TestUtils.create_ct_term(
+                codelist_uid=unit_subset_codelist.codelist_uid,
+                sponsor_preferred_name_sentence_case="study time",
+                sponsor_preferred_name="Study Time",
+            )
+
+        unit_definition = TestUtils.create_unit_definition(
+            name=config.DAY_UNIT_NAME,
+            convertible_unit=True,
+            display_unit=True,
+            master_unit=False,
+            si_unit=True,
+            us_conventional_unit=True,
+            conversion_factor_to_master=config.DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
+            unit_subsets=[unit_subset_term.term_uid],
+        )
+        TestUtils.create_unit_definition(
+            name=config.WEEK_UNIT_NAME,
+            convertible_unit=True,
+            display_unit=True,
+            master_unit=False,
+            si_unit=True,
+            us_conventional_unit=True,
+            conversion_factor_to_master=config.WEEK_UNIT_CONVERSION_FACTOR_TO_MASTER,
+            unit_subsets=[unit_subset_term.term_uid],
+        )
+
+    TestUtils.post_study_preferred_time_unit(
+        study_uid,
+        unit_definition_uid=unit_definition.uid,
+        for_protocol_soa=True,
+    )

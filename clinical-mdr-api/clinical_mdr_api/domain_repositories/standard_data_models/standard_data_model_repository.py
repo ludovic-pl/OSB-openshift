@@ -9,14 +9,14 @@ from clinical_mdr_api.domain_repositories.concepts.utils import (
 from clinical_mdr_api.domain_repositories.models._utils import (
     format_generic_header_values,
 )
-from clinical_mdr_api.exceptions import NotFoundException, ValidationException
 from clinical_mdr_api.models.utils import BaseModel
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
+    validate_filters_and_add_search_string,
 )
+from common.exceptions import NotFoundException, ValidationException
 
 
 class StandardDataModelRepository(ABC):
@@ -71,14 +71,14 @@ class StandardDataModelRepository(ABC):
         extracted_items = self._retrieve_items_from_cypher_res(
             result_array, attributes_names
         )
-        if len(extracted_items) == 0:
-            raise NotFoundException(
-                f"{self.return_model.__class__} with uid ({uid}) does not exist."
-            )
-        if len(extracted_items) > 1:
-            raise ValidationException(
-                f"Returned more than one {self.return_model.__class__} with uid ({uid})"
-            )
+
+        NotFoundException.raise_if(
+            len(extracted_items) == 0, self.return_model.__class__, uid
+        )
+        ValidationException.raise_if(
+            len(extracted_items) > 1,
+            msg=f"Returned more than one '{self.return_model.__class__}' with UID '{uid}'",
+        )
 
         return extracted_items[0]
 
@@ -183,10 +183,11 @@ class StandardDataModelRepository(ABC):
         query = CypherQueryBuilder(
             match_clause=match_clause,
             alias_clause=alias_clause,
-            union_match_clause=self.union_match_clause(filter_query_parameters)
-            + filter_statements
-            if self.union_match_clause(filter_query_parameters)
-            else None,
+            union_match_clause=(
+                self.union_match_clause(filter_query_parameters) + filter_statements
+                if self.union_match_clause(filter_query_parameters)
+                else None
+            ),
             sort_by=self.sort_by() if self.sort_by() else sort_by,
             page_number=page_number,
             page_size=page_size,
@@ -221,19 +222,19 @@ class StandardDataModelRepository(ABC):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         **kwargs,
     ) -> list[Any]:
         # pylint: disable=unused-argument
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
         :param search_string
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
         # Match clause
@@ -249,13 +250,9 @@ class StandardDataModelRepository(ABC):
         alias_clause = self.generic_alias_clause() + self.specific_alias_clause()
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -271,7 +268,7 @@ class StandardDataModelRepository(ABC):
 
         query.parameters.update(filter_query_parameters)
         query.full_query = query.build_header_query(
-            header_alias=field_name, result_count=result_count
+            header_alias=field_name, page_size=page_size
         )
         result_array, _ = query.execute()
 

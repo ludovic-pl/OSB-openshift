@@ -5,7 +5,6 @@ from xml.dom import minicompat, minidom
 from fastapi import UploadFile
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
@@ -19,39 +18,51 @@ from clinical_mdr_api.domains.concepts.utils import (
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
 )
-from clinical_mdr_api.models import (
-    OdmConditionPostInput,
-    OdmDescriptionPostInput,
-    OdmFormalExpressionPostInput,
-    OdmFormItemGroupPostInput,
-    OdmFormPostInput,
-    OdmItemGroupItemPostInput,
-    OdmItemGroupPostInput,
-    OdmItemPostInput,
-    OdmItemTermRelationshipInput,
-    OdmItemUnitDefinitionRelationshipInput,
-    OdmStudyEventFormPostInput,
-    OdmStudyEventPostInput,
-    OdmVendorAttributePostInput,
-)
+from clinical_mdr_api.models.concepts.odms.odm_alias import OdmAliasPostInput
 from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmRefVendorPostInput,
     OdmVendorElementRelationPostInput,
     OdmVendorRelationPostInput,
 )
-from clinical_mdr_api.models.concepts.odms.odm_condition import OdmCondition
-from clinical_mdr_api.models.concepts.odms.odm_form import OdmForm
-from clinical_mdr_api.models.concepts.odms.odm_item import OdmItem
-from clinical_mdr_api.models.concepts.odms.odm_item_group import OdmItemGroup
+from clinical_mdr_api.models.concepts.odms.odm_condition import (
+    OdmCondition,
+    OdmConditionPostInput,
+)
+from clinical_mdr_api.models.concepts.odms.odm_description import (
+    OdmDescriptionPostInput,
+)
+from clinical_mdr_api.models.concepts.odms.odm_form import (
+    OdmForm,
+    OdmFormItemGroupPostInput,
+    OdmFormPostInput,
+)
+from clinical_mdr_api.models.concepts.odms.odm_formal_expression import (
+    OdmFormalExpressionPostInput,
+)
+from clinical_mdr_api.models.concepts.odms.odm_item import (
+    OdmItem,
+    OdmItemPostInput,
+    OdmItemTermRelationshipInput,
+    OdmItemUnitDefinitionRelationshipInput,
+)
+from clinical_mdr_api.models.concepts.odms.odm_item_group import (
+    OdmItemGroup,
+    OdmItemGroupItemPostInput,
+    OdmItemGroupPostInput,
+)
 from clinical_mdr_api.models.concepts.odms.odm_method import (
     OdmMethod,
     OdmMethodPostInput,
 )
-from clinical_mdr_api.models.concepts.odms.odm_study_event import OdmStudyEvent
+from clinical_mdr_api.models.concepts.odms.odm_study_event import (
+    OdmStudyEvent,
+    OdmStudyEventFormPostInput,
+    OdmStudyEventPostInput,
+)
 from clinical_mdr_api.models.concepts.odms.odm_vendor_attribute import (
     OdmVendorAttribute,
+    OdmVendorAttributePostInput,
 )
 from clinical_mdr_api.models.concepts.odms.odm_vendor_element import (
     OdmVendorElement,
@@ -67,9 +78,9 @@ from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
 from clinical_mdr_api.models.controlled_terminologies.ct_term_attributes import (
     CTTermAttributes,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.services._meta_repository import MetaRepository
-from clinical_mdr_api.services._utils import is_library_editable, normalize_string
+from clinical_mdr_api.services._utils import is_library_editable
+from clinical_mdr_api.services.concepts.odms.odm_aliases import OdmAliasService
 from clinical_mdr_api.services.concepts.odms.odm_conditions import OdmConditionService
 from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
     OdmDescriptionService,
@@ -100,7 +111,10 @@ from clinical_mdr_api.services.controlled_terminologies.ct_term_attributes impor
     CTTermAttributesService,
 )
 from clinical_mdr_api.services.utils.odm_xml_mapper import map_xml
-from clinical_mdr_api.utils import strtobool
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
+from common.auth.user import user
+from common.utils import strtobool
 
 
 class OdmXmlImporterService:
@@ -116,6 +130,7 @@ class OdmXmlImporterService:
     odm_method_service: OdmMethodService
     odm_formal_expression_service: OdmFormalExpressionService
     odm_description_service: OdmDescriptionService
+    odm_alias_service: OdmAliasService
     unit_definition_service: UnitDefinitionService
     ct_term_attributes_service: CTTermAttributesService
 
@@ -157,8 +172,10 @@ class OdmXmlImporterService:
     OSB_SPONSOR_INSTRUCTION = f"{OSB_PREFIX}:sponsorInstruction"
 
     def __init__(self, xml_file: UploadFile, mapper_file: UploadFile | None):
-        if xml_file.content_type not in ["application/xml", "text/xml"]:
-            raise exceptions.BusinessLogicException("Only XML format is supported.")
+        exceptions.BusinessLogicException.raise_if(
+            xml_file.content_type not in ["application/xml", "text/xml"],
+            msg="Only XML format is supported.",
+        )
 
         self._repos = MetaRepository()
         self.odm_vendor_namespace_service = OdmVendorNamespaceService()
@@ -172,6 +189,7 @@ class OdmXmlImporterService:
         self.odm_method_service = OdmMethodService()
         self.odm_formal_expression_service = OdmFormalExpressionService()
         self.odm_description_service = OdmDescriptionService()
+        self.odm_alias_service = OdmAliasService()
         self.ct_term_attributes_service = CTTermAttributesService()
 
         self.namespace_prefixes = {}
@@ -546,9 +564,11 @@ class OdmXmlImporterService:
             odm_vendor_relations.append(
                 OdmVendorElementRelationPostInput(
                     uid=vendor_element_uid,
-                    value=child_element.firstChild.nodeValue
-                    if child_element.firstChild
-                    else "",
+                    value=(
+                        child_element.firstChild.nodeValue
+                        if child_element.firstChild
+                        else ""
+                    ),
                 )
             )
 
@@ -696,10 +716,10 @@ class OdmXmlImporterService:
 
         non_existent_measurement_unit_oids = measurement_unit_oids - rs_uids
 
-        if non_existent_measurement_unit_oids:
-            raise exceptions.BusinessLogicException(
-                f"MeasurementUnits identified by following OIDs {non_existent_measurement_unit_oids} don't match any Unit Definition."
-            )
+        exceptions.BusinessLogicException.raise_if(
+            non_existent_measurement_unit_oids,
+            msg=f"MeasurementUnits with OIDs '{non_existent_measurement_unit_oids}' don't match any Unit Definition.",
+        )
 
         self.db_unit_definitions = [
             UnitDefinitionModel.from_unit_definition_ar(
@@ -778,7 +798,13 @@ class OdmXmlImporterService:
                         ).uid
                         for description in descriptions
                     ],
-                    alias_uids=[],
+                    alias_uids=[
+                        self._create_alias(
+                            name=alias_element.getAttribute("Name"),
+                            context=alias_element.getAttribute("Context"),
+                        ).uid
+                        for alias_element in condition_def.getElementsByTagName("Alias")
+                    ],
                 ),
             )
             self._approve(
@@ -811,7 +837,13 @@ class OdmXmlImporterService:
                         ).uid
                         for description in descriptions
                     ],
-                    alias_uids=[],
+                    alias_uids=[
+                        self._create_alias(
+                            name=alias_element.getAttribute("Name"),
+                            context=alias_element.getAttribute("Context"),
+                        ).uid
+                        for alias_element in method_def.getElementsByTagName("Alias")
+                    ],
                 ),
             )
             self._approve(
@@ -1004,6 +1036,32 @@ class OdmXmlImporterService:
             self._repos.odm_study_event_repository, self.odm_study_event_service, rs
         )
 
+    def _create_alias(self, name: str, context: str):
+        concept_input = OdmAliasPostInput(name=name, context=context)
+
+        library_vo = self._get_library(concept_input)
+
+        try:
+            concept_ar = self.odm_alias_service._create_aggregate_root(
+                concept_input=concept_input, library=library_vo
+            )
+            self._repos.odm_alias_repository.save(concept_ar)
+            self._approve(
+                self._repos.odm_alias_repository,
+                self.odm_alias_service,
+                concept_ar,
+            )
+        except exceptions.AlreadyExistsException as e:
+            uid = re.search(r" already exists with UID \((.*)\) and data {", e.msg)
+            if uid:
+                concept_ar = self._repos.odm_alias_repository.find_by_uid_2(uid=uid[1])
+            else:
+                raise
+
+        return self.odm_alias_service._transform_aggregate_root_to_pydantic_model(
+            concept_ar
+        )
+
     def _create_description(
         self,
         name: str | minidom.Text,
@@ -1034,24 +1092,10 @@ class OdmXmlImporterService:
 
         library_vo = self._get_library(concept_input)
 
-        try:
-            concept_ar = self.odm_description_service._create_aggregate_root(
-                concept_input=concept_input, library=library_vo
-            )
-            self._repos.odm_description_repository.save(concept_ar)
-            self._approve(
-                self._repos.odm_description_repository,
-                self.odm_description_service,
-                concept_ar,
-            )
-        except exceptions.BusinessLogicException as e:
-            uid = re.search(r" already exists with UID \((.*)\) and data {", e.msg)
-            if uid:
-                concept_ar = self._repos.odm_description_repository.find_by_uid_2(
-                    uid=uid[1]
-                )
-            else:
-                raise exceptions.BusinessLogicException(e.msg)
+        concept_ar = self.odm_description_service._create_aggregate_root(
+            concept_input=concept_input, library=library_vo
+        )
+        self._repos.odm_description_repository.save(concept_ar)
 
         return self.odm_description_service._transform_aggregate_root_to_pydantic_model(
             concept_ar
@@ -1105,12 +1149,13 @@ class OdmXmlImporterService:
                 description["lang"], "639-1", "639-2/B"
             ).upper()
 
-        if elm.tagName in {"ConditionDef", "MethodDef"} and not any(
-            description["lang"] == ENG_LANGUAGE for description in descriptions
-        ):
-            raise exceptions.ValidationException(
-                f"An English OdmDescription must be provided for {elm.tagName} identified by OID ({elm.getAttribute('OID')})."
-            )
+        exceptions.BusinessLogicException.raise_if(
+            elm.tagName in {"ConditionDef", "MethodDef"}
+            and not any(
+                description["lang"] == ENG_LANGUAGE for description in descriptions
+            ),
+            msg=f"An English OdmDescription must be provided for '{elm.tagName}' with OID '{elm.getAttribute('OID')}'.",
+        )
 
         return descriptions
 
@@ -1294,12 +1339,12 @@ class OdmXmlImporterService:
         ]
 
     def _get_library(self, concept_input):
-        if not self._repos.library_repository.library_exists(
-            normalize_string(concept_input.library_name)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({concept_input.library_name})"
-            )
+        exceptions.BusinessLogicException.raise_if_not(
+            self._repos.library_repository.library_exists(
+                normalize_string(concept_input.library_name)
+            ),
+            msg=f"Library with Name '{concept_input.library_name}' doesn't exist.",
+        )
 
         return LibraryVO.from_input_values_2(
             library_name=concept_input.library_name,
@@ -1329,9 +1374,11 @@ class OdmXmlImporterService:
             input_terms = [
                 OdmItemTermRelationshipInput(
                     uid=codelist_item.getAttribute("osb:OID"),
-                    mandatory=codelist_item.getAttribute("osb:mandatory")
-                    if codelist_item.getAttribute("osb:mandatory") != ""
-                    else True,
+                    mandatory=(
+                        codelist_item.getAttribute("osb:mandatory")
+                        if codelist_item.getAttribute("osb:mandatory") != ""
+                        else True
+                    ),
                     order=codelist_item.getAttribute("OrderNumber"),
                     display_text=codelist_item.getElementsByTagName("TranslatedText")[
                         0
@@ -1362,7 +1409,13 @@ class OdmXmlImporterService:
                     ).uid
                     for description in descriptions
                 ],
-                alias_uids=[],
+                alias_uids=[
+                    self._create_alias(
+                        name=alias_element.getAttribute("Name"),
+                        context=alias_element.getAttribute("Context"),
+                    ).uid
+                    for alias_element in item_def.getElementsByTagName("Alias")
+                ],
                 unit_definitions=item_unit_definitions,
                 codelist_uid=codelist.getAttribute("Name") if codelist else None,
                 terms=input_terms,
@@ -1394,7 +1447,13 @@ class OdmXmlImporterService:
                 ).uid
                 for description in descriptions
             ],
-            alias_uids=[],
+            alias_uids=[
+                self._create_alias(
+                    name=alias_element.getAttribute("Name"),
+                    context=alias_element.getAttribute("Context"),
+                ).uid
+                for alias_element in item_group_def.getElementsByTagName("Alias")
+            ],
             sdtm_domain_uids=[
                 db_ct_term_attribute.term_uid
                 for db_ct_term_attribute in self.db_ct_term_attributes
@@ -1424,7 +1483,13 @@ class OdmXmlImporterService:
                 ).uid
                 for description in descriptions
             ],
-            alias_uids=[],
+            alias_uids=[
+                self._create_alias(
+                    name=alias_element.getAttribute("Name"),
+                    context=alias_element.getAttribute("Context"),
+                ).uid
+                for alias_element in form_def.getElementsByTagName("Alias")
+            ],
         )
 
     def _get_item_unit_definition_inputs(self, item_def):
@@ -1439,7 +1504,7 @@ class OdmXmlImporterService:
             ]
         except KeyError as exc:
             raise exceptions.BusinessLogicException(
-                f"MeasurementUnit with OID ({exc}) was not provided."
+                msg=f"MeasurementUnit with OID '{exc}' was not provided."
             )
 
     def _get_list_of_attributes(self, attributes):
@@ -1470,24 +1535,22 @@ class OdmXmlImporterService:
                 concept_input=concept_input, library=library_vo
             )
             repository.save(concept_ar)
-        except exceptions.BusinessLogicException as e:
+        except exceptions.AlreadyExistsException as e:
             uid = re.search(r" already exists with UID \((.*)\) and data {", e.msg)
             if uid:
                 concept_ar = repository.find_by_uid_2(uid=uid[1], for_update=True)
                 if concept_ar.item_metadata.status != LibraryItemStatus.DRAFT:
-                    concept_ar.create_new_version(author=user().id())
+                    concept_ar.create_new_version(author_id=user().id())
                     repository.save(concept_ar)
             else:
-                raise exceptions.BusinessLogicException(e.msg)
+                raise
 
         item = service._transform_aggregate_root_to_pydantic_model(concept_ar)
         save_to.append(item)
         return item
 
     def _approve(self, repository, service, item):
-        try:
-            appr = service._find_by_uid_or_raise_not_found(item.uid, for_update=True)
-            appr.approve(author=user().id())
-            repository.save(appr)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        appr = service._find_by_uid_or_raise_not_found(item.uid, for_update=True)
+        appr.approve(author_id=user().id())
+        repository.save(appr)
+        service.cascade_edit_and_approve(appr)

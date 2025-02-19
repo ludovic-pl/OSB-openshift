@@ -7,8 +7,8 @@ from clinical_mdr_api.domains.concepts.simple_concepts.lag_time import (
 )
 from clinical_mdr_api.models.concepts.concept import (
     LagTime,
-    LagTimeInput,
-    SimpleConceptInput,
+    LagTimePostInput,
+    SimpleConceptPatchInput,
 )
 from clinical_mdr_api.services.concepts.simple_concepts.simple_concept_generic import (
     SimpleConceptGenericService,
@@ -28,9 +28,11 @@ class LagTimeService(SimpleConceptGenericService[LagTimeAR]):
             find_unit_by_uid=self._repos.unit_definition_repository.find_by_uid_2,
         )
 
-    def _create_aggregate_root(self, concept_input: LagTimeInput, library) -> LagTimeAR:
+    def _create_aggregate_root(
+        self, concept_input: LagTimePostInput, library
+    ) -> LagTimeAR:
         return self.aggregate_class.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             simple_concept_vo=self.value_object_class.from_input_values(
                 value=concept_input.value,
                 definition=concept_input.definition,
@@ -47,7 +49,7 @@ class LagTimeService(SimpleConceptGenericService[LagTimeAR]):
         )
 
     def _edit_aggregate(
-        self, item: LagTimeAR, concept_edit_input: SimpleConceptInput
+        self, item: LagTimeAR, concept_edit_input: SimpleConceptPatchInput
     ) -> LagTimeAR:
         raise AttributeError(
             "_edit_aggregate function is not defined for LagTimeService"

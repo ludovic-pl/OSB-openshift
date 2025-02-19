@@ -7,7 +7,7 @@ from mdr_standards_import.scripts.entities.cdisc_data_models.data_model_type imp
 )
 from mdr_standards_import.scripts.utils import parse_ig_name, sanitize_string, load_env
 
-USER_INITIALS = None
+AUTHOR_ID = "CDISC_IMPORT"
 DATA_MODEL_ROOT_LABEL = "DataModelRoot"
 DATA_MODEL_VALUE_LABEL = "DataModelValue"
 DATA_MODEL_IG_ROOT_LABEL = "DataModelIGRoot"
@@ -80,10 +80,10 @@ def import_from_cdisc_db_into_mdr(
     cdisc_db_name: str,
     mdr_neo4j_driver,
     mdr_db_name: str,
-    user_initials: str,
+    author_id: str,
 ):
-    global USER_INITIALS
-    USER_INITIALS = user_initials
+    global AUTHOR_ID
+    AUTHOR_ID = author_id
 
     start_time = time.time()
 
@@ -303,11 +303,11 @@ def merge_catalogues_and_versions(tx, version_data):
             version.implements_data_model = version_data.implements_data_model,
             
             version.import_date = datetime(),
-            version.user_initials = $user_initials
+            version.author_id = $author_id
         MERGE (catalogue)-[:CONTAINS_VERSION]->(version)
         """,
         version_data=version_data,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -351,7 +351,7 @@ def merge_version_independent_data(
 
     query = f"""
         WITH $version_data as version_data
-        MATCH (library:Library{{name: 'CDISC'}})
+        MATCH (library:Library{{name: coalesce(version_data.library, 'CDISC')}})
         MATCH (catalogue:DataModelCatalogue{{name: version_data.catalogue}})
         MATCH (version:DataModelVersion{{uid: version_data.uid}})
 
@@ -419,7 +419,7 @@ def merge_data_model(tx, version_data):
             WITH $version_data as version_data
             MATCH (dm_root:{root_label}{{uid: $data_model_uid}})
             MATCH (dm_root)-[r1:{MODEL_VERSION_REL_TYPE}]->(:{value_label})<-[:LATEST]-(dm_root)
-            SET r1.end_date=datetime(version_data.effective_date), r1.change_description="New version imported from CDISC"
+            SET r1.end_date=datetime(version_data.effective_date), r1.change_description="New version imported"
             WITH dm_root
             MATCH (dm_root)-[r2]->(:{value_label})
             WHERE NOT type(r2)='{MODEL_VERSION_REL_TYPE}'
@@ -440,10 +440,10 @@ def merge_data_model(tx, version_data):
                 dm_value.version_number = $prefixed_version_number,
                 dm_value.effective_date = date(version_data.effective_date)
             CREATE (dm_root)-[:{MODEL_VERSION_REL_TYPE} {{
-                change_description: "Initial import from CDISC",
+                change_description: "Initial import",
                 start_date: datetime(version_data.effective_date),
                 status: version_data.registration_status,
-                user_initials: $user_initials,
+                author_id: $author_id,
                 version: $version_number
             }}]->(dm_value)
             CREATE (dm_root)-[:LATEST_FINAL]->(dm_value)
@@ -456,7 +456,7 @@ def merge_data_model(tx, version_data):
             version_data=version_data,
             version_number=version_number,
             prefixed_version_number=prefixed_version_number,
-            user_initials=USER_INITIALS,
+            author_id=AUTHOR_ID,
         )
 
     if not is_foundational:
@@ -882,7 +882,7 @@ def create_initial_class_instance(tx, version_data, _class):
         class_data=_class,
         version_href=version_data["href"],
         prefixed_version_number=prefixed_version_number,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
     if version_data["data_model_type"] == DataModelType.IMPLEMENTATION.value:
@@ -942,7 +942,7 @@ def create_new_class_instance(tx, version_data, _class):
         class_data=_class,
         version_href=version_data["href"],
         prefixed_version_number=prefixed_version_number,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
     if version_data["data_model_type"] == DataModelType.IMPLEMENTATION.value:
@@ -1033,7 +1033,7 @@ def create_initial_scenario_instance(tx, version_data, scenario, dataset_href):
         scenario_data=scenario,
         version_href=version_data["href"],
         dataset_href=dataset_href,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -1072,7 +1072,7 @@ def create_new_scenario_instance(tx, version_data, scenario, dataset_href):
         scenario_data=scenario,
         version_href=version_data["href"],
         dataset_href=dataset_href,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -1292,7 +1292,7 @@ def create_initial_variable_instance(
         variable_data=variable,
         version_href=version_data["href"],
         parent_href=parent_href,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
     if "value_list" in variable:
@@ -1333,7 +1333,7 @@ def create_new_variable_instance(
         variable_data=variable,
         version_href=version_data["href"],
         parent_href=parent_href,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
     if "value_list" in variable:

@@ -10,7 +10,6 @@ import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis.strategies import sampled_from
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_definition_aggregates.registry_identifiers import (
     RegistryIdentifiersVO,
 )
@@ -32,6 +31,7 @@ from clinical_mdr_api.tests.unit.domain.utils import (
     random_str,
     random_str_sequence,
 )
+from common import exceptions
 
 
 def _dict() -> Mapping[str, Any]:
@@ -866,7 +866,7 @@ class TestIdentificationMetadataVO(unittest.TestCase):
                 return False
             try:
                 id_m.validate(project_exists_callback=lambda _: True)
-            except exceptions.ValidationException:
+            except exceptions.BusinessLogicException:
                 return False
             return True
 
@@ -878,7 +878,7 @@ class TestIdentificationMetadataVO(unittest.TestCase):
                 assert has_project_number_and_validates_when_it_is_ok(id_metadata)
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     id_metadata.validate(project_exists_callback=lambda _: False)
 
@@ -1242,7 +1242,7 @@ class TestStudyDescriptionVO(unittest.TestCase):
         for test_item in test_sequence:
             with self.subTest():
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.AlreadyExistsException):
                     test_item.validate(
                         study_number="study_number",
                         study_title_exists_callback=(lambda _, study_number: True),
@@ -1893,9 +1893,11 @@ class TestStudyMetadataVO(unittest.TestCase):
 
     def test__validate__some_components_invalid__failure(self):
         def is_valid(
-            _: StudyIdentificationMetadataVO
-            | StudyVersionMetadataVO
-            | HighLevelStudyDesignVO,
+            _: (
+                StudyIdentificationMetadataVO
+                | StudyVersionMetadataVO
+                | HighLevelStudyDesignVO
+            ),
         ) -> bool:
             try:
                 _.validate()

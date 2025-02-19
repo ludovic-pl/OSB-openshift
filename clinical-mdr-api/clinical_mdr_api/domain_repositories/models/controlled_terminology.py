@@ -28,7 +28,7 @@ class CTPackage(ClinicalMdrNodeWithUID):
     source = StringProperty()
     import_date = ZonedDateTimeProperty()
     effective_date = DateProperty()
-    user_initials = StringProperty()
+    author_id = StringProperty()
     contains_package = RelationshipFrom(
         "CTCatalogue", "CONTAINS_PACKAGE", model=ClinicalMdrRel, cardinality=ZeroOrOne
     )
@@ -160,7 +160,7 @@ class CodelistTermRelationship(ClinicalMdrRel):
 
     start_date = ZonedDateTimeProperty()
     end_date = ZonedDateTimeProperty()
-    user_initials = StringProperty()
+    author_id = StringProperty()
     order = IntegerProperty()
 
 

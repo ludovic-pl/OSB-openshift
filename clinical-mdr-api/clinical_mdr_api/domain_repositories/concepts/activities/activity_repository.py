@@ -1,18 +1,11 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import REQUESTED_LIBRARY_NAME
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
-    to_relation_trees,
 )
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivityGrouping,
     ActivityRoot,
-    ActivityValidGroup,
     ActivityValue,
 )
 from clinical_mdr_api.domain_repositories.models.generic import (
@@ -32,8 +25,10 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.activities.activity import Activity
+from common.config import REQUESTED_LIBRARY_NAME
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 def _version_to_number(version: str) -> float:
@@ -79,8 +74,10 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             uid=input_dict.get("uid"),
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=input_dict.get("nci_concept_id"),
+                nci_concept_name=input_dict.get("nci_concept_name"),
                 name=input_dict.get("name"),
                 name_sentence_case=input_dict.get("name_sentence_case"),
+                synonyms=input_dict.get("synonyms") or [],
                 definition=input_dict.get("definition"),
                 abbreviation=input_dict.get("abbreviation"),
                 activity_groupings=[
@@ -88,15 +85,11 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                         activity_group_uid=activity_grouping.get("activity_group").get(
                             "uid"
                         ),
-                        activity_group_version=activity_grouping.get(
-                            "activity_group"
-                        ).get("version"),
+                        activity_group_version=f"{activity_grouping.get('activity_group').get('major_version')}.{activity_grouping.get('activity_group').get('minor_version')}",
                         activity_subgroup_uid=activity_grouping.get(
                             "activity_subgroup"
                         ).get("uid"),
-                        activity_subgroup_version=activity_grouping.get(
-                            "activity_subgroup"
-                        ).get("version"),
+                        activity_subgroup_version=f"{activity_grouping.get('activity_subgroup').get('major_version')}.{activity_grouping.get('activity_subgroup').get('minor_version')}",
                     )
                     for activity_grouping in input_dict.get("activity_groupings")
                 ],
@@ -125,7 +118,8 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),
@@ -153,8 +147,10 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             uid=root.uid,
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=value.nci_concept_id,
+                nci_concept_name=value.nci_concept_name,
                 name=value.name,
                 name_sentence_case=value.name_sentence_case,
+                synonyms=value.synonyms or [],
                 definition=value.definition,
                 abbreviation=value.abbreviation,
                 activity_groupings=[
@@ -162,37 +158,35 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                         activity_group_uid=activity_grouping.get("activity_group").get(
                             "uid"
                         ),
-                        activity_group_version=activity_grouping.get(
-                            "activity_group"
-                        ).get("version"),
+                        activity_group_version=f"{activity_grouping.get('activity_group').get('major_version')}.{activity_grouping.get('activity_group').get('minor_version')}",
                         activity_subgroup_uid=activity_grouping.get(
                             "activity_subgroup"
                         ).get("uid"),
-                        activity_subgroup_version=activity_grouping.get(
-                            "activity_subgroup"
-                        ).get("version"),
+                        activity_subgroup_version=f"{activity_grouping.get('activity_subgroup').get('major_version')}.{activity_grouping.get('activity_subgroup').get('minor_version')}",
                     )
                     for activity_grouping in _kwargs["activity_root"][
                         "activity_groupings"
                     ]
                 ],
                 request_rationale=value.request_rationale,
-                is_request_final=value.is_request_final
-                if value.is_request_final
-                else False,
+                is_request_final=(
+                    value.is_request_final if value.is_request_final else False
+                ),
                 requester_study_id=requester_study_id,
                 replaced_by_activity=_kwargs["activity_root"]["replaced_activity_uid"],
                 reason_for_rejecting=value.reason_for_rejecting,
                 contact_person=value.contact_person,
-                is_request_rejected=value.is_request_rejected
-                if value.is_request_rejected
-                else False,
-                is_data_collected=value.is_data_collected
-                if value.is_data_collected
-                else False,
-                is_multiple_selection_allowed=value.is_multiple_selection_allowed
-                if value.is_multiple_selection_allowed is not None
-                else True,
+                is_request_rejected=(
+                    value.is_request_rejected if value.is_request_rejected else False
+                ),
+                is_data_collected=(
+                    value.is_data_collected if value.is_data_collected else False
+                ),
+                is_multiple_selection_allowed=(
+                    value.is_multiple_selection_allowed
+                    if value.is_multiple_selection_allowed is not None
+                    else True
+                ),
                 is_finalized=bool(
                     value.is_request_rejected
                     or _kwargs["activity_root"]["replaced_activity_uid"]
@@ -229,9 +223,9 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                         and activity_instance_root.uid
                         not in activity_instances_legacy_codes
                     ):
-                        activity_instances_legacy_codes[
-                            activity_instance_root.uid
-                        ] = activity_instance_value.is_legacy_usage
+                        activity_instances_legacy_codes[activity_instance_root.uid] = (
+                            activity_instance_value.is_legacy_usage
+                        )
 
             activity_valid_groups = activity_grouping.in_subgroup.all()
             for activity_valid_group in activity_valid_groups:
@@ -272,36 +266,40 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             uid=root.uid,
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=value.nci_concept_id,
+                nci_concept_name=value.nci_concept_name,
                 name=value.name,
                 name_sentence_case=value.name_sentence_case,
+                synonyms=value.synonyms or [],
                 definition=value.definition,
                 abbreviation=value.abbreviation,
                 activity_groupings=activity_groupings,
                 request_rationale=value.request_rationale,
-                is_request_final=value.is_request_final
-                if value.is_request_final
-                else False,
+                is_request_final=(
+                    value.is_request_final if value.is_request_final else False
+                ),
                 requester_study_id=requester_study_id,
-                replaced_by_activity=replaced_activity.uid
-                if replaced_activity
-                else None,
+                replaced_by_activity=(
+                    replaced_activity.uid if replaced_activity else None
+                ),
                 reason_for_rejecting=value.reason_for_rejecting,
                 contact_person=value.contact_person,
-                is_request_rejected=value.is_request_rejected
-                if value.is_request_rejected
-                else False,
-                is_data_collected=value.is_data_collected
-                if value.is_data_collected
-                else False,
-                is_multiple_selection_allowed=value.is_multiple_selection_allowed
-                if value.is_multiple_selection_allowed is not None
-                else True,
+                is_request_rejected=(
+                    value.is_request_rejected if value.is_request_rejected else False
+                ),
+                is_data_collected=(
+                    value.is_data_collected if value.is_data_collected else False
+                ),
+                is_multiple_selection_allowed=(
+                    value.is_multiple_selection_allowed
+                    if value.is_multiple_selection_allowed is not None
+                    else True
+                ),
                 is_finalized=bool(value.is_request_rejected or replaced_activity),
-                is_used_by_legacy_instances=all(
-                    activity_instances_legacy_codes.values()
-                )
-                if activity_instances_legacy_codes
-                else False,
+                is_used_by_legacy_instances=(
+                    all(activity_instances_legacy_codes.values())
+                    if activity_instances_legacy_codes
+                    else False
+                ),
             ),
             library=LibraryVO.from_input_values_2(
                 library_name=library.name,
@@ -369,6 +367,7 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
 
     def _create_new_value_node(self, ar: ActivityAR) -> ActivityValue:
         value_node: ActivityValue = super()._create_new_value_node(ar=ar)
+        value_node.synonyms = ar.concept_vo.synonyms
         value_node.request_rationale = ar.concept_vo.request_rationale
         value_node.is_request_final = ar.concept_vo.is_request_final
         value_node.reason_for_rejecting = ar.concept_vo.reason_for_rejecting
@@ -390,28 +389,52 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             value_node.has_grouping.connect(activity_grouping_node)
 
             # find related ActivityValidGroup node
-            activity_valid_group_node = to_relation_trees(
-                ActivityValidGroup.nodes.filter(
-                    in_group__has_version__uid=activity_grouping.activity_group_uid,
-                    has_group__has_version__uid=activity_grouping.activity_subgroup_uid,
-                )
-            ).distinct()
-            if len(activity_valid_group_node) == 0:
-                raise BusinessLogicException(
-                    f"The ActivityValidGroup node wasn't found for subgroup ({activity_grouping.activity_subgroup_uid}) "
-                    f"and group ({activity_grouping.activity_group_uid})"
-                )
-            activity_valid_group_node = activity_valid_group_node[0]
-
+            query = """
+                MATCH (activity_valid_group:ActivityValidGroup)-[:IN_GROUP]-(agv:ActivityGroupValue)<-[:HAS_VERSION]-(agr:ActivityGroupRoot {uid:$activity_group_uid})
+                MATCH (activity_valid_group)-[:HAS_GROUP]-(asgv:ActivitySubGroupValue)<-[:HAS_VERSION]-(asgr:ActivitySubGroupRoot {uid:$activity_subgroup_uid})
+                WITH *, 
+                    head([(asgv)<-[latest:LATEST]-(asgr) | latest]) AS is_subgroup_latest,
+                    head([(agv)<-[latest:LATEST]-(agr) | latest]) AS is_group_latest
+                RETURN activity_valid_group
+                ORDER BY is_subgroup_latest, is_group_latest
+            """
+            activity_valid_groups_ret, _ = db.cypher_query(
+                query,
+                params={
+                    "activity_group_uid": activity_grouping.activity_group_uid,
+                    "activity_subgroup_uid": activity_grouping.activity_subgroup_uid,
+                },
+                resolve_objects=True,
+            )
+            BusinessLogicException.raise_if(
+                len(activity_valid_groups_ret) == 0,
+                msg=f"The ActivityValidGroup node wasn't found for Activity Subgroup '{activity_grouping.activity_subgroup_uid}' "
+                f"and Activity Group '{activity_grouping.activity_group_uid}'.",
+            )
+            activity_valid_group_node = activity_valid_groups_ret[0][0]
             # link ActivityGrouping and ActivityValidGroup
             activity_grouping_node.in_subgroup.connect(activity_valid_group_node)
 
         return value_node
 
+    def _any_subgroup_updated(self, activity_value):
+        for grouping_node in activity_value.has_grouping.all():
+            if (
+                not grouping_node.in_subgroup.get()
+                .has_group.get()
+                .has_latest_value.single()
+            ):
+                # The linked subgroup is not the latest.
+                # We need to return True, so that the ActivityValue
+                # gets updated to use the new subgroup value.
+                return True
+        return False
+
     def _has_data_changed(self, ar: ActivityAR, value: ActivityValue) -> bool:
         are_concept_properties_changed = super()._has_data_changed(ar=ar, value=value)
         are_props_changed = (
-            ar.concept_vo.request_rationale != value.request_rationale
+            ar.concept_vo.synonyms != value.synonyms
+            or ar.concept_vo.request_rationale != value.request_rationale
             or ar.concept_vo.is_request_final != value.is_request_final
             or ar.concept_vo.reason_for_rejecting != value.reason_for_rejecting
             or ar.concept_vo.contact_person != value.contact_person
@@ -434,6 +457,17 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                     activity_valid_group_node.in_group.get().has_version.single().uid
                 )
 
+        # Is this a final or retired version? If yes, we skip the check for updated subgroups
+        # to avoid creating new values nodes when just creating a new draft.
+        root_for_final_value = value.has_version.match(
+            status__in=[LibraryItemStatus.FINAL.value, LibraryItemStatus.RETIRED.value],
+            end_date__isnull=True,
+        )
+        if not root_for_final_value:
+            subgroups_updated = self._any_subgroup_updated(value)
+        else:
+            subgroups_updated = False
+
         are_rels_changed = sorted(
             [
                 activity_grouping.activity_group_uid
@@ -447,7 +481,30 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
         ) != sorted(
             activity_subgroup_uids
         )
-        return are_concept_properties_changed or are_rels_changed or are_props_changed
+        return (
+            are_concept_properties_changed
+            or are_rels_changed
+            or are_props_changed
+            or subgroups_updated
+        )
+
+    @classmethod
+    def format_filter_sort_keys(cls, key: str) -> str:
+        """
+        Maps a fieldname as provided by the API query (equal to output model) to the same fieldname as defined in the database and/or Cypher query
+
+        :param key: Fieldname to map
+        :return str:
+        """
+        if key.startswith("activity_groupings[0]."):
+            splitted = key.split(".")
+            activity_groupings_part = splitted[0]
+            prop = splitted[1]
+            if prop == "activity_group_name":
+                return f"{activity_groupings_part}.activity_group.name"
+            if prop == "activity_subgroup_name":
+                return f"{activity_groupings_part}.activity_subgroup.name"
+        return key
 
     def specific_alias_clause(
         self, only_specific_status: str = ObjectStatus.LATEST.name
@@ -460,6 +517,7 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
         activity_group_names = self.filter_query_parameters.get("activity_group_names")
         return f"""
         WITH *,
+            concept_value.synonyms AS synonyms,
             concept_value.request_rationale AS request_rationale,
             coalesce(concept_value.is_request_final, false) AS is_request_final,
             coalesce(concept_value.is_request_rejected, false) AS is_request_rejected,
@@ -474,29 +532,47 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             coalesce(concept_value.is_data_collected, False) AS is_data_collected,
             coalesce(concept_value.is_multiple_selection_allowed, True) AS is_multiple_selection_allowed,
             apoc.coll.toSet([(concept_value)-[:HAS_GROUPING]->(:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup)
-            {'WHERE size([(activity_valid_group)<-[:HAS_GROUP]-(activity_subgroup_value) WHERE activity_subgroup_value.name in $activity_subgroup_names | activity_subgroup_value.name]) > 0 ' if activity_subgroup_names else ''}
+            {'WHERE size([(activity_valid_group)<-[:HAS_GROUP]-(activity_subgroup_value) WHERE activity_subgroup_value.name in $activity_subgroup_names | activity_subgroup_value.name]) > 0 '
+            if activity_subgroup_names
+            else ''}
             {'AND' if activity_subgroup_names and activity_group_names else ''}
             {'' if activity_subgroup_names and activity_group_names else 'WHERE' if not activity_subgroup_names and activity_group_names else ''}
-            {'size([(activity_valid_group)-[:IN_GROUP]-(activity_group_value) WHERE activity_group_value.name in $activity_group_names | activity_group_value.name]) > 0 ' if activity_group_names else ''}
+            {'size([(activity_valid_group)-[:IN_GROUP]-(activity_group_value) WHERE activity_group_value.name in $activity_group_names | activity_group_value.name]) > 0 '
+            if activity_group_names
+            else ''}
              | {{
                  activity_subgroup: head(apoc.coll.sortMulti([(activity_valid_group)<-[:HAS_GROUP]-(activity_subgroup_value:ActivitySubGroupValue)
-                 <-[has_version:HAS_VERSION]-(activity_subgroup_root:ActivitySubGroupRoot) | {{uid:activity_subgroup_root.uid,version:has_version.version}}], ['has_version.version'])), 
+                 <-[has_version:HAS_VERSION]-(activity_subgroup_root:ActivitySubGroupRoot)
+                    | {{
+                        uid:activity_subgroup_root.uid,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1]),
+                        name:activity_subgroup_value.name
+                    }}], ['major_version', 'minor_version'])),
                  activity_group: head(apoc.coll.sortMulti([(activity_valid_group)-[:IN_GROUP]-(activity_group_value:ActivityGroupValue)
-                 <-[has_version:HAS_VERSION]-(activity_group_root:ActivityGroupRoot) | {{uid:activity_group_root.uid, version:has_version.version}}], ['has_version.version']))
+                 <-[has_version:HAS_VERSION]-(activity_group_root:ActivityGroupRoot)
+                    | {{
+                        uid:activity_group_root.uid,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1]),
+                        name:activity_group_value.name
+                    }}], ['major_version', 'minor_version']))
              }}]) AS activity_groupings,
             head([(concept_value)-[:REPLACED_BY_ACTIVITY]->(replacing_activity_root:ActivityRoot) | replacing_activity_root.uid]) AS replaced_by_activity,
             apoc.coll.sortMulti([(concept_value)-[:HAS_GROUPING]->(:ActivityGrouping)<-[:HAS_ACTIVITY]-(activity_instance_value:ActivityInstanceValue)
-                <-[instance_version:HAS_VERSION WHERE instance_version.status='Final' and instance_version.end_date IS NULL]-(activity_instance_root) | 
+                <-[instance_version:HAS_VERSION WHERE instance_version.status='Final' and instance_version.end_date IS NULL]-(activity_instance_root) |
                 {{
                     uid:activity_instance_root.uid,
-                    legacy_code:activity_instance_value.is_legacy_usage
-                }}], ['^uid', 'instance_version']) AS all_legacy_codes
+                    legacy_code:activity_instance_value.is_legacy_usage,
+                    major_version: toInteger(split(instance_version.version,'.')[0]),
+                    minor_version: toInteger(split(instance_version.version,'.')[1])
+                }}], ['^uid', 'major_version', 'minor_version']) AS all_legacy_codes
             WITH *,
                 // Sort by uid and instance_version in descending order and leave only latest version of same ActivityInstances
                 [
-                    i in range(0, size(all_legacy_codes) -1) 
+                    i in range(0, size(all_legacy_codes) -1)
                     WHERE i=0 OR all_legacy_codes[i].uid <> all_legacy_codes[i-1].uid | all_legacy_codes[i].legacy_code ] as all_legacy_codes
-            WITH *, 
+            WITH *,
                 CASE
                 WHEN NOT is_request_rejected and replaced_by_activity IS NULL THEN false
                 ELSE true
@@ -589,7 +665,12 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             | {
                 activity_instance_library_name: head([(library)-[:CONTAINS_CONCEPT]->(activity_instance_root) | library.name]),
                 uid: activity_instance_root.uid,
-                version: {version:aihv.version, status:aihv.status},
+                version: 
+                    {
+                        major_version: toInteger(split(aihv.version,'.')[0]),
+                        minor_version: toInteger(split(aihv.version,'.')[1]),
+                        status:aihv.status
+                    },
                 name:activity_instance_value.name,
                 name_sentence_case:activity_instance_value.name_sentence_case,
                 abbreviation:activity_instance_value.abbreviation,
@@ -603,7 +684,7 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                 topic_code:activity_instance_value.topic_code,
                 activity_instance_class: head([(activity_instance_value)-[:ACTIVITY_INSTANCE_CLASS]->(activity_instance_class_root:ActivityInstanceClassRoot)
                     -[:LATEST]->(activity_instance_class_value:ActivityInstanceClassValue) | activity_instance_class_value])
-            }], ['^uid', 'version.version']) AS activity_instances,
+            }], ['^uid', 'version.major_version', 'version.minor_version']) AS activity_instances,
             [(activity_value)-[:HAS_GROUPING]->(:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup)
                 <-[:HAS_GROUP]-(activity_subgroup_value:ActivitySubGroupValue) | {
                     activity_subgroup_value: activity_subgroup_value, 
@@ -621,10 +702,10 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
         """
         )
         result_array, attribute_names = db.cypher_query(query=query, params=params)
-        if len(result_array) != 1:
-            raise exceptions.BusinessLogicException(
-                f"The overview query returned broken data: {result_array}"
-            )
+        BusinessLogicException.raise_if(
+            len(result_array) != 1,
+            msg=f"The overview query returned broken data: {result_array}",
+        )
         overview = result_array[0]
         overview_dict = {}
         for overview_prop, attribute_name in zip(overview, attribute_names):
@@ -649,27 +730,27 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             [(activity_value)-[:HAS_GROUPING]->(:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup)
             <-[:HAS_GROUP]-(activity_subgroup_value:ActivitySubGroupValue) | activity_subgroup_value.name] AS activity_subgroups
         WITH activity_value,
-             activity_subgroups,
-             apoc.coll.sortMaps(activity_instances, '^name') as activity_instances
+            activity_subgroups,
+            apoc.coll.sortMaps(activity_instances, '^name') as activity_instances
         OPTIONAL MATCH (activity_value)-[:HAS_GROUPING]->(:ActivityGrouping)<-[:HAS_ACTIVITY]-
-              (activity_instance_value)-[:CONTAINS_ACTIVITY_ITEM]->
-              (activity_item:ActivityItem)<-[:HAS_ACTIVITY_ITEM]-(activity_item_class_root:ActivityItemClassRoot)-[:LATEST]->
-              (activity_item_class_value:ActivityItemClassValue)
+            (activity_instance_value)-[:CONTAINS_ACTIVITY_ITEM]->
+            (activity_item:ActivityItem)<-[:HAS_ACTIVITY_ITEM]-(activity_item_class_root:ActivityItemClassRoot)-[:LATEST]->
+            (activity_item_class_value:ActivityItemClassValue)
         OPTIONAL MATCH (activity_item)-[]->(CTTermRoot)-[:HAS_ATTRIBUTES_ROOT]->(CTTermAttributesRoot)-[:LATEST]->(activity_item_term_attr_value)
         OPTIONAL MATCH (activity_item)-[:HAS_UNIT_DEFINITION]->(:UnitDefinitionRoot)-[:LATEST]->(unit_def:UnitDefinitionValue)
         WITH activity_value,
-             activity_item_class_value,
-             activity_instances,
-             activity_subgroups,
-             CASE WHEN size(collect(activity_item)) > 0 THEN
-               apoc.map.fromPairs([
-                 ['nci_concept_id', activity_item_class_value.nci_concept_id],
-                 ['name', activity_item_class_value.name],
-                 ['type', head([(activity_item_class_value)-[:HAS_DATA_TYPE]->(data_type_term_root)-[:HAS_ATTRIBUTES_ROOT]->(data_type_term_attr_root)-[:LATEST]->(data_type_term_attr_value) | data_type_term_attr_value.preferred_term])],
-                 ['example_set', collect(distinct(coalesce(activity_item_term_attr_value.code_submission_value, unit_def.name)))]
-               ]) ELSE null
-             END
-             AS activity_items
+            activity_item_class_value,
+            activity_instances,
+            activity_subgroups,
+            CASE WHEN size(collect(activity_item)) > 0 THEN
+            apoc.map.fromPairs([
+                ['nci_concept_id', activity_item_class_value.nci_concept_id],
+                ['name', activity_item_class_value.name],
+                ['type', head([(activity_item_class_value)-[:HAS_DATA_TYPE]->(data_type_term_root)-[:HAS_ATTRIBUTES_ROOT]->(data_type_term_attr_root)-[:LATEST]->(data_type_term_attr_value) | data_type_term_attr_value.preferred_term])],
+                ['example_set', collect(distinct(coalesce(activity_item_term_attr_value.code_submission_value, unit_def.name)))]
+            ]) ELSE null
+            END
+            AS activity_items
         RETURN
             activity_subgroups,
             activity_value,
@@ -679,10 +760,10 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
         result_array, attribute_names = db.cypher_query(
             query=query, params={"uid": uid}
         )
-        if len(result_array) != 1:
-            raise exceptions.BusinessLogicException(
-                f"The overview query returned broken data: {result_array}"
-            )
+        BusinessLogicException.raise_if(
+            len(result_array) != 1,
+            msg=f"The overview query returned broken data: {result_array}",
+        )
         return {
             attribute_name: result_array[0][index]
             for index, attribute_name in enumerate(attribute_names)
@@ -719,6 +800,7 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             params["version"] = version
             match = """
                 MATCH (activity_root:ActivityRoot {uid:$uid})-[hv:HAS_VERSION {version:$version}]->(activity_value:ActivityValue)
+                WITH DISTINCT activity_root, activity_value
                 """
         else:
             match = """
@@ -735,8 +817,14 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
             | {
                 activity_instance_library_name: head([(library)-[:CONTAINS_CONCEPT]->(activity_instance_root) | library.name]),
                 uid: activity_instance_root.uid,
-                version: {version:aihv.version, status:aihv.status},
+                version: 
+                    {
+                        major_version: toInteger(split(aihv.version,'.')[0]),
+                        minor_version: toInteger(split(aihv.version,'.')[1]),
+                        status:aihv.status
+                    },
                 name:activity_instance_value.name,
+                name_sentence_case:activity_instance_value.name_sentence_case,
                 name_sentence_case:activity_instance_value.name_sentence_case,
                 abbreviation:activity_instance_value.abbreviation,
                 definition:activity_instance_value.definition,
@@ -749,7 +837,7 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
                 topic_code:activity_instance_value.topic_code,
                 activity_instance_class: head([(activity_instance_value)-[:ACTIVITY_INSTANCE_CLASS]->(activity_instance_class_root:ActivityInstanceClassRoot)
                     -[:LATEST]->(activity_instance_class_value:ActivityInstanceClassValue) | activity_instance_class_value])
-            }], ['^uid', 'version.version']) AS activity_instances
+            }], ['^uid', 'major_version', 'minor_version']) AS activity_instances
         RETURN
             apoc.coll.sortMaps(activity_instances, '^name') as activity_instances
         """
@@ -757,12 +845,30 @@ class ActivityRepository(ConceptGenericRepository[ActivityAR]):
         result_array, attribute_names = db.cypher_query(query=query, params=params)
         if len(result_array) == 0:
             return None
-        if len(result_array) > 1:
-            raise exceptions.BusinessLogicException(
-                f"The linked instances query returned broken data: {result_array}"
-            )
+        BusinessLogicException.raise_if(
+            len(result_array) > 1,
+            msg=f"The linked instances query returned broken data: {result_array}",
+        )
         instances = result_array[0]
         instances_dict = {}
         for instances_prop, attribute_name in zip(instances, attribute_names):
             instances_dict[attribute_name] = instances_prop
         return instances_dict
+
+    def get_activity_uids_by_synonyms(self, synonyms: list[str]):
+        if not synonyms:
+            return {}
+
+        rs = db.cypher_query(
+            """
+MATCH(r:ActivityRoot)-[:LATEST]->(v:ActivityValue)
+WHERE ANY(value IN $syn WHERE value IN v.synonyms)
+RETURN r.uid, [value IN $syn WHERE value IN v.synonyms] as existingSynonyms
+""",
+            params={"syn": synonyms},
+        )
+
+        if not rs[0]:
+            return {}
+
+        return {item[0]: item[1] for item in rs[0]}

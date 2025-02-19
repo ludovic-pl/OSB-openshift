@@ -3,7 +3,6 @@ import unittest
 from neomodel import db
 from parameterized import parameterized
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.models.concepts.compound import Compound, CompoundEditInput
 from clinical_mdr_api.models.concepts.compound_alias import (
     CompoundAlias,
@@ -26,6 +25,7 @@ from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_PROJECTS_CYPHER,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common import exceptions
 
 
 class TestCompoundsService(unittest.TestCase):
@@ -47,7 +47,11 @@ class TestCompoundsService(unittest.TestCase):
         [
             ({"*": {"v": ["aaa"]}}, "name", "name-AAA-"),
             ({"*": {"v": ["bBb"]}}, "name", "name-BBB-"),
-            ({"*": {"v": ["wn-us"], "op": "co"}}, "user_initials", "unknown-user"),
+            (
+                {"*": {"v": ["unknown-user"], "op": "co"}},
+                "author_username",
+                "unknown-user@example.com",
+            ),
             ({"*": {"v": ["Draft"]}}, "status", "Draft"),
             ({"*": {"v": ["0.1"]}}, "version", "0.1"),
             ({"*": {"v": ["ccc"]}}, None, None),

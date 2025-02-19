@@ -1,11 +1,11 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.standard_data_models.sponsor_model import SponsorModelAR
-from clinical_mdr_api.models import Library
 from clinical_mdr_api.models.concepts.concept import VersionProperties
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.libraries.library import Library
+from clinical_mdr_api.models.utils import BaseModel, InputModel
 
 
 class SponsorModelBase(BaseModel):
@@ -16,30 +16,26 @@ class SponsorModel(SponsorModelBase, VersionProperties):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    name: str = Field(
-        ...,
-        title="name",
-        description="The name or the sponsor model. E.g. sdtm_sponsormodel_3.2-NN15",
-        source="has_latest_sponsor_model_value.name",
-    )
-    extended_implementation_guide: str | None = Field(
-        None,
-        title="extended_implementation_guide",
-        description="",
-        source="has_latest_sponsor_model_value__extends_version.name",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="",
-        source="has_library.name",
-    )
+    uid: Annotated[
+        str | None,
+        Field(source="uid", nullable=True),
+    ] = None
+    name: Annotated[
+        str,
+        Field(
+            description="The name or the sponsor model. E.g. sdtm_sponsormodel_3.2-NN15",
+            source="has_latest_sponsor_model_value.name",
+        ),
+    ]
+    extended_implementation_guide: Annotated[
+        str | None,
+        Field(
+            source="has_latest_sponsor_model_value__extends_version.name", nullable=True
+        ),
+    ] = None
+    library_name: Annotated[
+        str | None, Field(source="has_library.name", nullable=True)
+    ] = None
 
     @classmethod
     def from_sponsor_model_ar(
@@ -55,34 +51,39 @@ class SponsorModel(SponsorModelBase, VersionProperties):
             status=sponsor_model_ar.item_metadata.status.value,
             version=sponsor_model_ar.item_metadata.version,
             change_description=sponsor_model_ar.item_metadata.change_description,
-            user_initials=sponsor_model_ar.item_metadata.user_initials,
+            author_username=sponsor_model_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in sponsor_model_ar.get_possible_actions()]
             ),
         )
 
 
-class SponsorModelInput(BaseModel):
-    ig_uid: str = Field(
-        "SDTMIG",
-        title="ig_uid",
-        description="Unique identifier of the implementation guide to create the sponsor model from. E.g. SDTMIG",
-    )
-    ig_version_number: str = Field(
-        ...,
-        title="ig_version_number",
-        description="the version number of the Implementation Guide which the sponsor model is based on",
-    )
-    version_number: str = Field(
-        ...,
-        title="version_number",
-        description="Version number of the sponsor model to use - will be concatenated at the end of the full name",
-    )
-    change_description: str | None = Field(
-        "Imported new version",
-        title="change_description",
-        description="Optionally, provide a change description.",
-    )
-    library_name: str | None = Field(
-        "CDISC", title="library_name", description="Defaults to CDISC"
-    )
+class SponsorModelInput(InputModel):
+    ig_uid: Annotated[
+        str,
+        Field(
+            description="Unique identifier of the implementation guide to create the sponsor model from. E.g. SDTMIG",
+            min_length=1,
+        ),
+    ] = "SDTMIG"
+    ig_version_number: Annotated[
+        str,
+        Field(
+            description="the version number of the Implementation Guide which the sponsor model is based on",
+            min_length=1,
+        ),
+    ]
+    version_number: Annotated[
+        str,
+        Field(
+            description="Version number of the sponsor model to use - will be concatenated at the end of the full name",
+            min_length=1,
+        ),
+    ]
+    change_description: Annotated[
+        str | None,
+        Field(description="Optionally, provide a change description."),
+    ] = "Imported new version"
+    library_name: Annotated[
+        str | None, Field(description="Defaults to CDISC", min_length=1)
+    ] = "CDISC"

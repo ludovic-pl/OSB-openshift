@@ -72,10 +72,11 @@ class SyntaxTemplateValue(VersionValue):
         study_rel: str | None = None,
     ) -> int:
         cypher_query = f"""
-        MATCH (n)<--(:SyntaxTemplateRoot)-[:{template_rel}]->(:SyntaxInstanceRoot)-->(:SyntaxInstanceValue)<-[:{study_selection_rel}]-(:StudySelection)<-[:{study_rel}]-(:StudyValue)<-[:HAS_VERSION|LATEST_DRAFT|LATEST_FINAL|LATEST_RETIRED]-(sr:StudyRoot)
-        WHERE elementId(n)=$element_id
-        RETURN count(DISTINCT sr)
-        """
+MATCH (n)<--(:SyntaxTemplateRoot)-[:{template_rel}]->(:SyntaxInstanceRoot)-->(:SyntaxInstanceValue)
+<-[:{study_selection_rel}]-(:StudySelection)<-[:{study_rel}]-(:StudyValue)<-[:HAS_VERSION|LATEST_DRAFT|LATEST_FINAL|LATEST_RETIRED]-(sr:StudyRoot)
+WHERE elementId(n)=$element_id
+RETURN count(DISTINCT sr)
+"""
 
         count, _ = db.cypher_query(cypher_query, {"element_id": self.element_id})
         return count[0][0]
@@ -115,8 +116,7 @@ class SyntaxTemplateRoot(VersionRoot):
     )
 
 
-class SyntaxIndexingTemplateValue(SyntaxTemplateValue):
-    ...
+class SyntaxIndexingTemplateValue(SyntaxTemplateValue): ...
 
 
 class SyntaxIndexingTemplateRoot(SyntaxTemplateRoot):
@@ -248,8 +248,7 @@ class TimeframeTemplateValue(SyntaxTemplateValue):
         template_rel: str | None = None,
         study_selection_rel: str | None = None,
         study_rel: str | None = None,
-    ):
-        ...
+    ): ...
 
 
 class TimeframeTemplateRoot(SyntaxTemplateRoot):
@@ -310,8 +309,7 @@ class SyntaxPreInstanceRoot(VersionRoot):
 
 
 class CriteriaPreInstanceValue(SyntaxPreInstanceValue):
-    def get_study_count(self):
-        ...
+    def get_study_count(self): ...
 
 
 class CriteriaPreInstanceRoot(SyntaxPreInstanceRoot):
@@ -320,8 +318,7 @@ class CriteriaPreInstanceRoot(SyntaxPreInstanceRoot):
 
 
 class FootnotePreInstanceValue(SyntaxPreInstanceValue):
-    def get_study_count(self):
-        ...
+    def get_study_count(self): ...
 
 
 class FootnotePreInstanceRoot(SyntaxPreInstanceRoot):
@@ -333,8 +330,7 @@ class FootnotePreInstanceRoot(SyntaxPreInstanceRoot):
 
 
 class EndpointPreInstanceValue(SyntaxPreInstanceValue):
-    def get_study_count(self):
-        ...
+    def get_study_count(self): ...
 
 
 class EndpointPreInstanceRoot(SyntaxPreInstanceRoot):
@@ -343,8 +339,7 @@ class EndpointPreInstanceRoot(SyntaxPreInstanceRoot):
 
 
 class ObjectivePreInstanceValue(SyntaxPreInstanceValue):
-    def get_study_count(self):
-        ...
+    def get_study_count(self): ...
 
 
 class ObjectivePreInstanceRoot(SyntaxPreInstanceRoot):
@@ -353,8 +348,7 @@ class ObjectivePreInstanceRoot(SyntaxPreInstanceRoot):
 
 
 class ActivityInstructionPreInstanceValue(SyntaxPreInstanceValue):
-    def get_study_count(self):
-        ...
+    def get_study_count(self): ...
 
 
 class ActivityInstructionPreInstanceRoot(SyntaxPreInstanceRoot):
@@ -410,12 +404,10 @@ class SyntaxInstanceRoot(VersionRoot):
     )
 
 
-class SyntaxIndexingInstanceValue(SyntaxInstanceValue):
-    ...
+class SyntaxIndexingInstanceValue(SyntaxInstanceValue): ...
 
 
-class SyntaxIndexingInstanceRoot(SyntaxInstanceRoot):
-    ...
+class SyntaxIndexingInstanceRoot(SyntaxInstanceRoot): ...
 
 
 class CriteriaValue(SyntaxIndexingInstanceValue):

@@ -20,11 +20,11 @@ from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
 )
 from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -68,8 +68,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 PROJECT_FIELDS_ALL = [
     "uid",
@@ -91,7 +89,7 @@ def test_get_project(api_client):
     response = api_client.get(f"{URL}/{projects[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == projects[0].uid
     assert res["name"] == projects[0].name
     assert res["project_number"] == projects[0].project_number
@@ -107,10 +105,10 @@ def test_get_project(api_client):
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for project in projects:
         value = getattr(project, field_name)
@@ -137,7 +135,7 @@ def test_create_project(api_client):
     res = response.json()
     log.info("Created Project: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["name"] == data["name"]
     assert res["project_number"] == data["project_number"]
@@ -158,7 +156,7 @@ def test_update_project(api_client):
     res = response.json()
     log.info("Updated Project: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == projects[0].uid
     assert res["name"] == data["name"]
     assert res["project_number"] == projects[0].project_number
@@ -171,7 +169,22 @@ def test_delete_project(api_client):
     response = api_client.delete(f"{URL}/{projects[0].uid}")
     log.info("Deleted Project: %s", projects[0].uid)
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
+
+
+def test_cannot_create_project_with_already_existing_project_number(api_client):
+    data = {
+        "name": "Test Project",
+        "project_number": "1234",
+        "description": "Desc",
+        "clinical_programme_uid": clinical_programme.uid,
+    }
+    response = api_client.post(URL, json=data)
+    res = response.json()
+    log.info("Didn't create Project: %s", res)
+
+    assert_response_status_code(response, 409)
+    assert res["message"] == "Project with Project Number '1234' already exists."
 
 
 def test_cannot_update_project_used_by_projects(api_client):
@@ -185,10 +198,10 @@ def test_cannot_update_project_used_by_projects(api_client):
     res = response.json()
     log.info("Didn't update Project: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == f"Cannot update Project with UID ({projects[2].uid}) because it is used by studies."
+        == f"Cannot update Project with UID '{projects[2].uid}' because it is used by studies."
     )
 
 
@@ -197,8 +210,8 @@ def test_cannot_delete_project_used_by_projects(api_client):
     res = response.json()
     log.info("Deleted Project: %s", projects[2].uid)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == f"Cannot delete Project with UID ({projects[2].uid}) because it is used by studies."
+        == f"Cannot delete Project with UID '{projects[2].uid}' because it is used by studies."
     )

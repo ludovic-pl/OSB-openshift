@@ -1,9 +1,11 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import Field
+
+from clinical_mdr_api.models.utils import BaseModel
 
 
 class SimpleNameModel(BaseModel):
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    name_sentence_case: str | None = Field(
-        None, title="name_sentence_case", description=""
-    )
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_sentence_case: Annotated[str | None, Field(nullable=True)] = None

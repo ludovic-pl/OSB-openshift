@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.vendor_element_repository import (
     VendorElementRepository,
 )
@@ -17,6 +16,7 @@ from clinical_mdr_api.models.concepts.odms.odm_vendor_element import (
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class OdmVendorElementService(OdmGenericService[OdmVendorElementAR]):
@@ -37,7 +37,7 @@ class OdmVendorElementService(OdmGenericService[OdmVendorElementAR]):
         self, concept_input: OdmVendorElementPostInput, library
     ) -> OdmVendorElementAR:
         return OdmVendorElementAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmVendorElementVO.from_repository_values(
                 name=concept_input.name,
                 compatible_types=[
@@ -59,7 +59,7 @@ class OdmVendorElementService(OdmGenericService[OdmVendorElementAR]):
         concept_edit_input: OdmVendorElementPatchInput,
     ) -> OdmVendorElementAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmVendorElementVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -75,26 +75,28 @@ class OdmVendorElementService(OdmGenericService[OdmVendorElementAR]):
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_vendor_element_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Vendor Element identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_vendor_element_repository.exists_by("uid", uid, True),
+            "ODM Vendor Element",
+            uid,
+        )
 
         return self._repos.odm_vendor_element_repository.get_active_relationships(
             uid, ["belongs_to_vendor_namespace", "has_vendor_attribute"]
         )
 
     def soft_delete(self, uid: str) -> None:
-        if not self._repos.odm_vendor_element_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Vendor Element identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_vendor_element_repository.exists_by("uid", uid, True),
+            "ODM Vendor Element",
+            uid,
+        )
 
-        if self._repos.odm_vendor_element_repository.has_active_relationships(
-            uid, ["belongs_to_form", "belongs_to_item_group", "belongs_to_item"]
-        ):
-            raise exceptions.BusinessLogicException(
-                "This ODM Vendor Element is in use."
-            )
+        BusinessLogicException.raise_if(
+            self._repos.odm_vendor_element_repository.has_active_relationships(
+                uid, ["belongs_to_form", "belongs_to_item_group", "belongs_to_item"]
+            ),
+            msg="This ODM Vendor Element is in use.",
+        )
 
         return super().soft_delete(uid)

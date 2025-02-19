@@ -1,23 +1,15 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.brands.brand import BrandAR
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
 
 
 class Brand(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="The unique id of the Brand.",
-    )
+    uid: Annotated[str, Field(description="The unique id of the Brand.")]
 
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: str
 
     @classmethod
     def from_uid(
@@ -42,5 +34,5 @@ class Brand(BaseModel):
         )
 
 
-class BrandCreateInput(BaseModel):
-    name: str = Field(..., title="name", description="", min_length=1)
+class BrandCreateInput(PostInputModel):
+    name: Annotated[str, Field(min_length=1)]

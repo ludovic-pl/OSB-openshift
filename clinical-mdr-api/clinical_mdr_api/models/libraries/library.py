@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -7,16 +7,20 @@ from clinical_mdr_api.models.utils import BaseModel
 
 
 class Library(BaseModel):
-    name: str = Field(
-        ...,
-        description="The name of the library and at the same time the unique identifier for a library entity.",
-    )
-    is_editable: bool = Field(
-        False,
-        description="Denotes whether or not the library allows to \n\n"
-        "* create new entities (e.g. objective templates, objectives, ...) and \n"
-        "* change existing entities.",
-    )
+    name: Annotated[
+        str,
+        Field(
+            description="The name of the library and at the same time the unique identifier for a library entity."
+        ),
+    ]
+    is_editable: Annotated[
+        bool,
+        Field(
+            description="Denotes whether or not the library allows to \n\n"
+            "* create new entities (e.g. objective templates, objectives, ...) and \n"
+            "* change existing entities."
+        ),
+    ] = False
 
     @classmethod
     def from_library_vo(cls, library_vo: LibraryVO) -> Self:
@@ -29,7 +33,13 @@ class ItemCounts(BaseModel):
     templates.
     """
 
-    total: int = Field(0, description="Total count of instantiations")
-    draft: int = Field(0, description="Count of instantiations in draft status")
-    retired: int = Field(0, description="Count of instantiations in retired status")
-    final: int = Field(0, description="Count of instantiations in final status")
+    total: Annotated[int, Field(description="Total count of instantiations")] = 0
+    draft: Annotated[
+        int, Field(description="Count of instantiations in draft status")
+    ] = 0
+    retired: Annotated[
+        int, Field(description="Count of instantiations in retired status")
+    ] = 0
+    final: Annotated[
+        int, Field(description="Count of instantiations in final status")
+    ] = 0

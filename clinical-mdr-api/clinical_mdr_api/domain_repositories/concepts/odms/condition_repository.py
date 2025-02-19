@@ -6,7 +6,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -31,7 +30,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import OdmCondition
+from clinical_mdr_api.models.concepts.odms.odm_condition import OdmCondition
+from common.utils import convert_to_datetime
 
 
 class ConditionRepository(OdmGenericRepository[OdmConditionAR]):
@@ -90,7 +90,8 @@ class ConditionRepository(OdmGenericRepository[OdmConditionAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -104,18 +105,23 @@ class ConditionRepository(OdmGenericRepository[OdmConditionAR]):
         self, only_specific_status: str = ObjectStatus.LATEST.name
     ) -> str:
         return f"""
-        WITH *,
-        concept_value.oid AS oid,
+WITH *,
+concept_value.oid AS oid,
 
-        [(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_FORMAL_EXPRESSION]->(fer:OdmFormalExpressionRoot)-[:LATEST]->(fev:OdmFormalExpressionValue) | {{uid: fer.uid, context: fev.context, expression: fev.expression}}] AS formal_expressions,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_DESCRIPTION]->(dr:OdmDescriptionRoot)-[:LATEST]->(dv:OdmDescriptionValue) | {{uid: dr.uid, name: dv.name, language: dv.language, description: dv.description, instruction: dv.instruction}}] AS descriptions,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_ALIAS]->(ar:OdmAliasRoot)-[:LATEST]->(av:OdmAliasValue) | {{uid: ar.uid, name: av.name, context: av.context}}] AS aliases
+[(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_FORMAL_EXPRESSION]->(fer:OdmFormalExpressionRoot)-[:LATEST]->(fev:OdmFormalExpressionValue) |
+{{uid: fer.uid, context: fev.context, expression: fev.expression}}] AS formal_expressions,
 
-        WITH *,
-        apoc.coll.toSet([formal_expression in formal_expressions | formal_expression.uid]) AS formal_expression_uids,
-        apoc.coll.toSet([description in descriptions | description.uid]) AS description_uids,
-        apoc.coll.toSet([alias in aliases | alias.uid]) AS alias_uids
-        """
+[(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_DESCRIPTION]->(dr:OdmDescriptionRoot)-[:LATEST]->(dv:OdmDescriptionValue) |
+{{uid: dr.uid, name: dv.name, language: dv.language, description: dv.description, instruction: dv.instruction}}] AS descriptions,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmConditionRoot)-[:HAS_ALIAS]->(ar:OdmAliasRoot)-[:LATEST]->(av:OdmAliasValue) |
+{{uid: ar.uid, name: av.name, context: av.context}}] AS aliases
+
+WITH *,
+apoc.coll.toSet([formal_expression in formal_expressions | formal_expression.uid]) AS formal_expression_uids,
+apoc.coll.toSet([description in descriptions | description.uid]) AS description_uids,
+apoc.coll.toSet([alias in aliases | alias.uid]) AS alias_uids
+"""
 
     def _get_or_create_value(
         self, root: VersionRoot, ar: ConceptARBase

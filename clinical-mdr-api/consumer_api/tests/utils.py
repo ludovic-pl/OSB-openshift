@@ -14,7 +14,7 @@ import openpyxl
 from fastapi.testclient import TestClient
 from neomodel.sync_.core import db
 
-from consumer_api.shared import config
+from common import config
 
 log = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class TestUtils:
         try:
             _workbook = openpyxl.load_workbook(excel_file)
         except openpyxl.utils.exceptions.InvalidFileException:
-            assert False, "File does not contain valid Excel data"
+            assert False, "File doesn't contain valid Excel data"
 
     @classmethod
     def verify_exported_data_format(
@@ -164,7 +164,7 @@ class TestUtils:
         log.info("GET %s | %s", url, headers)
         response = api_client.get(url, headers=headers, params=params)
 
-        assert response.status_code == 200
+        assert_response_status_code(response, 200)
         assert export_format in response.headers["content-type"]
 
         if export_format == "text/csv":

@@ -1,4 +1,5 @@
 """Test W3C Trace Context communication"""
+
 import logging
 import re
 from secrets import token_hex

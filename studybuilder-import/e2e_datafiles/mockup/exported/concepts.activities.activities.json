@@ -22,7 +22,7 @@
     "start_date": "2022-10-18T12:57:23.866604",
     "status": "Final",
     "uid": "Activity_000122",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -48,7 +48,7 @@
     "start_date": "2022-10-18T12:57:51.036234",
     "status": "Final",
     "uid": "Activity_000261",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -74,7 +74,7 @@
     "start_date": "2022-10-18T12:57:53.404951",
     "status": "Final",
     "uid": "Activity_000274",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -100,7 +100,7 @@
     "start_date": "2022-10-18T12:57:54.259841",
     "status": "Final",
     "uid": "Activity_000278",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -126,7 +126,7 @@
     "start_date": "2022-10-18T12:58:01.164578",
     "status": "Final",
     "uid": "Activity_000315",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -152,7 +152,7 @@
     "start_date": "2022-10-18T12:58:01.374317",
     "status": "Final",
     "uid": "Activity_000316",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -178,7 +178,7 @@
     "start_date": "2022-10-18T12:58:01.573310",
     "status": "Final",
     "uid": "Activity_000317",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -204,7 +204,7 @@
     "start_date": "2022-10-18T12:58:01.716369",
     "status": "Final",
     "uid": "Activity_000318",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -230,7 +230,7 @@
     "start_date": "2022-10-18T12:58:02.369507",
     "status": "Final",
     "uid": "Activity_000321",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -256,7 +256,7 @@
     "start_date": "2022-10-18T12:58:07.688485",
     "status": "Final",
     "uid": "Activity_000347",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -282,7 +282,7 @@
     "start_date": "2022-10-18T12:58:31.201516",
     "status": "Final",
     "uid": "Activity_000470",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -308,7 +308,7 @@
     "start_date": "2022-10-18T12:58:50.849620",
     "status": "Final",
     "uid": "Activity_000571",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -334,7 +334,7 @@
     "start_date": "2022-10-18T12:58:51.443142",
     "status": "Final",
     "uid": "Activity_000574",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -360,7 +360,7 @@
     "start_date": "2022-10-18T12:58:55.245837",
     "status": "Final",
     "uid": "Activity_000591",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -386,7 +386,7 @@
     "start_date": "2022-10-18T12:59:05.174954",
     "status": "Final",
     "uid": "Activity_000642",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -412,7 +412,7 @@
     "start_date": "2022-10-18T12:59:05.520156",
     "status": "Final",
     "uid": "Activity_000644",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -438,7 +438,7 @@
     "start_date": "2022-10-18T12:59:08.601302",
     "status": "Final",
     "uid": "Activity_000659",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -464,7 +464,7 @@
     "start_date": "2022-10-18T12:59:08.769077",
     "status": "Final",
     "uid": "Activity_000660",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -490,7 +490,7 @@
     "start_date": "2022-10-18T12:59:09.079412",
     "status": "Final",
     "uid": "Activity_000661",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -516,7 +516,7 @@
     "start_date": "2022-10-18T12:59:26.204025",
     "status": "Final",
     "uid": "Activity_000750",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -542,7 +542,7 @@
     "start_date": "2022-10-18T12:59:26.463251",
     "status": "Final",
     "uid": "Activity_000751",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -568,7 +568,7 @@
     "start_date": "2022-10-18T12:59:26.826469",
     "status": "Final",
     "uid": "Activity_000753",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -594,7 +594,7 @@
     "start_date": "2022-10-18T13:00:34.778120",
     "status": "Final",
     "uid": "Activity_001092",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -620,7 +620,7 @@
     "start_date": "2022-10-18T13:00:58.419956",
     "status": "Final",
     "uid": "Activity_001211",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -646,7 +646,7 @@
     "start_date": "2022-10-18T13:01:03.704113",
     "status": "Final",
     "uid": "Activity_001239",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -672,7 +672,7 @@
     "start_date": "2022-10-18T13:01:08.022561",
     "status": "Final",
     "uid": "Activity_001262",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -698,7 +698,7 @@
     "start_date": "2022-10-18T13:03:10.172213",
     "status": "Final",
     "uid": "Activity_001899",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -724,7 +724,7 @@
     "start_date": "2022-10-18T13:03:11.865952",
     "status": "Final",
     "uid": "Activity_001908",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -750,7 +750,7 @@
     "start_date": "2022-10-18T13:03:12.119527",
     "status": "Final",
     "uid": "Activity_001909",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -776,7 +776,7 @@
     "start_date": "2022-10-18T13:03:13.254816",
     "status": "Final",
     "uid": "Activity_001915",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -802,7 +802,7 @@
     "start_date": "2022-10-18T13:03:16.999023",
     "status": "Final",
     "uid": "Activity_001925",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -828,7 +828,7 @@
     "start_date": "2022-10-18T13:03:56.765215",
     "status": "Final",
     "uid": "Activity_002136",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -854,7 +854,7 @@
     "start_date": "2022-10-18T13:03:16.999023",
     "status": "Final",
     "uid": "Activity_001925",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

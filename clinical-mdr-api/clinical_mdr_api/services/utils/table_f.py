@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 import yattag
 from docx.shared import Inches
@@ -12,7 +12,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from pydantic import BaseModel, Field
 
 from clinical_mdr_api.services.utils.docx_builder import DocxBuilder
-from clinical_mdr_api.telemetry import trace_calls
+from common.telemetry import trace_calls
 
 CHAR_WIDTHS = {
     "i": 0.5,
@@ -101,8 +101,12 @@ CHAR_WIDTHS = {
 
 
 class Ref(BaseModel):
-    type: str | None = Field(..., title="Referenced item type")
-    uid: str = Field(..., title="Referenced item uid")
+    type: Annotated[str | None, Field(title="Referenced item type")]
+    uid: Annotated[str, Field(title="Referenced item uid")]
+
+    class Config:
+        # make the model immutable & hashable
+        frozen = True
 
     def __init__(self, type_=None, uid=None, **kwargs):
         if type_ is not None:
@@ -113,12 +117,20 @@ class Ref(BaseModel):
 
 
 class TableCell(BaseModel):
-    text: str = Field("", title="Text contents of cell")
-    span: int = Field(1, title="Horizontal spanning of cell, 1 by default")
-    style: str | None = Field(None, title="Associated style to cell")
-    refs: list[Ref] | None = Field(None, title="Reference to item")
-    footnotes: list[str] | None = Field(None, title="Referenced footnotes")
-    vertical: bool | None = Field(None, title="Text text direction")
+    text: Annotated[str, Field(title="Text contents of cell")] = ""
+    span: Annotated[int, Field(title="Horizontal spanning of cell, 1 by default")] = 1
+    style: Annotated[
+        str | None, Field(title="Associated style to cell", nullable=True)
+    ] = None
+    refs: Annotated[
+        list[Ref] | None, Field(title="Reference to item", nullable=True)
+    ] = None
+    footnotes: Annotated[
+        list[str] | None, Field(title="Referenced footnotes", nullable=True)
+    ] = None
+    vertical: Annotated[
+        bool | None, Field(title="Text text direction", nullable=True)
+    ] = None
 
     def __init__(self, text=None, **kwargs):
         if text is not None:
@@ -127,8 +139,10 @@ class TableCell(BaseModel):
 
 
 class TableRow(BaseModel):
-    cells: list[TableCell] = Field(default_factory=list, title="Table cells in the row")
-    hide: bool = Field(False, title="Hide row from display")
+    cells: Annotated[
+        list[TableCell], Field(default_factory=list, title="Table cells in the row")
+    ]
+    hide: Annotated[bool, Field(title="Hide row from display")] = False
 
     def __init__(self, cells=None, **kwargs):
         if cells is not None:
@@ -137,20 +151,27 @@ class TableRow(BaseModel):
 
 
 class SimpleFootnote(BaseModel):
-    uid: str = Field(..., title="Unique id of footnote")  # TODO? Use Ref here?
-    text_html: str = Field(..., title="HTML text of footnote")
-    text_plain: str = Field(..., title="Plain text of footnote")
+    uid: Annotated[str, Field(title="StudySoAFootnote.uid")]
+    text_html: Annotated[str, Field(title="HTML text of footnote")]
+    text_plain: Annotated[str, Field(title="Plain text of footnote")]
 
 
 class TableWithFootnotes(BaseModel):
-    rows: list[TableRow] = Field(default_factory=list, title="List of table rows")
-    footnotes: dict[str, SimpleFootnote] | None = Field(
-        None, title="Mapping of symbols and table footnotes"
-    )
-    num_header_rows: int = Field(0, title="Number of header rows")
-    num_header_cols: int = Field(0, title="Number of header columns")
-    title: str | None = Field(None, title="Table title (when rendered to HTML)")
-    id: str | None = Field(None, title="Table id (when rendered to HTML)")
+    rows: Annotated[
+        list[TableRow], Field(default_factory=list, title="List of table rows")
+    ]
+    footnotes: Annotated[
+        dict[str, SimpleFootnote] | None,
+        Field(title="Mapping of symbols and table footnotes", nullable=True),
+    ] = None
+    num_header_rows: Annotated[int, Field(title="Number of header rows")] = 0
+    num_header_cols: Annotated[int, Field(title="Number of header columns")] = 0
+    title: Annotated[
+        str | None, Field(title="Table title (when rendered to HTML)", nullable=True)
+    ] = None
+    id: Annotated[
+        str | None, Field(title="Table id (when rendered to HTML)", nullable=True)
+    ] = None
 
 
 @trace_calls()
@@ -312,7 +333,7 @@ def table_to_html(table: TableWithFootnotes, css_style: str | None = None) -> st
                     for symbol, footnote in table.footnotes.items():
                         line("dt", symbol)
                         with tag("dd"):
-                            doc.asis(footnote.text_plain)
+                            text(footnote.text_plain)
 
     return yattag.indent(doc.getvalue())
 

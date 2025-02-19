@@ -1,8 +1,9 @@
 <template>
-  <v-card color="white">
+  <v-card elevation="0" rounded="xl">
     <v-card-title>
       <span class="dialog-title">{{ $t('StudyCopyForm.title') }}</span>
     </v-card-title>
+    <v-divider />
     <v-card-text>
       <v-form ref="observer">
         <v-row class="mt-4">
@@ -17,6 +18,7 @@
               return-object
               :rules="[(value) => formRules.atleastone(value, study)]"
               clearable
+              color="nnBaseBlue"
             />
           </v-col>
           <v-col cols="6">
@@ -29,17 +31,18 @@
               return-object
               :rules="[(value) => formRules.atleastone(value, study)]"
               clearable
+              color="nnBaseBlue"
             />
           </v-col>
         </v-row>
-        <v-spacer v-if="expand || expand2" class="distance" />
+        <v-spacer v-if="expand || expand2"/>
         <v-row>
           <v-col cols="6">
             <v-text-field
               v-if="study"
               v-model="study.current_metadata.version_metadata.study_status"
               readonly
-              variant="filled"
+              color="nnBaseBlue"
             />
           </v-col>
         </v-row>
@@ -62,13 +65,28 @@
         </v-radio-group>
       </v-form>
     </v-card-text>
-    <v-card-actions class="pb-4">
+    <v-divider />
+    <v-card-actions>
       <v-spacer />
-      <v-btn class="secondary-btn" color="white" elevation="3" @click="close">
+      <v-btn
+        variant="outlined"
+        rounded
+        elevation="0"
+        width="120px"
+        @click="close"
+      >
         {{ $t('_global.cancel') }}
       </v-btn>
-      <v-btn color="secondary" data-cy="ok-form" elevation="3" @click="select">
-        {{ $t('_global.ok') }}
+      <v-btn
+        data-cy="ok-form"
+        rounded
+        color="secondary"
+        variant="flat"
+        elevation="0"
+        width="120px"
+        @click="select"
+      >
+        {{ $t('_global.apply') }}
       </v-btn>
     </v-card-actions>
   </v-card>
@@ -151,9 +169,3 @@ export default {
   },
 }
 </script>
-
-<style scoped>
-.distance {
-  margin-bottom: 300px;
-}
-</style>

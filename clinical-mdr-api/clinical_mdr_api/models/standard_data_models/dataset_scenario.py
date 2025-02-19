@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from pydantic import Field
 
 from clinical_mdr_api.models.standard_data_models.dataset_variable import SimpleDataset
@@ -5,31 +7,11 @@ from clinical_mdr_api.models.utils import BaseModel
 
 
 class DatasetScenario(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="The uid of the dataset",
-    )
-    label: str = Field(
-        ...,
-        title="label",
-        description="The label of the dataset",
-    )
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue",
-        description="catalogue",
-    )
-    dataset: SimpleDataset = Field(
-        ...,
-        title="dataset",
-        description="dataset",
-    )
-    data_model_ig_names: list[str] = Field(
-        ...,
-        title="data_model_ig_names",
-        description="data_model_ig_names",
-    )
+    uid: Annotated[str, Field()]
+    label: Annotated[str, Field()]
+    catalogue_name: Annotated[str, Field()]
+    dataset: Annotated[SimpleDataset, Field()]
+    data_model_ig_names: Annotated[list[str], Field()]
 
     @classmethod
     def from_repository_output(cls, input_dict: dict):

@@ -803,7 +803,7 @@
             [
               "HAS_TERM",
               "UNIQUE IMPORT ID REL",
-              "user_initials",
+              "author_id",
               "start_date",
               "order"
             ],
@@ -1649,7 +1649,7 @@
               "href",
               "source",
               "label",
-              "user_initials",
+              "author_id",
               "import_date"
             ],
             [
@@ -1710,7 +1710,7 @@
             [
               "HAS_TERM",
               "UNIQUE IMPORT ID REL",
-              "user_initials",
+              "author_id",
               "start_date"
             ],
             [

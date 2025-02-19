@@ -2,7 +2,6 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.study_selections.study_compound_dosing_repository import (
     SelectionHistory,
 )
@@ -10,8 +9,13 @@ from clinical_mdr_api.domains.study_selections.study_compound_dosing import (
     StudyCompoundDosingVO,
     StudySelectionCompoundDosingsAR,
 )
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyCompoundDosing,
+    StudyCompoundDosingInput,
+    StudySelectionCompound,
+    StudySelectionElement,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -20,6 +24,8 @@ from clinical_mdr_api.services._utils import (
     service_level_generic_header_filtering,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyCompoundDosingRelationMixin:
@@ -58,7 +64,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         medicinal_product_uid: str,
         terms_at_specific_datetime: datetime.datetime | None,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionCompound:
+    ) -> StudySelectionCompound:
         (
             study_compound,
             order,
@@ -73,7 +79,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
             medicinal_product_uid
         )
 
-        return models.StudySelectionCompound.from_study_compound_ar(
+        return StudySelectionCompound.from_study_compound_ar(
             study_uid=study_uid,
             selection=study_compound,
             order=order,
@@ -92,7 +98,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         study_element_uid: str,
         terms_at_specific_datetime: datetime.datetime | None,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionElement:
+    ) -> StudySelectionElement:
         (
             study_element,
             order,
@@ -101,7 +107,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
             study_element_uid,
             study_value_version=study_value_version,
         )
-        return models.StudySelectionElement.from_study_selection_element_ar_and_order(
+        return StudySelectionElement.from_study_selection_element_ar_and_order(
             study_uid,
             study_element,
             order,
@@ -119,8 +125,8 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         order: int,
         terms_at_specific_datetime: datetime.datetime | None,
         study_value_version: str | None = None,
-    ) -> models.StudyCompoundDosing:
-        return models.StudyCompoundDosing.from_vo(
+    ) -> StudyCompoundDosing:
+        return StudyCompoundDosing.from_vo(
             compound_dosing_vo,
             order,
             self._transform_study_compound_model(
@@ -148,7 +154,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         self,
         study_selection: StudySelectionCompoundDosingsAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudyCompoundDosing]:
+    ) -> list[StudyCompoundDosing]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -178,7 +184,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         page_number: int = 1,
         page_size: int = 0,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.StudyCompoundDosing]:
+    ) -> GenericFilteringReturn[StudyCompoundDosing]:
         repos = MetaRepository()
         try:
             selection_ar = repos.study_compound_dosing_repository.find_by_study(
@@ -209,7 +215,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         repos = self._repos
 
@@ -224,7 +230,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
                 search_string=search_string,
                 filter_by=filter_by,
                 filter_operator=filter_operator,
-                result_count=result_count,
+                page_size=page_size,
             )
 
             return header_values
@@ -245,7 +251,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         # Return values for field_name
         return header_values
@@ -254,11 +260,11 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         self,
         study_selection_history: list[SelectionHistory],
         study_uid: str,
-    ) -> list[models.StudyCompoundDosing]:
+    ) -> list[StudyCompoundDosing]:
         result = []
         for history in study_selection_history:
             result.append(
-                models.StudyCompoundDosing.from_study_selection_history(
+                StudyCompoundDosing.from_study_selection_history(
                     history,
                     study_uid,
                     history.order,
@@ -285,7 +291,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudyCompoundDosing]:
+    ) -> list[StudyCompoundDosing]:
         try:
             selection_history = (
                 self._repos.study_compound_dosing_repository.find_selection_history(
@@ -300,7 +306,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
 
     def get_compound_dosing_audit_trail(
         self, study_uid: str, compound_dosing_uid: str
-    ) -> models.StudyCompoundDosing:
+    ) -> StudyCompoundDosing:
         try:
             selection_history = (
                 self._repos.study_compound_dosing_repository.find_selection_history(
@@ -308,14 +314,14 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
                 )
             )
         except ValueError as value_error:
-            raise exceptions.NotFoundException(value_error.args[0])
+            raise exceptions.NotFoundException(msg=value_error.args[0])
 
         return self._transform_history_to_response_model(selection_history, study_uid)
 
     @db.transaction
     def make_selection(
-        self, study_uid: str, selection_create_input: models.StudyCompoundDosingInput
-    ) -> models.StudyCompoundDosing:
+        self, study_uid: str, selection_create_input: StudyCompoundDosingInput
+    ) -> StudyCompoundDosing:
         repos = MetaRepository()
         try:
             # Load aggregate
@@ -338,7 +344,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
                 medicinal_product_uid=study_compound_vo.medicinal_product_uid,
                 dose_frequency_uid=study_compound_vo.dose_frequency_uid,
                 dose_value_uid=selection_create_input.dose_value_uid,
-                user_initials=self.author,
+                author_id=self.author,
                 start_date=datetime.datetime.now(datetime.timezone.utc),
                 generate_uid_callback=repos.study_compound_dosing_repository.generate_uid,
             )
@@ -402,11 +408,11 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
 
     def _patch_prepare_new_study_selection(
         self,
-        request_study_compound_dosing: models.StudyCompoundDosingInput,
+        request_study_compound_dosing: StudyCompoundDosingInput,
         current_study_compound_dosing: StudyCompoundDosingVO,
     ) -> StudyCompoundDosingVO:
         # transform current to input model
-        transformed_current = models.StudyCompoundDosingInput(
+        transformed_current = StudyCompoundDosingInput(
             study_compound_uid=current_study_compound_dosing.study_compound_uid,
             study_element_uid=current_study_compound_dosing.study_element_uid,
             dose_value_uid=current_study_compound_dosing.dose_value_uid,
@@ -435,7 +441,7 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
             study_compound_uid=request_study_compound_dosing.study_compound_uid,
             dose_frequency_uid=study_compound_vo.dose_frequency_uid,
             dose_value_uid=request_study_compound_dosing.dose_value_uid,
-            user_initials=self.author,
+            author_id=self.author,
             start_date=datetime.datetime.now(datetime.timezone.utc),
             compound_uid=current_study_compound_dosing.compound_uid,
             compound_alias_uid=current_study_compound_dosing.compound_alias_uid,
@@ -447,8 +453,8 @@ class StudyCompoundDosingSelectionService(StudySelectionMixin):
         self,
         study_uid: str,
         study_selection_uid: str,
-        selection_update_input: models.StudyCompoundDosingInput,
-    ) -> models.StudyCompoundDosing:
+        selection_update_input: StudyCompoundDosingInput,
+    ) -> StudyCompoundDosing:
         repos = MetaRepository()
         try:
             # Load aggregate

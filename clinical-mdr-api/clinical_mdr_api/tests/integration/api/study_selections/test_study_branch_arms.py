@@ -19,11 +19,11 @@ from clinical_mdr_api.main import app
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.study_selections.study_selection import StudySelectionArm
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -57,8 +57,6 @@ def test_data():
     )
     yield
 
-    drop_db(db_name)
-
 
 def test_branch_arm_modify_actions_on_locked_study(api_client):
     global branch_arm_uid
@@ -76,14 +74,14 @@ def test_branch_arm_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all arms
     response = api_client.get(
         f"/studies/{study.uid}/study-branch-arm/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     branch_arm_uid = res[0]["branch_arm_uid"]
 
@@ -92,14 +90,14 @@ def test_branch_arm_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-branch-arms",
@@ -114,9 +112,9 @@ def test_branch_arm_modify_actions_on_locked_study(api_client):
             "arm_uid": study_arm.arm_uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # edit arm
     response = api_client.patch(
@@ -125,27 +123,24 @@ def test_branch_arm_modify_actions_on_locked_study(api_client):
             "name": "New_Branch_Arm_Name_1",
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-branch-arm/audit-trail/",
     )
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert response.status_code == 200
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-branch-arms/{branch_arm_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_branch_arm_study_versions(api_client):
@@ -155,7 +150,7 @@ def test_study_branch_arm_study_versions(api_client):
     ).json()
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit arm
     response = api_client.patch(
@@ -164,7 +159,7 @@ def test_study_branch_arm_study_versions(api_client):
             "name": "New_Arm_Name_2",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit branch arm
     response = api_client.patch(
@@ -173,7 +168,7 @@ def test_study_branch_arm_study_versions(api_client):
             "name": "New_Branch_Arm_Name_1",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all
     for i, _ in enumerate(before_unlock_arms["items"]):

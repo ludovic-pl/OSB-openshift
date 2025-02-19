@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import AbstractSet, Any, Callable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     ObjectAction,
     VersioningActionMixin,
 )
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import AlreadyExistsException
 
 
 @dataclass(frozen=True)
@@ -76,13 +76,13 @@ class CTConfigValueVO:
         ct_configuration_exists_by_name_callback: Callable[[str], bool],
         previous_name: str | None = None,
     ):
-        if (
+        AlreadyExistsException.raise_if(
             ct_configuration_exists_by_name_callback(self.study_field_name)
-            and self.study_field_name != previous_name
-        ):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} for field identified by name ({self.study_field_name}) already exists"
-            )
+            and self.study_field_name != previous_name,
+            f"{type(self).__name__} for field",
+            self.study_field_name,
+            "Name",
+        )
 
 
 @dataclass
@@ -117,8 +117,8 @@ class CTConfigAR(VersioningActionMixin):
     def name(self) -> str:
         return self.value.study_field_name
 
-    def create_new_version(self, author: str):
-        super()._create_new_version(author)
+    def create_new_version(self, author_id: str):
+        super()._create_new_version(author_id)
 
     @property
     def uid(self):
@@ -131,7 +131,7 @@ class CTConfigAR(VersioningActionMixin):
     def edit_draft(
         self,
         *,
-        author: str,
+        author_id: str,
         change_description: str,
         new_ct_config_value: CTConfigValueVO,
         ct_configuration_exists_by_name_callback: Callable[[str], bool],
@@ -146,7 +146,8 @@ class CTConfigAR(VersioningActionMixin):
 
         if self._value != new_ct_config_value:
             super()._edit_draft(
-                author=author, change_description=normalize_string(change_description)
+                author_id=author_id,
+                change_description=normalize_string(change_description),
             )
 
             self._value = new_ct_config_value
@@ -155,7 +156,7 @@ class CTConfigAR(VersioningActionMixin):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         ct_config_value: CTConfigValueVO,
         ct_configuration_exists_by_name_callback: Callable[[str], bool],
@@ -168,7 +169,7 @@ class CTConfigAR(VersioningActionMixin):
             _uid=generate_uid_callback(),
             _value=ct_config_value,
             _item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author=author
+                author_id=author_id
             ),
         )
         return result

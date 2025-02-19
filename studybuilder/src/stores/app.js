@@ -221,6 +221,18 @@ export const useAppStore = defineStore('app', {
             ],
           },
           {
+            id: 'overview_pages_title',
+            title: i18n.t('Sidebar.library.overview_pages'),
+            icon: 'mdi-overscan',
+            description: i18n.t('Library.overview_pages_description'),
+            children: [
+              {
+                title: i18n.t('Sidebar.library.study_structures'),
+                url: { name: 'StudyStructureOverview' },
+              },
+            ],
+          },
+          {
             id: 'data_exchange_std_tile',
             title: i18n.t('Sidebar.library.data_exchange_std'),
             icon: 'mdi-arrow-decision-outline',
@@ -300,18 +312,19 @@ export const useAppStore = defineStore('app', {
             url: { name: 'StudySummary' },
             icon: 'mdi-information-outline',
           },
-          {
-            id: 'process_overview_tile',
-            title: i18n.t('Sidebar.study.process_overview'),
-            icon: 'mdi-arrow-right-bold-outline',
-            children: [
-              {
-                title: i18n.t('Sidebar.study.protocol_process'),
-                url: { name: 'ProtocolProcess' },
-              },
-            ],
-            description: i18n.t('Studies.process_overview_description'),
-          },
+          // Commented untill process will be defined
+          // {
+          //   id: 'process_overview_tile',
+          //   title: i18n.t('Sidebar.study.process_overview'),
+          //   icon: 'mdi-arrow-right-bold-outline',
+          //   children: [
+          //     {
+          //       title: i18n.t('Sidebar.study.protocol_process'),
+          //       url: { name: 'ProtocolProcess' },
+          //     },
+          //   ],
+          //   description: i18n.t('Studies.process_overview_description'),
+          // },
           {
             title: i18n.t('Sidebar.study.select'),
             url: { name: 'SelectOrAddStudy' },
@@ -484,6 +497,14 @@ export const useAppStore = defineStore('app', {
                 studyRequired: true,
               },
               {
+                title: i18n.t('Sidebar.study.ichm11'),
+                url: {
+                  name: 'IchM11',
+                  params: { study_id: studyId },
+                },
+                studyRequired: true,
+              },
+              {
                 title: i18n.t('Sidebar.study.study_disclosure'),
                 url: {
                   name: 'StudyDisclosure',
@@ -540,6 +561,8 @@ export const useAppStore = defineStore('app', {
                   params: { study_id: studyId },
                 },
                 studyRequired: true,
+                featureFlag:
+                  'studies_view_listings_analysis_study_metadata_new',
               },
             ],
           },
@@ -548,6 +571,11 @@ export const useAppStore = defineStore('app', {
       Administration: {
         url: '/admin',
         items: [
+          {
+            title: i18n.t('Sidebar.admin.feature_flags'),
+            url: { name: 'FeatureFlags' },
+            icon: 'mdi-eye-check-outline',
+          },
           {
             title: i18n.t('Sidebar.admin.announcements'),
             url: { name: 'SystemAnnouncements' },

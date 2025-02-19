@@ -9,18 +9,17 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api.config import REQUESTED_LIBRARY_NAME
 from clinical_mdr_api.domains.study_selections.study_selection_activity_instance import (
     StudyActivityInstanceState,
 )
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import Activity, CTTerm
+from clinical_mdr_api.models.concepts.activities.activity import Activity
 from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
 from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
     ActivitySubGroup,
 )
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -28,6 +27,8 @@ from clinical_mdr_api.tests.integration.utils.factory_activity import (
     create_study_activity,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.config import REQUESTED_LIBRARY_NAME
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -150,14 +151,14 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 ACTIVITY_REQUEST_FIELDS_ALL = [
     "uid",
     "nci_concept_id",
+    "nci_concept_name",
     "name",
     "name_sentence_case",
+    "synonyms",
     "definition",
     "abbreviation",
     "activity_groupings",
@@ -178,7 +179,7 @@ ACTIVITY_REQUEST_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
 ]
 
@@ -194,7 +195,7 @@ def test_get_activity_request(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVITY_REQUEST_FIELDS_ALL)
@@ -272,7 +273,7 @@ def test_get_activity_requests(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -330,7 +331,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -365,7 +366,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -395,7 +396,7 @@ def test_edit_activity_request(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "new name"
     assert res["library_name"] == REQUESTED_LIBRARY_NAME
     assert res["definition"] is None
@@ -416,7 +417,7 @@ def test_post_activity_request(api_client):
             "is_data_collected": True,
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["name"] == "New Activity Request Name"
     assert res["name_sentence_case"] == "new activity request name"
@@ -449,18 +450,18 @@ def test_post_sponsor_activity_from_activity_request(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
     assert (
         res["message"]
-        == f"To update the following Activity Request {activity_requests_all[0].name} to Sponsor Activity it should be in Final state"
+        == f"To update the Activity Request with Name '{activity_requests_all[0].name}' to Sponsor Activity it should be in Final state."
     )
 
     # Approve activity request
     response = api_client.post(
         f"/concepts/activities/activities/{activity_requests_all[0].uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Successful sponsor activity creation from activity request
     response = api_client.post(
@@ -480,7 +481,7 @@ def test_post_sponsor_activity_from_activity_request(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["name"] == "name A"
     assert res["name_sentence_case"] == "name A"
@@ -505,7 +506,7 @@ def test_post_sponsor_activity_from_activity_request(api_client):
     response = api_client.get(
         f"/concepts/activities/activities/{activity_requests_all[0].uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == "name A"
     assert res["library_name"] == REQUESTED_LIBRARY_NAME
@@ -515,7 +516,7 @@ def test_post_sponsor_activity_from_activity_request(api_client):
     assert res["request_rationale"] == "New activity request rationale"
     assert res["activity_groupings"] == []
     assert res["replaced_by_activity"] == replaced_activity_uid
-    assert res["is_data_collected"] is False
+    assert res["is_data_collected"] is True
 
 
 def test_update_activity_request_to_sponsor_in_study_activity(api_client):
@@ -532,12 +533,15 @@ def test_update_activity_request_to_sponsor_in_study_activity(api_client):
         soa_group_term_uid=biomarkers_flowchart.term_uid,
     )
     # Create sponsor activity from activity request
+    sponsor_activity_name = (
+        "New Sponsor Activity from Activity Request used in Study Activity"
+    )
     response = api_client.post(
         "/concepts/activities/activities/sponsor-activities",
         json={
             "activity_request_uid": activity_request.uid,
-            "name": "New Sponsor Activity from Activity Request used in Study Activity",
-            "name_sentence_case": "new sponsor activity from activity request used in study activity",
+            "name": sponsor_activity_name,
+            "name_sentence_case": sponsor_activity_name.lower(),
             "definition": "definition",
             "abbreviation": "abbreviation",
             "is_data_collected": True,
@@ -550,7 +554,7 @@ def test_update_activity_request_to_sponsor_in_study_activity(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     replaced_activity_uid = res["uid"]
 
@@ -558,7 +562,7 @@ def test_update_activity_request_to_sponsor_in_study_activity(api_client):
     response = api_client.get(
         f"/concepts/activities/activities/{activity_request.uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["replaced_by_activity"] == replaced_activity_uid
 
@@ -566,20 +570,17 @@ def test_update_activity_request_to_sponsor_in_study_activity(api_client):
     response = api_client.patch(
         f"/studies/{study_uid}/study-activities/{study_activity.study_activity_uid}/activity-requests-approvals",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Confirm that requested activity was successfully replaced by sponsor activity in Study Activity
     response = api_client.get(
         f"/studies/{study_uid}/study-activities/{study_activity.study_activity_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity"]["uid"] == replaced_activity_uid
     assert res["activity"]["status"] == "Final"
-    assert (
-        res["activity"]["name"]
-        == "New Sponsor Activity from Activity Request used in Study Activity"
-    )
+    assert res["activity"]["name"] == sponsor_activity_name
     assert res["activity"]["library_name"] == "Sponsor"
     assert (
         res["study_activity_subgroup"]["activity_subgroup_uid"] == activity_subgroup.uid
@@ -595,7 +596,7 @@ def test_update_activity_request_to_sponsor_in_study_activity(api_client):
     response = api_client.get(
         f"/studies/{study_uid}/study-activity-instances/",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instances = response.json()["items"]
     created_sai = []
     for sai in study_activity_instances:
@@ -636,11 +637,11 @@ def test_edit_study_activity_request(api_client):
     response = api_client.get(
         f"/studies/{study_for_test.uid}/study-activities/{study_activity.study_activity_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity"]["request_rationale"] == "Some rationale"
     assert res["activity"]["is_request_final"] is False
-    assert res["activity"]["is_data_collected"] is False
+    assert res["activity"]["is_data_collected"] is True
 
     general_activity_group = TestUtils.create_activity_group(name="General")
     general_activity_subgroup = TestUtils.create_activity_subgroup(
@@ -654,13 +655,13 @@ def test_edit_study_activity_request(api_client):
             "activity_group_uid": general_activity_group.uid,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Confirm that requested activity was successfully replaced by sponsor activity in Study Activity
     response = api_client.get(
         f"/studies/{study_for_test.uid}/study-activities/{study_activity.study_activity_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity"]["uid"] == activity_request.uid
     assert res["activity"]["version"] == "2.0"
@@ -678,23 +679,23 @@ def test_edit_study_activity_request(api_client):
             "request_rationale": "New rationale",
             "activity_name": "New request name",
             "is_request_final": True,
-            "is_data_collected": True,
+            "is_data_collected": False,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Confirm that requested activity was successfully replaced by sponsor activity in Study Activity
     response = api_client.get(
         f"/studies/{study_for_test.uid}/study-activities/{study_activity.study_activity_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity"]["uid"] == activity_request.uid
     assert res["activity"]["version"] == "3.0"
     assert res["activity"]["request_rationale"] == "New rationale"
     assert res["activity"]["name"] == "New request name"
     assert res["activity"]["is_request_final"] is True
-    assert res["activity"]["is_data_collected"] is True
+    assert res["activity"]["is_data_collected"] is False
 
 
 def test_reject_activity_request(api_client):
@@ -720,7 +721,7 @@ def test_reject_activity_request(api_client):
             "reason_for_rejecting": reason_for_rejecting,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["status"] == "Retired"
     assert res["contact_person"] == contact_person
@@ -728,7 +729,7 @@ def test_reject_activity_request(api_client):
     assert res["is_request_rejected"] is True
 
     response = api_client.get(f"/concepts/activities/activities/{activity_request.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["status"] == "Retired"
     assert res["contact_person"] == contact_person

@@ -60,6 +60,8 @@ API_HEADERS = {"Accept": "application/json"}
 SAMPLE = load_env("MDR_MIGRATION_SAMPLE", default="False").lower() == "true"
 API_BASE_URL = load_env("API_BASE_URL")
 
+MDR_MIGRATION_FROM_SAME_ENV = environ.get("MDR_MIGRATION_FROM_SAME_ENV", "False").lower() == "true"
+
 IMPORT_PROJECTS = load_env("IMPORT_PROJECTS")
 MDR_MIGRATION_EXPORTED_PROGRAMMES = (
     environ.get("MDR_MIGRATION_EXPORTED_PROGRAMMES", "True").lower() == "true"
@@ -235,8 +237,12 @@ class MockdataJson(BaseImporter):
             value="uid",
         )
 
-    def lookup_activity_uid(self, name):
-        return self.lookup_concept_uid(name, "activities/activities", library="Sponsor")
+    def lookup_activity_uid(self, name, allow_requested=False):
+        if allow_requested:
+            library = ("Sponsor", "Requested")
+        else:
+            library = "Sponsor"
+        return self.lookup_concept_uid(name, "activities/activities", library=library, only_final=True)
 
     def lookup_activity_group_uid(self, name):
         return self.lookup_concept_uid(name, "activities/activity-groups")
@@ -1298,6 +1304,7 @@ class MockdataJson(BaseImporter):
                     f"Unable to find study element {element_name}, skipping this entry"
                 )
                 continue
+            data["order"] = item["order"]
             # print(json.dumps(data, indent=2))
             path = f"/studies/{study_uid}/study-design-cells"
             self.log.info(
@@ -1314,29 +1321,35 @@ class MockdataJson(BaseImporter):
             data = dict(import_templates.study_activity)
             data["activity_instance_uid"] = None
 
-            # Workaround for old format data
-            if "flowchart_group" in item:
-                flow_name = item["flowchart_group"]["sponsor_preferred_name"]
-                data["soa_group_term_uid"] = self.lookup_ct_term_uid(
-                    CODELIST_FLOWCHART_GROUP, flow_name
-                )
+            if not MDR_MIGRATION_FROM_SAME_ENV:
+                # Look up the UID by name
+
+                # Workaround for old format data
+                if "flowchart_group" in item:
+                    flow_name = item["flowchart_group"]["sponsor_preferred_name"]
+                else:
+                    flow_name = item["study_soa_group"]["soa_group_name"]
+                data["soa_group_term_uid"] = self.lookup_codelist_term_uid(CODELIST_FLOWCHART_GROUP, flow_name)
                 if data["soa_group_term_uid"] is None:
                     self.log.error(
                         f"Unable to find SoA group {flow_name}, skipping this entry"
                     )
                     continue
             else:
-                flow_name = item["study_soa_group"]["soa_group_name"]
-                data["soa_group_term_uid"] = self.lookup_ct_term_uid(
-                    CODELIST_FLOWCHART_GROUP, flow_name
-                )
-                if data["soa_group_term_uid"] is None:
-                    self.log.error(
-                        f"Unable to find SoA group {flow_name}, skipping this entry"
-                    )
-                    continue
+                # Reuse the UID from the exported data
+                # Use the UID as name, only used for logging
+                flow_name = item["study_soa_group"]["soa_group_term_uid"]
+                data["soa_group_term_uid"] = item["study_soa_group"]["soa_group_term_uid"]
+
             act_name = item["activity"]["name"]
-            data["activity_uid"] = self.lookup_activity_uid(act_name)
+
+            if not MDR_MIGRATION_FROM_SAME_ENV:
+                # Look up the UID by name
+                data["activity_uid"] = self.lookup_activity_uid(act_name, allow_requested=True)
+            else:
+                # Reuse the UID from the exported data
+                data["activity_uid"] = item["activity"]["uid"]
+
             if data["activity_uid"] is None:
                 self.log.error(
                     f"Unable to find activity {act_name}, skipping this entry"
@@ -1346,45 +1359,50 @@ class MockdataJson(BaseImporter):
             group_uid = None
             subgroup_uid = None
 
-            if item.get("study_activity_group", {}).get(
-                "activity_group_name"
-            ) and item.get("study_activity_subgroup", {}).get("activity_subgroup_name"):
-                # Group and subgroup names are available in the exported data
-                group_name = item["study_activity_group"]["activity_group_name"]
-                subgroup_name = item["study_activity_subgroup"][
-                    "activity_subgroup_name"
-                ]
-                group_uid = self.lookup_activity_group_uid(group_name)
-                subgroup_uid = self.lookup_activity_subgroup_uid(subgroup_name)
-            elif item.get("study_activity_group", {}).get(
-                "activity_group_uid"
-            ) and item.get("study_activity_subgroup", {}).get("activity_subgroup_uid"):
-                # Group and subgroup uids are not directly available in the exported data,
-                # Look them up via the activity groupings.
-                for grouping in item["activity"]["activity_groupings"]:
-                    if (
-                        grouping["activity_group_uid"]
-                        == item["study_activity_group"]["activity_group_uid"]
-                        and grouping["activity_subgroup_uid"]
-                        == item["study_activity_subgroup"]["activity_subgroup_uid"]
-                    ):
-                        group_name = grouping["activity_group_name"]
-                        subgroup_name = grouping["activity_subgroup_name"]
-                        group_uid = self.lookup_activity_group_uid(group_name)
-                        subgroup_uid = self.lookup_activity_subgroup_uid(subgroup_name)
-                        break
+            if not MDR_MIGRATION_FROM_SAME_ENV:
+                # Look up the group and subgroup UIDs by name
+                if item.get("study_activity_group", {}).get(
+                    "activity_group_name"
+                ) and item.get("study_activity_subgroup", {}).get("activity_subgroup_name"):
+                    # Group and subgroup names are available in the exported data
+                    group_name = item["study_activity_group"]["activity_group_name"]
+                    subgroup_name = item["study_activity_subgroup"][
+                        "activity_subgroup_name"
+                    ]
+                    group_uid = self.lookup_activity_group_uid(group_name)
+                    subgroup_uid = self.lookup_activity_subgroup_uid(subgroup_name)
+                elif item.get("study_activity_group", {}).get(
+                    "activity_group_uid"
+                ) and item.get("study_activity_subgroup", {}).get("activity_subgroup_uid"):
+                    # Group and subgroup uids are not directly available in the exported data,
+                    # Look them up via the activity groupings.
+                    for grouping in item["activity"]["activity_groupings"]:
+                        if (
+                            grouping["activity_group_uid"]
+                            == item["study_activity_group"]["activity_group_uid"]
+                            and grouping["activity_subgroup_uid"]
+                            == item["study_activity_subgroup"]["activity_subgroup_uid"]
+                        ):
+                            group_name = grouping["activity_group_name"]
+                            subgroup_name = grouping["activity_subgroup_name"]
+                            group_uid = self.lookup_activity_group_uid(group_name)
+                            subgroup_uid = self.lookup_activity_subgroup_uid(subgroup_name)
+                            break
 
-            if group_uid and subgroup_uid:
-                self.log.info(
-                    f"Found group {group_name} and subgroup {subgroup_name} for study activity {act_name}"
-                )
+                if group_uid and subgroup_uid:
+                    self.log.info(
+                        f"Found group {group_name} and subgroup {subgroup_name} for study activity {act_name}"
+                    )
+                else:
+                    self.log.warning(
+                        f"Could not assign group and subgroup for study activity {act_name}"
+                    )
+                data["activity_group_uid"] = group_uid
+                data["activity_subgroup_uid"] = subgroup_uid
             else:
-                self.log.warning(
-                    f"Could not assign group and subgroup for study activity {act_name}"
-                )
-
-            data["activity_group_uid"] = group_uid
-            data["activity_subgroup_uid"] = subgroup_uid
+                # Reuse the UIDs from the exported data
+                data["activity_group_uid"] = item["study_activity_group"]["activity_group_uid"]
+                data["activity_subgroup_uid"] = item["study_activity_subgroup"]["activity_subgroup_uid"]
 
             # print(json.dumps(data, indent=2))
             path = f"/studies/{study_uid}/study-activities"
@@ -1512,11 +1530,15 @@ class MockdataJson(BaseImporter):
 
             for key in data.keys():
                 if not key.endswith("uid"):
-                    data[key] = imported_visit.get(key, None)
+                    default = data.get(key, None)
+                    data[key] = imported_visit.get(key, default)
 
             data["study_uid"] = study_uid
 
-            epoch_name = imported_visit["study_epoch_name"]
+            if "study_epoch_name" in imported_visit:
+                epoch_name = imported_visit["study_epoch_name"]
+            else:
+                epoch_name = imported_visit["study_epoch"]["sponsor_preferred_name"]
             data["study_epoch_uid"] = self.lookup_study_epoch_uid(study_uid, epoch_name)
             if data["study_epoch_uid"] is not None:
                 self.log.info(
@@ -1542,49 +1564,64 @@ class MockdataJson(BaseImporter):
                 )
                 continue
 
-            timeref = imported_visit["time_reference_name"]
-            data["time_reference_uid"] = self.lookup_ct_term_uid(
-                CODELIST_TIMEPOINT_REFERENCE, timeref
-            )
-            if data["time_reference_uid"] is not None:
-                self.log.info(
-                    f"Found time ref {timeref} with uid {data['time_reference_uid']}"
-                )
+            if "time_reference_name" in imported_visit:
+                timeref = imported_visit["time_reference_name"]
             else:
-                self.log.error(
-                    f"Unable to find visit time reference {timeref}, skipping this entry"
+                timeref = imported_visit["time_reference"]["sponsor_preferred_name"]
+            if timeref is None:
+                data["time_reference_uid"] = None
+            else:
+                data["time_reference_uid"] = self.lookup_ct_term_uid(
+                    CODELIST_TIMEPOINT_REFERENCE, timeref
                 )
-                continue
+                if data["time_reference_uid"] is not None:
+                    self.log.info(
+                        f"Found time ref {timeref} with uid {data['time_reference_uid']}"
+                    )
+                else:
+                    self.log.error(
+                        f"Unable to find visit time reference {timeref}, skipping this entry"
+                    )
+                    continue
 
             timeunit = imported_visit["time_unit_name"]
-            try:
-                data["time_unit_uid"] = self.caseless_dict_lookup(
-                    self.all_study_times, timeunit
-                )
-                self.log.info(
-                    f"Found time unit {timeunit} with uid {data['time_unit_uid']}"
-                )
-            except StopIteration:
-                self.log.error(
-                    f"Unable to find visit time unit {timeunit}, skipping this entry"
-                )
-                continue
+            if timeunit is None:
+                data["time_unit_uid"] = None
+            else:
+                try:
+                    data["time_unit_uid"] = self.caseless_dict_lookup(
+                        self.all_study_times, timeunit
+                    )
+                    self.log.info(
+                        f"Found time unit {timeunit} with uid {data['time_unit_uid']}"
+                    )
+                except StopIteration:
+                    self.log.error(
+                        f"Unable to find visit time unit {timeunit}, skipping this entry"
+                    )
+                    continue
 
             winunit = imported_visit["visit_window_unit_name"]
-            try:
-                data["visit_window_unit_uid"] = self.caseless_dict_lookup(
-                    self.all_study_times, winunit
-                )
-                self.log.info(
-                    f"Found time window unit {winunit} with uid {data['visit_window_unit_uid']}"
-                )
-            except StopIteration:
-                self.log.error(
-                    f"Unable to find visit window unit {winunit}, skipping this entry"
-                )
-                continue
+            if winunit is None:
+                data["visit_window_unit_uid"] = None
+            else:
+                try:
+                    data["visit_window_unit_uid"] = self.caseless_dict_lookup(
+                        self.all_study_times, winunit
+                    )
+                    self.log.info(
+                        f"Found time window unit {winunit} with uid {data['visit_window_unit_uid']}"
+                    )
+                except StopIteration:
+                    self.log.error(
+                        f"Unable to find visit window unit {winunit}, skipping this entry"
+                    )
+                    continue
 
-            contmode = imported_visit["visit_contact_mode_name"]
+            if "visit_contact_mode_name" in imported_visit:
+                contmode = imported_visit["visit_contact_mode_name"]
+            else:
+                contmode = imported_visit["visit_contact_mode"]["sponsor_preferred_name"]
             data["visit_contact_mode_uid"] = self.lookup_ct_term_uid(
                 CODELIST_VISIT_CONTACT_MODE, contmode
             )
@@ -1613,6 +1650,12 @@ class MockdataJson(BaseImporter):
                     # print(f"Cleaning {key}")
                     data[key] = None
             # print(json.dumps(data, indent=2))
+
+            if imported_visit["visit_class"] != "MANUALLY_DEFINED_VISIT":
+                del data["visit_number"]
+                del data["unique_visit_number"]
+                del data["visit_short_name"]
+                del data["visit_name"]
 
             path = f"/studies/{study_uid}/study-visits"
             self.log.info(f"Add study visit with desc '{data['description']}'")

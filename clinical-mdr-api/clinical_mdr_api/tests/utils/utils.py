@@ -36,3 +36,35 @@ def xml_diff(expected: Element, actual: Element, path: str = "Root"):
             elm,
             f"{path}->{idx}:{expected_sub_elements[idx].tag}",
         )
+
+
+def assert_with_key_exclusion(
+    dict1: dict, dict2: dict, exclude_keys: list | None = None
+):
+    def remove_keys(d, keys):
+        if not isinstance(d, dict):
+            return d
+        result = {}
+        for k, v in d.items():
+            if k in keys:
+                continue
+            if isinstance(v, dict):
+                result[k] = remove_keys(v, keys)
+            elif isinstance(v, list):
+                result[k] = [
+                    remove_keys(item, keys) if isinstance(item, dict) else item
+                    for item in v
+                ]
+            else:
+                result[k] = v
+        return result
+
+    if exclude_keys is None:
+        exclude_keys = []
+
+    cleaned_dict1 = remove_keys(dict1, exclude_keys)
+    cleaned_dict2 = remove_keys(dict2, exclude_keys)
+
+    assert (
+        cleaned_dict1 == cleaned_dict2
+    ), f"Dictionaries differ: {cleaned_dict1} != {cleaned_dict2}"

@@ -1,8 +1,8 @@
 import re
 from os import listdir, path
 
-from clinical_mdr_api.config import XML_STYLESHEET_DIR_PATH
-from clinical_mdr_api.exceptions import BusinessLogicException, ValidationException
+from common.config import XML_STYLESHEET_DIR_PATH
+from common.exceptions import NotFoundException, ValidationException
 
 
 class OdmXmlStylesheetService:
@@ -36,18 +36,21 @@ class OdmXmlStylesheetService:
 
         Raises:
             ValidationException: If the stylesheet name contains characters other than letters, numbers, and hyphens.
-            BusinessLogicException: If the stylesheet with the given name is not found.
+            NotFoundException: If the stylesheet with the given name is not found.
         """
-        if re.search("[^a-zA-Z0-9-]", stylesheet):
-            raise ValidationException(
-                "Stylesheet name must only contain letters, numbers and hyphens."
-            )
+        ValidationException.raise_if(
+            re.search("[^a-zA-Z0-9-]", stylesheet),
+            msg="Stylesheet name must only contain letters, numbers and hyphens.",
+        )
 
         filename = XML_STYLESHEET_DIR_PATH + stylesheet + ".xsl"
-        if path.exists(filename):
-            return filename
 
-        raise BusinessLogicException(f"Stylesheet with name ({stylesheet}) not found.")
+        NotFoundException.raise_if_not(
+            path.exists(filename),
+            msg=f"Stylesheet with Name '{stylesheet}' doesn't exist.",
+        )
+
+        return filename
 
     @staticmethod
     def get_specific_stylesheet(stylesheet: str):

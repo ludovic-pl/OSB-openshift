@@ -1,15 +1,21 @@
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Body, Path, Query, Request
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
+    ClinicalProgramme,
+    ClinicalProgrammeInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.clinical_programmes.clinical_programme import (
     ClinicalProgrammeService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/clinical-programmes"
 router = APIRouter()
@@ -20,7 +26,7 @@ ClinicalProgrammeUID = Path(description="The unique id of the clinical programme
     "",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all clinical programmes.",
-    response_model=GenericFilteringReturn[models.ClinicalProgramme],
+    response_model=GenericFilteringReturn[ClinicalProgramme],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -41,26 +47,34 @@ ClinicalProgrammeUID = Path(description="The unique id of the clinical programme
 # pylint: disable=unused-argument
 def get_programmes(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> GenericFilteringReturn[models.ClinicalProgramme]:
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> GenericFilteringReturn[ClinicalProgramme]:
     service = ClinicalProgrammeService()
     return service.get_all_clinical_programmes(
         sort_by=sort_by,
@@ -73,17 +87,63 @@ def get_programmes(
 
 
 @router.get(
-    "/{clinical_programme_uid}",
+    "/headers",
     dependencies=[rbac.LIBRARY_READ],
-    summary="Get a clinical programme.",
-    response_model=models.ClinicalProgramme,
+    summary="Returns possible values from the database for a given header",
+    description="""Allowed parameters include : field name for which to get possible
+    values, search string to provide filtering for the field name, additional filters to apply on other fields""",
+    response_model=list[Any],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get(clinical_programme_uid: str = ClinicalProgrammeUID) -> models.ClinicalProgramme:
+def get_distinct_values_for_header(
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+):
+    service = ClinicalProgrammeService()
+    return service.get_clinical_programme_headers(
+        field_name=field_name,
+        search_string=search_string,
+        filter_by=filters,
+        filter_operator=FilterOperator.from_str(operator),
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/{clinical_programme_uid}",
+    dependencies=[rbac.LIBRARY_READ],
+    summary="Get a clinical programme.",
+    response_model=ClinicalProgramme,
+    status_code=200,
+    responses={
+        404: _generic_descriptions.ERROR_404,
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+def get(
+    clinical_programme_uid: Annotated[str, ClinicalProgrammeUID]
+) -> ClinicalProgramme:
     service = ClinicalProgrammeService()
     return service.get_clinical_programme_by_uid(clinical_programme_uid)
 
@@ -92,7 +152,7 @@ def get(clinical_programme_uid: str = ClinicalProgrammeUID) -> models.ClinicalPr
     "",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Creates a new clinical programme.",
-    response_model=models.ClinicalProgramme,
+    response_model=ClinicalProgramme,
     status_code=201,
     responses={
         201: {
@@ -103,10 +163,13 @@ def get(clinical_programme_uid: str = ClinicalProgrammeUID) -> models.ClinicalPr
 )
 # pylint: disable=unused-argument
 def create(
-    clinical_programme_create_input: models.ClinicalProgrammeInput = Body(
-        description="Related parameters of the clinical programme that shall be created.",
-    ),
-) -> models.ClinicalProgramme:
+    clinical_programme_create_input: Annotated[
+        ClinicalProgrammeInput,
+        Body(
+            description="Related parameters of the clinical programme that shall be created.",
+        ),
+    ],
+) -> ClinicalProgramme:
     service = ClinicalProgrammeService()
     return service.create(clinical_programme_create_input)
 
@@ -115,7 +178,7 @@ def create(
     "/{clinical_programme_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Edit a clinical programme.",
-    response_model=models.ClinicalProgramme,
+    response_model=ClinicalProgramme,
     status_code=200,
     responses={
         400: {
@@ -128,9 +191,9 @@ def create(
     },
 )
 def edit(
-    clinical_programme_uid: str = ClinicalProgrammeUID,
-    clinical_programme_edit_input: models.ClinicalProgrammeInput = Body(description=""),
-) -> models.ClinicalProgramme:
+    clinical_programme_uid: Annotated[str, ClinicalProgrammeUID],
+    clinical_programme_edit_input: Annotated[ClinicalProgrammeInput, Body()],
+) -> ClinicalProgramme:
     service = ClinicalProgrammeService()
     return service.edit(clinical_programme_uid, clinical_programme_edit_input)
 
@@ -149,6 +212,6 @@ def edit(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(clinical_programme_uid: str = ClinicalProgrammeUID):
+def delete(clinical_programme_uid: Annotated[str, ClinicalProgrammeUID]):
     service = ClinicalProgrammeService()
     return service.delete(clinical_programme_uid)

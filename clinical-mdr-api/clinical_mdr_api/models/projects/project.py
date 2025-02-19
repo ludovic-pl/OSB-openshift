@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -9,39 +9,19 @@ from clinical_mdr_api.domains.projects.project import ProjectAR
 from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
     ClinicalProgramme,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class Project(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="The unique id of the Project.",
-    )
+    uid: Annotated[str, Field(description="The unique id of the Project.")]
 
-    project_number: str | None = Field(
-        ...,
-        title="project_number",
-        description="",
-    )
+    project_number: Annotated[str | None, Field(nullable=True)]
 
-    clinical_programme: ClinicalProgramme = Field(
-        ...,
-        title="clinical_programme",
-        description="",
-    )
+    clinical_programme: Annotated[ClinicalProgramme, Field()]
 
-    name: str | None = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: Annotated[str | None, Field(nullable=True)]
 
-    description: str | None = Field(
-        ...,
-        title="description",
-        description="",
-    )
+    description: Annotated[str | None, Field(nullable=True)]
 
     @classmethod
     def from_uid(
@@ -79,46 +59,18 @@ class Project(BaseModel):
         )
 
 
-class ProjectCreateInput(BaseModel):
-    project_number: str | None = Field(
-        ...,
-        title="project_number",
-        description="",
-    )
-    name: str | None = Field(
-        ...,
-        title="name",
-        description="",
-    )
+class ProjectCreateInput(PostInputModel):
+    project_number: Annotated[str | None, Field(min_length=1)]
+    name: Annotated[str | None, Field(min_length=1)]
 
-    description: str | None = Field(
-        ...,
-        title="description",
-        description="",
-    )
+    description: Annotated[str, Field(min_length=1)]
 
-    clinical_programme_uid: str = Field(
-        ...,
-        title="clinical_programme_uid",
-        description="",
-    )
+    clinical_programme_uid: Annotated[str, Field(min_length=1)]
 
 
-class ProjectEditInput(BaseModel):
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+class ProjectEditInput(PatchInputModel):
+    name: Annotated[str, Field(min_length=1)]
 
-    description: str = Field(
-        ...,
-        title="description",
-        description="",
-    )
+    description: Annotated[str, Field(min_length=1)]
 
-    clinical_programme_uid: str = Field(
-        ...,
-        title="clinical_programme_uid",
-        description="",
-    )
+    clinical_programme_uid: Annotated[str, Field(min_length=1)]

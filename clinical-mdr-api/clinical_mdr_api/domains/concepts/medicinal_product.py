@@ -3,12 +3,12 @@ from typing import Callable, Self
 
 from deepdiff import DeepDiff
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -48,8 +48,8 @@ class MedicinalProductVO(ConceptVO):
             dose_frequency_uid=dose_frequency_uid,
             name=name,
             name_sentence_case=name_sentence_case,
-            definition="",
-            abbreviation="",
+            definition=None,
+            abbreviation=None,
             is_template_parameter=False,
         )
 
@@ -69,40 +69,38 @@ class MedicinalProductVO(ConceptVO):
             uid=uid,
             property_name="external_id",
             value=self.external_id,
-            error_message=f"MedicinalProduct with external_id ({self.external_id}) already exists",
+            error_message=f"MedicinalProduct with external_id '{self.external_id}' already exists.",
         )
-        if not compound_exists_callback(self.compound_uid):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non-existent compound identified by uid ({self.compound_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            compound_exists_callback(self.compound_uid),
+            msg=f"{type(self).__name__} tried to connect to non-existent Compound with UID '{self.compound_uid}'.",
+        )
         for p_uid in self.pharmaceutical_product_uids:
-            if not pharmaceutical_product_exists_callback(p_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent pharmaceutical product identified by uid ({p_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                pharmaceutical_product_exists_callback(p_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent Pharmaceutical Product with UID '{p_uid}'.",
+            )
 
-        if self.delivery_device_uid and not ct_term_exists_callback(
+        BusinessLogicException.raise_if(
             self.delivery_device_uid
-        ):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non-existent delivery device identified by uid ({self.delivery_device_uid})"
-            )
+            and not ct_term_exists_callback(self.delivery_device_uid),
+            msg=f"{type(self).__name__} tried to connect to non-existent Delivery Device with UID '{self.delivery_device_uid}'.",
+        )
 
-        if self.dispenser_uid and not ct_term_exists_callback(self.dispenser_uid):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non-existent dispenser identified by uid ({self.dispenser_uid})"
-            )
+        BusinessLogicException.raise_if(
+            self.dispenser_uid and not ct_term_exists_callback(self.dispenser_uid),
+            msg=f"{type(self).__name__} tried to connect to non-existent Dispenser with UID '{self.dispenser_uid}'.",
+        )
         for dose_value_uid in self.dose_value_uids:
-            if not numeric_value_exists_callback(dose_value_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent dose value identified by uid ({dose_value_uid})"
-                )
-        if self.dose_frequency_uid and not ct_term_exists_callback(
-            self.dose_frequency_uid
-        ):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non-existent dose frequency identified by uid ({self.dose_frequency_uid})"
+            BusinessLogicException.raise_if_not(
+                numeric_value_exists_callback(dose_value_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent Dose Value with UID '{dose_value_uid}'.",
             )
+        BusinessLogicException.raise_if(
+            self.dose_frequency_uid
+            and not ct_term_exists_callback(self.dose_frequency_uid),
+            msg=f"{type(self).__name__} tried to connect to non-existent Dose Frequency with UID '{self.dose_frequency_uid}'.",
+        )
 
 
 class MedicinalProductAR(ConceptARBase):
@@ -120,7 +118,7 @@ class MedicinalProductAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: MedicinalProductVO,
         library: LibraryVO,
         medicinal_product_uid_by_property_value_callback: Callable[[str, str], str],
@@ -130,13 +128,15 @@ class MedicinalProductAR(ConceptARBase):
         pharmaceutical_product_exists_callback: Callable[[str], bool],
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
         uid = generate_uid_callback()
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
             uid=uid,
@@ -157,7 +157,7 @@ class MedicinalProductAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: MedicinalProductVO,
         concept_exists_by_callback: Callable[[str, str], str] | None = None,
@@ -179,5 +179,7 @@ class MedicinalProductAR(ConceptARBase):
         )
 
         if DeepDiff(self._concept_vo, concept_vo, ignore_order=True):
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

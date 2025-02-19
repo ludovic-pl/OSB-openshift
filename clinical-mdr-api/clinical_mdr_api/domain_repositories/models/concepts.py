@@ -26,6 +26,7 @@ from clinical_mdr_api.domain_repositories.models.generic import (
 class ConceptValue(VersionValue):
     __optional_labels__ = ["TemplateParameterTermValue"]
     nci_concept_id = StringProperty()
+    nci_concept_name = StringProperty()
     name = StringProperty()
     name_sentence_case = StringProperty()
     definition = StringProperty()
@@ -47,7 +48,8 @@ class UnitDefinitionValue(ConceptValue):
     master_unit = BooleanProperty()
     si_unit = BooleanProperty()
     us_conventional_unit = BooleanProperty()
-    molecular_weight_conv_expon = IntegerProperty()
+    use_complex_unit_conversion = BooleanProperty()
+    use_molecular_weight = BooleanProperty()
     conversion_factor_to_master = FloatProperty()
     order = IntegerProperty()
     comment = StringProperty()

@@ -73,6 +73,19 @@ class AuditTrailMixin:
     )
 
 
+class HasProtocolSoACellRel(ClinicalMdrRel):
+    row = IntegerProperty()
+    column = IntegerProperty()
+    span = IntegerProperty()
+    is_propagated = BooleanProperty()
+    order = IntegerProperty()
+
+
+class HasProtocolSoAFootnoteRel(ClinicalMdrRel):
+    order = IntegerProperty()
+    symbol = StringProperty()
+
+
 class StudySelection(ClinicalMdrNodeWithUID, AuditTrailMixin):
     order = IntegerProperty()
     accepted_version = BooleanProperty()

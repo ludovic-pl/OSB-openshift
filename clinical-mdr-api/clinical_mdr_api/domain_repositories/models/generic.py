@@ -14,15 +14,13 @@ from neomodel import (
 )
 from neomodel.properties import Property, validator
 
-from clinical_mdr_api.config import NUMBER_OF_UID_DIGITS
 from clinical_mdr_api.domain_repositories.models._utils import (
-    CustomNodeSet,
-    classproperty,
-    convert_to_datetime,
     convert_to_tz_aware_datetime,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import NotFoundException
+from clinical_mdr_api.domains.enums import LibraryItemStatus
+from common.config import NUMBER_OF_UID_DIGITS
+from common.exceptions import NotFoundException
+from common.utils import convert_to_datetime
 
 
 class ZonedDateTimeProperty(DateTimeProperty):
@@ -44,17 +42,6 @@ class ClinicalMdrNode(StructuredNode):
     """
 
     __abstract_node__ = True
-
-    @classproperty
-    # pylint: disable=no-self-argument
-    def nodes(cls):
-        """
-        Returns a CustomNodeSet(NodeSet) object representing all nodes of the classes label
-        :return: CustomNodeSet
-        :rtype: CustomNodeSet
-        """
-
-        return CustomNodeSet(cls)
 
     @classmethod
     def get_definition(cls):
@@ -218,7 +205,7 @@ class VersionRelationship(ClinicalMdrRel):
     change_description = StringProperty()
     version = StringProperty()
     status = StringProperty()
-    user_initials = StringProperty()
+    author_id = StringProperty()
 
 
 class VersionValue(ClinicalMdrNode):
@@ -239,9 +226,12 @@ class VersionValue(ClinicalMdrNode):
         """
 
         uids, _ = db.cypher_query(cypher_query)
-        if len(uids) > 0:
-            return uids[0][0]
-        raise NotFoundException(f"Cannot find root for this name {self.name}")
+
+        NotFoundException.raise_if(
+            len(uids) < 1, field_value=self.name, field_name="Name"
+        )
+
+        return uids[0][0]
 
     def get_study_count(self) -> int:
         cypher_query = f"""

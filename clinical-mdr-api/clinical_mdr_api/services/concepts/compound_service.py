@@ -1,11 +1,9 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.compound_repository import (
     CompoundRepository,
 )
 from clinical_mdr_api.domains.concepts.compound import CompoundAR, CompoundVO
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.compound import (
     Compound,
     CompoundCreateInput,
@@ -37,7 +35,7 @@ class CompoundService(ConceptGenericService[CompoundAR]):
         self, concept_input: CompoundCreateInput, library
     ) -> _AggregateRootType:
         return CompoundAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=CompoundVO.from_repository_values(
                 name=concept_input.name,
                 name_sentence_case=concept_input.name_sentence_case,
@@ -55,7 +53,7 @@ class CompoundService(ConceptGenericService[CompoundAR]):
         self, item: CompoundAR, concept_edit_input: CompoundEditInput
     ) -> CompoundAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=CompoundVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -71,23 +69,20 @@ class CompoundService(ConceptGenericService[CompoundAR]):
 
     @db.transaction
     def soft_delete(self, uid: str) -> None:
-        try:
-            # find all aliases and delete them
-            aliases_uids = (
-                self._repos.compound_alias_repository.get_aliases_by_compound_uid(
-                    compound_uid=uid,
-                )
+        # find all aliases and delete them
+        aliases_uids = (
+            self._repos.compound_alias_repository.get_aliases_by_compound_uid(
+                compound_uid=uid,
             )
-            compound_alias_service = CompoundAliasService()
-            for alias_uid in aliases_uids:
-                compound_alias = compound_alias_service._find_by_uid_or_raise_not_found(
-                    alias_uid, for_update=True
-                )
-                compound_alias.soft_delete()
-                self._repos.compound_alias_repository.save(compound_alias)
+        )
+        compound_alias_service = CompoundAliasService()
+        for alias_uid in aliases_uids:
+            compound_alias = compound_alias_service._find_by_uid_or_raise_not_found(
+                alias_uid, for_update=True
+            )
+            compound_alias.soft_delete()
+            self._repos.compound_alias_repository.save(compound_alias)
 
-            compound = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            compound.soft_delete()
-            self.repository.save(compound)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        compound = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        compound.soft_delete()
+        self.repository.save(compound)

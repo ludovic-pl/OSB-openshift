@@ -2,7 +2,6 @@ from datetime import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.study_selections.study_cohort_repository import (
     SelectionHistoryCohort,
 )
@@ -10,8 +9,16 @@ from clinical_mdr_api.domains.study_selections.study_selection_cohort import (
     StudySelectionCohortAR,
     StudySelectionCohortVO,
 )
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudySelectionArm,
+    StudySelectionBranchArm,
+    StudySelectionCohort,
+    StudySelectionCohortCreateInput,
+    StudySelectionCohortEditInput,
+    StudySelectionCohortHistory,
+    StudySelectionCohortVersion,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -20,6 +27,8 @@ from clinical_mdr_api.services._utils import (
     service_level_generic_filtering,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyCohortSelectionService(StudySelectionMixin):
@@ -33,7 +42,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
         self,
         study_selection: StudySelectionCohortAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionCohort]:
+    ) -> list[StudySelectionCohort]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -60,8 +69,8 @@ class StudyCohortSelectionService(StudySelectionMixin):
         study_uid: str,
         terms_at_specific_datetime: str | None,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionCohort:
-        return models.StudySelectionCohort.from_study_selection_cohort_ar_and_order(
+    ) -> StudySelectionCohort:
+        return StudySelectionCohort.from_study_selection_cohort_ar_and_order(
             study_uid=study_uid,
             selection=study_selection,
             order=order,
@@ -85,7 +94,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
         total_count: bool = False,
         arm_uid: str | None = None,
         study_value_version: str | None = None,
-    ) -> GenericFilteringReturn[models.StudySelectionCohort]:
+    ) -> GenericFilteringReturn[StudySelectionCohort]:
         repos = self._repos
         try:
             cohort_selection_ar = repos.study_cohort_repository.find_by_study(
@@ -138,7 +147,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
     @db.transaction
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
-    ) -> models.StudySelectionCohort:
+    ) -> StudySelectionCohort:
         repos = self._repos
         try:
             # Load aggregate
@@ -174,8 +183,8 @@ class StudyCohortSelectionService(StudySelectionMixin):
 
     def _transform_each_history_to_response_model(
         self, study_selection_history: SelectionHistoryCohort, study_uid: str
-    ) -> models.StudySelectionCohortHistory:
-        return models.StudySelectionCohortHistory.from_study_selection_history(
+    ) -> StudySelectionCohortHistory:
+        return StudySelectionCohortHistory.from_study_selection_history(
             study_selection_history=study_selection_history,
             study_uid=study_uid,
         )
@@ -183,7 +192,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudySelectionCohortVersion]:
+    ) -> list[StudySelectionCohortVersion]:
         repos = self._repos
         try:
             try:
@@ -191,7 +200,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
                     repos.study_cohort_repository.find_selection_history(study_uid)
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             unique_list_uids = list({x.study_selection_uid for x in selection_history})
             unique_list_uids.sort()
@@ -209,11 +218,9 @@ class StudyCohortSelectionService(StudySelectionMixin):
                     for _ in ith_selection_history
                 ]
                 if not data:
-                    data = calculate_diffs(versions, models.StudySelectionCohortVersion)
+                    data = calculate_diffs(versions, StudySelectionCohortVersion)
                 else:
-                    data.extend(
-                        calculate_diffs(versions, models.StudySelectionCohortVersion)
-                    )
+                    data.extend(calculate_diffs(versions, StudySelectionCohortVersion))
             return data
         finally:
             repos.close()
@@ -221,7 +228,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
-    ) -> list[models.StudySelectionCohortVersion]:
+    ) -> list[StudySelectionCohortVersion]:
         repos = self._repos
         try:
             selection_history = repos.study_cohort_repository.find_selection_history(
@@ -231,7 +238,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
                 self._transform_each_history_to_response_model(_, study_uid).dict()
                 for _ in selection_history
             ]
-            data = calculate_diffs(versions, models.StudySelectionCohortVersion)
+            data = calculate_diffs(versions, StudySelectionCohortVersion)
             return data
         finally:
             repos.close()
@@ -242,7 +249,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
         study_selection_uid: str,
         terms_at_specific_datetime: datetime | None = None,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionArm:
+    ) -> StudySelectionArm:
         (
             _,
             new_selection,
@@ -259,7 +266,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
             else terms_at_specific_datetime
         )
         # Without Connected BranchArms due to only is necessary to have the StudyArm
-        return models.StudySelectionArm.from_study_selection_arm_ar_and_order(
+        return StudySelectionArm.from_study_selection_arm_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,
@@ -273,7 +280,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
         study_selection_uid: str,
         study_value_version: str | None = None,
         terms_at_specific_datetime: datetime | None = None,
-    ) -> models.StudySelectionBranchArm:
+    ) -> StudySelectionBranchArm:
         (
             _,
             new_selection,
@@ -291,7 +298,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
             if not terms_at_specific_datetime
             else terms_at_specific_datetime
         )
-        return models.StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
+        return StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,
@@ -303,8 +310,8 @@ class StudyCohortSelectionService(StudySelectionMixin):
     def make_selection(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionCohortCreateInput,
-    ) -> models.StudySelectionCohort:
+        selection_create_input: StudySelectionCohortCreateInput,
+    ) -> StudySelectionCohort:
         repos = self._repos
 
         try:
@@ -313,7 +320,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
                 # create new VO to add
                 new_selection = StudySelectionCohortVO.from_input_values(
                     study_uid=study_uid,
-                    user_initials=self.author,
+                    author_id=self.author,
                     name=selection_create_input.name,
                     short_name=selection_create_input.short_name,
                     code=selection_create_input.code,
@@ -356,7 +363,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
                 )
 
                 # add the Cohort and return
-                return models.StudySelectionCohort.from_study_selection_cohort_ar_and_order(
+                return StudySelectionCohort.from_study_selection_cohort_ar_and_order(
                     study_uid=study_uid,
                     selection=new_selection,
                     order=order,
@@ -369,11 +376,11 @@ class StudyCohortSelectionService(StudySelectionMixin):
 
     def _patch_prepare_new_study_cohort(
         self,
-        request_study_cohort: models.StudySelectionCohortEditInput,
+        request_study_cohort: StudySelectionCohortEditInput,
         current_study_cohort: StudySelectionCohortVO,
     ) -> StudySelectionCohortVO:
         # transform current to input model
-        transformed_current = models.StudySelectionCohortEditInput(
+        transformed_current = StudySelectionCohortEditInput(
             cohort_uid=current_study_cohort.study_selection_uid,
             name=current_study_cohort.name,
             short_name=current_study_cohort.short_name,
@@ -402,7 +409,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
             branch_arm_root_uids=request_study_cohort.branch_arm_uids,
             arm_root_uids=request_study_cohort.arm_uids,
             study_selection_uid=current_study_cohort.study_selection_uid,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
     @db.transaction
@@ -410,8 +417,8 @@ class StudyCohortSelectionService(StudySelectionMixin):
         self,
         study_uid: str,
         study_selection_uid: str,
-        selection_update_input: models.StudySelectionCohortEditInput,
-    ) -> models.StudySelectionCohort:
+        selection_update_input: StudySelectionCohortEditInput,
+    ) -> StudySelectionCohort:
         repos = self._repos
         try:
             # Load aggregate
@@ -453,7 +460,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
             )
 
             # add the cohort and return
-            return models.StudySelectionCohort.from_study_selection_cohort_ar_and_order(
+            return StudySelectionCohort.from_study_selection_cohort_ar_and_order(
                 study_uid=study_uid,
                 selection=new_selection,
                 order=order,
@@ -470,7 +477,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
         study_uid: str,
         study_selection_uid: str,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionCohort:
+    ) -> StudySelectionCohort:
         (
             _,
             new_selection,
@@ -482,7 +489,7 @@ class StudyCohortSelectionService(StudySelectionMixin):
             study_uid=study_uid,
             study_value_version=study_value_version,
         )
-        return models.StudySelectionCohort.from_study_selection_cohort_ar_and_order(
+        return StudySelectionCohort.from_study_selection_cohort_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,

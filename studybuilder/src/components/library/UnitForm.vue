@@ -81,6 +81,18 @@
               color="primary"
             />
             <v-switch
+              v-model="form.use_molecular_weight"
+              :label="$t('UnitForm.molecular_weight')"
+              density="compact"
+              color="primary"
+            />
+            <v-switch
+              v-model="form.use_complex_unit_conversion"
+              :label="$t('UnitForm.complex_conversion')"
+              density="compact"
+              color="primary"
+            />
+            <v-switch
               v-model="form.display_unit"
               :label="$t('UnitForm.display_unit')"
               data-cy="display-unit"
@@ -133,17 +145,6 @@
               v-model="form.legacy_code"
               :label="$t('UnitForm.legacy_code')"
               data-cy="unit-legacy-code"
-              density="compact"
-              clearable
-            />
-          </v-col>
-        </v-row>
-        <v-row>
-          <v-col>
-            <v-text-field
-              v-model="form.molecular_weight_conv_expon"
-              :label="$t('UnitForm.molecular_weight')"
-              data-cy="unit-molecular-weight"
               density="compact"
               clearable
             />
@@ -282,6 +283,8 @@ function getInitialForm() {
     master_unit: false,
     si_unit: false,
     us_conventional_unit: false,
+    use_molecular_weight: false,
+    use_complex_unit_conversion: false,
   }
 }
 

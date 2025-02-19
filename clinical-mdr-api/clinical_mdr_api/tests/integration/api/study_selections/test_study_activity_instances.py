@@ -19,9 +19,11 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_instance
     StudyActivityInstanceState,
 )
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import ClinicalProgramme, Project
 from clinical_mdr_api.models.biomedical_concepts.activity_instance_class import (
     ActivityInstanceClass,
+)
+from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
+    ClinicalProgramme,
 )
 from clinical_mdr_api.models.concepts.activities.activity import Activity
 from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
@@ -31,13 +33,13 @@ from clinical_mdr_api.models.concepts.activities.activity_instance import (
 from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
     ActivitySubGroup,
 )
+from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -59,6 +61,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     get_unit_uid_by_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -201,7 +204,7 @@ def test_data():
         activity_subgroups=[randomisation_activity_subgroup.uid],
         activity_groups=[general_activity_group.uid],
         library_name="Sponsor",
-        is_data_collected=False,
+        is_data_collected=True,
     )
     body_mes_activity_instance_class = TestUtils.create_activity_instance_class(
         name="Body measurement activity instance class"
@@ -244,6 +247,7 @@ def test_data():
         activity_groups=[general_activity_group.uid],
         activity_items=[],
     )
+
     global clinical_programme
     global project
     clinical_programme = TestUtils.create_clinical_programme(name="SoA CP")
@@ -254,7 +258,6 @@ def test_data():
         clinical_programme_uid=clinical_programme.uid,
     )
     yield
-    drop_db(db_name)
 
 
 def test_create_remove_study_activity_instance_when_study_activity_is_created_removed(
@@ -284,14 +287,14 @@ def test_create_remove_study_activity_instance_when_study_activity_is_created_re
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     study_activity_uid = res["study_activity_uid"]
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     study_activity_instances = res["items"]
     assert len(study_activity_instances) == 1
@@ -315,7 +318,7 @@ def test_create_remove_study_activity_instance_when_study_activity_is_created_re
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["study_activity_instance_uid"] == study_activity_instance_uid
     assert res["study_activity_subgroup"]["study_activity_subgroup_uid"] is not None
@@ -337,17 +340,17 @@ def test_create_remove_study_activity_instance_when_study_activity_is_created_re
     )
     assert res["study_soa_group"]["study_soa_group_uid"] is not None
     assert res["study_soa_group"]["soa_group_term_uid"] == "term_efficacy_uid"
-    assert res["study_soa_group"]["soa_group_name"] is not None
+    assert res["study_soa_group"]["soa_group_term_name"] is not None
 
     response = api_client.delete(
         f"/studies/{test_study.uid}/study-activities/{study_activity_uid}",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
     TestUtils.delete_study(test_study.uid)
 
 
@@ -362,18 +365,18 @@ def test_delete_study_activity_instance(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     study_activity_instance_uid = res[0]["study_activity_instance_uid"]
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["study_activity_instance_uid"] == study_activity_instance_uid
     assert res["state"] == StudyActivityInstanceState.MISSING_SELECTION.value
@@ -381,12 +384,12 @@ def test_delete_study_activity_instance(api_client):
     response = api_client.delete(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
     TestUtils.delete_study(test_study.uid)
 
 
@@ -401,7 +404,7 @@ def test_create_study_activity_instance(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     study_activity_uid = res["study_activity_uid"]
 
@@ -412,14 +415,27 @@ def test_create_study_activity_instance(api_client):
             "activity_instance_uid": body_mes_activity_instance.uid,
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"The following activity instance ({body_mes_activity_instance.name}) is not linked with the ({weight_activity.name}) activity"
+        == f"Activity Instance with Name '{body_mes_activity_instance.name}' isn't linked with the Activity with Name '{weight_activity.name}'."
     )
 
     new_instance_class = TestUtils.create_activity_instance_class(
         name="New instance class"
+    )
+    # Create preview ActivityInstance that links to Weight Activity
+    new_preview_activity_instance_linked_to_weight = TestUtils.create_activity_instance(
+        name="New instance linked to weight activity",
+        activity_instance_class_uid=new_instance_class.uid,
+        name_sentence_case="new instance linked to weight activity",
+        topic_code="new instance linked to weight activity",
+        is_required_for_activity=True,
+        activities=[weight_activity.uid],
+        activity_subgroups=[body_measurements_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        activity_items=[],
+        preview=True,
     )
     # Create new ActivityInstance that links to Weight Activity
     new_activity_instance_linked_to_weight = TestUtils.create_activity_instance(
@@ -434,6 +450,14 @@ def test_create_study_activity_instance(api_client):
         activity_items=[],
     )
 
+    diffs = (
+        new_preview_activity_instance_linked_to_weight.__dict__.items()
+        ^ new_activity_instance_linked_to_weight.__dict__.items()
+    )
+    assert "uid" in {diff[0] for diff in diffs} and "start_date" in {
+        diff[0] for diff in diffs
+    }
+    assert ("uid", "PreviewTemporalUid") in diffs
     response = api_client.post(
         f"/studies/{test_study.uid}/study-activity-instances",
         json={
@@ -441,13 +465,13 @@ def test_create_study_activity_instance(api_client):
             "activity_instance_uid": new_activity_instance_linked_to_weight.uid,
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     study_activity_instance_uid = res["study_activity_instance_uid"]
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["study_activity_uid"] == study_activity_uid
     assert res["activity_instance"]["uid"] == new_activity_instance_linked_to_weight.uid
@@ -460,11 +484,10 @@ def test_create_study_activity_instance(api_client):
             "activity_instance_uid": new_activity_instance_linked_to_weight.uid,
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 409)
     assert (
         response.json()["message"]
-        == f"There is already a StudyActivityInstance ({new_activity_instance_linked_to_weight.uid}) "
-        f"linked to the same Activity ({weight_activity.uid})"
+        == f"There is already a Study Activity Instance with UID '{new_activity_instance_linked_to_weight.uid}' linked to the Activity with UID '{weight_activity.uid}'."
     )
     TestUtils.delete_study(test_study.uid)
 
@@ -480,19 +503,19 @@ def test_edit_study_activity_instance(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert len(res) == 1
     study_activity_instance_uid = res[0]["study_activity_instance_uid"]
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity_instance"] is None
     assert res["state"] == StudyActivityInstanceState.MISSING_SELECTION.value
@@ -518,14 +541,14 @@ def test_edit_study_activity_instance(api_client):
             "activity_instance_uid": randomized_activity_instance.uid,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity_instance"]["uid"] == randomized_activity_instance.uid
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity_instance"]["uid"] == randomized_activity_instance.uid
     assert res["state"] == StudyActivityInstanceState.REQUIRED.value
@@ -543,7 +566,7 @@ def test_study_activity_instance_header_endpoint(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.post(
         f"/studies/{test_study.uid}/study-activities",
         json={
@@ -553,7 +576,7 @@ def test_study_activity_instance_header_endpoint(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.post(
         f"/studies/{test_study.uid}/study-activities",
         json={
@@ -563,12 +586,12 @@ def test_study_activity_instance_header_endpoint(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # get study activity instance headers
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/headers?field_name=activity.name",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res == [
         randomized_activity.name,
@@ -589,9 +612,9 @@ def test_study_activity_instance_audit_trails(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.get(f"/studies/{test_study.uid}/study-activity-instances")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     study_activity_instance_uid = res[0]["study_activity_instance_uid"]
 
@@ -604,19 +627,19 @@ def test_study_activity_instance_audit_trails(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.patch(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
         json={
             "show_activity_instance_in_protocol_flowchart": True,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/audit-trail"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert len(res) == 3
@@ -631,7 +654,7 @@ def test_study_activity_instance_audit_trails(api_client):
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}/audit-trail"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert len(res) == 2
     assert res[0]["activity"]["name"] == randomized_activity.name
@@ -662,14 +685,14 @@ def test_get_study_activity_instances_csv_xml_excel(api_client, export_format):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     url = f"/studies/{test_study.uid}/study-activities"
     TestUtils.verify_exported_data_format(api_client, export_format, url)
     TestUtils.delete_study(test_study.uid)
 
 
 @pytest.mark.parametrize(
-    "activity_name, activity_instance_name,is_required, is_defaulted, expected_state, is_data_collected",
+    "activity_name, activity_instance_name, is_required, is_defaulted, expected_state, is_data_collected, retired_instance",
     [
         pytest.param(
             "Required activity",
@@ -678,6 +701,7 @@ def test_get_study_activity_instances_csv_xml_excel(api_client, export_format):
             False,
             "Required",
             True,
+            False,
         ),
         pytest.param(
             "Defaulted activity",
@@ -686,6 +710,7 @@ def test_get_study_activity_instances_csv_xml_excel(api_client, export_format):
             True,
             "Defaulted",
             True,
+            False,
         ),
         pytest.param(
             "Suggestion activity",
@@ -694,14 +719,25 @@ def test_get_study_activity_instances_csv_xml_excel(api_client, export_format):
             False,
             "Suggestion",
             True,
+            False,
         ),
         pytest.param(
             "Not collected activity",
-            "Not collected activity instance",
+            None,
             False,
             False,
-            "Not required",
+            None,
             False,
+            False,
+        ),
+        pytest.param(
+            "Activity with retired instance",
+            "Retired activity instance",
+            False,
+            False,
+            None,
+            True,
+            True,
         ),
     ],
 )
@@ -713,6 +749,7 @@ def test_study_activity_instances_states(
     is_defaulted,
     expected_state,
     is_data_collected,
+    retired_instance,
 ):
     test_study = TestUtils.create_study(project_number=project.project_number)
     new_test_activity = TestUtils.create_activity(
@@ -722,19 +759,23 @@ def test_study_activity_instances_states(
         library_name="Sponsor",
         is_data_collected=is_data_collected,
     )
+    if is_data_collected:
+        new_test_activity_instance = TestUtils.create_activity_instance(
+            name=activity_instance_name,
+            activity_instance_class_uid=weight_activity_instance_class.uid,
+            name_sentence_case=activity_instance_name.lower(),
+            topic_code="new test activity instance topic code",
+            is_required_for_activity=is_required,
+            is_default_selected_for_activity=is_defaulted,
+            activities=[new_test_activity.uid],
+            activity_subgroups=[body_measurements_activity_subgroup.uid],
+            activity_groups=[general_activity_group.uid],
+            activity_items=[],
+            retire_after_approve=retired_instance,
+        )
+    else:
+        new_test_activity_instance = None
 
-    new_test_activity_instance = TestUtils.create_activity_instance(
-        name=activity_instance_name,
-        activity_instance_class_uid=weight_activity_instance_class.uid,
-        name_sentence_case=activity_instance_name.lower(),
-        topic_code="new test activity instance topic code",
-        is_required_for_activity=is_required,
-        is_default_selected_for_activity=is_defaulted,
-        activities=[new_test_activity.uid],
-        activity_subgroups=[body_measurements_activity_subgroup.uid],
-        activity_groups=[general_activity_group.uid],
-        activity_items=[],
-    )
     response = api_client.post(
         f"/studies/{test_study.uid}/study-activities",
         json={
@@ -744,21 +785,27 @@ def test_study_activity_instances_states(
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
 
-    assert len(res) == 1
-    assert res[0]["activity_instance"]["uid"] == new_test_activity_instance.uid
-    assert (
-        new_test_activity.uid
-        in res[0]["activity_instance"]["activity_groupings"][0]["activity"]["uid"]
-    )
-    assert res[0]["activity"]["uid"] == new_test_activity.uid
-    assert res[0]["state"] == expected_state
+    if is_data_collected and not retired_instance:
+        assert len(res) == 1
+        assert res[0]["activity_instance"]["uid"] == new_test_activity_instance.uid
+        assert (
+            new_test_activity.uid
+            in res[0]["activity_instance"]["activity_groupings"][0]["activity"]["uid"]
+        )
+        assert res[0]["activity"]["uid"] == new_test_activity.uid
+        assert res[0]["state"] == expected_state
+    else:
+        # We should get a placeholder, with activity_instance set to None
+        assert len(res) == 1
+        assert res[0]["activity_instance"] is None
+
     TestUtils.delete_study(test_study.uid)
 
 
@@ -793,11 +840,11 @@ def test_sync_to_latest_version_activity_instance(api_client):
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instances = response.json()["items"]
     assert len(study_activity_instances) == 1
     study_activity_instance_uid = study_activity_instances[0][
@@ -813,7 +860,7 @@ def test_sync_to_latest_version_activity_instance(api_client):
     response = api_client.post(
         f"/concepts/activities/activity-instances/{new_test_activity_instance.uid}/versions",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # PATCH underling activity-instance
     response = api_client.patch(
         f"/concepts/activities/activity-instances/{new_test_activity_instance.uid}",
@@ -822,18 +869,18 @@ def test_sync_to_latest_version_activity_instance(api_client):
             "change_description": "Sync to latest version test",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.post(
         f"/concepts/activities/activity-instances/{new_test_activity_instance.uid}/approvals",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Fetch StudyActivityInstance after underlying ActivityInstance is edited
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instance = response.json()
     assert study_activity_instance["activity_instance"]["version"] == "1.0"
     assert (
@@ -849,13 +896,13 @@ def test_sync_to_latest_version_activity_instance(api_client):
     response = api_client.post(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}/sync-latest-version",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Fetch StudyActivityInstance after underlying ActivityInstance is synced to latest version
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instance = response.json()
     assert study_activity_instance["activity_instance"]["version"] == "2.0"
     assert (
@@ -898,7 +945,7 @@ def test_activity_activity_instance_relationship(api_client):
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instances = response.json()["items"]
     assert len(study_activity_instances) == 1
     study_activity_instance_uid = study_activity_instances[0][
@@ -908,7 +955,7 @@ def test_activity_activity_instance_relationship(api_client):
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instance = response.json()
     assert (
         study_activity_instance["study_activity_uid"]
@@ -943,11 +990,11 @@ def test_activity_activity_instance_relationship(api_client):
             "activity_instance_uid": None,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.get(
         f"/studies/{test_study.uid}/study-activity-instances/{study_activity_instance_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_activity_instance = response.json()
     assert (
         study_activity_instance["study_activity_uid"]
@@ -969,3 +1016,146 @@ def test_activity_activity_instance_relationship(api_client):
         == StudyActivityInstanceState.MISSING_SELECTION.value
     )
     TestUtils.delete_study(test_study.uid)
+
+
+def test_study_activity_instances_batch_create(api_client):
+    test_study = TestUtils.create_study(project_number=project.project_number)
+    new_test_activity = TestUtils.create_activity(
+        name="Activity with some ActivityInstances",
+        activity_subgroups=[body_measurements_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        library_name="Sponsor",
+        is_data_collected=True,
+    )
+    name = "First required activity instance"
+    first_required_activity_instance = TestUtils.create_activity_instance(
+        name=name,
+        name_sentence_case=name.lower(),
+        activity_instance_class_uid=weight_activity_instance_class.uid,
+        topic_code="first requrired topic code",
+        is_required_for_activity=True,
+        is_default_selected_for_activity=False,
+        activities=[new_test_activity.uid],
+        activity_subgroups=[body_measurements_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        activity_items=[],
+    )
+    response = api_client.post(
+        f"/studies/{test_study.uid}/study-activities",
+        json={
+            "activity_uid": new_test_activity.uid,
+            "activity_subgroup_uid": body_measurements_activity_subgroup.uid,
+            "activity_group_uid": general_activity_group.uid,
+            "soa_group_term_uid": "term_efficacy_uid",
+        },
+    )
+    assert_response_status_code(response, 201)
+    res = response.json()
+    study_activity_uid = res["study_activity_uid"]
+
+    response = api_client.get(
+        f"/studies/{test_study.uid}/study-activity-instances",
+    )
+    assert_response_status_code(response, 200)
+    study_activity_instances = response.json()["items"]
+    assert len(study_activity_instances) == 1
+
+    assert study_activity_instances[0]["activity_instance"]["version"] == "1.0"
+    assert (
+        study_activity_instances[0]["activity_instance"]["uid"]
+        == first_required_activity_instance.uid
+    )
+    assert study_activity_instances[0]["latest_activity_instance"] is None
+
+    req_activity_instance_uids = []
+    for i in range(5):
+        name = f"{i} required activity instance"
+        required_activity_instance = TestUtils.create_activity_instance(
+            name=name,
+            name_sentence_case=name.lower(),
+            activity_instance_class_uid=weight_activity_instance_class.uid,
+            topic_code=f"{i} first requrired topic code",
+            is_required_for_activity=True,
+            is_default_selected_for_activity=False,
+            activities=[new_test_activity.uid],
+            activity_subgroups=[body_measurements_activity_subgroup.uid],
+            activity_groups=[general_activity_group.uid],
+            activity_items=[],
+        )
+        req_activity_instance_uids.append(required_activity_instance.uid)
+    req_activity_instance_uids.append(first_required_activity_instance.uid)
+
+    response = api_client.post(
+        f"/studies/{test_study.uid}/study-activity-instances/batch-select",
+        json={
+            "study_activity_uid": study_activity_uid,
+            "activity_instance_uids": req_activity_instance_uids,
+        },
+    )
+    res = response.json()
+
+    assert_response_status_code(response, 201)
+
+    response = api_client.get(
+        f"/studies/{test_study.uid}/study-activity-instances",
+    )
+    assert_response_status_code(response, 200)
+    study_activity_instances = response.json()["items"]
+    assert len(study_activity_instances) == 6
+
+    TestUtils.delete_study(test_study.uid)
+
+
+def test_study_activity_instances_return_proper_activity_instance_versionsing_data(
+    api_client,
+):
+    test_study = TestUtils.create_study(project_number=project.project_number)
+    new_test_activity = TestUtils.create_activity(
+        name="Activity StudyActivityInstance return proper ActivityInstance versioning data test",
+        activity_subgroups=[body_measurements_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        library_name="Sponsor",
+        is_data_collected=True,
+    )
+    activity_instance_name = "Test activity instance"
+    activity_instance = TestUtils.create_activity_instance(
+        name=activity_instance_name,
+        name_sentence_case=activity_instance_name.lower(),
+        activity_instance_class_uid=weight_activity_instance_class.uid,
+        topic_code="first requrired topic code",
+        is_required_for_activity=True,
+        is_default_selected_for_activity=False,
+        activities=[new_test_activity.uid],
+        activity_subgroups=[body_measurements_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        activity_items=[],
+    )
+    response = api_client.post(
+        f"/concepts/activities/activity-instances/{activity_instance.uid}/versions",
+    )
+    assert_response_status_code(response, 201)
+    response = api_client.post(
+        f"/concepts/activities/activity-instances/{activity_instance.uid}/approvals",
+    )
+    assert_response_status_code(response, 201)
+    # After creating a new draft and immidiately approving it, we'll have two Final (1.0, 2.0) versions linked between single root-value nodes
+    response = api_client.post(
+        f"/studies/{test_study.uid}/study-activities",
+        json={
+            "activity_uid": new_test_activity.uid,
+            "activity_subgroup_uid": body_measurements_activity_subgroup.uid,
+            "activity_group_uid": general_activity_group.uid,
+            "soa_group_term_uid": "term_efficacy_uid",
+        },
+    )
+    assert_response_status_code(response, 201)
+
+    # Get StudyActivityInstance created
+    response = api_client.get(
+        f"/studies/{test_study.uid}/study-activity-instances",
+    )
+    assert_response_status_code(response, 200)
+    study_activity_instances = response.json()["items"]
+    assert len(study_activity_instances) == 1
+
+    assert study_activity_instances[0]["activity_instance"]["version"] == "2.0"

@@ -13,7 +13,7 @@
     "study_epoch_uid": "StudyEpoch_000013",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000042",
@@ -29,7 +29,7 @@
     "study_epoch_uid": "StudyEpoch_000014",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000043",
@@ -45,7 +45,7 @@
     "study_epoch_uid": "StudyEpoch_000015",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000044",
@@ -61,7 +61,7 @@
     "study_epoch_uid": "StudyEpoch_000016",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000045",
@@ -77,7 +77,7 @@
     "study_epoch_uid": "StudyEpoch_000013",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000046",
@@ -93,7 +93,7 @@
     "study_epoch_uid": "StudyEpoch_000014",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000047",
@@ -109,7 +109,7 @@
     "study_epoch_uid": "StudyEpoch_000015",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000048",
@@ -125,6 +125,6 @@
     "study_epoch_uid": "StudyEpoch_000016",
     "study_uid": "Study_000004",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

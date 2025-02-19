@@ -60,6 +60,7 @@ ACTIVITY_INSTANCES = "ActivityInstances"
 ACTIVITY_ITEM_CLASSES = "ActivityItemClasses"
 ACTIVITY_INSTANCE_CLASSES = "ActivityInstanceClasses"
 
+
 class ConflictingItemError(ValueError):
     pass
 
@@ -443,8 +444,8 @@ class Activities(BaseImporter):
                 "uid": item["uid"],
                 "name_sentence_case": item["name_sentence_case"],
                 "is_data_collected": item["is_data_collected"],
-                "nci_concept_id": item["nci_concept_id"],
-                "definition": item["definition"],
+                "nci_concept_id": item["nci_concept_id"] or None,
+                "definition": item["definition"] or "TBD",
                 "activity_groupings": item["activity_groupings"],
                 "library_name": item["library_name"],
                 "status": item["status"],
@@ -488,7 +489,7 @@ class Activities(BaseImporter):
                 unique_activities[activity_name] = {
                     "name": activity_name,
                     "name_sentence_case": activity_name.lower(),
-                    "definition": "",
+                    "definition": None,
                     "library_name": "Sponsor",
                     "activity_groupings": [grouping],
                     "nci_concept_id": None,
@@ -631,14 +632,12 @@ class Activities(BaseImporter):
         )
 
         def are_instance_classes_equal(new, existing):
-            existing_parent_name = (
-                existing.get("parent_class").get("name")
+            existing_parent_uid = (
+                existing.get("parent_class").get("uid")
                 if existing.get("parent_class")
                 else None
             )
-            new_parent_name = (
-                new.get("parent_name") if new.get("parent_name") != "" else None
-            )
+            new_parent_uid = new.get("parent_uid") if new.get("parent_uid") else None
             new_order = int(new.get("order")) if new.get("order") else None
             try:
                 new_is_specific = map_boolean(
@@ -647,7 +646,7 @@ class Activities(BaseImporter):
             except ValueError:
                 new_is_specific = None
             result = (
-                existing_parent_name == new_parent_name
+                existing_parent_uid == new_parent_uid
                 and existing.get("name") == new.get("name")
                 and existing.get("library_name") == new.get("library_name")
                 and existing.get("is_domain_specific") == new_is_specific
@@ -657,22 +656,10 @@ class Activities(BaseImporter):
             return result
 
         async def _migrate_aic(data):
-            # lookup the parent_uid
-            parent_name = data["body"].get("parent_name")
-            if parent_name:
-                parent_uid = existing_rows.get(parent_name).get("uid")
-                if not parent_uid:
-                    self.log.info(
-                        f"Item '{data['body']['name']}' didn't found a corresponding parent Activity Instance Class"
-                    )
-                    return
-                data["body"]["parent_uid"] = parent_uid
             if existing_rows.get(data["body"]["name"]) is None:
                 self.log.info(
                     f"Add activity instance class '{data['body']['name']}' to library '{data['body']['library_name']}'"
                 )
-                if "parent_name" in data["body"]:
-                    data["body"].pop("parent_name")
                 response = await self.api.post_then_approve(
                     data=data, session=session, approve=True
                 )
@@ -684,8 +671,6 @@ class Activities(BaseImporter):
                 self.log.info(
                     f"Patch activity instance class '{data['body']['name']}' in library '{data['body']['library_name']}'"
                 )
-                if "parent_name" in data["body"]:
-                    data["body"].pop("parent_name")
                 data["patch_path"] = path_join(
                     ACTIVITY_INSTANCE_CLASSES_PATH,
                     existing_rows[data["body"]["name"]].get("uid"),
@@ -714,6 +699,7 @@ class Activities(BaseImporter):
                 "approve_path": ACTIVITY_INSTANCE_CLASSES_PATH,
                 "body": {
                     "name": ac_0_level_name,
+                    "level": 0,
                     "library_name": "Sponsor",
                 },
             }
@@ -728,7 +714,8 @@ class Activities(BaseImporter):
                 "approve_path": ACTIVITY_INSTANCE_CLASSES_PATH,
                 "body": {
                     "name": ac_1_level_name,
-                    "parent_name": ac_0_level_name,
+                    "level": 1,
+                    "parent_uid": existing_rows.get(ac_0_level_name, {}).get("uid"),
                     "library_name": "Sponsor",
                 },
             }
@@ -743,7 +730,8 @@ class Activities(BaseImporter):
                 "approve_path": ACTIVITY_INSTANCE_CLASSES_PATH,
                 "body": {
                     "name": ac_2_level_name,
-                    "parent_name": ac_1_level_name,
+                    "level": 2,
+                    "parent_uid": existing_rows.get(ac_1_level_name, {}).get("uid"),
                     "library_name": "Sponsor",
                 },
             }
@@ -758,9 +746,10 @@ class Activities(BaseImporter):
                 "approve_path": ACTIVITY_INSTANCE_CLASSES_PATH,
                 "body": {
                     "name": row[headers.index("LEVEL_3_CLASS")],
-                    "parent_name": ac_2_level_name,
+                    "level": 3,
+                    "parent_uid": existing_rows.get(ac_2_level_name, {}).get("uid"),
                     "is_domain_specific": row[headers.index("DOMAIN_SPECIFIC")],
-                    "definition": row[headers.index("DEFINITION")],
+                    "definition": row[headers.index("DEFINITION")] or "TBD",
                     "order": row[headers.index("ORDER")],
                     "library_name": "Sponsor",
                 },
@@ -777,9 +766,10 @@ class Activities(BaseImporter):
                     "approve_path": ACTIVITY_INSTANCE_CLASSES_PATH,
                     "body": {
                         "name": row[headers.index("LEVEL_4_CLASS")],
-                        "parent_name": ac_3_level_name,
+                        "level": 4,
+                        "parent_uid": existing_rows.get(ac_3_level_name, {}).get("uid"),
                         "is_domain_specific": row[headers.index("DOMAIN_SPECIFIC")],
-                        "definition": row[headers.index("DEFINITION")],
+                        "definition": row[headers.index("DEFINITION")] or "TBD",
                         "order": row[headers.index("ORDER")],
                         "library_name": "Sponsor",
                     },
@@ -871,8 +861,8 @@ class Activities(BaseImporter):
                     "name": activity_item_class_name,
                     "order": row[headers.index("ORDER")],
                     "mandatory": map_boolean(row[headers.index("MANDATORY")]),
-                    "definition": row[headers.index("DEFINITION")],
-                    "nci_concept_id": row[headers.index("NCI_C_CODE")],
+                    "definition": row[headers.index("DEFINITION")] or "TBD",
+                    "nci_concept_id": row[headers.index("NCI_C_CODE")] or None,
                     "activity_instance_class_uids": [instance_class_uid],
                     "activity_instance_class_names": [activity_instance_class_name],
                     "role_uid": role_uid,
@@ -1185,14 +1175,14 @@ class Activities(BaseImporter):
                     "activity_instance_class_uid": activity_instance_class_uid,
                     "name": activity_instance_name,
                     "name_sentence_case": activity_instance_name.lower(),
-                    "definition": row.get("definition"),
-                    "adam_param_code": row["adam_param_code"],
+                    "definition": row.get("definition") or "TBD",
+                    "adam_param_code": row["adam_param_code"] or None,
                     "activity_groupings": activity_groupings,
                     "activity_items": item_data,
-                    "legacy_description": row["legacy_description"],
-                    "topic_code": row["TOPIC_CD"],
+                    "legacy_description": row["legacy_description"] or None,
+                    "topic_code": row["TOPIC_CD"] or None,
                     "library_name": "Sponsor",
-                    "nci_concept_id": row.get("nci_concept_id"),
+                    "nci_concept_id": row.get("nci_concept_id") or None,
                     "is_required_for_activity": map_boolean(
                         row.get("is_required_for_activity")
                     ),

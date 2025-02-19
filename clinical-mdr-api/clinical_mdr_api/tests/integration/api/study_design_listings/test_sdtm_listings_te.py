@@ -15,13 +15,13 @@ import pytest
 from fastapi.testclient import TestClient
 from neomodel import db
 
-from clinical_mdr_api.config import CDISC_LIBRARY_NAME, SDTM_CT_CATALOGUE_NAME
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.listings.listings_sdtm import StudyElementListing
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_CT_CATALOGUE_CYPHER,
     STARTUP_STUDY_LIST_CYPHER,
+    fix_study_preferred_time_unit,
     get_codelist_with_term_cypher,
 )
 from clinical_mdr_api.tests.integration.utils.method_library import (
@@ -35,6 +35,8 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.config import CDISC_LIBRARY_NAME, SDTM_CT_CATALOGUE_NAME
 
 study_uid: str
 
@@ -144,12 +146,14 @@ def test_data():
     )
     TestUtils.set_study_standard_version(study_uid=study.uid)
 
+    fix_study_preferred_time_unit(study.uid)
+
 
 def test_te_listing(api_client):
     response = api_client.get(
         "/listings/studies/study_root/sdtm/te",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
 
@@ -183,33 +187,33 @@ def test_te_listing_versioning(api_client):
         f"/studies/{study_uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study_uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         "/listings/studies/study_root/sdtm/te",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
     te_before_unlock = res
 
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study_uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all visits
     response = api_client.get(
         f"/studies/{study_uid}/study-element/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # edit element
@@ -220,7 +224,7 @@ def test_te_listing_versioning(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "New_Element_Name_1"
 
     # get all study visits of a specific study version
@@ -228,13 +232,13 @@ def test_te_listing_versioning(api_client):
         f"/listings/studies/{study_uid}/sdtm/te?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"] == te_before_unlock
     assert res["items"][0]["ELEMENT"] != "New_Element_Name_1"
 
     response = api_client.get(
         "/listings/studies/study_root/sdtm/te",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res[0]["ELEMENT"] == "New_Element_Name_1"

@@ -2,7 +2,7 @@ from mdr_standards_import.scripts.load_ct_preprocessing import Term, Codelist
 from mdr_standards_import.tests.cdisc_ct.test_pipeline import Package, Import, Log
 
 
-def get_expected_imports(effective_date, user_initials):
+def get_expected_imports(effective_date, author_id):
     term1 = Term(
         uid=f"{effective_date}_T01",
         concept_id="T01",
@@ -405,7 +405,7 @@ def get_expected_imports(effective_date, user_initials):
 
     import1 = Import(
         effective_date=effective_date,
-        user_initials=user_initials,
+        author_id=author_id,
         packages=[package1, package2, package3, package4, package5, package6, package7],
         discontinued_codelists=[],
         log_entries=[warning1, warning4, warning2, info1, info2],

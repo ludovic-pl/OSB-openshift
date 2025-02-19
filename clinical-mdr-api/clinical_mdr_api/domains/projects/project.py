@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import BusinessLogicException
 
 
 @dataclass
@@ -35,12 +35,13 @@ class ProjectAR:
         generate_uid_callback: Callable[[], str],
         clinical_programme_exists_callback: Callable[[str], bool],
     ):
-        if not clinical_programme_exists_callback(
-            normalize_string(clinical_programme_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no clinical programme identified by provided clinical programme uid ({clinical_programme_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            clinical_programme_exists_callback(
+                normalize_string(clinical_programme_uid)
+            ),
+            "Clinical Programme",
+            clinical_programme_uid,
+        )
 
         uid = generate_uid_callback()
 

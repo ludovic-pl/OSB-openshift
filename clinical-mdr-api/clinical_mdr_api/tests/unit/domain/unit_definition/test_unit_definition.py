@@ -14,14 +14,9 @@ from hypothesis.strategies import (
     none,
     one_of,
     sampled_from,
-    text,
     tuples,
 )
 
-from clinical_mdr_api import exceptions
-
-# noinspection PyProtectedMember
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
     CONCENTRATION_UNIT_DIMENSION_VALUE,
     CTTerm,
@@ -32,27 +27,38 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import (
+    AUTHOR_ID,
+    AUTHOR_USERNAME,
+    random_str,
+)
 from clinical_mdr_api.tests.utils.common_strategies import (
     strings_with_at_least_one_non_space_char,
     stripped_non_empty_strings,
+)
+
+# noinspection PyProtectedMember
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
 )
 
 
 @composite
 def item_metadata(draw):
     _item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
-        author="someone"
+        author_id=AUTHOR_ID,
     ).new_draft_version(
-        author=draw(strings_with_at_least_one_non_space_char()),
+        author_id=draw(strings_with_at_least_one_non_space_char()),
         change_description=draw(strings_with_at_least_one_non_space_char()),
     )
 
     status = draw(sampled_from(LibraryItemStatus))
-    author = _item_metadata.user_initials
+    author_id = _item_metadata.author_id
+    author_username = AUTHOR_USERNAME
     change_description = _item_metadata.change_description
     (major_version, minor_version) = draw(
         tuples(integers(min_value=0), integers(min_value=0)).filter(
@@ -70,7 +76,8 @@ def item_metadata(draw):
 
     return LibraryItemMetadataVO.from_repository_values(
         status=status,
-        author=author,
+        author_id=author_id,
+        author_username=author_username,
         change_description=change_description,
         major_version=major_version,
         minor_version=minor_version,
@@ -141,21 +148,20 @@ def unit_definition_values(draw, valid_unit_ct_uid_set: list[str] | None = None)
         draw(one_of(none(), floats(allow_nan=False))) if not master_unit else 1.0
     )
     unit_dimension = draw(
-        one_of(none(), just(CONCENTRATION_UNIT_DIMENSION_VALUE), text())
-    )
-    molecular_weight_conv_expon = (
-        draw(one_of(none(), integers(0, 1)))
-        if unit_dimension != CONCENTRATION_UNIT_DIMENSION_VALUE
-        else draw(integers(0, 1))
+        one_of(
+            none(),
+            just(CONCENTRATION_UNIT_DIMENSION_VALUE),
+            stripped_non_empty_strings(),
+        )
     )
     ct_units = draw(
         lists(
-            text(min_size=1)
+            stripped_non_empty_strings()
             if valid_unit_ct_uid_set is None
             else sampled_from(valid_unit_ct_uid_set)
         )
     )
-    unit_subsets = draw(lists(text(min_size=1)))
+    unit_subsets = draw(lists(stripped_non_empty_strings()))
     return UnitDefinitionValueVO.from_input_values(
         name=random_str(),
         ct_units=ct_units,
@@ -165,15 +171,16 @@ def unit_definition_values(draw, valid_unit_ct_uid_set: list[str] | None = None)
         master_unit=master_unit,
         si_unit=draw(booleans()),
         us_conventional_unit=draw(booleans()),
-        legacy_code=draw(one_of(none(), text())),
-        molecular_weight_conv_expon=molecular_weight_conv_expon,
+        use_complex_unit_conversion=draw(booleans()),
+        legacy_code=draw(one_of(none(), stripped_non_empty_strings())),
+        use_molecular_weight=False,
         conversion_factor_to_master=conversion_factor_to_master,
         unit_ct_uid_exists_callback=(lambda _: True),
         unit_dimension_uid=unit_dimension,
         ucum_uid=draw(one_of(none(), stripped_non_empty_strings())),
         order=draw(integers(1, 20)),
-        comment=draw(one_of(none(), text())),
-        definition=draw(one_of(none(), text())),
+        comment=draw(one_of(none(), stripped_non_empty_strings())),
+        definition=draw(one_of(none(), stripped_non_empty_strings())),
         ucum_uid_exists_callback=(lambda _: True),
         find_term_by_uid=lambda _: get_mock_ct_item(unit_dimension),
         is_template_parameter=False,
@@ -213,7 +220,7 @@ def draft_unit_definitions(
         library=draw(
             libraries(editable=True, valid_library_names_set=valid_library_names_set)
         ),
-        author=draw(strings_with_at_least_one_non_space_char()),
+        author_id=draw(strings_with_at_least_one_non_space_char()),
         uid_supplier=lambda: draw(stripped_non_empty_strings()),
         concept_exists_by_callback=lambda x, y, z: False,
         master_unit_exists_for_dimension_predicate=lambda _: False,
@@ -236,7 +243,7 @@ def final_unit_definitions(
         )
     )
     result.approve(
-        author=draw(stripped_non_empty_strings()),
+        author_id=draw(stripped_non_empty_strings()),
         change_description=draw(stripped_non_empty_strings()),
     )
     return result
@@ -256,7 +263,7 @@ def retired_unit_definitions(
         )
     )
     result.inactivate(
-        author=draw(stripped_non_empty_strings()),
+        author_id=draw(stripped_non_empty_strings()),
         change_description=draw(stripped_non_empty_strings()),
     )
     return result
@@ -288,22 +295,23 @@ def unit_definitions(
 
 
 @given(
-    name=text(),
-    ct_units=lists(text()),
-    unit_subsets=lists(text()),
+    name=stripped_non_empty_strings(),
+    ct_units=lists(stripped_non_empty_strings()),
+    unit_subsets=lists(stripped_non_empty_strings()),
     convertible_unit=booleans(),
     display_unit=booleans(),
     master_unit=booleans(),
     si_unit=booleans(),
     us_conventional_unit=booleans(),
-    legacy_code=one_of(none(), text()),
-    unit_dimension=one_of(none(), text()),
-    molecular_weight_conv_exponential=one_of(none(), integers()),
+    use_complex_unit_conversion=booleans(),
+    legacy_code=one_of(none(), stripped_non_empty_strings()),
+    unit_dimension=one_of(none(), stripped_non_empty_strings()),
+    use_molecular_weight=booleans(),
     conversion_factor_to_master=one_of(none(), floats(allow_nan=False)),
     ucum_uid=one_of(none(), stripped_non_empty_strings()),
-    definition=one_of(none(), text()),
+    definition=one_of(none(), stripped_non_empty_strings()),
     order=integers(0, 20),
-    comment=one_of(none(), text()),
+    comment=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_value_vo__from_repository__existing_unit_ct_id__success(
     name: str,
@@ -314,9 +322,10 @@ def test__unit_definition_value_vo__from_repository__existing_unit_ct_id__succes
     master_unit: bool,
     si_unit: bool,
     us_conventional_unit: bool,
+    use_complex_unit_conversion: bool,
     unit_dimension: str | None,
     legacy_code: str | None,
-    molecular_weight_conv_exponential: int | None,
+    use_molecular_weight: bool | None,
     conversion_factor_to_master: float | None,
     ucum_uid: str | None,
     definition: str | None,
@@ -333,8 +342,9 @@ def test__unit_definition_value_vo__from_repository__existing_unit_ct_id__succes
         master_unit=master_unit,
         conversion_factor_to_master=conversion_factor_to_master,
         us_conventional_unit=us_conventional_unit,
+        use_complex_unit_conversion=use_complex_unit_conversion,
         legacy_code=legacy_code,
-        molecular_weight_conv_expon=molecular_weight_conv_exponential,
+        use_molecular_weight=use_molecular_weight,
         convertible_unit=convertible_unit,
         unit_dimension_uid=unit_dimension,
         ucum_uid=ucum_uid,
@@ -354,11 +364,11 @@ def test__unit_definition_value_vo__from_repository__existing_unit_ct_id__succes
     assert unit_definition_value.legacy_code == legacy_code
     assert unit_definition_value.name == name
     assert unit_definition_value.convertible_unit == convertible_unit
-    assert (
-        unit_definition_value.molecular_weight_conv_expon
-        == molecular_weight_conv_exponential
-    )
+    assert unit_definition_value.use_molecular_weight == use_molecular_weight
     assert unit_definition_value.us_conventional_unit == us_conventional_unit
+    assert (
+        unit_definition_value.use_complex_unit_conversion == use_complex_unit_conversion
+    )
     assert (
         unit_definition_value.conversion_factor_to_master == conversion_factor_to_master
     )
@@ -372,21 +382,22 @@ def test__unit_definition_value_vo__from_repository__existing_unit_ct_id__succes
 
 @given(
     name=strings_with_at_least_one_non_space_char(),
-    ct_units=lists(text()),
-    unit_subsets=lists(text()),
+    ct_units=lists(stripped_non_empty_strings()),
+    unit_subsets=lists(stripped_non_empty_strings()),
     convertible_unit=booleans(),
     display_unit=booleans(),
     master_unit=booleans(),
     si_unit=booleans(),
     us_conventional_unit=booleans(),
-    legacy_code=one_of(none(), text()),
-    unit_dimension=one_of(none(), text()),
-    molecular_weight_conv_exponential=one_of(none(), integers(0, 1)),
+    use_complex_unit_conversion=booleans(),
+    legacy_code=one_of(none(), stripped_non_empty_strings()),
+    unit_dimension=one_of(none(), stripped_non_empty_strings()),
+    use_molecular_weight=booleans(),
     conversion_factor_to_master=one_of(none(), floats(allow_nan=False)),
     ucum_uid=one_of(none(), stripped_non_empty_strings()),
-    definition=one_of(none(), text()),
+    definition=one_of(none(), stripped_non_empty_strings()),
     order=integers(0, 20),
-    comment=one_of(none(), text()),
+    comment=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_value_vo__from_input__existing_unit_ct_id__success(
     name: str,
@@ -397,9 +408,10 @@ def test__unit_definition_value_vo__from_input__existing_unit_ct_id__success(
     master_unit: bool,
     si_unit: bool,
     us_conventional_unit: bool,
+    use_complex_unit_conversion: bool,
     unit_dimension: str | None,
     legacy_code: str | None,
-    molecular_weight_conv_exponential: int | None,
+    use_molecular_weight: bool | None,
     conversion_factor_to_master: float | None,
     ucum_uid: str | None,
     definition: str | None,
@@ -420,8 +432,9 @@ def test__unit_definition_value_vo__from_input__existing_unit_ct_id__success(
         master_unit=master_unit,
         conversion_factor_to_master=conversion_factor_to_master,
         us_conventional_unit=us_conventional_unit,
+        use_complex_unit_conversion=use_complex_unit_conversion,
         legacy_code=legacy_code,
-        molecular_weight_conv_expon=molecular_weight_conv_exponential,
+        use_molecular_weight=use_molecular_weight,
         unit_dimension_uid=unit_dimension,
         convertible_unit=convertible_unit,
         unit_ct_uid_exists_callback=(lambda _: True),
@@ -446,8 +459,9 @@ def test__unit_definition_value_vo__from_input__existing_unit_ct_id__success(
         master_unit=master_unit,
         conversion_factor_to_master=conversion_factor_to_master,
         us_conventional_unit=us_conventional_unit,
+        use_complex_unit_conversion=use_complex_unit_conversion,
         legacy_code=normalize_string(legacy_code),
-        molecular_weight_conv_expon=molecular_weight_conv_exponential,
+        use_molecular_weight=use_molecular_weight,
         convertible_unit=convertible_unit,
         unit_dimension_uid=normalize_string(unit_dimension),
         ucum_uid=ucum_uid,
@@ -463,21 +477,22 @@ def test__unit_definition_value_vo__from_input__existing_unit_ct_id__success(
 @settings(max_examples=int(max(10, settings.default.max_examples / 10)), deadline=None)
 @given(
     name=strings_with_at_least_one_non_space_char(),
-    ct_units=lists(text(), min_size=1),
-    unit_subsets=lists(text()),
+    ct_units=lists(stripped_non_empty_strings(), min_size=1),
+    unit_subsets=lists(stripped_non_empty_strings()),
     convertible_unit=booleans(),
     display_unit=booleans(),
     master_unit=booleans(),
     si_unit=booleans(),
     us_conventional_unit=booleans(),
-    legacy_code=one_of(none(), text()),
-    unit_dimension=one_of(none(), text()),
-    molecular_weight_conv_exponential=one_of(none(), integers()),
+    use_complex_unit_conversion=booleans(),
+    legacy_code=one_of(none(), stripped_non_empty_strings()),
+    unit_dimension=one_of(none(), stripped_non_empty_strings()),
+    use_molecular_weight=booleans(),
     conversion_factor_to_master=one_of(none(), floats(allow_nan=False)),
     ucum_uid=one_of(none(), stripped_non_empty_strings()),
-    definition=one_of(none(), text()),
+    definition=one_of(none(), stripped_non_empty_strings()),
     order=integers(0, 20),
-    comment=one_of(none(), text()),
+    comment=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure(
     name: str,
@@ -488,9 +503,10 @@ def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure
     master_unit: bool,
     si_unit: bool,
     us_conventional_unit: bool,
+    use_complex_unit_conversion: bool,
     unit_dimension: str | None,
     legacy_code: str | None,
-    molecular_weight_conv_exponential: int | None,
+    use_molecular_weight: bool | None,
     conversion_factor_to_master: float | None,
     ucum_uid: str | None,
     definition: str | None,
@@ -498,7 +514,7 @@ def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure
     comment: str | None,
 ):
     # then
-    with pytest.raises(exceptions.ValidationException):
+    with pytest.raises(ValidationException):
         # when
         UnitDefinitionValueVO.from_input_values(
             name=name,
@@ -509,8 +525,9 @@ def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure
             master_unit=master_unit,
             conversion_factor_to_master=conversion_factor_to_master,
             us_conventional_unit=us_conventional_unit,
+            use_complex_unit_conversion=use_complex_unit_conversion,
             legacy_code=legacy_code,
-            molecular_weight_conv_expon=molecular_weight_conv_exponential,
+            use_molecular_weight=use_molecular_weight,
             unit_dimension_uid=unit_dimension,
             convertible_unit=convertible_unit,
             unit_ct_uid_exists_callback=(lambda _: False),
@@ -528,7 +545,7 @@ def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure
 @given(
     unit_definition_value=unit_definition_values(),
     library=libraries().filter(lambda _: _.is_editable),
-    author=strings_with_at_least_one_non_space_char(),
+    author_id=strings_with_at_least_one_non_space_char(),
     uid=one_of(
         none(), strings_with_at_least_one_non_space_char().map(lambda _: _.strip())
     ),
@@ -537,7 +554,7 @@ def test__unit_definition_value_vo__from_input__non_existent_unit_ct_id__failure
 def test__unit_definition_ar__from_input_values__success(
     unit_definition_value: UnitDefinitionValueVO,
     library: LibraryVO,
-    author: str,
+    author_id: str,
     uid: str,
     master_unit_uid: str | None,
 ):
@@ -550,7 +567,7 @@ def test__unit_definition_ar__from_input_values__success(
     # when
     unit_definition_ar = UnitDefinitionAR.from_input_values(
         library=library,
-        author=author,
+        author_id=author_id,
         uid_supplier=(lambda: uid),
         unit_definition_value=unit_definition_value,
         concept_exists_by_callback=lambda x, y, z: y != unit_definition_value.name,
@@ -565,7 +582,7 @@ def test__unit_definition_ar__from_input_values__success(
     assert unit_definition_ar.name == unit_definition_value.name
     assert unit_definition_ar.library == library
     assert unit_definition_ar.concept_vo == unit_definition_value
-    assert unit_definition_ar.item_metadata.user_initials == author
+    assert unit_definition_ar.item_metadata.author_id == author_id
 
 
 @settings(max_examples=int(max(10, settings.default.max_examples / 10)), deadline=None)
@@ -574,7 +591,7 @@ def test__unit_definition_ar__from_input_values__success(
         lambda _: _.master_unit and _.unit_dimension_uid is not None
     ),
     library=libraries().filter(lambda _: _.is_editable),
-    author=strings_with_at_least_one_non_space_char(),
+    author_id=strings_with_at_least_one_non_space_char(),
     uid=one_of(
         none(), strings_with_at_least_one_non_space_char().map(lambda _: _.strip())
     ),
@@ -582,7 +599,7 @@ def test__unit_definition_ar__from_input_values__success(
 def test__unit_definition_ar__from_input_values_another_master_unit__failure(
     unit_definition_value: UnitDefinitionValueVO,
     library: LibraryVO,
-    author: str,
+    author_id: str,
     uid: str,
 ):
     # then
@@ -590,7 +607,7 @@ def test__unit_definition_ar__from_input_values_another_master_unit__failure(
         # when
         UnitDefinitionAR.from_input_values(
             library=library,
-            author=author,
+            author_id=author_id,
             uid_supplier=lambda: uid,
             unit_definition_value=unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -604,21 +621,21 @@ def test__unit_definition_ar__from_input_values_another_master_unit__failure(
 @given(
     unit_definition_value=unit_definition_values(),
     library=libraries(),  # no matter, either editable or not this should fail
-    author=strings_with_at_least_one_non_space_char(),
+    author_id=strings_with_at_least_one_non_space_char(),
     uid=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_ar__from_input_values__non_unique_name__failure(
     unit_definition_value: UnitDefinitionValueVO,
     library: LibraryVO,
-    author: str,
+    author_id: str,
     uid: str,
 ):
     # then
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         # when
         UnitDefinitionAR.from_input_values(
             library=library,
-            author=author,
+            author_id=author_id,
             uid_supplier=(lambda: uid),
             unit_definition_value=unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: y == unit_definition_value.name,
@@ -631,22 +648,22 @@ def test__unit_definition_ar__from_input_values__non_unique_name__failure(
 @given(
     unit_definition_value=unit_definition_values(),
     library=libraries(),  # no matter, either editable or not this should fail
-    author=strings_with_at_least_one_non_space_char(),
+    author_id=strings_with_at_least_one_non_space_char(),
     uid=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_ar__from_input_values__non_unique_legacy_code__failure(
     unit_definition_value: UnitDefinitionValueVO,
     library: LibraryVO,
-    author: str,
+    author_id: str,
     uid: str,
 ):
     assume(unit_definition_value.legacy_code is not None)
     # then
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         # when
         UnitDefinitionAR.from_input_values(
             library=library,
-            author=author,
+            author_id=author_id,
             uid_supplier=(lambda: uid),
             unit_definition_value=unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -671,21 +688,21 @@ def test__unit_definition_ar__from_input_values__non_unique_unit_ct_uid__failure
 @given(
     unit_definition_value=unit_definition_values(),
     library=libraries().filter(lambda _: not _.is_editable),
-    author=strings_with_at_least_one_non_space_char(),
+    author_id=strings_with_at_least_one_non_space_char(),
     uid=one_of(none(), stripped_non_empty_strings()),
 )
 def test__unit_definition_ar__from_input_values__non_editable_library__failure(
     unit_definition_value: UnitDefinitionValueVO,
     library: LibraryVO,
-    author: str,
+    author_id: str,
     uid: str,
 ):
     # then
-    with pytest.raises(exceptions.BusinessLogicException):
+    with pytest.raises(BusinessLogicException):
         # when
         UnitDefinitionAR.from_input_values(
             library=library,
-            author=author,
+            author_id=author_id,
             uid_supplier=(lambda: uid),
             unit_definition_value=unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -728,29 +745,32 @@ def test__unit_definition_ar__from_repository_values__result(
     unit_definition_ar=draft_unit_definitions(),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft__result(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     new_unit_definition_value = UnitDefinitionValueVO.from_repository_values(
         name=new_unit_definition_value.name,
         # we cannot change unit_ct_uid if it's already assigned in existing aggregate (logic forbids that)
-        ct_units=unit_definition_ar.concept_vo.ct_units
-        if unit_definition_ar.concept_vo.ct_units is not None
-        else new_unit_definition_value.ct_units,
+        ct_units=(
+            unit_definition_ar.concept_vo.ct_units
+            if unit_definition_ar.concept_vo.ct_units is not None
+            else new_unit_definition_value.ct_units
+        ),
         unit_subsets=new_unit_definition_value.unit_subsets,
         convertible_unit=new_unit_definition_value.convertible_unit,
         display_unit=new_unit_definition_value.display_unit,
         master_unit=new_unit_definition_value.master_unit,
         si_unit=new_unit_definition_value.si_unit,
         us_conventional_unit=new_unit_definition_value.us_conventional_unit,
+        use_complex_unit_conversion=new_unit_definition_value.use_complex_unit_conversion,
         unit_dimension_uid=new_unit_definition_value.unit_dimension_uid,
         legacy_code=new_unit_definition_value.legacy_code,
-        molecular_weight_conv_expon=new_unit_definition_value.molecular_weight_conv_expon,
+        use_molecular_weight=new_unit_definition_value.use_molecular_weight,
         conversion_factor_to_master=new_unit_definition_value.conversion_factor_to_master,
         ucum_uid=new_unit_definition_value.ucum_uid,
         definition=new_unit_definition_value.definition,
@@ -768,7 +788,7 @@ def test__unit_definition_ar__edit_draft__result(
     unit_definition_ar.edit_draft(
         new_unit_definition_value=new_unit_definition_value,
         change_description=change_description,
-        author=author,
+        author_id=author_id,
         concept_exists_by_callback=lambda x, y, z: y != new_unit_definition_value.name
         or y == unit_definition_ar.name,
         master_unit_exists_for_dimension_predicate=(
@@ -795,7 +815,7 @@ def test__unit_definition_ar__edit_draft__result(
     assert unit_definition_ar.item_metadata.start_date >= datetime_before
     assert unit_definition_ar.item_metadata.start_date <= datetime_after
     assert unit_definition_ar.item_metadata.end_date is None
-    assert unit_definition_ar.item_metadata.user_initials == author
+    assert unit_definition_ar.item_metadata.author_id == author_id
     assert unit_definition_ar.item_metadata.change_description == change_description
     assert unit_definition_ar.library == library
 
@@ -813,29 +833,32 @@ def test__unit_definition_ar__edit_draft__result(
         lambda x: x.legacy_code is not None
     ),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_without_legacy_code_change__result(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     # given
     new_unit_definition_value = UnitDefinitionValueVO.from_repository_values(
         name=new_unit_definition_value.name,
-        ct_units=unit_definition_ar.concept_vo.ct_units
-        if unit_definition_ar.concept_vo.ct_units is not None
-        else new_unit_definition_value.ct_units,
+        ct_units=(
+            unit_definition_ar.concept_vo.ct_units
+            if unit_definition_ar.concept_vo.ct_units is not None
+            else new_unit_definition_value.ct_units
+        ),
         unit_subsets=new_unit_definition_value.unit_subsets,
         convertible_unit=new_unit_definition_value.convertible_unit,
         display_unit=new_unit_definition_value.display_unit,
         master_unit=new_unit_definition_value.master_unit,
         si_unit=new_unit_definition_value.si_unit,
         us_conventional_unit=new_unit_definition_value.us_conventional_unit,
+        use_complex_unit_conversion=new_unit_definition_value.use_complex_unit_conversion,
         unit_dimension_uid=new_unit_definition_value.unit_dimension_uid,
         legacy_code=unit_definition_ar.concept_vo.legacy_code,  # i.e. not changing this one
-        molecular_weight_conv_expon=new_unit_definition_value.molecular_weight_conv_expon,
+        use_molecular_weight=new_unit_definition_value.use_molecular_weight,
         conversion_factor_to_master=new_unit_definition_value.conversion_factor_to_master,
         ucum_uid=new_unit_definition_value.ucum_uid,
         definition=new_unit_definition_value.definition,
@@ -852,7 +875,7 @@ def test__unit_definition_ar__edit_draft_without_legacy_code_change__result(
     unit_definition_ar.edit_draft(
         new_unit_definition_value=new_unit_definition_value,
         change_description=change_description,
-        author=author,
+        author_id=author_id,
         concept_exists_by_callback=lambda x, y, z: y == unit_definition_ar.name
         or y != new_unit_definition_value.name,
         master_unit_exists_for_dimension_predicate=(
@@ -876,7 +899,7 @@ def test__unit_definition_ar__edit_draft_without_legacy_code_change__result(
     assert unit_definition_ar.item_metadata.start_date >= datetime_before
     assert unit_definition_ar.item_metadata.start_date <= datetime_after
     assert unit_definition_ar.item_metadata.end_date is None
-    assert unit_definition_ar.item_metadata.user_initials == author
+    assert unit_definition_ar.item_metadata.author_id == author_id
     assert unit_definition_ar.item_metadata.change_description == change_description
     assert unit_definition_ar.library == library
 
@@ -886,13 +909,13 @@ def test__unit_definition_ar__edit_draft_without_legacy_code_change__result(
     unit_definition_ar=draft_unit_definitions(),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_without_unit_ct_uid_change__result(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     # given
     new_unit_definition_value = UnitDefinitionValueVO.from_repository_values(
@@ -904,9 +927,10 @@ def test__unit_definition_ar__edit_draft_without_unit_ct_uid_change__result(
         master_unit=new_unit_definition_value.master_unit,
         si_unit=new_unit_definition_value.si_unit,
         us_conventional_unit=new_unit_definition_value.us_conventional_unit,
+        use_complex_unit_conversion=new_unit_definition_value.use_complex_unit_conversion,
         unit_dimension_uid=new_unit_definition_value.unit_dimension_uid,
         legacy_code=new_unit_definition_value.legacy_code,
-        molecular_weight_conv_expon=new_unit_definition_value.molecular_weight_conv_expon,
+        use_molecular_weight=new_unit_definition_value.use_molecular_weight,
         conversion_factor_to_master=new_unit_definition_value.conversion_factor_to_master,
         ucum_uid=new_unit_definition_value.ucum_uid,
         definition=new_unit_definition_value.definition,
@@ -923,7 +947,7 @@ def test__unit_definition_ar__edit_draft_without_unit_ct_uid_change__result(
     unit_definition_ar.edit_draft(
         new_unit_definition_value=new_unit_definition_value,
         change_description=change_description,
-        author=author,
+        author_id=author_id,
         concept_exists_by_callback=lambda x, y, z: y == unit_definition_ar.name
         or y != new_unit_definition_value.name,
         master_unit_exists_for_dimension_predicate=(
@@ -950,7 +974,7 @@ def test__unit_definition_ar__edit_draft_without_unit_ct_uid_change__result(
     assert unit_definition_ar.item_metadata.start_date >= datetime_before
     assert unit_definition_ar.item_metadata.start_date <= datetime_after
     assert unit_definition_ar.item_metadata.end_date is None
-    assert unit_definition_ar.item_metadata.user_initials == author
+    assert unit_definition_ar.item_metadata.author_id == author_id
     assert unit_definition_ar.item_metadata.change_description == change_description
     assert unit_definition_ar.library == library
 
@@ -960,29 +984,32 @@ def test__unit_definition_ar__edit_draft_without_unit_ct_uid_change__result(
     unit_definition_ar=draft_unit_definitions(),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_without_name_change__result(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     # given
     new_unit_definition_value = UnitDefinitionValueVO.from_repository_values(
         name=unit_definition_ar.name,
-        ct_units=unit_definition_ar.concept_vo.ct_units
-        if unit_definition_ar.concept_vo.ct_units is not None
-        else new_unit_definition_value.ct_units,
+        ct_units=(
+            unit_definition_ar.concept_vo.ct_units
+            if unit_definition_ar.concept_vo.ct_units is not None
+            else new_unit_definition_value.ct_units
+        ),
         unit_subsets=unit_definition_ar.concept_vo.unit_subsets,
         convertible_unit=new_unit_definition_value.convertible_unit,
         display_unit=new_unit_definition_value.display_unit,
         master_unit=new_unit_definition_value.master_unit,
         si_unit=new_unit_definition_value.si_unit,
         us_conventional_unit=new_unit_definition_value.us_conventional_unit,
+        use_complex_unit_conversion=new_unit_definition_value.use_complex_unit_conversion,
         unit_dimension_uid=new_unit_definition_value.unit_dimension_uid,
         legacy_code=new_unit_definition_value.legacy_code,
-        molecular_weight_conv_expon=new_unit_definition_value.molecular_weight_conv_expon,
+        use_molecular_weight=new_unit_definition_value.use_molecular_weight,
         conversion_factor_to_master=new_unit_definition_value.conversion_factor_to_master,
         ucum_uid=new_unit_definition_value.ucum_uid,
         definition=new_unit_definition_value.definition,
@@ -1000,7 +1027,7 @@ def test__unit_definition_ar__edit_draft_without_name_change__result(
     unit_definition_ar.edit_draft(
         new_unit_definition_value=new_unit_definition_value,
         change_description=change_description,
-        author=author,
+        author_id=author_id,
         concept_exists_by_callback=lambda x, y, z: True,
         master_unit_exists_for_dimension_predicate=(
             lambda _: (
@@ -1026,7 +1053,7 @@ def test__unit_definition_ar__edit_draft_without_name_change__result(
         assert unit_definition_ar.item_metadata.start_date >= datetime_before
         assert unit_definition_ar.item_metadata.start_date <= datetime_after
         assert unit_definition_ar.item_metadata.end_date is None
-        assert unit_definition_ar.item_metadata.user_initials == author
+        assert unit_definition_ar.item_metadata.author_id == author_id
         assert unit_definition_ar.item_metadata.change_description == change_description
         assert unit_definition_ar.library == library
 
@@ -1036,20 +1063,20 @@ def test__unit_definition_ar__edit_draft_without_name_change__result(
     unit_definition_ar=draft_unit_definitions(),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_with_non_unique_name__failure(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     assume(new_unit_definition_value.name != unit_definition_ar.name)
     # then
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         # when
         unit_definition_ar.edit_draft(
-            author=author,
+            author_id=author_id,
             change_description=change_description,
             new_unit_definition_value=new_unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: y
@@ -1070,13 +1097,13 @@ def test__unit_definition_ar__edit_draft_with_non_unique_name__failure(
         lambda x: x.legacy_code is not None
     ),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_with_non_unique_legacy_code__failure(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     assume(
         new_unit_definition_value.legacy_code
@@ -1086,7 +1113,7 @@ def test__unit_definition_ar__edit_draft_with_non_unique_legacy_code__failure(
     with pytest.raises(BusinessLogicException):
         # when
         unit_definition_ar.edit_draft(
-            author=author,
+            author_id=author_id,
             change_description=change_description,
             new_unit_definition_value=new_unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -1105,13 +1132,13 @@ def test__unit_definition_ar__edit_draft_with_non_unique_legacy_code__failure(
     unit_definition_ar=draft_unit_definitions(),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft_making_another_master_unit__failure(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     # given
     assume(new_unit_definition_value.unit_dimension_uid is not None)
@@ -1126,7 +1153,7 @@ def test__unit_definition_ar__edit_draft_making_another_master_unit__failure(
     with pytest.raises(BusinessLogicException):
         # when
         unit_definition_ar.edit_draft(
-            author=author,
+            author_id=author_id,
             change_description=change_description,
             new_unit_definition_value=new_unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -1141,19 +1168,19 @@ def test__unit_definition_ar__edit_draft_making_another_master_unit__failure(
     unit_definition_ar=one_of(final_unit_definitions(), retired_unit_definitions()),
     new_unit_definition_value=unit_definition_values(),
     change_description=stripped_non_empty_strings(),
-    author=stripped_non_empty_strings(),
+    author_id=stripped_non_empty_strings(),
 )
 def test__unit_definition_ar__edit_draft__incorrect_status__failure(
     unit_definition_ar: UnitDefinitionAR,
     new_unit_definition_value: UnitDefinitionValueVO,
     change_description: str,
-    author: str,
+    author_id: str,
 ):
     # then
-    with pytest.raises(VersioningException):
+    with pytest.raises(BusinessLogicException):
         # when
         unit_definition_ar.edit_draft(
-            author=author,
+            author_id=author_id,
             change_description=change_description,
             new_unit_definition_value=new_unit_definition_value,
             concept_exists_by_callback=lambda x, y, z: False,
@@ -1171,7 +1198,7 @@ def test__unit_definition_value_vo__from_input_values__non_1_conversion_factor_f
     unit_definition_value: UnitDefinitionValueVO, non_1_conversion_factor: float
 ):
     # then
-    with pytest.raises(exceptions.ValidationException):
+    with pytest.raises(ValidationException):
         # when
         UnitDefinitionValueVO.from_input_values(
             name=unit_definition_value.name,
@@ -1182,46 +1209,10 @@ def test__unit_definition_value_vo__from_input_values__non_1_conversion_factor_f
             master_unit=True,
             si_unit=unit_definition_value.si_unit,
             us_conventional_unit=unit_definition_value.us_conventional_unit,
+            use_complex_unit_conversion=unit_definition_value.use_complex_unit_conversion,
             legacy_code=unit_definition_value.legacy_code,
-            molecular_weight_conv_expon=unit_definition_value.molecular_weight_conv_expon,
+            use_molecular_weight=unit_definition_value.use_molecular_weight,
             conversion_factor_to_master=non_1_conversion_factor,
-            unit_ct_uid_exists_callback=(lambda _: True),
-            unit_dimension_uid=unit_definition_value.unit_dimension_uid,
-            ucum_uid=unit_definition_value.ucum_uid,
-            definition=unit_definition_value.definition,
-            order=unit_definition_value.order,
-            comment=unit_definition_value.comment,
-            ucum_uid_exists_callback=(lambda _: True),
-            find_term_by_uid=lambda _: get_mock_ct_item(
-                unit_definition_value.unit_dimension_uid
-            ),
-            is_template_parameter=False,
-        )
-
-
-@settings(max_examples=int(max(10, settings.default.max_examples / 10)), deadline=None)
-@given(
-    unit_definition_value=unit_definition_values(),
-    wrong_molecular_weight_conv_expon=integers().filter(lambda _: _ not in {0, 1}),
-)
-def test__unit_definition_value_vo__from_input_values__wrong_molecular_weight_conv_expon__failure(
-    unit_definition_value: UnitDefinitionValueVO, wrong_molecular_weight_conv_expon: int
-):
-    # then
-    with pytest.raises(exceptions.ValidationException):
-        # when
-        UnitDefinitionValueVO.from_input_values(
-            name=unit_definition_value.name,
-            ct_units=unit_definition_value.ct_units,
-            unit_subsets=unit_definition_value.unit_subsets,
-            convertible_unit=unit_definition_value.convertible_unit,
-            display_unit=unit_definition_value.display_unit,
-            master_unit=unit_definition_value.master_unit,
-            si_unit=unit_definition_value.si_unit,
-            us_conventional_unit=unit_definition_value.us_conventional_unit,
-            legacy_code=unit_definition_value.legacy_code,
-            molecular_weight_conv_expon=wrong_molecular_weight_conv_expon,
-            conversion_factor_to_master=unit_definition_value.conversion_factor_to_master,
             unit_ct_uid_exists_callback=(lambda _: True),
             unit_dimension_uid=unit_definition_value.unit_dimension_uid,
             ucum_uid=unit_definition_value.ucum_uid,
@@ -1242,7 +1233,7 @@ def test__unit_definition_value_vo__from_input_values__molecular_weight_conv_exp
     unit_definition_value: UnitDefinitionValueVO,
 ):
     # then
-    with pytest.raises(exceptions.ValidationException):
+    with pytest.raises(ValidationException):
         # when
         UnitDefinitionValueVO.from_input_values(
             name=unit_definition_value.name,
@@ -1253,8 +1244,9 @@ def test__unit_definition_value_vo__from_input_values__molecular_weight_conv_exp
             master_unit=unit_definition_value.master_unit,
             si_unit=unit_definition_value.si_unit,
             us_conventional_unit=unit_definition_value.us_conventional_unit,
+            use_complex_unit_conversion=unit_definition_value.use_complex_unit_conversion,
             legacy_code=unit_definition_value.legacy_code,
-            molecular_weight_conv_expon=None,
+            use_molecular_weight=None,
             conversion_factor_to_master=unit_definition_value.conversion_factor_to_master,
             unit_ct_uid_exists_callback=(lambda _: True),
             unit_dimension_uid=CONCENTRATION_UNIT_DIMENSION_VALUE,

@@ -1,6 +1,6 @@
 [
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Pre-existing type 1 diabetes mellitus in pregnancy (disorder)\n",
     "dictionary_id": "609564002",
@@ -15,7 +15,7 @@
     "start_date": "2022-09-20T10:52:14.525511",
     "status": "Final",
     "term_uid": "DictionaryTerm_000039",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -34,7 +34,7 @@
     "start_date": "2022-09-20T10:52:14.415442",
     "status": "Final",
     "term_uid": "DictionaryTerm_000038",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -53,11 +53,11 @@
     "start_date": "2022-09-20T10:52:14.294598",
     "status": "Final",
     "term_uid": "DictionaryTerm_000037",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Severe hereditary factor IX deficiency disease without inhibitor (disorder)",
     "dictionary_id": "441190003",
@@ -72,11 +72,11 @@
     "start_date": "2022-09-20T10:52:14.090895",
     "status": "Final",
     "term_uid": "DictionaryTerm_000036",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Severe hereditary factor VIII deficiency disease without inhibitor (disorder)",
     "dictionary_id": "440993008",
@@ -91,11 +91,11 @@
     "start_date": "2022-09-20T10:52:13.965998",
     "status": "Final",
     "term_uid": "DictionaryTerm_000035",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor IX deficiency disease without inhibitor (disorder)",
     "dictionary_id": "438792009",
@@ -110,11 +110,11 @@
     "start_date": "2022-09-20T10:52:13.855204",
     "status": "Final",
     "term_uid": "DictionaryTerm_000034",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Severe hereditary factor VIII deficiency disease with inhibitor (disorder)",
     "dictionary_id": "438373005",
@@ -129,11 +129,11 @@
     "start_date": "2022-09-20T10:52:13.750781",
     "status": "Final",
     "term_uid": "DictionaryTerm_000033",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor IX deficiency disease with inhibitor (disorder)",
     "dictionary_id": "438372000",
@@ -148,11 +148,11 @@
     "start_date": "2022-09-20T10:52:13.608769",
     "status": "Final",
     "term_uid": "DictionaryTerm_000032",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor VIII deficiency disease without inhibitor (disorder)",
     "dictionary_id": "438360006",
@@ -167,11 +167,11 @@
     "start_date": "2022-09-20T10:52:13.500326",
     "status": "Final",
     "term_uid": "DictionaryTerm_000031",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Adult growth hormone deficiency (disorder)\n",
     "dictionary_id": "421684006",
@@ -186,11 +186,11 @@
     "start_date": "2022-09-20T10:52:13.396589",
     "status": "Final",
     "term_uid": "DictionaryTerm_000030",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Sickling disorder due to hemoglobin S (disorder)",
     "dictionary_id": "417357006",
@@ -205,11 +205,11 @@
     "start_date": "2022-09-20T10:52:13.294714",
     "status": "Final",
     "term_uid": "DictionaryTerm_000029",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary hemoglobin S (disorder)",
     "dictionary_id": "416417002",
@@ -224,11 +224,11 @@
     "start_date": "2022-09-20T10:52:13.172951",
     "status": "Final",
     "term_uid": "DictionaryTerm_000028",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Obesity (disorder)",
     "dictionary_id": "414916001",
@@ -243,7 +243,7 @@
     "start_date": "2022-09-20T10:52:13.061390",
     "status": "Final",
     "term_uid": "DictionaryTerm_000027",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -262,11 +262,11 @@
     "start_date": "2022-09-20T10:52:12.957595",
     "status": "Final",
     "term_uid": "DictionaryTerm_000026",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Disorder of body system (disorder)",
     "dictionary_id": "362965005",
@@ -281,11 +281,11 @@
     "start_date": "2022-09-20T10:52:12.817269",
     "status": "Final",
     "term_uid": "DictionaryTerm_000025",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Cerebral degeneration presenting primarily with dementia (disorder)",
     "dictionary_id": "279982005",
@@ -300,11 +300,11 @@
     "start_date": "2022-09-20T10:52:12.567922",
     "status": "Final",
     "term_uid": "DictionaryTerm_000024",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Fetal growth abnormality (disorder)",
     "dictionary_id": "276604007",
@@ -319,7 +319,7 @@
     "start_date": "2022-09-20T10:52:12.428511",
     "status": "Final",
     "term_uid": "DictionaryTerm_000023",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -338,11 +338,11 @@
     "start_date": "2022-09-20T10:52:12.287639",
     "status": "Final",
     "term_uid": "DictionaryTerm_000022",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Renal impairment (disorder)",
     "dictionary_id": "236423003",
@@ -357,11 +357,11 @@
     "start_date": "2022-09-20T10:52:12.036045",
     "status": "Final",
     "term_uid": "DictionaryTerm_000021",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor VIII deficiency disease with inhibitor (disorder)",
     "dictionary_id": "234442002",
@@ -376,11 +376,11 @@
     "start_date": "2022-09-20T10:52:11.910435",
     "status": "Final",
     "term_uid": "DictionaryTerm_000020",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Factor VIII deficiency (disorder)",
     "dictionary_id": "234440005",
@@ -395,7 +395,7 @@
     "start_date": "2022-09-20T10:52:11.772282",
     "status": "Final",
     "term_uid": "DictionaryTerm_000019",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -414,11 +414,11 @@
     "start_date": "2022-09-20T10:52:11.605385",
     "status": "Final",
     "term_uid": "DictionaryTerm_000018",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Kidney disease (disorder)",
     "dictionary_id": "90708001",
@@ -433,11 +433,11 @@
     "start_date": "2022-09-20T10:52:11.388832",
     "status": "Final",
     "term_uid": "DictionaryTerm_000017",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Autoimmune disease (disorder)",
     "dictionary_id": "85828009",
@@ -452,7 +452,7 @@
     "start_date": "2022-09-20T10:52:11.221890",
     "status": "Final",
     "term_uid": "DictionaryTerm_000016",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -471,11 +471,11 @@
     "start_date": "2022-09-20T10:52:10.939239",
     "status": "Final",
     "term_uid": "DictionaryTerm_000015",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hypopituitarism (disorder)",
     "dictionary_id": "74728003",
@@ -490,7 +490,7 @@
     "start_date": "2022-09-20T10:52:10.743042",
     "status": "Final",
     "term_uid": "DictionaryTerm_000014",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -509,7 +509,7 @@
     "start_date": "2022-09-20T10:52:10.543602",
     "status": "Final",
     "term_uid": "DictionaryTerm_000013",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -528,11 +528,11 @@
     "start_date": "2022-09-20T10:52:10.352478",
     "status": "Final",
     "term_uid": "DictionaryTerm_000012",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Disease (disorder)",
     "dictionary_id": "64572001",
@@ -547,11 +547,11 @@
     "start_date": "2022-09-20T10:52:10.159554",
     "status": "Final",
     "term_uid": "DictionaryTerm_000011",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hyperlipidemia (disorder)",
     "dictionary_id": "55822004",
@@ -566,7 +566,7 @@
     "start_date": "2022-09-20T10:52:09.844672",
     "status": "Final",
     "term_uid": "DictionaryTerm_000010",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -585,7 +585,7 @@
     "start_date": "2022-09-20T10:52:09.674325",
     "status": "Final",
     "term_uid": "DictionaryTerm_000009",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -604,7 +604,7 @@
     "start_date": "2022-09-20T10:52:09.481735",
     "status": "Final",
     "term_uid": "DictionaryTerm_000008",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -623,11 +623,11 @@
     "start_date": "2022-09-20T10:52:09.209802",
     "status": "Final",
     "term_uid": "DictionaryTerm_000007",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor IX deficiency disease (disorder)",
     "dictionary_id": "41788008",
@@ -642,11 +642,11 @@
     "start_date": "2022-09-20T10:52:08.915063",
     "status": "Final",
     "term_uid": "DictionaryTerm_000006",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary factor VIII deficiency disease (disorder)",
     "dictionary_id": "28293008",
@@ -661,7 +661,7 @@
     "start_date": "2022-09-20T10:52:08.648608",
     "status": "Final",
     "term_uid": "DictionaryTerm_000005",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -680,11 +680,11 @@
     "start_date": "2022-09-20T10:52:08.451942",
     "status": "Final",
     "term_uid": "DictionaryTerm_000004",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hereditary coagulation factor deficiency (disorder)",
     "dictionary_id": "16922007",
@@ -699,11 +699,11 @@
     "start_date": "2022-09-20T10:52:08.236549",
     "status": "Final",
     "term_uid": "DictionaryTerm_000003",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Severe hereditary factor VIII deficiency disease (disorder)",
     "dictionary_id": "16872008",
@@ -718,11 +718,11 @@
     "start_date": "2022-09-20T10:52:08.004545",
     "status": "Final",
     "term_uid": "DictionaryTerm_000002",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
-    "abbreviation": "",
+    "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Hypercholesterolemia (disorder)",
     "dictionary_id": "13644009",
@@ -737,7 +737,7 @@
     "start_date": "2022-09-20T10:52:07.627799",
     "status": "Final",
     "term_uid": "DictionaryTerm_000001",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

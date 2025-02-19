@@ -5,7 +5,6 @@ from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 from neomodel import db, exceptions
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domain_repositories.generic_repository import (
     RepositoryClosureData,
 )
@@ -15,8 +14,13 @@ from clinical_mdr_api.domain_repositories.models.clinical_programme import (
 from clinical_mdr_api.domain_repositories.models.project import Project
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.domains.projects.project import ProjectAR
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
 from clinical_mdr_api.repositories._utils import sb_clear_cache
+from common import config
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    NotFoundException,
+)
 
 
 class ProjectRepository:
@@ -56,26 +60,26 @@ class ProjectRepository:
     @cached(cache=cache_store_item_by_uid, key=get_hashkey, lock=lock_store_item_by_uid)
     def find_by_uid(self, uid: str) -> ProjectAR:
         project = Project.nodes.get_or_none(uid=uid)
-        if project:
-            return ProjectAR.from_input_values(
-                project_number=project.project_number,
-                name=project.name,
-                clinical_programme_uid=project.holds_project.single().uid,
-                description=project.description,
-                generate_uid_callback=lambda: project.uid,
-                clinical_programme_exists_callback=lambda _: True,
-            )
 
-        raise NotFoundException(f"Project with UID ({uid}) doesn't exist.")
+        NotFoundException.raise_if_not(project, "Project", uid)
+
+        return ProjectAR.from_input_values(
+            project_number=project.project_number,
+            name=project.name,
+            clinical_programme_uid=project.holds_project.single().uid,
+            description=project.description,
+            generate_uid_callback=lambda: project.uid,
+            clinical_programme_exists_callback=lambda _: True,
+        )
 
     def delete_by_uid(self, uid: str) -> None:
         project: Project = Project.nodes.get_or_none(uid=uid)
 
         if project:
-            if self.is_used_in_studies(uid):
-                raise BusinessLogicException(
-                    f"Cannot delete Project with UID ({uid}) because it is used by studies."
-                )
+            BusinessLogicException.raise_if(
+                self.is_used_in_studies(uid),
+                msg=f"Cannot delete Project with UID '{uid}' because it is used by studies.",
+            )
 
             project.delete()
 
@@ -123,7 +127,7 @@ class ProjectRepository:
                 generate_uid_callback=lambda: project_node.uid,
                 clinical_programme_exists_callback=lambda _: True,
             )
-        raise exceptions.DoesNotExist(f"Study with provided uid does not exist ({uid})")
+        raise exceptions.DoesNotExist(f"Study with UID '{uid}' doesn't exist.")
 
     @sb_clear_cache(
         caches=[
@@ -144,12 +148,19 @@ class ProjectRepository:
             Default is False.
 
         Raises:
-            NotFoundException:
-                - If the Project with the given UID does not exist.
+            NotFoundException: If the Project with the given UID does not exist.
+            BusinessLogicException:
+                - If the Project with the given UID is used in studies.
                 - If the Clinical Programme with the given UID does not exist.
-            BusinessLogicException: If the Project with the given UID is used in studies.
         """
         if not update:
+            AlreadyExistsException.raise_if(
+                Project.nodes.get_or_none(project_number=project_ar.project_number),
+                "Project",
+                project_ar.project_number,
+                "Project Number",
+            )
+
             project_node = Project(
                 uid=project_ar.uid,
                 project_number=project_ar.project_number,
@@ -160,23 +171,21 @@ class ProjectRepository:
             clinical_programme_node = ClinicalProgramme.nodes.get_or_none(
                 uid=project_ar.clinical_programme_uid
             )
-            if not clinical_programme_node:
-                raise NotFoundException(
-                    f"Clinical Programme with UID ({project_ar.clinical_programme_uid}) doesn't exist."
-                )
+            NotFoundException.raise_if_not(
+                clinical_programme_node,
+                "Clinical Programme",
+                project_ar.clinical_programme_uid,
+            )
             project_node.holds_project.connect(clinical_programme_node)
         else:
             project = Project.nodes.get_or_none(uid=project_ar.uid)
 
-            if not project:
-                raise NotFoundException(
-                    f"Project with UID ({project_ar.uid}) doesn't exist."
-                )
+            BusinessLogicException.raise_if_not(project, "Project", project_ar.uid)
 
-            if self.is_used_in_studies(project_ar.uid):
-                raise BusinessLogicException(
-                    f"Cannot update Project with UID ({project_ar.uid}) because it is used by studies."
-                )
+            BusinessLogicException.raise_if(
+                self.is_used_in_studies(project_ar.uid),
+                msg=f"Cannot update Project with UID '{project_ar.uid}' because it is used by studies.",
+            )
 
             project.name = project_ar.name
             project.description = project_ar.description
@@ -186,10 +195,11 @@ class ProjectRepository:
             clinical_programme_node = ClinicalProgramme.nodes.get_or_none(
                 uid=project_ar.clinical_programme_uid
             )
-            if not clinical_programme_node:
-                raise NotFoundException(
-                    f"Clinical Programme with UID ({project_ar.clinical_programme_uid}) doesn't exist."
-                )
+            BusinessLogicException.raise_if_not(
+                clinical_programme_node,
+                "Clinical Programme",
+                project_ar.clinical_programme_uid,
+            )
             project.holds_project.connect(clinical_programme_node)
 
     def close(self) -> None:

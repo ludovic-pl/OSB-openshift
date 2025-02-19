@@ -1,7 +1,6 @@
 import unittest
 from typing import Callable
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.activities.activity_instance import (
     ActivityInstanceAR,
     ActivityInstanceGroupingVO,
@@ -15,7 +14,16 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.models.concepts.activities.activity_item import (
+    CompactUnitDefinition,
+)
+from clinical_mdr_api.tests.unit.domain.utils import (
+    AUTHOR_ID,
+    random_bool,
+    random_float,
+    random_str,
+)
+from common import exceptions
 
 
 def create_random_activity_instance_grouping_vo() -> ActivityInstanceGroupingVO:
@@ -31,12 +39,15 @@ def create_random_activity_instance_vo() -> ActivityInstanceVO:
     name = random_str()
     random_activity_instance_vo = ActivityInstanceVO.from_repository_values(
         nci_concept_id=random_str(),
+        nci_concept_name=random_str(),
         name=name,
         name_sentence_case=name,
         definition=random_str(),
         abbreviation=random_str(),
         activity_instance_class_uid=random_str(),
         activity_instance_class_name=random_str(),
+        is_research_lab=random_bool(),
+        molecular_weight=random_float(),
         topic_code=random_str(),
         adam_param_code=random_str(),
         is_required_for_activity=True,
@@ -54,13 +65,21 @@ def create_random_activity_instance_vo() -> ActivityInstanceVO:
                 activity_item_class_uid=random_str(),
                 activity_item_class_name=random_str(),
                 ct_terms=[LibraryItem(uid=random_str(), name=random_str())],
-                unit_definitions=[LibraryItem(uid=random_str(), name=random_str())],
+                unit_definitions=[
+                    CompactUnitDefinition(
+                        uid=random_str(), name=random_str(), dimension_name=random_str()
+                    )
+                ],
             ),
             ActivityItemVO.from_repository_values(
                 activity_item_class_uid=random_str(),
                 activity_item_class_name=random_str(),
                 ct_terms=[LibraryItem(uid=random_str(), name=random_str())],
-                unit_definitions=[LibraryItem(uid=random_str(), name=random_str())],
+                unit_definitions=[
+                    CompactUnitDefinition(
+                        uid=random_str(), name=random_str(), dimension_name=random_str()
+                    )
+                ],
             ),
         ],
     )
@@ -79,9 +98,10 @@ def create_random_activity_instance_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
         concept_exists_by_callback=lambda x, y, z: False,
-        activity_hierarchy_exists_by_uid_callback=lambda _: True,
+        concept_exists_by_library_and_name_callback=lambda x, y: False,
+        get_final_activity_value_by_uid_callback=lambda _: {"is_data_collected": True},
         activity_subgroup_exists=lambda _: True,
         activity_group_exists=lambda _: True,
         activity_instance_class_exists_by_uid_callback=lambda _: True,
@@ -113,7 +133,7 @@ class TestActivityInstance(unittest.TestCase):
         activity_instance_ar = create_random_activity_instance_ar()
 
         # when
-        activity_instance_ar.approve(author="TODO")
+        activity_instance_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_instance_ar.item_metadata._end_date)
@@ -126,10 +146,10 @@ class TestActivityInstance(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         activity_instance_ar = create_random_activity_instance_ar()
-        activity_instance_ar.approve(author="TODO")
+        activity_instance_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_instance_ar.create_new_version(author="TODO")
+        activity_instance_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_instance_ar.item_metadata._end_date)
@@ -142,10 +162,10 @@ class TestActivityInstance(unittest.TestCase):
     def test__inactivate_final__version_created(self):
         # given
         activity_instance_ar = create_random_activity_instance_ar()
-        activity_instance_ar.approve(author="TODO")
+        activity_instance_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_instance_ar.inactivate(author="TODO")
+        activity_instance_ar.inactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_instance_ar.item_metadata._end_date)
@@ -158,11 +178,11 @@ class TestActivityInstance(unittest.TestCase):
     def test__reactivate_retired__version_created(self):
         # given
         activity_instance_ar = create_random_activity_instance_ar()
-        activity_instance_ar.approve(author="TODO")
-        activity_instance_ar.inactivate(author="TODO")
+        activity_instance_ar.approve(author_id=AUTHOR_ID)
+        activity_instance_ar.inactivate(author_id=AUTHOR_ID)
 
         # when
-        activity_instance_ar.reactivate(author="TODO")
+        activity_instance_ar.reactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_instance_ar.item_metadata._end_date)
@@ -191,12 +211,15 @@ class TestActivityInstanceNegative(unittest.TestCase):
                 generate_uid_callback=random_str,
                 concept_vo=ActivityInstanceVO.from_repository_values(
                     nci_concept_id="C123",
+                    nci_concept_name="C123-NCI-Name",
                     name=name,
                     name_sentence_case="Different from name",
                     definition=random_str(),
                     abbreviation=random_str(),
                     activity_instance_class_uid=random_str(),
                     activity_instance_class_name=random_str(),
+                    is_research_lab=random_bool(),
+                    molecular_weight=random_float(),
                     topic_code=random_str(),
                     adam_param_code=random_str(),
                     is_required_for_activity=True,
@@ -233,9 +256,11 @@ class TestActivityInstanceNegative(unittest.TestCase):
                 library=LibraryVO.from_repository_values(
                     library_name="library", is_editable=True
                 ),
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
                 concept_exists_by_callback=lambda x, y, z: False,
-                activity_hierarchy_exists_by_uid_callback=lambda _: True,
+                get_final_activity_value_by_uid_callback=lambda _: {
+                    "is_data_collected": True
+                },
                 activity_subgroup_exists=lambda _: True,
                 activity_group_exists=lambda _: True,
                 activity_instance_class_exists_by_uid_callback=lambda _: True,

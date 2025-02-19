@@ -1,9 +1,9 @@
 <template>
   <div class="px-4">
     <div class="page-title d-flex align-center">
-      {{ $t('UsdmPage.title') }}
+      {{ $t('UsdmPage.title', { version: version }) }}
       <HelpButtonWithPanels :title="$t('_global.help')" :items="helpItems" />
-      <v-spacer/>
+      <v-spacer />
       <v-menu rounded location="bottom">
         <template #activator="{ props }">
           <v-btn
@@ -24,28 +24,22 @@
         </v-list>
       </v-menu>
     </div>
+    <v-row>
+      <v-col cols="5"></v-col>
+      <v-col>
+        <v-progress-circular
+          v-if="loading"
+          class="ml-6 mt-12"
+          size="128"
+          color="primary"
+          indeterminate
+        />
+      </v-col>
+    </v-row>
+    <v-card color="primary">
+      <pre v-show="!loading" id="json-data" class="ml-6 mt-6 pre" />
+    </v-card>
   </div>
-  <v-row>
-    <v-col cols="5"></v-col>
-    <v-col>
-      <v-progress-circular
-        v-if="loading"
-        class="ml-6 mt-12"
-        size="128"
-        color="primary"
-        indeterminate
-      />
-    </v-col>
-  </v-row>
-  <v-card
-    color="primary"
-  >
-    <pre
-      v-show="!loading"
-      id="json-data"
-      class="ml-6 mt-6 pre"
-    />
-  </v-card>
 </template>
 
 <script setup>
@@ -69,23 +63,25 @@ const helpItems = [
   'UsdmPage.intervention_model_type',
   'UsdmPage.therapeutic_areas',
   'UsdmPage.trial_blinding_schema',
-  'UsdmPage.target_study_population'
+  'UsdmPage.target_study_population',
 ]
 const loading = ref(false)
 const downloadLoading = ref(false)
+const version = ref(null)
 
 onMounted(() => {
   loading.value = true
   const preElement = document.getElementById('json-data')
-  study.getDdfUsdmJson(studiesGeneralStore.selectedStudy.uid).then(resp => {
-    preElement.innerHTML = JSON.stringify(resp.data, null, 2)
+  study.getDdfUsdmJson(studiesGeneralStore.selectedStudy.uid).then((resp) => {
+    preElement.innerHTML = JSON.stringify(resp.data.study, null, 2)
+    version.value = resp.data.usdmVersion
     loading.value = false
   })
 })
 
 function downloadJSON() {
   downloadLoading.value = true
-  study.getDdfUsdmJson(studiesGeneralStore.selectedStudy.uid).then(resp => {
+  study.getDdfUsdmJson(studiesGeneralStore.selectedStudy.uid).then((resp) => {
     download(JSON.stringify(resp.data))
   })
 }
@@ -98,9 +94,9 @@ function download(response) {
 </script>
 
 <style scoped>
-  .pre {
-    white-space: pre-wrap;
-    font-size: 18px;
-    color: yellow;
-  }
+.pre {
+  white-space: pre-wrap;
+  font-size: 18px;
+  color: yellow;
+}
 </style>

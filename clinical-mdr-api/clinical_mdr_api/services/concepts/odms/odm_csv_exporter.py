@@ -2,7 +2,7 @@ from clinical_mdr_api.domain_repositories.concepts.odms.metadata_repository impo
     MetadataRepository,
 )
 from clinical_mdr_api.domains.concepts.utils import TargetType
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import BusinessLogicException
 
 
 class OdmCsvExporterService:
@@ -29,4 +29,4 @@ class OdmCsvExporterService:
         if self.target_type == TargetType.ITEM:
             return self.repo.get_odm_item(self.target_uid)
 
-        raise BusinessLogicException("Requested target type not supported.")
+        raise BusinessLogicException(msg="Requested target type not supported.")

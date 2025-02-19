@@ -34,7 +34,7 @@ class CompoundAliasService(ConceptGenericService[CompoundAliasAR]):
         self, concept_input: CompoundAliasCreateInput, library
     ) -> _AggregateRootType:
         return CompoundAliasAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=CompoundAliasVO.from_repository_values(
                 name=concept_input.name,
                 name_sentence_case=concept_input.name_sentence_case,
@@ -54,7 +54,7 @@ class CompoundAliasService(ConceptGenericService[CompoundAliasAR]):
         self, item: CompoundAliasAR, concept_edit_input: CompoundAliasEditInput
     ) -> CompoundAliasAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=CompoundAliasVO.from_repository_values(
                 name=concept_edit_input.name,

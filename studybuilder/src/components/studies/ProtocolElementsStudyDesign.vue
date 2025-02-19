@@ -1,41 +1,32 @@
 <template>
-  <div v-if="selectedStudyVersion === null" class="pa-4">
-    <div class="mt-6 d-flex align-center">
-      <span class="text-h6">{{
-        $t('StudyProtocolElementsView.study_design')
-      }}</span>
-      <v-spacer />
-      <span class="text-center font-italic">{{ loadingMessage }}</span>
-      <v-spacer />
-      <div class="d-flex ml-4">
-        <v-btn
-          color="secondary"
-          class="ml-3"
-          :disabled="Boolean(loadingMessage)"
-          @click="downloadSvg($event)"
-        >
-          {{ $t('_global.download_svg') }}
-        </v-btn>
-      </div>
+  <div class="mt-6 d-flex align-center">
+    <span class="text-h6">{{
+      $t('StudyProtocolElementsView.study_design')
+    }}</span>
+    <v-spacer />
+    <span class="text-center font-italic">{{ loadingMessage }}</span>
+    <v-spacer />
+    <div class="d-flex ml-4">
+      <v-btn
+        color="secondary"
+        class="ml-3"
+        :disabled="Boolean(loadingMessage)"
+        @click="downloadSvg($event)"
+      >
+        {{ $t('_global.download_svg') }}
+      </v-btn>
     </div>
-    <div id="studyDesign" class="mt-4" v-html="studyDesignSVG" />
   </div>
-  <div v-else>
-    <UnderConstruction :message="$t('UnderConstruction.not_supported')" />
-  </div>
+  <div id="studyDesign" class="mt-4" v-html="studyDesignSVG" />
 </template>
 
 <script>
 import study from '@/api/study'
 import exportLoader from '@/utils/exportLoader'
-import UnderConstruction from '@/components/layout/UnderConstruction.vue'
 import { useStudiesGeneralStore } from '@/stores/studies-general'
 import { computed } from 'vue'
 
 export default {
-  components: {
-    UnderConstruction,
-  },
   props: {
     studyUid: {
       type: String,

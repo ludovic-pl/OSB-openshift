@@ -187,7 +187,7 @@ const headers = ref([
   },
   { title: t('EligibilityCriteriaTable.key_criteria'), key: 'key_criteria' },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('_global.modified_by'), key: 'user_initials' },
+  { title: t('_global.modified_by'), key: 'author_username' },
 ])
 const selectedStudyCriteria = ref(null)
 const showEditForm = ref(false)

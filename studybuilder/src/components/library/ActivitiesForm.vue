@@ -4,7 +4,7 @@
     :title="title"
     :help-items="helpItems"
     :open="open"
-    @close="close"
+    @close="cancel"
     @submit="submit"
   >
     <template #body>
@@ -110,6 +110,33 @@
               density="compact"
               clearable
             />
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col>
+            <v-text-field
+              v-model="form.nci_concept_name"
+              :label="$t('ActivityForms.nci_concept_name')"
+              data-cy="activityform-nci-concept-name-field"
+              clearable
+            />
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col>
+            <v-combobox
+              v-model="form.synonyms"
+              :items="form.synonyms"
+              :label="$t('ActivityForms.synonyms')"
+              data-cy="activityform-synonyms-field"
+              clearable
+              multiple
+              chips
+            >
+              <template v-slot:selection="{ attrs, selected }">
+                <v-chip v-bind="attrs" :model-value="selected" />
+              </template>
+            </v-combobox>
           </v-col>
         </v-row>
         <v-row>
@@ -229,6 +256,12 @@ watch(
   }
 )
 
+watch(() => props.open, () => {
+    if (props.open && _isEmpty(props.editedActivity)) {
+      formStore.save(form.value)
+    }
+})
+
 onMounted(() => {
   if (!_isEmpty(props.editedActivity)) {
     initForm(props.editedActivity)
@@ -253,6 +286,8 @@ function initForm(value) {
     name: value.name,
     name_sentence_case: value.name_sentence_case,
     nci_concept_id: value.nci_concept_id,
+    nci_concept_name: value.nci_concept_name,
+    synonyms: value.synonyms,
     is_data_collected: value.is_data_collected,
     definition: value.definition,
     abbreviation: value.abbreviation,
@@ -266,7 +301,21 @@ function initForm(value) {
   formStore.save(form.value)
 }
 
-function close() {
+async function cancel() {
+  if (!formStore.isEqual(form.value)) {
+    const options = {
+      type: 'warning',
+      cancelLabel: t('_global.cancel'),
+      agreeLabel: t('_global.continue'),
+    }
+    if (!(await formRef.value.confirm(t('_global.cancel_changes'), options))) {
+      return
+    }
+  }
+  close()
+}
+
+async function close() {
   observer.value.reset()
   form.value = {
     library_name: constants.LIBRARY_SPONSOR,
@@ -293,16 +342,16 @@ async function submit() {
     )
   } else {
     activities.update(props.editedActivity.uid, form.value, {}, 'activities').then(
-      () => {
-        eventBusEmit('notification', {
-          msg: t('ActivityForms.activity_updated'),
-        })
-        close()
-      },
-      () => {
-        formRef.value.working = false
-      }
-    )
+        () => {
+          eventBusEmit('notification', {
+            msg: t('ActivityForms.activity_updated'),
+          })
+          close()
+        },
+        () => {
+          formRef.value.working = false
+        }
+      )
   }
 }
 

@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -23,16 +24,17 @@ class StudySelectionCohortVO:
     branch_arm_root_uids: list[str] | None
     arm_root_uids: list[str] | None
     start_date: datetime.datetime
-    user_initials: str
+    author_id: str
     end_date: datetime.datetime | None
     status: str | None
     change_type: str | None
     accepted_version: bool = False
+    author_username: str | None = None
 
     @classmethod
     def from_input_values(
         cls,
-        user_initials: str,
+        author_id: str,
         study_selection_uid: str | None = None,
         study_uid: str | None = None,
         name: str | None = None,
@@ -61,7 +63,7 @@ class StudySelectionCohortVO:
         :param colour_code
         :param number_of_subjects
         :param start_date
-        :param user_initials
+        :param author_id
         :param end_date
         :param status
         :param change_type
@@ -88,7 +90,8 @@ class StudySelectionCohortVO:
             branch_arm_root_uids=branch_arm_root_uids,
             arm_root_uids=arm_root_uids,
             start_date=start_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             end_date=end_date,
             status=status,
             change_type=change_type,
@@ -111,41 +114,39 @@ class StudySelectionCohortVO:
         # Check if there exist a StudyBranchArm with the selected uid
         if self.branch_arm_root_uids:
             for branch_arm_root_uid in self.branch_arm_root_uids:
-                if not study_branch_arm_exists_callback(
-                    study_uid=self.study_uid, branch_arm_uid=branch_arm_root_uid
-                ):
-                    raise exceptions.ValidationException(
-                        f"There is no approved branch arm level identified by provided arm uid ({branch_arm_root_uid})"
-                    )
+                exceptions.ValidationException.raise_if_not(
+                    study_branch_arm_exists_callback(
+                        study_uid=self.study_uid, branch_arm_uid=branch_arm_root_uid
+                    ),
+                    msg=f"There is no approved Branch Arm with UID '{branch_arm_root_uid}'.",
+                )
         if self.arm_root_uids:
             for arm_root_uid in self.arm_root_uids:
                 # Check if there exist a StudyArm with the selected uid
-                if not study_arm_exists_callback(arm_root_uid):
-                    raise exceptions.ValidationException(
-                        f"There is no approved arm level identified by provided arm uid ({arm_root_uid})"
-                    )
+                exceptions.ValidationException.raise_if_not(
+                    study_arm_exists_callback(arm_root_uid),
+                    msg=f"There is no approved Arm with UID '{arm_root_uid}'.",
+                )
 
         # check if the specified Name is already used
-        if self.name and cohort_exists_callback_by("name", "name", cohort_vo=self):
-            raise exceptions.ValidationException(
-                f'Value "{self.name}" in field Cohort Name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.name and cohort_exists_callback_by("name", "name", cohort_vo=self),
+            msg=f"Value '{self.name}' in field Cohort Name is not unique for the study.",
+        )
 
         # check if the specified Short Name is already used
-        if self.short_name and cohort_exists_callback_by(
-            "short_name", "short_name", cohort_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.short_name}" in field Cohort Short Name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.short_name
+            and cohort_exists_callback_by("short_name", "short_name", cohort_vo=self),
+            msg=f"Value '{self.short_name}' in field Cohort Short Name is not unique for the study.",
+        )
 
         # check if the specified code is already used
-        if self.code and cohort_exists_callback_by(
-            "cohort_code", "code", cohort_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.code}" in field Cohort code is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.code
+            and cohort_exists_callback_by("cohort_code", "code", cohort_vo=self),
+            msg=f"Value '{self.code}' in field Cohort code is not unique for the study.",
+        )
 
 
 @dataclass
@@ -165,8 +166,9 @@ class StudySelectionCohortAR:
         for order, selection in enumerate(self.study_cohorts_selection, start=1):
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
+
         raise exceptions.NotFoundException(
-            f"The study selection {study_selection_uid} does not exist for study {self._study_uid}"
+            msg=f"The Study Selection with UID '{study_selection_uid}' doesn't exist for Study with UID '{self._study_uid}'."
         )
 
     @property
@@ -180,18 +182,18 @@ class StudySelectionCohortAR:
     def get_specific_cohort_selection(
         self, study_cohort_uid: str
     ) -> tuple[StudySelectionCohortVO, int] | None:
-        if study_cohort_uid not in [
-            x.study_selection_uid for x in self.study_cohorts_selection
-        ]:
-            raise exceptions.NotFoundException(
-                f"There is no selection '{study_cohort_uid}'"
-            )
+        exceptions.NotFoundException.raise_if(
+            study_cohort_uid
+            not in [x.study_selection_uid for x in self.study_cohorts_selection],
+            "Study Cohort",
+            study_cohort_uid,
+        )
 
         for order, selection in enumerate(self.study_cohorts_selection, start=1):
             if selection.study_selection_uid == study_cohort_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the study cohort '{study_cohort_uid}' and the study"
+            msg=f"There is no selection between the Study Cohort with UID '{study_cohort_uid}' and the study."
         )
 
     def _add_selection(self, study_cohort_selection) -> None:

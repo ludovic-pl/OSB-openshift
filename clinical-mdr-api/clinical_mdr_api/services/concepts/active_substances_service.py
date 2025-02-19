@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.active_substance_repository import (
     ActiveSubstanceRepository,
 )
@@ -8,7 +7,6 @@ from clinical_mdr_api.domains.concepts.active_substance import (
     ActiveSubstanceAR,
     ActiveSubstanceVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.active_substance import (
     ActiveSubstance,
     ActiveSubstanceCreateInput,
@@ -39,7 +37,7 @@ class ActiveSubstanceService(ConceptGenericService[ActiveSubstanceAR]):
         self, concept_input: ActiveSubstanceCreateInput, library
     ) -> _AggregateRootType:
         return ActiveSubstanceAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=ActiveSubstanceVO.from_repository_values(
                 analyte_number=concept_input.analyte_number,
                 short_number=concept_input.short_number,
@@ -58,7 +56,7 @@ class ActiveSubstanceService(ConceptGenericService[ActiveSubstanceAR]):
         self, item: ActiveSubstanceAR, concept_edit_input: ActiveSubstanceEditInput
     ) -> ActiveSubstanceAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=ActiveSubstanceVO.from_repository_values(
                 analyte_number=concept_edit_input.analyte_number,
@@ -75,14 +73,9 @@ class ActiveSubstanceService(ConceptGenericService[ActiveSubstanceAR]):
 
     @db.transaction
     def soft_delete(self, uid: str) -> None:
-        try:
-            active_substance = self._find_by_uid_or_raise_not_found(
-                uid, for_update=True
-            )
-            active_substance.soft_delete()
-            self.repository.save(active_substance)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        active_substance = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        active_substance.soft_delete()
+        self.repository.save(active_substance)
 
     @staticmethod
     def fill_in_additional_fields(

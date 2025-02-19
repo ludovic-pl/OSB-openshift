@@ -1,19 +1,29 @@
+from typing import Annotated
+
 from fastapi import Body, Response, status
 
-from clinical_mdr_api import models
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCell,
+    StudyDesignCellBatchInput,
+    StudyDesignCellBatchOutput,
+    StudyDesignCellCreateInput,
+    StudyDesignCellEditInput,
+    StudyDesignCellVersion,
+    StudySelectionActivity,
+)
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.routers.studies import utils
 from clinical_mdr_api.services.studies.study_design_cell import StudyDesignCellService
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 
 @router.get(
     "/studies/{study_uid}/study-design-cells",
     dependencies=[rbac.STUDY_READ],
     summary="List all study design cells currently defined for the study",
-    response_model=list[models.StudyDesignCell],
+    response_model=list[StudyDesignCell],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -25,9 +35,11 @@ from clinical_mdr_api.services.studies.study_design_cell import StudyDesignCellS
     },
 )
 def get_all_design_cells(
-    study_uid: str = utils.studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudyDesignCell]:
+    study_uid: Annotated[str, utils.studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudyDesignCell]:
     service = StudyDesignCellService()
     cells = service.get_all_design_cells(
         study_uid=study_uid, study_value_version=study_value_version
@@ -39,7 +51,7 @@ def get_all_design_cells(
     "/studies/{study_uid}/study-design-cells",
     dependencies=[rbac.STUDY_WRITE],
     summary="Add a study design cell to a study",
-    response_model=models.StudyDesignCell,
+    response_model=StudyDesignCell,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -56,11 +68,14 @@ def get_all_design_cells(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_design_cell_create(
-    study_uid: str = utils.studyUID,
-    selection: models.StudyDesignCellCreateInput = Body(
-        description="Related parameters of the design cell that shall be created."
-    ),
-) -> models.StudyDesignCell:
+    study_uid: Annotated[str, utils.studyUID],
+    selection: Annotated[
+        StudyDesignCellCreateInput,
+        Body(
+            description="Related parameters of the design cell that shall be created."
+        ),
+    ],
+) -> StudyDesignCell:
     service = StudyDesignCellService()
     return service.create(study_uid=study_uid, design_cell_input=selection)
 
@@ -107,12 +122,13 @@ def post_new_design_cell_create(
 @decorators.validate_if_study_is_not_locked("study_uid")
 #  pylint: disable=unused-argument
 def edit_design_cell(
-    study_uid: str = utils.studyUID,
-    study_design_cell_uid: str = utils.study_design_cell_uid,
-    selection: models.StudyDesignCellEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, utils.studyUID],
+    study_design_cell_uid: Annotated[str, utils.study_design_cell_uid],
+    selection: Annotated[
+        StudyDesignCellEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionActivity:
     service = StudyDesignCellService()
     service.patch(
         study_uid=study_uid,
@@ -138,8 +154,8 @@ def edit_design_cell(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_design_cell(
-    study_uid: str = utils.studyUID,
-    study_design_cell_uid: str = utils.study_design_cell_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_design_cell_uid: Annotated[str, utils.study_design_cell_uid],
 ):
     service = StudyDesignCellService()
     service.delete(study_uid=study_uid, design_cell_uid=study_design_cell_uid)
@@ -153,12 +169,12 @@ def delete_design_cell(
     description="""
 The following values should be returned for all study design cells:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - order
     """,
-    response_model=list[models.StudyDesignCellVersion],
+    response_model=list[StudyDesignCellVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -167,8 +183,8 @@ The following values should be returned for all study design cells:
     },
 )
 def get_all_design_cells_audit_trail(
-    study_uid: str = utils.studyUID,
-) -> list[models.StudyDesignCellVersion]:
+    study_uid: Annotated[str, utils.studyUID],
+) -> list[StudyDesignCellVersion]:
     service = StudyDesignCellService()
     return service.get_all_design_cells_audit_trail(study_uid=study_uid)
 
@@ -177,7 +193,7 @@ def get_all_design_cells_audit_trail(
     "/studies/{study_uid}/study-design-cells/{study_design_cell_uid}/audit-trail/",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study design cell.",
-    response_model=list[models.StudyDesignCellVersion],
+    response_model=list[StudyDesignCellVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -189,9 +205,9 @@ def get_all_design_cells_audit_trail(
     },
 )
 def get_specific_schedule_audit_trail(
-    study_uid: str = utils.studyUID,
-    study_design_cell_uid: str = utils.study_design_cell_uid,
-) -> models.StudyDesignCellVersion:
+    study_uid: Annotated[str, utils.studyUID],
+    study_design_cell_uid: Annotated[str, utils.study_design_cell_uid],
+) -> StudyDesignCellVersion:
     service = StudyDesignCellService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, design_cell_uid=study_design_cell_uid
@@ -202,7 +218,7 @@ def get_specific_schedule_audit_trail(
     "/studies/{study_uid}/study-design-cells/batch",
     dependencies=[rbac.STUDY_WRITE],
     summary="Batch operations (create, delete) for study design cells",
-    response_model=list[models.StudyDesignCellBatchOutput],
+    response_model=list[StudyDesignCellBatchOutput],
     status_code=207,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -211,11 +227,12 @@ def get_specific_schedule_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def design_cell_batch_operations(
-    study_uid: str = utils.studyUID,
-    operations: list[models.StudyDesignCellBatchInput] = Body(
-        description="List of operations to perform"
-    ),
-) -> list[models.StudyDesignCellBatchOutput]:
+    study_uid: Annotated[str, utils.studyUID],
+    operations: Annotated[
+        list[StudyDesignCellBatchInput],
+        Body(description="List of operations to perform"),
+    ],
+) -> list[StudyDesignCellBatchOutput]:
     service = StudyDesignCellService()
     return service.handle_batch_operations(study_uid, operations)
 
@@ -242,7 +259,7 @@ def design_cell_batch_operations(
     Possible errors:
     - Invalid study-uid.
 """,
-    response_model=list[models.StudyDesignCell],
+    response_model=list[StudyDesignCell],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -253,8 +270,10 @@ def design_cell_batch_operations(
 def get_all_selected_design_cells_connected_arm(
     study_uid: str,
     arm_uid: str,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudyDesignCell]:
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudyDesignCell]:
     service = StudyDesignCellService()
     return service.get_all_selection_within_arm(
         study_uid=study_uid,
@@ -289,7 +308,7 @@ def get_all_selected_design_cells_connected_arm(
     Possible errors:
     - Invalid study-uid.
 """,
-    response_model=list[models.StudyDesignCell],
+    response_model=list[StudyDesignCell],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -300,8 +319,10 @@ def get_all_selected_design_cells_connected_arm(
 def get_all_selected_design_cells_connected_branch_arm(
     study_uid: str,
     branch_arm_uid: str,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudyDesignCell]:
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudyDesignCell]:
     service = StudyDesignCellService()
     return service.get_all_selection_within_branch_arm(
         study_uid=study_uid,
@@ -332,7 +353,7 @@ def get_all_selected_design_cells_connected_branch_arm(
     Possible errors:
     - Invalid study-uid.
 """,
-    response_model=list[models.StudyDesignCell],
+    response_model=list[StudyDesignCell],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -343,8 +364,10 @@ def get_all_selected_design_cells_connected_branch_arm(
 def get_all_selected_design_cells_connected_epoch(
     study_uid: str,
     study_epoch_uid: str,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudyDesignCell]:
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudyDesignCell]:
     service = StudyDesignCellService()
     return service.get_all_selection_within_epoch(
         study_uid=study_uid,

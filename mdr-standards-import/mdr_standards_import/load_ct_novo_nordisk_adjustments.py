@@ -1,7 +1,7 @@
 import csv
 from os import path
 
-USER_INITIALS = None
+AUTHOR_ID = "CDISC_IMPORT"
 
 
 def update_codelist_names_managed_by_novo_nordisk(tx, csv_import_directory):
@@ -77,7 +77,7 @@ def update_codelist_names_managed_by_novo_nordisk(tx, csv_import_directory):
                         status:             'Final',
                         version:             toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
                         change_description: 'Update after importing from CDISC',
-                        user_initials:      $user_initials
+                        author_id:          $author_id
                     }]->(codelist_name_value)
                     SET codelist_name_value.name = $sponsor_preferred_name
                     
@@ -87,7 +87,7 @@ def update_codelist_names_managed_by_novo_nordisk(tx, csv_import_directory):
                     """,
                     concept_id=concept_id,
                     sponsor_preferred_name=sponsor_preferred_name,
-                    user_initials=USER_INITIALS,
+                    author_id=AUTHOR_ID,
                 )
 
                 #
@@ -186,7 +186,7 @@ def update_term_names_managed_by_novo_nordisk(tx, csv_import_directory):
                         status:             'Final',
                         version:            toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
                         change_description: 'Update after importing from CDISC',
-                        user_initials:      $user_initials
+                        author_id:          $author_id
                     }]->(term_name_value)
                     SET term_name_value.name = $sponsor_preferred_name,
                         term_name_value.name_sentence_case = $sponsor_preferred_name_sentence_case
@@ -194,7 +194,7 @@ def update_term_names_managed_by_novo_nordisk(tx, csv_import_directory):
                     concept_id=concept_id,
                     sponsor_preferred_name=sponsor_preferred_name,
                     sponsor_preferred_name_sentence_case=sponsor_preferred_name_sentence_case,
-                    user_initials=USER_INITIALS,
+                    author_id=AUTHOR_ID,
                 )
 
 
@@ -242,10 +242,10 @@ def flag_specific_codelists_as_parameters(tx, csv_import_directory):
 
 
 def run_novo_nordisk_adjustments(
-    mdr_neo4j_driver, mdr_db_name, csv_import_directory, user_initials
+    mdr_neo4j_driver, mdr_db_name, csv_import_directory, author_id
 ):
-    global USER_INITIALS
-    USER_INITIALS = user_initials
+    global AUTHOR_ID
+    AUTHOR_ID = author_id
 
     with mdr_neo4j_driver.session(database=mdr_db_name) as session:
         with session.begin_transaction() as tx:

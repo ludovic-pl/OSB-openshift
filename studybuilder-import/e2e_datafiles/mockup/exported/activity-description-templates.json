@@ -16,7 +16,7 @@
         "start_date": "2022-05-23T11:57:41.059396",
         "status": "Final",
         "uid": "ActivityGroup_000004",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       }
     ],
@@ -42,7 +42,7 @@
         "start_date": "2022-05-23T11:57:44.151961",
         "status": "Final",
         "uid": "ActivitySubGroup_000040",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       }
     ],
@@ -76,7 +76,7 @@
         "start_date": "2022-05-23T11:41:26.428194",
         "status": "Final",
         "term_uid": "DictionaryTerm_000038",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       }
     ],
@@ -101,7 +101,7 @@
     "status": "Draft",
     "study_count": 0,
     "uid": "ActivityDescriptionTemplate_000001",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   }
 ]

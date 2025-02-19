@@ -37,6 +37,7 @@ fi
 [ -r "$FALLBACK_LICENSE_DIR" ] || log "Fallback license directory is not readable: $FALLBACK_LICENSE_DIR"
 
 
+echo -e '\xEF\xBB\xBF'  # UTF-8 BOM
 cat <<EOF
 ## Installed packages
 
@@ -46,10 +47,14 @@ package_list="$(mktemp)" || fatal "Couldn't get a temporary file"
 temp_files="$temp_files $package_list"
 pip list --format freeze > "$package_list"
 
-pipenv graph | sed 's/^\b/- /' || {
-    echo "|       Package        | Version  |"
-    echo "|----------------------|----------|"
-    awk -F == '{ printf("| %-20s | %-8s |\n", $1, $2) }' "$package_list"
+{
+#    echo '```'
+#    pipenv graph
+#    echo '```'
+#} || {
+    echo "|            Package             |       Version        |"
+    echo "|--------------------------------|----------------------|"
+    awk -F == '{ printf("| %-30s | %-20s |\n", $1, $2) }' "$package_list"
 }
 
 
@@ -61,8 +66,7 @@ EOF
 
 all_license_files="$(mktemp)" || fatal "couldn't get a temporary file"
 temp_files="$temp_files $all_license_files"
-find "$search_dirs" -iregex ".*\(licen[cs]e\|copying\).*" -type f > "$all_license_files"
-
+find "$search_dirs" -iregex ".*\(licen[cs]e\|copying\).*" -type f -not -path "*/__pycache__/*" > "$all_license_files"
 while IFS="=" read -a line; do
     # actually this can find multiple files
     license_files="$(grep -E "/${line[0]//-/_}(-${line[2]//./\\.}\\.dist-info)?/" $all_license_files)" || true

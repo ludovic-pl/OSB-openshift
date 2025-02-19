@@ -3,7 +3,7 @@ import logging
 import re
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable
+from typing import Annotated, Any, Callable
 
 from dateutil.parser import isoparse
 from neo4j.exceptions import CypherSyntaxError
@@ -11,13 +11,14 @@ from neomodel import Q, db
 from pydantic import BaseModel, Field, validator
 from pydantic.types import T, conlist
 
-from clinical_mdr_api import config, exceptions
 from clinical_mdr_api.models.concepts.activities.activity import (
     ActivityGroupingHierarchySimpleModel,
 )
 from clinical_mdr_api.models.concepts.concept import VersionProperties
 from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermModel
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModelBase
+from common.exceptions import ValidationException
+from common.utils import validate_max_skip_clause
 
 # Re-used regex
 nested_regex = re.compile(r"\.")
@@ -139,17 +140,17 @@ def get_embedded_field(fields: list[Any], model: BaseModel):
     if len(fields) == 1:
         return model.__fields__.get(fields[0])
     for field in fields:
-        if len(field.strip()) == 0:
-            raise exceptions.ValidationException(
-                "Supplied value for 'field_name' is not valid. Example valid value is: 'field.sub_field'."
-            )
+        ValidationException.raise_if(
+            len(field.strip()) == 0,
+            msg="Supplied value for 'field_name' is not valid. Example valid value is: 'field.sub_field'.",
+        )
 
     try:
         field_model = model.__fields__.get(fields[0]).type_
         return get_embedded_field(fields[1:], model=field_model)
     except AttributeError as _ex:
-        raise exceptions.ValidationException(
-            f"{fields[0]}.{fields[1]} is not a valid field"
+        raise ValidationException(
+            msg=f"{fields[0]}.{fields[1]} is not a valid field"
         ) from _ex
 
 
@@ -160,8 +161,9 @@ def get_field(prop, model):
         field = get_embedded_field(fields=prop.split("."), model=model)
     else:
         field = model.__fields__.get(prop)
-    if not field:
-        raise exceptions.ValidationException(f"Field '{prop}' is not supported")
+
+    ValidationException.raise_if_not(field, msg=f"Field '{prop}' is not supported")
+
     return field
 
 
@@ -196,30 +198,11 @@ def merge_q_query_filters(*args, filter_operator: "FilterOperator"):
     return args
 
 
-def validate_max_skip_clause(page_number: int, page_size: int) -> None:
-    # neo4j supports `SKIP {val}` values which fall within unsigned 64-bit integer range
-    if page_size == 0:
-        amount_of_skip = page_number
-    else:
-        amount_of_skip = page_number * page_size
-    if amount_of_skip > config.MAX_INT_NEO4J:
-        raise exceptions.ValidationException(
-            f"(page_number * page_size) value cannot be bigger than {config.MAX_INT_NEO4J}"
-        )
-
-
-def validate_page_number_and_page_size(page_number: int, page_size: int) -> int:
-    page_number -= 1
-    validate_max_skip_clause(page_number=page_number, page_size=page_size)
-    return page_number
-
-
 def get_versioning_q_filter(filter_elem, field, q_filters: list[Any]):
     neomodel_filter = comparison_operator_to_neomodel.get(filter_elem.op)
     if neomodel_filter is None:
         raise AttributeError(
-            f"The following operator {filter_elem.op} is not mapped "
-            f"to the neomodel operators"
+            f"The following operator {filter_elem.op} is not mapped to the neomodel operators."
         )
     q_filters.append(
         Q(**{f"has_version|{field.name}{neomodel_filter}": f"{filter_elem.v[0]}"})
@@ -231,6 +214,26 @@ def get_version_properties_sources() -> list[Any]:
         field.field_info.extra.get("source")
         for field in VersionProperties.__fields__.values()
     ]
+
+
+def validate_filters_and_add_search_string(
+    search_string: str, field_name: str, filter_by: dict | None
+):
+    # Accept an empty string as an empty filters dict
+    if filter_by == "":
+        filter_by = {}
+    ValidationException.raise_if(
+        filter_by is not None and not isinstance(filter_by, dict),
+        msg="Filter object must be a dict",
+    )
+    if search_string != "":
+        if filter_by is None:
+            filter_by = {}
+        filter_by[field_name] = {
+            "v": [search_string],
+            "op": ComparisonOperator.CONTAINS,
+        }
+    return filter_by
 
 
 def transform_filters_into_neomodel(filter_by: dict | None, model: BaseModel):
@@ -261,8 +264,7 @@ def transform_filters_into_neomodel(filter_by: dict | None, model: BaseModel):
                     )
                 if filter_elem.op not in possible_filters:
                     raise AttributeError(
-                        f"The following filtering type {filter_elem.op.name} is not supported "
-                        f"for the following data type {field.type_}"
+                        f"The following filtering type {filter_elem.op.name} is not supported for the following data type {field.type_}."
                     )
                 if len(filter_elem.v) == 1:
                     neomodel_filter = comparison_operator_to_neomodel.get(
@@ -270,8 +272,7 @@ def transform_filters_into_neomodel(filter_by: dict | None, model: BaseModel):
                     )
                     if neomodel_filter is None:
                         raise AttributeError(
-                            f"The following operator {filter_elem.op} is not mapped "
-                            f"to the neomodel operators"
+                            f"The following operator {filter_elem.op} is not mapped to the neomodel operators."
                         )
                     filter_name = f"{field_name}{neomodel_filter}"
                     filter_value = filter_elem.v[0]
@@ -303,6 +304,14 @@ def transform_filters_into_neomodel(filter_by: dict | None, model: BaseModel):
                         filter_name = f"{field_name}{neomodel_filter}"
                         filter_value = filter_elem.v
                         q_filters.append(Q(**{filter_name: filter_value}))
+                    elif filter_elem.op == ComparisonOperator.NOT_EQUALS:
+                        neomodel_filter = comparison_operator_to_neomodel.get(
+                            ComparisonOperator.NOT_EQUALS
+                        )
+                        filter_name = f"{field_name}{neomodel_filter}"
+                        filter_value = filter_elem.v
+                        for f_val in filter_value:
+                            q_filters.append(Q(**{filter_name: f_val}))
                     else:
                         raise AttributeError(
                             f"Not valid operator {filter_elem.op.value} for the following property {prop} of type"
@@ -340,22 +349,26 @@ class FilterOperator(Enum):
             return FilterOperator.OR
         if label in ("and", "AND"):
             return FilterOperator.AND
-        raise exceptions.ValidationException(
-            "Filter operator only accepts values of 'and' and 'or'."
+        raise ValidationException(
+            msg="Filter operator only accepts values of 'and' and 'or'."
         )
 
 
 class FilterDictElement(BaseModel):
-    v: conlist(item_type=T) = Field(
-        ...,
-        title="search values",
-        description="list of values to use as search values. Can be of any type.",
-    )
-    op: ComparisonOperator | None = Field(
-        ComparisonOperator.EQUALS,
-        title="comparison operator to apply",
-        description="comparison operator from enum, for operations like =, >=, or <",
-    )
+    v: Annotated[
+        conlist(item_type=T),
+        Field(
+            title="search values",
+            description="list of values to use as search values. Can be of any type.",
+        ),
+    ]
+    op: Annotated[
+        ComparisonOperator | None,
+        Field(
+            title="comparison operator to apply",
+            description="comparison operator from enum, for operations like =, >=, or <",
+        ),
+    ] = ComparisonOperator.EQUALS
 
     @validator("op", pre=True)
     # pylint: disable=no-self-argument
@@ -363,18 +376,20 @@ class FilterDictElement(BaseModel):
         try:
             return ComparisonOperator(val)
         except Exception as exc:
-            raise exceptions.ValidationException(
-                f"Unsupported comparison operator: '{val}'"
+            raise ValidationException(
+                msg=f"Unsupported comparison operator: '{val}'"
             ) from exc
 
 
 class FilterDict(BaseModel):
-    elements: dict[str, FilterDictElement] = Field(
-        ...,
-        title="filters description",
-        description="""filters description, with key being the alias to filter
+    elements: Annotated[
+        dict[str, FilterDictElement],
+        Field(
+            title="filters description",
+            description="""filters description, with key being the alias to filter
         against, and value is a description object with search values and comparison operator""",
-    )
+        ),
+    ]
 
     @validator("elements", pre=True)
     # pylint: disable=no-self-argument
@@ -475,13 +490,20 @@ class CypherQueryBuilder:
         self.parameters = {}
 
         # Auto-generate internal clauses
+        if filter_by is not None:
+            ValidationException.raise_if_not(
+                isinstance(filter_by.elements, dict),
+                msg="filter_by elements must be a dict",
+            )
         if filter_by and len(self.filter_by.elements) > 0:
             self.build_filter_clause()
         if self.page_size > 0:
             self.build_pagination_clause()
         if self.sort_by:
-            if not isinstance(self.sort_by, dict):
-                raise exceptions.ValidationException("sort_by must be a dict")
+            ValidationException.raise_if_not(
+                isinstance(self.sort_by, dict), msg="sort_by must be a dict"
+            )
+
             self.build_sort_clause()
 
         # Auto-generate final queries
@@ -547,13 +569,11 @@ class CypherQueryBuilder:
                 # Parse operator to use in filter for wildcard
                 _parsed_operator = " CONTAINS "
                 # Only accept requests with default operator (set to equal by FilterDict class) or specified contains operator
-                if (
+                ValidationException.raise_if(
                     ComparisonOperator(_operator) != ComparisonOperator.EQUALS
-                    and ComparisonOperator(_operator) != ComparisonOperator.CONTAINS
-                ):
-                    raise exceptions.NotFoundException(
-                        "Only the default 'contains' operator is supported for wildcard filtering."
-                    )
+                    and ComparisonOperator(_operator) != ComparisonOperator.CONTAINS,
+                    msg="Only the default 'contains' operator is supported for wildcard filtering.",
+                )
             else:
                 # Parse operator to use in filter for the current label
                 if ComparisonOperator(_operator) == ComparisonOperator.CONTAINS:
@@ -579,123 +599,122 @@ class CypherQueryBuilder:
             # Parse filter clauses for the current label
             # 'Between' operator works differently from the others
             if ComparisonOperator(_operator) == ComparisonOperator.BETWEEN:
-                if len(_values) == 2:
-                    if _alias != "*":
-                        # If necessary, replace key using return-model-to-cypher fieldname mapping
-                        if self.format_filter_sort_keys:
-                            _alias = self.format_filter_sort_keys(_alias)
-                        _values.sort()
-                        _query_param_prefix = f"{self.escape_alias(_alias)}"
-                        _predicate = f"${_query_param_prefix}_0<={_alias}<=${_query_param_prefix}_1"
-                        # If the provided value can be parsed as a date, also add a predicate with a datetime casting on the Neo4j side
-                        if is_date(_values[0]) and is_date(_values[1]):
-                            _date_predicate = f"datetime(${_query_param_prefix}_0)<={_alias}<=datetime(${_query_param_prefix}_1)"
-                            _predicate += f" OR {_date_predicate}"
-                        filter_predicates.append(_predicate)
-                        self.parameters[f"{_query_param_prefix}_0"] = _values[0]
-                        self.parameters[f"{_query_param_prefix}_1"] = _values[1]
-                    else:
-                        raise exceptions.NotFoundException(
-                            "Between operator not supported with wildcard filtering"
-                        )
-                else:
-                    raise exceptions.NotFoundException(
-                        "For between operator to work, exactly 2 values must be provided"
-                    )
+                ValidationException.raise_if(
+                    len(_values) != 2,
+                    msg="For between operator to work, exactly 2 values must be provided",
+                )
+
+                ValidationException.raise_if(
+                    _alias == "*",
+                    msg="Between operator not supported with wildcard filtering",
+                )
+
+                # If necessary, replace key using return-model-to-cypher fieldname mapping
+                if self.format_filter_sort_keys:
+                    _alias = self.format_filter_sort_keys(_alias)
+                _values.sort()
+                _query_param_prefix = f"{self.escape_alias(_alias)}"
+                _predicate = (
+                    f"${_query_param_prefix}_0<={_alias}<=${_query_param_prefix}_1"
+                )
+                # If the provided value can be parsed as a date, also add a predicate with a datetime casting on the Neo4j side
+                if is_date(_values[0]) and is_date(_values[1]):
+                    _date_predicate = f"datetime(${_query_param_prefix}_0)<={_alias}<=datetime(${_query_param_prefix}_1)"
+                    _predicate += f" OR {_date_predicate}"
+                filter_predicates.append(_predicate)
+                self.parameters[f"{_query_param_prefix}_0"] = _values[0]
+                self.parameters[f"{_query_param_prefix}_1"] = _values[1]
             else:
                 # If necessary, replace key using return-model-to-cypher fieldname mapping
                 if self.format_filter_sort_keys and _alias != "*":
                     _alias = self.format_filter_sort_keys(_alias)
                 # An empty _values list means that the returned item's property value should be null
                 if len(_values) == 0:
-                    if _alias == "*":
-                        raise exceptions.ValidationException(
-                            "Wildcard filtering not supported with null values"
-                        )
+                    ValidationException.raise_if(
+                        _alias == "*",
+                        msg="Wildcard filtering not supported with null values",
+                    )
                     _predicates.append(f"{_alias} IS NULL")
                 else:
                     for index, elm in enumerate(_values):
                         # If filter is a wildcard
                         if _alias == "*":
                             # Wildcard filtering only accepts a search value of type string
-                            if isinstance(elm, str):
-                                # If a list of wildcard properties is provided, use it
-                                if len(self.wildcard_properties_list) > 0:
-                                    for db_property in self.wildcard_properties_list:
-                                        _predicates.append(
-                                            f"toLower({db_property}){_parsed_operator}$wildcard_{index}"
-                                        )
-                                # If not, then extract list of properties from return model
-                                elif self.return_model:
-                                    for (
-                                        attribute,
-                                        attr_desc,
-                                    ) in self.return_model.__fields__.items():
-                                        # Wildcard filtering only searches in properties of type string
-                                        if (
-                                            attr_desc.type_ is str
-                                            # and field is not a list [str]
-                                            and attr_desc.sub_fields is None
-                                        ):
-                                            # name=$name_0 with name_0 defined in parameter objects
-                                            if self.format_filter_sort_keys:
-                                                attribute = (
-                                                    self.format_filter_sort_keys(
-                                                        attribute
-                                                    )
-                                                )
-                                            _predicates.append(
-                                                f"toLower({attribute}){_parsed_operator}$wildcard_{index}"
-                                            )
-                                        # if field is list [str]
-                                        elif (
-                                            attr_desc.sub_fields is not None
-                                            and attr_desc.type_ is str
-                                            and attribute not in ["possible_actions"]
-                                        ):
-                                            _predicates.append(
-                                                f"$wildcard_{index} IN {attribute}"
-                                            )
-                                        # Wildcard filtering for SimpleTermModel
-                                        elif attr_desc.type_ is SimpleTermModel:
-                                            # name=$name_0 with name_0 defined in parameter objects
-                                            if self.format_filter_sort_keys:
-                                                attribute = (
-                                                    self.format_filter_sort_keys(
-                                                        attribute
-                                                    )
-                                                )
-                                            if attr_desc.sub_fields is None:
-                                                # if field is just SimpleTermModel compare wildcard filter
-                                                # with name property of SimpleTermModel
-                                                _predicates.append(
-                                                    f"toLower({attribute}.name){_parsed_operator}$wildcard_{index}"
-                                                )
-                                            else:
-                                                # if field is an array of SimpleTermModels
-                                                _predicates.append(
-                                                    f"$wildcard_{index} IN [attr in {attribute} | toLower(attr.name)]"
-                                                )
-                                        elif (
-                                            attr_desc.type_
-                                            is ActivityGroupingHierarchySimpleModel
-                                        ):
-                                            _predicates.append(
-                                                f"any(attr in {attribute} WHERE toLower(attr.activity_group_name) {_parsed_operator} $wildcard_{index})"
-                                            )
-                                            _predicates.append(
-                                                f"any(attr in {attribute} WHERE toLower(attr.activity_subgroup_name) {_parsed_operator} $wildcard_{index})"
-                                            )
-                                # If none are provided, raise an exception
-                                else:
-                                    raise exceptions.ValidationException(
-                                        "Wildcard filtering not properly covered for this object"
+
+                            ValidationException.raise_if_not(
+                                isinstance(elm, str),
+                                msg="Wildcard filtering only supports a search value of type string",
+                            )
+
+                            # If a list of wildcard properties is provided, use it
+                            if len(self.wildcard_properties_list) > 0:
+                                for db_property in self.wildcard_properties_list:
+                                    _predicates.append(
+                                        f"toLower({db_property}){_parsed_operator}$wildcard_{index}"
                                     )
-                                self.parameters[f"wildcard_{index}"] = elm.lower()
+                            # If not, then extract list of properties from return model
+                            elif self.return_model:
+                                for (
+                                    attribute,
+                                    attr_desc,
+                                ) in self.return_model.__fields__.items():
+                                    # Wildcard filtering only searches in properties of type string
+                                    if (
+                                        attr_desc.type_ is str
+                                        # and field is not a list [str]
+                                        and attr_desc.sub_fields is None
+                                    ):
+                                        # name=$name_0 with name_0 defined in parameter objects
+                                        if self.format_filter_sort_keys:
+                                            attribute = self.format_filter_sort_keys(
+                                                attribute
+                                            )
+                                        _predicates.append(
+                                            f"toLower({attribute}){_parsed_operator}$wildcard_{index}"
+                                        )
+                                    # if field is list [str]
+                                    elif (
+                                        attr_desc.sub_fields is not None
+                                        and attr_desc.type_ is str
+                                        and attribute not in ["possible_actions"]
+                                    ):
+                                        _predicates.append(
+                                            f"$wildcard_{index} IN {attribute}"
+                                        )
+                                    # Wildcard filtering for SimpleTermModel
+                                    elif attr_desc.type_ is SimpleTermModel:
+                                        # name=$name_0 with name_0 defined in parameter objects
+                                        if self.format_filter_sort_keys:
+                                            attribute = self.format_filter_sort_keys(
+                                                attribute
+                                            )
+                                        if attr_desc.sub_fields is None:
+                                            # if field is just SimpleTermModel compare wildcard filter
+                                            # with name property of SimpleTermModel
+                                            _predicates.append(
+                                                f"toLower({attribute}.name){_parsed_operator}$wildcard_{index}"
+                                            )
+                                        else:
+                                            # if field is an array of SimpleTermModels
+                                            _predicates.append(
+                                                f"$wildcard_{index} IN [attr in {attribute} | toLower(attr.name)]"
+                                            )
+                                    elif (
+                                        attr_desc.type_
+                                        is ActivityGroupingHierarchySimpleModel
+                                    ):
+                                        _predicates.append(
+                                            f"any(attr in {attribute} WHERE toLower(attr.activity_group.name) {_parsed_operator} $wildcard_{index})"
+                                        )
+                                        _predicates.append(
+                                            f"any(attr in {attribute} WHERE toLower(attr.activity_subgroup.name) {_parsed_operator} $wildcard_{index})"
+                                        )
+                            # If none are provided, raise an exception
                             else:
-                                raise exceptions.NotFoundException(
-                                    "Wildcard filtering only supports a search value of type string"
+                                raise ValidationException(
+                                    msg="Wildcard filtering not properly covered for this object"
                                 )
+                            self.parameters[f"wildcard_{index}"] = elm.lower()
                         else:
                             # name=$name_0 with name_0 defined in parameter objects
                             # . for nested properties will be replaced by _
@@ -889,11 +908,11 @@ class CypherQueryBuilder:
                 ]
             )
 
-    def build_header_query(self, header_alias: str, result_count: int) -> str:
+    def build_header_query(self, header_alias: str, page_size: int) -> str:
         """
         Mandatory inputs :
             * header_alias - Alias of the header for which to get possible values, as defined in the alias clause
-            * result_count - Number of results to return
+            * page_size - Number of results to return
         The generated query will have the following pattern :
             MATCH caller-provided (and WITH, CALL, ... any custom pattern matching necessary)
             > WITH alias_clause caller-provided
@@ -909,22 +928,27 @@ class CypherQueryBuilder:
             split = header_alias.split(".")
             first_property = split[0]
             last_property = split[-1]
+            ValidationException.raise_if(
+                first_property == "" or last_property == "",
+                msg=f"Invalid field name: {header_alias}",
+            )
             paths = split[1:-1]
             if self.return_model:
                 attr_desc = self.return_model.__fields__.get(first_property)
                 for path in paths:
                     attr_desc = attr_desc.type_.__fields__.get(path)
-                if not attr_desc:
-                    raise exceptions.ValidationException(
-                        f"Invalid field name: {header_alias}"
-                    )
+
+                ValidationException.raise_if_not(
+                    attr_desc, msg=f"Invalid field name: {header_alias}"
+                )
+
                 if attr_desc.sub_fields is not None:
                     alias_clause = f"[attr in {attr_desc.name} | attr.{last_property}]"
 
         if not alias_clause:
             alias_clause = header_alias
         _return_header_clause = f"""WITH DISTINCT {alias_clause} AS
-        {_escaped_header_alias} ORDER BY {_escaped_header_alias} LIMIT {result_count} 
+        {_escaped_header_alias} ORDER BY {_escaped_header_alias} LIMIT {page_size}
         RETURN apoc.coll.toSet(apoc.coll.flatten(collect(DISTINCT {_escaped_header_alias}))) AS values"""
 
         return " ".join(
@@ -949,8 +973,8 @@ class CypherQueryBuilder:
                 query=self.full_query, params=self.parameters
             )
         except CypherSyntaxError as _ex:
-            raise exceptions.ValidationException(
-                "Unsupported filtering or sort parameters specified"
+            raise ValidationException(
+                msg="Unsupported filtering or sort parameters specified"
             ) from _ex
         return result_array, attributes_names
 

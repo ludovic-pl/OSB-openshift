@@ -16,19 +16,31 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_term_attributes import
     CTTermAttributesAR,
 )
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import CTTermNameAR
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.controlled_terminologies.ct_stats import TermCount
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
+    validate_filters_and_add_search_string,
 )
+from common.exceptions import ValidationException
 
 
 class CTTermAggregatedRepository:
     generic_final_alias_clause = """
+        CALL {
+            WITH rel_data_attributes
+            OPTIONAL MATCH (attributes_author: User)
+            WHERE attributes_author.user_id = rel_data_attributes.author_id
+            RETURN attributes_author
+        }
+        CALL {
+            WITH rel_data_name
+            OPTIONAL MATCH (name_author: User)
+            WHERE name_author.user_id = rel_data_name.author_id
+            RETURN name_author
+        }
         WITH
             term_root.uid AS term_uid,
             codelist_root.uid AS codelist_uid,
@@ -45,7 +57,8 @@ class CTTermAggregatedRepository:
                 status: rel_data_attributes.status,
                 version: rel_data_attributes.version,
                 change_description: rel_data_attributes.change_description,
-                user_initials: rel_data_attributes.user_initials
+                author_id: rel_data_attributes.author_id,
+                author_username: coalesce(attributes_author.username, rel_data_attributes.author_id)
             } AS rel_data_attributes,
             {
                 start_date: rel_data_name.start_date,
@@ -53,7 +66,8 @@ class CTTermAggregatedRepository:
                 status: rel_data_name.status,
                 version: rel_data_name.version,
                 change_description: rel_data_name.change_description,
-                user_initials: rel_data_name.user_initials
+                author_id: rel_data_name.author_id,
+                author_username: coalesce(name_author.username, rel_data_name.author_id)
             } AS rel_data_name
     """
     generic_alias_clause = f"""
@@ -220,10 +234,10 @@ class CTTermAggregatedRepository:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
@@ -234,7 +248,7 @@ class CTTermAggregatedRepository:
         :param search_string:
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
         # Build match_clause
@@ -252,13 +266,9 @@ class CTTermAggregatedRepository:
         )
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -272,7 +282,7 @@ class CTTermAggregatedRepository:
 
         query.full_query = query.build_header_query(
             header_alias=format_term_filter_sort_keys(field_name),
-            result_count=result_count,
+            page_size=page_size,
         )
 
         query.parameters.update(filter_query_parameters)
@@ -294,10 +304,9 @@ class CTTermAggregatedRepository:
     ) -> tuple[str, dict]:
         match_clause = ""
         if is_sponsor:
-            if not package:
-                raise ValidationException(
-                    "Package must be provided when fetching sponsor terms."
-                )
+            ValidationException.raise_if_not(
+                package, msg="Package must be provided when fetching sponsor terms."
+            )
 
             match_clause += f"""
                 MATCH (package:CTPackage)-[:EXTENDS_PACKAGE]->(parent_package:CTPackage)

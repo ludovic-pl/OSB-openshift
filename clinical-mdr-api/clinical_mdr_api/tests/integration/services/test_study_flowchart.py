@@ -1,32 +1,28 @@
 # pylint: disable=redefined-outer-name,unused-argument
 
 import logging
-from collections import defaultdict
 from copy import deepcopy
 
 import pytest
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.domain_repositories.models.study_selections import (
-    StudyActivitySchedule,
-    StudySoAFootnote,
+from clinical_mdr_api.domain_repositories.models.study import StudyRoot
+from clinical_mdr_api.domain_repositories.study_selections.study_soa_repository import (
+    SoALayout,
 )
-from clinical_mdr_api.domains.controlled_terminologies.utils import TermParentType
-from clinical_mdr_api.domains.study_selections.study_soa_footnote import SoAItemType
-from clinical_mdr_api.models.concepts.activities.activity_instance import (
-    ActivityInstance,
-)
-from clinical_mdr_api.models.study_selections.study import StudySoaPreferences
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
 from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
-from clinical_mdr_api.models.study_selections.study_soa_footnote import ReferencedItem
-from clinical_mdr_api.services._meta_repository import MetaRepository
-from clinical_mdr_api.services.concepts.unit_definitions.unit_definition import (
-    UnitDefinitionService,
+from clinical_mdr_api.models.study_selections.study_selection import (
+    ReferencedItem,
+    SoACellReference,
+    StudyActivitySchedule,
+    StudySelectionActivity,
+    StudySelectionActivityInstance,
 )
-from clinical_mdr_api.services.controlled_terminologies.ct_codelist import (
-    CTCodelistService,
+from clinical_mdr_api.models.study_selections.study_soa_footnote import (
+    StudySoAFootnoteEditInput,
 )
-from clinical_mdr_api.services.controlled_terminologies.ct_term import CTTermService
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
+from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_activity_instance_selection import (
     StudyActivityInstanceSelectionService,
 )
@@ -37,13 +33,17 @@ from clinical_mdr_api.services.studies.study_activity_selection import (
     StudyActivitySelectionService,
 )
 from clinical_mdr_api.services.studies.study_epoch import StudyEpochService
-from clinical_mdr_api.services.studies.study_flowchart import StudyFlowchartService
-from clinical_mdr_api.services.studies.study_flowchart import _ as _gettext
-from clinical_mdr_api.services.studies.study_flowchart import study_version
+from clinical_mdr_api.services.studies.study_flowchart import _T as _gettext
+from clinical_mdr_api.services.studies.study_flowchart import (
+    StudyFlowchartService,
+    study_version,
+)
+from clinical_mdr_api.services.studies.study_soa_footnote import StudySoAFootnoteService
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
 from clinical_mdr_api.services.utils.table_f import TableRow, TableWithFootnotes
-from clinical_mdr_api.tests.integration.utils.data_library import inject_base_data
-from clinical_mdr_api.tests.integration.utils.utils import LIBRARY_NAME, TestUtils
+from clinical_mdr_api.tests.fixtures.database import TempDatabasePopulated
+from clinical_mdr_api.tests.integration.utils.factory_soa import SoATestData
+from clinical_mdr_api.tests.integration.utils.utils import TestUtils
 from clinical_mdr_api.tests.unit.services.test_study_flowchart import (
     check_flowchart_table_dimensions,
     check_flowchart_table_first_rows,
@@ -51,1387 +51,76 @@ from clinical_mdr_api.tests.unit.services.test_study_flowchart import (
     check_flowchart_table_visit_rows,
     check_hidden_row_propagation,
 )
-
-EPOCHS = {
-    "Screening": {"color_hash": "#80DEEAFF"},
-    "Treatment": {"color_hash": "#C5E1A5FF"},
-    "Follow-Up": {"color_hash": "#BCAAA4FF"},
-}
-VISITS = {
-    "V1": {
-        "epoch": "Screening",
-        "visit_contact_mode": "On Site Visit",
-        "is_global_anchor_visit": True,
-        "day": 0,
-        "min_window": -7,
-        "max_window": 3,
-    },
-    "V2": {
-        "epoch": "Treatment",
-        "visit_contact_mode": "On Site Visit",
-        "day": 7,
-        "min_window": -1,
-        "max_window": 1,
-    },
-    "V3": {
-        "epoch": "Treatment",
-        "visit_contact_mode": "On Site Visit",
-        "day": 21,
-        "min_window": -1,
-        "max_window": 1,
-    },
-    "V4": {
-        "epoch": "Follow-Up",
-        "consecutive_visit_group": "V4-5",
-        "visit_contact_mode": "On Site Visit",
-        "day": 28,
-        "min_window": -1,
-        "max_window": 1,
-    },
-    "V5": {
-        "epoch": "Follow-Up",
-        "consecutive_visit_group": "V4-5",
-        "visit_contact_mode": "On Site Visit",
-        "day": 35,
-        "min_window": -1,
-        "max_window": 1,
-    },
-    "V6": {
-        "epoch": "Follow-Up",
-        "visit_contact_mode": "Virtual Visit",
-        "day": 49,
-        "min_window": -3,
-        "max_window": 3,
-    },
-}
-
-# Mind if an activity is scheduled for a visit of a visit-group, then it must be scheduled for all visits of the group.
-# Testing for safeguards on this is not in the scope of the tests of the SoA feature.
-ACTIVITIES = {
-    "Randomized": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Randomization",
-        "subgroup": "Randomisation",
-        "visits": ["V1"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-        "instances": [
-            {
-                "class": "Randomization class",
-                "name": "Randomized inst.",
-                "topic_code": "RANDTC",
-                "adam_param_code": "RADAM",
-            }
-        ],
-    },
-    "Weight": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "General",
-        "subgroup": "Body Measurements",
-        "visits": ["V1", "V3"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-        "instances": [
-            {
-                "class": "Weighting class",
-                "name": "Weight in kg",
-                "topic_code": "WEIGHTkg",
-                "adam_param_code": "Adam Heavy",
-            },
-            {
-                "class": "Weighting class",
-                "name": "Weight in stones",
-                "topic_code": "WEIGHTST",
-                "adam_param_code": "Lightadam",
-            },
-        ],
-    },
-    "I agree": {
-        "soa_group": "INFORMED CONSENT",
-        "library_name": config.REQUESTED_LIBRARY_NAME,
-        "is_data_collected": True,
-        "visits": ["V6"],
-        "show_soa_group": True,
-        "show_group": False,
-        "show_subgroup": False,
-        "show_activity": True,
-    },
-    "Eligibility Criteria Met": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Eligibility Criteria",
-        "subgroup": "Eligibility Criteria",
-        "is_data_collected": False,
-        "visits": [],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-        "instances": [
-            {
-                "class": "Eligibility Class",
-                "name": "Subject is a human",
-                "topic_code": "HUMAN",
-                "adam_param_code": "HUM",
-            },
-            {
-                "class": "Eligibility Class",
-                "name": "Subject has one heart",
-                "topic_code": "ONEHEART",
-                "adam_param_code": "HEART1",
-            },
-        ],
-    },
-    "Parental Consent Obtained": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Eligibility Criteria",
-        "subgroup": None,
-        "library_name": config.REQUESTED_LIBRARY_NAME,
-        "is_data_collected": False,
-        "visits": [],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": False,
-        "show_activity": False,
-    },
-    "Systolic Blood Pressure": {
-        "soa_group": "SAFETY",
-        "group": "Vital Signs",
-        "subgroup": "Vital Signs",
-        "visits": ["V1", "V3", "V6"],
-        "show_soa_group": True,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-    },
-    "LDL Cholesterol": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Laboratory Assessments",
-        "subgroup": "Lipids",
-        "visits": ["V1"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": False,
-        "show_activity": False,
-    },
-    "Mean glucose": {
-        "soa_group": "SAFETY",
-        "group": "General",
-        "subgroup": "Self Measured Plasma glucose",
-        "visits": ["V1", "V6"],
-        "show_soa_group": True,
-        "show_group": True,
-        "show_subgroup": False,
-        "show_activity": False,
-    },
-    "Creatine Kinase MM": {
-        "soa_group": "EFFICACY",
-        "group": "Laboratory Assessments",
-        "subgroup": "Biochemistry",
-        "visits": [],
-        "show_soa_group": False,
-        "show_group": False,
-        "show_subgroup": False,
-        "show_activity": True,
-    },
-    "Cholesterol": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Laboratory Assessments",
-        "subgroup": "Lipids",
-        "visits": ["V1", "V6"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": False,
-        "show_activity": True,
-    },
-    "Height": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "General",
-        "subgroup": "Body Measurements",
-        "visits": ["V1", "V2"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-        "instances": [
-            {
-                "class": "Height class",
-                "name": "Height cm",
-                "topic_code": "Heigh-cm",
-                "adam_param_code": "cmHeight",
-            }
-        ],
-    },
-    "Diastolic Blood Pressure": {
-        "soa_group": "SAFETY",
-        "group": "Vital Signs",
-        "subgroup": "Vital Signs",
-        "visits": ["V1", "V3", "V6"],
-        "show_soa_group": True,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-    },
-    "HbA1c": {
-        "soa_group": "EFFICACY",
-        "group": "Laboratory Assessments",
-        "subgroup": "Glucose Metabolism",
-        "visits": ["V1", "V2", "V4", "V5", "V6"],
-        "show_soa_group": False,
-        "show_group": False,
-        "show_subgroup": True,
-        "show_activity": False,
-    },
-    "HDL Cholesterol": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Laboratory Assessments",
-        "subgroup": "Lipids",
-        "visits": ["V4", "V5"],
-        "show_soa_group": False,
-        "show_group": True,
-        "show_subgroup": False,
-        "show_activity": False,
-    },
-    "Pulse Rate": {
-        "soa_group": "SAFETY",
-        "group": "Vital Signs",
-        "subgroup": "Vital Signs",
-        "visits": ["V2", "V4", "V5", "V6"],
-        "show_soa_group": True,
-        "show_group": True,
-        "show_subgroup": True,
-        "show_activity": False,
-        "instances": [
-            {
-                "class": "Pulse class",
-                "name": "Pulse per minuate",
-                "topic_code": "pulman",
-                "adam_param_code": "ppm",
-            },
-            {
-                "class": "Pulse class",
-                "name": "Evaluation point",
-                "topic_code": "pulloc",
-                "adam_param_code": "pudl",
-            },
-        ],
-    },
-    "Over 18": {
-        "soa_group": "SUBJECT RELATED INFORMATION",
-        "group": "Eligibility Criteria",
-        "subgroup": "Other Eligibility Criteria",
-        "library_name": config.REQUESTED_LIBRARY_NAME,
-        "is_data_collected": False,
-        "visits": [],
-        "show_soa_group": False,
-        "show_group": False,
-        "show_subgroup": True,
-        "show_activity": False,
-    },
-    "Albumin": {
-        "soa_group": "SAFETY",
-        "group": "AE Requiring Additional Data",
-        "subgroup": "Laboratory Assessments",
-        "visits": ["V2", "V3"],
-        "show_soa_group": True,
-        "show_group": False,
-        "show_subgroup": False,
-        "show_activity": False,
-    },
-}
-
-FOOTNOTES = {
-    "Dilution of hyperreal in ion-exchanged water applied orally": [],
-    "Pharmacokinetic dance of molecules within the bloodstream": [
-        {"type": SoAItemType.STUDY_VISIT.value, "name": "V4"},
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V2",
-            "activity": "Pulse Rate",
-        },
-        {"type": SoAItemType.STUDY_ACTIVITY.value, "name": "Diastolic Blood Pressure"},
-    ],
-    "Pharmacological jigsaw puzzle assembles a mosaic of therapeutic agents to paint the canvas of wellness": [
-        {"type": SoAItemType.STUDY_SOA_GROUP.value, "name": "INFORMED CONSENT"},
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V6",
-            "activity": "Cholesterol",
-        },
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V1",
-            "activity": "Cholesterol",
-        },
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V6",
-            "activity": "I agree",
-        },
-        {"type": SoAItemType.STUDY_ACTIVITY_SUBGROUP.value, "name": "Lipids"},
-        {"type": SoAItemType.STUDY_ACTIVITY.value, "name": "Parental Consent Obtained"},
-        {"type": SoAItemType.STUDY_ACTIVITY_GROUP.value, "name": "General"},
-    ],
-    "In the desert of uncertainty, faith is the oasis": [],
-    "The best way to predict your future is to create it": [
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V3",
-            "activity": "Albumin",
-        },
-    ],
-    "Therapeutic gold under the guidance of synthetic sorcery": [
-        {"type": SoAItemType.STUDY_EPOCH.value, "name": "Treatment"},
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V5",
-            "activity": "HDL Cholesterol",
-        },
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V2",
-            "activity": "Height",
-        },
-        {
-            "type": SoAItemType.STUDY_ACTIVITY_SCHEDULE.value,
-            "visit": "V6",
-            "activity": "I agree",
-        },
-        {"type": SoAItemType.STUDY_ACTIVITY_GROUP.value, "name": "Vital Signs"},
-        {"type": SoAItemType.STUDY_ACTIVITY.value, "name": "Diastolic Blood Pressure"},
-        {"type": SoAItemType.STUDY_ACTIVITY.value, "name": "I agree"},
-    ],
-    "When the winds of change blow, only those who adjust their sails find their destined harbor.": [
-        {"type": SoAItemType.STUDY_ACTIVITY.value, "name": "Albumin"},
-    ],
-}
-
-USER_INITIALS = "unknown-user"
+from common import config
 
 log = logging.getLogger(__name__)
 
 
-class TestData:
-    database_name: str
-    study: models.study_selections.study.Study
-    unit_definitions: dict[str, models.UnitDefinitionModel]
-    epoch_terms: dict[str, models.CTTerm]
-    study_epochs: dict[str, StudyEpoch]
-    visit_type_terms: dict[str, models.CTTerm]
-    visit_contact_terms: dict[str, models.CTTerm]
-    visit_timeref_terms: dict[str, models.CTTerm]
-    study_visits: dict[str, models.StudyVisit]
-    soa_group_terms: dict[str, models.CTTerm]
-    activities: dict[str, models.Activity]
-    activity_instances: dict[str, ActivityInstance]
-    study_activities: dict[str, models.StudySelectionActivity]
-    study_activity_instances: dict[str, models.StudySelectionActivityInstance]
-    study_activity_schedules: list[StudyActivitySchedule]
-    footnote_types: dict[str, models.CTTerm]
-    footnotes: dict[str, models.Footnote]
-    soa_footnotes: list[StudySoAFootnote]
-    soa_preferences: StudySoaPreferences
+@pytest.fixture(scope="module")
+def soa_test_data(temp_database_populated: TempDatabasePopulated) -> SoATestData:
+    return SoATestData(project=temp_database_populated.project)
 
 
 @pytest.fixture(scope="module")
-def tst_data(request, temp_database):
-    """Initialize test data"""
-    test_data = TestData()
-
-    log.info("%s fixture: injecting magic data", request.fixturename)
-    test_data.study = inject_base_data()
-
-    test_data.unit_definitions = {
-        u.name: u
-        for u in UnitDefinitionService(meta_repository=MetaRepository(USER_INITIALS))
-        .get_all(library_name=LIBRARY_NAME)
-        .items
-    }
-
-    test_data.epoch_terms = create_epoch_terms()
-
-    test_data.study_epochs = create_study_epochs(
-        EPOCHS, test_data.study, test_data.epoch_terms
-    )
-
-    test_data.visit_type_terms = create_visit_type_terms()
-
-    test_data.visit_contact_terms = create_visit_contact_terms()
-
-    test_data.visit_timeref_terms = create_visit_timeref_terms()
-
-    test_data.study_visits = create_study_visits(
-        VISITS,
-        test_data.study,
-        test_data.study_epochs,
-        test_data.unit_definitions,
-        test_data.visit_contact_terms,
-        test_data.visit_timeref_terms,
-        test_data.visit_type_terms,
-    )
-
-    test_data.soa_group_terms = create_soa_group_terms()
-
-    test_data.activities = create_activities()
-
-    TestUtils.lock_and_unlock_study(test_data.study.uid)
-
-    test_data.study_activities = create_study_activities(
-        test_data.study, test_data.activities, test_data.soa_group_terms
-    )
-
-    test_data.activity_instances = create_activity_instances(test_data.activities)
-
-    test_data.study_activity_instances = get_study_activity_instances(test_data.study)
-
-    test_data.study_activity_schedules = create_study_activity_schedules(
-        test_data.study,
-        test_data.study_activities,
-        test_data.study_visits,
-    )
-
-    test_data.footnote_types = create_footnote_types()
-
-    test_data.footnotes = create_footnotes(
-        FOOTNOTES,
-        test_data.footnote_types,
-    )
-
-    test_data.soa_footnotes = create_soa_footnotes(
-        FOOTNOTES,
-        test_data.footnotes,
-        test_data.study,
-        test_data.study_epochs,
-        test_data.study_visits,
-        test_data.study_activities,
-        test_data.study_activity_instances,
-        test_data.study_activity_schedules,
-    )
-
-    # Patch SoA Preferences as tests do not yet support baseline_as_time_zero
-    test_data.soa_preferences = TestUtils.patch_soa_preferences(
-        test_data.study.uid, baseline_as_time_zero=False
-    )
-
-    return test_data
-
-
-def create_epoch_terms() -> dict[str, models.CTTerm]:
-    log.debug("creating epoch terms")
-
-    ct_codelist_service = CTCodelistService()
-    ct_term_service = CTTermService()
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_EPOCH_EPOCH_NAME,
-        sponsor_preferred_name=config.STUDY_EPOCH_EPOCH_NAME,
-        submission_value="EPOCH",
-        extensible=True,
-        library_name="CDISC",
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            code_submission_value="SCREENING",
-            sponsor_preferred_name="Screening",
-            # concept_id is missing
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            code_submission_value="FOLLOW-UP",
-            sponsor_preferred_name="Follow-Up",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            code_submission_value="OBSERVATION",
-            sponsor_preferred_name="Observation",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            code_submission_value="RUN-IN",
-            sponsor_preferred_name="Run-in",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            code_submission_value="TREATMENT",
-            sponsor_preferred_name="Treatment",
-        )
-    )
-
-    for term in terms:
-        ct_term_service.add_parent(
-            term.term_uid,
-            term.term_uid,
-            TermParentType.PARENT_TYPE.value,
-        )
-        ct_term_service.add_parent(
-            term.term_uid,
-            term.term_uid,
-            TermParentType.PARENT_SUB_TYPE.value,
-        )
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_EPOCH_TYPE_NAME,
-        sponsor_preferred_name=config.STUDY_EPOCH_TYPE_NAME,
-        submission_value="EPOCHTP",
-        extensible=True,
-        library_name="Sponsor",
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    for term in terms:
-        ct_codelist_service.add_term(
-            codelist_uid=codelist.codelist_uid, term_uid=term.term_uid, order=1
-        )
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_EPOCH_SUBTYPE_NAME,
-        sponsor_preferred_name=config.STUDY_EPOCH_SUBTYPE_NAME,
-        submission_value="EPOCHSTP",
-        extensible=True,
-        library_name="Sponsor",
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    for term in terms:
-        ct_codelist_service.add_term(
-            codelist_uid=codelist.codelist_uid, term_uid=term.term_uid, order=1
-        )
-
-    log.info(
-        "created epoch terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_study_epochs(epoch_dict, study, epoch_terms) -> dict[str, StudyEpoch]:
-    log.debug("creating StudyEpochs")
-
-    epochs = {}
-
-    for k, epo in epoch_dict.items():
-        epoch = TestUtils.create_study_epoch(
-            study_uid=study.uid,
-            epoch_subtype=epoch_terms[k].term_uid,
-            color_hash=epo.get("color_hash"),
-        )
-
-        epochs[k] = epoch
-
-    log.info(
-        "created StudyEpochs: %s",
-        {
-            epoch.uid: epoch.epoch_subtype_ctterm.sponsor_preferred_name
-            for epoch in epochs.values()
-        },
-    )
-
-    return epochs
-
-
-def create_visit_type_terms() -> dict[str, models.CTTerm]:
-    log.debug("creating visit type terms")
-
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_VISIT_TYPE_NAME,
-        sponsor_preferred_name=config.STUDY_VISIT_TYPE_NAME,
-        submission_value="TIMELB",
-        extensible=True,
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_End of treatment",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_End of trial",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Follow-up",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Informed consent",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_No treatment",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Non-visit",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Randomisation",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Screening",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Treatment",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Unscheduled",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="V_Washout",
-        )
-    )
-
-    log.info(
-        "visit type terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_visit_contact_terms() -> dict[str, models.CTTerm]:
-    log.debug("creating visit contact terms")
-
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_VISIT_CONTACT_MODE_NAME,
-        sponsor_preferred_name=config.STUDY_VISIT_CONTACT_MODE_NAME,
-        submission_value="VISCNTMD",
-        extensible=True,
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="On Site Visit",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="Phone Contact",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="Virtual Visit",
-        )
-    )
-
-    log.info(
-        "visit contact terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_visit_timeref_terms() -> dict[str, models.CTTerm]:
-    log.debug("creating visit time-point-reference terms")
-
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name=config.STUDY_VISIT_TIMEREF_NAME,
-        sponsor_preferred_name=config.STUDY_VISIT_TIMEREF_NAME,
-        extensible=True,
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="BASELINE",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="Global anchor visit",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="BASELINE2",
-        )
-    )
-
-    log.info(
-        "visit time-point-reference terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_study_visits(
-    visits_dict,
-    study,
-    study_epochs,
-    unit_definitions,
-    visit_contact_terms,
-    visit_timeref_terms,
-    visit_type_terms,
-) -> dict[str, models.StudyVisit]:
-    log.debug("creating StudyVisits")
-
-    visits = {}
-
-    for k, vis in visits_dict.items():
-        epoch = study_epochs[vis["epoch"]]
-
-        visit = TestUtils.create_study_visit(
-            study_uid=study.uid,
-            study_epoch_uid=epoch.uid,
-            visit_type_uid=visit_type_terms["V_Treatment"].term_uid,
-            time_reference_uid=visit_timeref_terms["Global anchor visit"].term_uid,
-            time_value=vis["day"],
-            time_unit_uid=unit_definitions["day"].uid,
-            visit_sublabel_codelist_uid=None,
-            visit_sublabel_reference=None,
-            consecutive_visit_group=vis.get("consecutive_visit_group"),
-            show_visit=True,
-            min_visit_window_value=vis.get("min_window", 0),
-            max_visit_window_value=vis.get("max_window", 0),
-            visit_window_unit_uid=unit_definitions["day"].uid,
-            description=None,
-            start_rule=None,
-            end_rule=None,
-            visit_contact_mode_uid=visit_contact_terms[
-                vis["visit_contact_mode"]
-            ].term_uid,
-            epoch_allocation_uid=None,
-            visit_class="SINGLE_VISIT",
-            visit_subclass="SINGLE_VISIT",
-            is_global_anchor_visit=vis.get("is_global_anchor_visit", False),
-        )
-
-        visits[k] = visit
-
-    log.info(
-        "StudyVisits: %s",
-        {k: visit.uid for k, visit in visits.items()},
-    )
-
-    return visits
-
-
-def create_soa_group_terms() -> dict[str, models.CTTerm]:
-    log.debug("creating SoA Group terms")
-
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name="Flowchart Group",
-        sponsor_preferred_name="Flowchart Group",
-        submission_value="FLWCRTGRP",
-        extensible=True,
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="INFORMED CONSENT",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="ELIGIBILITY AND OTHER CRITERIA",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="SUBJECT RELATED INFORMATION",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="EFFICACY",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="SAFETY",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="GENETICS",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="PHARMACOKINETICS",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="PHARMACODYNAMICS",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="BIOMARKERS",
-        )
-    )
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="HIDDEN",
-        )
-    )
-
-    log.info(
-        "created SoA Group terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_activities() -> dict[str, models.Activity]:
-    log.debug("creating Activities")
-
-    activity_groups = {}
-    activity_subgroups = {}
-    activities = {}
-
-    for name, act in reversed(ACTIVITIES.items()):
-        group_name = act.get("group")
-        if group_name and group_name not in activity_groups:
-            activity_groups[group_name] = TestUtils.create_activity_group(
-                name=group_name
-            )
-
-        subgroup_name = act.get("subgroup")
-        if subgroup_name and subgroup_name not in activity_subgroups:
-            activity_subgroups[subgroup_name] = TestUtils.create_activity_subgroup(
-                name=subgroup_name,
-                activity_groups=[activity_groups[group_name].uid] if group_name else [],
-            )
-
-        activities[name] = TestUtils.create_activity(
-            name=name,
-            activity_groups=[activity_groups[group_name].uid] if group_name else [],
-            activity_subgroups=(
-                [activity_subgroups[subgroup_name].uid] if subgroup_name else []
-            ),
-            library_name=act.get("library_name", "Sponsor"),
-        )
-
-    log.info(
-        "created Activities: %s",
-        {activity.uid: activity.name for activity in activities.values()},
-    )
-
-    return activities
-
-
-def create_activity_instances(activities) -> dict[str, list[ActivityInstance]]:
-    log.debug("creating ActivityInstances")
-
-    activity_instances = {}
-    activity_instance_classes = {}
-
-    for name, act in ACTIVITIES.items():
-        for inst in act.get("instances", []):
-            instance_class = activity_instance_classes.get(inst["class"])
-            if not instance_class:
-                activity_instance_classes[inst["class"]] = (
-                    instance_class := TestUtils.create_activity_instance_class(
-                        name=inst["class"]
-                    )
-                )
-
-            activity = activities[name]
-
-            activity_instance = TestUtils.create_activity_instance(
-                name=inst["name"],
-                activity_instance_class_uid=instance_class.uid,
-                name_sentence_case=inst["name"].lower(),
-                topic_code=inst.get("topic_code", None),
-                adam_param_code=inst.get("adam_param_code", None),
-                is_required_for_activity=True,
-                activities=[activity.uid],
-                activity_groups=(
-                    [activity.activity_groupings[0].activity_group_uid]
-                    if activity.activity_groupings
-                    else []
-                ),
-                activity_subgroups=(
-                    [activity.activity_groupings[0].activity_subgroup_uid]
-                    if activity.activity_groupings
-                    else []
-                ),
-                activity_items=[],
-            )
-
-            activity_instances.setdefault(name, []).append(activity_instance)
-
-    log.info(
-        "created ActivityInstances: %s",
-        {
-            activity_instance.uid: activity_instance.name
-            for activity_instance_list in activity_instances.values()
-            for activity_instance in activity_instance_list
-        },
-    )
-
-    return activity_instances
-
-
-def create_study_activities(
-    study, activities, soa_group_terms
-) -> dict[str, models.StudySelectionActivity]:
-    log.debug("creating StudyActivities")
-
-    study_activities = {}
-
-    for name, act in ACTIVITIES.items():
-        activity = activities[name]
-
-        study_activity = TestUtils.create_study_activity(
-            study_uid=study.uid,
-            activity_uid=activity.uid,
-            activity_group_uid=(
-                activity.activity_groupings[0].activity_group_uid
-                if activity.activity_groupings
-                else None
-            ),
-            activity_subgroup_uid=(
-                activity.activity_groupings[0].activity_subgroup_uid
-                if activity.activity_groupings
-                else None
-            ),
-            soa_group_term_uid=(
-                soa_group_terms[act["soa_group"]].term_uid
-                if act.get("soa_group")
-                else None
-            ),
-        )
-
-        TestUtils.patch_study_activity_schedule(
-            study_uid=study.uid,
-            study_selection_uid=study_activity.study_activity_uid,
-            show_activity_in_protocol_flowchart=act.get("show_activity"),
-            show_activity_subgroup_in_protocol_flowchart=act.get("show_subgroup"),
-            show_activity_group_in_protocol_flowchart=act.get("show_group"),
-            show_soa_group_in_protocol_flowchart=act.get("show_soa_group", False),
-            soa_group_term_uid=(
-                soa_group_terms[act["soa_group"]].term_uid
-                if act.get("soa_group")
-                else None
-            ),
-        )
-
-        study_activities[name] = study_activity
-
-    log.info(
-        "created StudyActivities: %s",
-        {
-            sa.study_activity_uid: f"{sa.activity.name}"
-            for sa in study_activities.values()
-        },
-    )
-
-    return study_activities
-
-
-def get_study_activity_instances(
-    study,
-) -> dict[str, models.StudySelectionActivityInstance]:
-    log.debug("fetching StudyActivityInstances")
-
-    study_activity_instances: list[models.StudySelectionActivityInstance] = (
-        StudyActivityInstanceSelectionService()
-        .get_all_selection(study_uid=study.uid)
-        .items
-    )
-
-    log.info(
-        "fetched StudyActivityInstances: %s",
-        ", ".join(sai.study_activity_instance_uid for sai in study_activity_instances),
-    )
-
-    study_activity_instance_map = {
-        ssa.study_activity_uid: ssa for ssa in study_activity_instances
-    }
-
-    return study_activity_instance_map
-
-
-def create_study_activity_schedules(
-    study, study_activities, study_visits
-) -> list[StudyActivitySchedule]:
-    log.debug("creating StudyActivitySchedules")
-
-    schedules = []
-
-    for activity_name, act in ACTIVITIES.items():
-        for visit_name in act.get("visits", []):
-            schedule = TestUtils.create_study_activity_schedule(
-                study_uid=study.uid,
-                study_activity_uid=study_activities[activity_name].study_activity_uid,
-                study_visit_uid=study_visits[visit_name].uid,
-            )
-            schedules.append(schedule)
-
-    log.info(
-        "created StudyActivitySchedules: %s",
-        ", ".join(schedule.study_activity_schedule_uid for schedule in schedules),
-    )
-
-    return schedules
-
-
-def create_footnote_types() -> dict[str, models.CTTerm]:
-    log.debug("creating footnote-type terms")
-
-    terms: list[models.CTTerm] = []
-
-    codelist = TestUtils.create_ct_codelist(
-        name="Footnote Type",
-        sponsor_preferred_name="Footnote Type",
-        submission_value="FTNTTP",
-        extensible=True,
-        approve=True,
-    )
-
-    log.info(
-        "created codelist: %s [%s]",
-        codelist.name,
-        codelist.codelist_uid,
-    )
-
-    terms.append(
-        TestUtils.create_ct_term(
-            codelist_uid=codelist.codelist_uid,
-            sponsor_preferred_name="SoA Footnote",
-            code_submission_value="SOAFOOTNOTE",
-            name_submission_value="SOAFOOTNOTE",
-        )
-    )
-
-    log.info(
-        "visit footnote-type terms: %s",
-        {term.term_uid: term.sponsor_preferred_name for term in terms},
-    )
-
-    return {term.sponsor_preferred_name: term for term in terms}
-
-
-def create_footnotes(footnotes_dict, footnote_types) -> dict[str, models.Footnote]:
-    log.debug("creating footnotes")
-
-    footnotes: dict[str, models.Footnote] = {}
-
-    for name in footnotes_dict:
-        template: models.FootnoteTemplate = TestUtils.create_footnote_template(
-            name=f"<p>{name}</p>",
-            library_name=config.REQUESTED_LIBRARY_NAME,
-            type_uid=footnote_types["SoA Footnote"].term_uid,
-            approve=True,
-        )
-        footnotes[name] = TestUtils.create_footnote(
-            footnote_template_uid=template.uid,
-            library_name=config.REQUESTED_LIBRARY_NAME,
-            approve=True,
-        )
-
-    log.info(
-        "created Footnotes: %s",
-        {fn.uid: {"template": fn.template.uid} for fn in footnotes.values()},
-    )
-
-    return footnotes
-
-
-def create_soa_footnotes(
-    footnotes_dict,
-    footnotes,
-    study,
-    study_epochs,
-    study_visits,
-    study_activities,
-    study_activity_instances,
-    study_activity_schedules,
-) -> list[StudySoAFootnote]:
-    log.debug("creating StudySoAFootnotes")
-
-    # Map activity group names to uid
-    study_soa_group_uids = defaultdict(set)
-    study_activity_group_uids = defaultdict(set)
-    study_activity_subgroup_uids = defaultdict(set)
-
-    for activities in (
-        study_activities.values(),
-        study_activity_instances.values(),
-    ):
-        for activity in activities:
-            study_soa_group_uids[activity.study_soa_group.soa_group_name].add(
-                activity.study_soa_group.study_soa_group_uid
-            )
-
-            if activity.study_activity_group:
-                study_activity_group_uids[
-                    activity.study_activity_group.activity_group_name
-                ].add(activity.study_activity_group.study_activity_group_uid)
-
-            if activity.study_activity_subgroup:
-                study_activity_subgroup_uids[
-                    activity.study_activity_subgroup.activity_subgroup_name
-                ].add(activity.study_activity_subgroup.study_activity_subgroup_uid)
-
-    # Map activity+visit uids to schedule uids
-    study_activity_schedule_uids = {}
-    for schedule in study_activity_schedules:
-        study_activity_schedule_uids[
-            schedule.study_activity_uid, schedule.study_visit_uid
-        ] = schedule.study_activity_schedule_uid
-
-    soa_footnotes: list[StudySoAFootnote] = []
-
-    for name, refs in footnotes_dict.items():
-        footnote: models.Footnote = footnotes[name]
-        referenced_items = []
-
-        for ref in refs:
-            uids = set()
-            typ = ref.get("type")
-            assert typ
-            assert typ in {t.value for t in SoAItemType}
-
-            if typ == SoAItemType.STUDY_ACTIVITY_SCHEDULE.value:
-                visit_name = ref.get("visit")
-                activity_name = ref.get("activity")
-
-                assert visit_name and activity_name
-
-                assert visit_name in study_visits
-                visit_uid = study_visits[visit_name].uid
-
-                assert activity_name in study_activities
-                activity_uid = study_activities[activity_name].study_activity_uid
-                name = activity_name
-
-                assert (
-                    activity_uid,
-                    visit_uid,
-                ) in study_activity_schedule_uids, (
-                    f"{typ} '{name}' not scheduled for visit '{visit_name}'"
-                )
-                uids = {study_activity_schedule_uids[activity_uid, visit_uid]}
-                name = f"{name} {visit_name}"
-
-            else:
-                assert (name := ref.get("name"))
-
-                if typ == SoAItemType.STUDY_EPOCH.value:
-                    assert name in study_epochs
-                    uids = {study_epochs[name].uid}
-
-                if typ == SoAItemType.STUDY_VISIT.value:
-                    assert name in study_visits
-                    uids = {study_visits[name].uid}
-
-                if typ == SoAItemType.STUDY_ACTIVITY.value:
-                    assert name in study_activities
-                    uids = {study_activities[name].study_activity_uid}
-
-                if typ == SoAItemType.STUDY_SOA_GROUP.value:
-                    assert name in study_soa_group_uids
-                    uids = study_soa_group_uids[name]
-
-                if typ == SoAItemType.STUDY_ACTIVITY_GROUP.value:
-                    assert name in study_activity_group_uids
-                    uids = study_activity_group_uids[name]
-
-                if typ == SoAItemType.STUDY_ACTIVITY_SUBGROUP.value:
-                    assert name in study_activity_subgroup_uids
-                    uids = study_activity_subgroup_uids[name]
-
-            assert uids, f"Footnote reference type '{typ}' not implemented"
-
-            for uid in uids:
-                referenced_items.append(
-                    ReferencedItem(item_name=name, item_type=typ, item_uid=uid)
-                )
-
-        soa_footnotes.append(
-            TestUtils.create_study_soa_footnote(
-                study_uid=study.uid,
-                footnote_template_uid=footnote.template.uid,
-                referenced_items=referenced_items,
-            )
-        )
-
-    log.info(
-        "created StudySoAFootnotes: %s",
-        {fn.uid: {"template": fn.template.uid} for fn in footnotes.values()},
-    )
-
-    return soa_footnotes
-
-
-@pytest.fixture(scope="module")
-def detailed_soa_table__days(tst_data: TestData) -> TableWithFootnotes:
+def detailed_soa_table__days(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, operational=False, time_unit="day"
+    soa_table = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, operational=False, time_unit="day"
     )
     return soa_table
 
 
 @pytest.fixture(scope="module")
-def detailed_soa_table__weeks(tst_data: TestData) -> TableWithFootnotes:
+def detailed_soa_table__weeks(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, operational=False, time_unit="week"
+    soa_table = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, operational=False, time_unit="week"
     )
     return soa_table
 
 
 @pytest.fixture(scope="module")
-def protocol_soa_table__days(tst_data: TestData) -> TableWithFootnotes:
+def protocol_soa_table__days(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, hide_soa_groups=True, time_unit="day"
+    soa_table: TableWithFootnotes = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, hide_soa_groups=True, time_unit="day"
     )
-    StudyFlowchartService.propagate_hidden_rows(soa_table)
+    StudyFlowchartService.propagate_hidden_rows(soa_table.rows)
     soa_table.rows[0].cells[0].text = _gettext("procedure_label")
     return soa_table
 
 
 @pytest.fixture(scope="module")
-def protocol_soa_table__weeks(tst_data: TestData) -> TableWithFootnotes:
+def protocol_soa_table__weeks(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, hide_soa_groups=True, time_unit="week"
+    soa_table: TableWithFootnotes = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, hide_soa_groups=True, time_unit="week"
     )
-    StudyFlowchartService.propagate_hidden_rows(soa_table)
+    StudyFlowchartService.propagate_hidden_rows(soa_table.rows)
     soa_table.rows[0].cells[0].text = _gettext("procedure_label")
     return soa_table
 
 
 @pytest.fixture(scope="module")
-def operational_soa_table__days(tst_data: TestData) -> TableWithFootnotes:
+def operational_soa_table__days(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, operational=True, time_unit="day"
+    soa_table = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, operational=True, time_unit="day"
     )
     return soa_table
 
 
 @pytest.fixture(scope="module")
-def operational_soa_table__weeks(tst_data: TestData) -> TableWithFootnotes:
+def operational_soa_table__weeks(soa_test_data: SoATestData) -> TableWithFootnotes:
     """get non-operational SoA table directly from StudyFlowchartService"""
     service = StudyFlowchartService()
-    soa_table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid, operational=True, time_unit="week"
+    soa_table = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid, operational=True, time_unit="week"
     )
     return soa_table
 
@@ -1453,15 +142,15 @@ def operational_soa_table__weeks(tst_data: TestData) -> TableWithFootnotes:
         ("day", None, True),
     ],
 )
-def test_get_flowchart_table(
-    tst_data: TestData,
+def test_build_flowchart_table(
+    soa_test_data: SoATestData,
     time_unit: str,
     operational: bool,
     hide_soa_groups: bool,
 ):
     service = StudyFlowchartService()
-    table = service.get_flowchart_table(
-        study_uid=tst_data.study.uid,
+    table = service.build_flowchart_table(
+        study_uid=soa_test_data.study.uid,
         operational=operational,
         time_unit=time_unit,
         hide_soa_groups=hide_soa_groups,
@@ -1471,34 +160,34 @@ def test_get_flowchart_table(
 
     if time_unit is None:
         service = StudyFlowchartService()
-        time_unit = service.get_preferred_time_unit(study_uid=tst_data.study.uid)
+        time_unit = service.get_preferred_time_unit(study_uid=soa_test_data.study.uid)
 
     study_epochs: list[StudyEpoch] = (
         StudyEpochService()
-        .get_all_epochs(study_uid=tst_data.study.uid, sort_by={"order": True})
+        .get_all_epochs(study_uid=soa_test_data.study.uid, sort_by={"order": True})
         .items
     )
-    study_visits: list[models.StudyVisit] = (
-        StudyVisitService(study_uid=tst_data.study.uid)
-        .get_all_visits(study_uid=tst_data.study.uid, sort_by={"order": True})
+    study_visits: list[StudyVisit] = (
+        StudyVisitService(study_uid=soa_test_data.study.uid)
+        .get_all_visits(study_uid=soa_test_data.study.uid, sort_by={"order": True})
         .items
     )
-    study_activities_map: dict[str, models.StudySelectionActivity] = {
+    study_activities_map: dict[str, StudySelectionActivity] = {
         ssa.study_activity_uid: ssa
         for ssa in StudyActivitySelectionService()
-        .get_all_selection(study_uid=tst_data.study.uid)
+        .get_all_selection(study_uid=soa_test_data.study.uid)
         .items
     }
-    study_activity_instances_map: list[models.StudySelectionActivityInstance] = {
+    study_activity_instances_map: list[StudySelectionActivityInstance] = {
         ssai.study_activity_instance_uid: ssai
         for ssai in StudyActivityInstanceSelectionService()
-        .get_all_selection(study_uid=tst_data.study.uid)
+        .get_all_selection(study_uid=soa_test_data.study.uid)
         .items
     }
     study_activity_schedules: list[
-        models.StudyActivitySchedule
+        StudyActivitySchedule
     ] = StudyActivityScheduleService().get_all_schedules(
-        study_uid=tst_data.study.uid,
+        study_uid=soa_test_data.study.uid,
         operational=operational,
     )
 
@@ -1506,16 +195,21 @@ def test_get_flowchart_table(
     assert table.title == _gettext("protocol_flowchart")
 
     # Test dimensions
-    check_flowchart_table_dimensions(table, operational, tst_data.soa_preferences)
+    check_flowchart_table_dimensions(table, operational, soa_test_data.soa_preferences)
 
     # Test first header row
     check_flowchart_table_first_rows(
-        table, operational, study_epochs, study_visits, tst_data.soa_preferences
+        table,
+        operational,
+        study_epochs,
+        study_visits,
+        soa_test_data.soa_preferences,
+        hide_soa_groups,
     )
 
     # Test visit header rows
     visit_idx_by_uid = check_flowchart_table_visit_rows(
-        table, operational, time_unit, study_visits, tst_data.soa_preferences
+        table, operational, time_unit, study_visits, soa_test_data.soa_preferences
     )
 
     # Test the rest of the rows
@@ -1548,12 +242,10 @@ def test_get_flowchart_table(
 
             if ref.type == SoAItemType.STUDY_ACTIVITY.value:
                 activity_uid = ref.uid
-                study_selection: models.StudySelectionActivity = study_activities_map[
-                    ref.uid
-                ]
+                study_selection: StudySelectionActivity = study_activities_map[ref.uid]
 
             if ref.type == SoAItemType.STUDY_ACTIVITY_INSTANCE.value:
-                study_selection: models.StudySelectionActivityInstance = (
+                study_selection: StudySelectionActivityInstance = (
                     study_activity_instances_map[ref.uid]
                 )
                 assert study_selection.study_activity_uid == activity_uid
@@ -1614,7 +306,7 @@ def test_get_flowchart_table(
                 prev = i
 
     # THEN all study activities are present in detailed and operational SoA tables (regardless whether scheduled for any visit)
-    for activity in tst_data.study_activities.values():
+    for activity in soa_test_data.study_activities.values():
         if (
             operational
             and activity.activity.library_name == config.REQUESTED_LIBRARY_NAME
@@ -1630,7 +322,7 @@ def test_get_flowchart_table(
 
     # THEN all study activity instances are present in operational SoA table (regardless whether scheduled for any visit)
     if operational:
-        for activity in tst_data.study_activity_instances.values():
+        for activity in soa_test_data.study_activity_instances.values():
             if activity.activity_instance:
                 assert (
                     activity.study_activity_instance_uid in rows_by_uid
@@ -1717,11 +409,11 @@ def test_get_flowchart_table(
     if operational:
         ensure_flowchart_table_has_no_footnotes(table)
     else:
-        check_flowchart_table_footnotes(table, tst_data.soa_footnotes)
+        check_flowchart_table_footnotes(table, soa_test_data.soa_footnotes)
 
 
 def ensure_flowchart_table_has_no_footnotes(table: dict):
-    """ensure SoA flowchart does not have footnotes"""
+    """ensure SoA flowchart doesn't have footnotes"""
 
     for r_idx, row in enumerate(table.rows):
         for c_idx, cell in enumerate(row.cells):
@@ -1738,18 +430,20 @@ def ensure_flowchart_table_has_no_footnotes(table: dict):
 )
 def test_propagate_hidden_rows(request, soa_table_fixture_name):
     """Validates propagation of crosses and footnotes from hidden rows to the first visible parent row"""
-    soa_table_fixture_name: TableWithFootnotes = deepcopy(
+    soa_table: TableWithFootnotes = deepcopy(
         request.getfixturevalue(soa_table_fixture_name)
     )
-    StudyFlowchartService.propagate_hidden_rows(soa_table_fixture_name)
-    check_hidden_row_propagation(soa_table_fixture_name)
+    StudyFlowchartService.propagate_hidden_rows(soa_table.rows)
+    check_hidden_row_propagation(soa_table)
 
 
 def test_get_flowchart_item_uid_coordinates(
-    tst_data: TestData, detailed_soa_table__weeks: TableWithFootnotes
+    soa_test_data: SoATestData, detailed_soa_table__weeks: TableWithFootnotes
 ):
     service = StudyFlowchartService()
-    results = service.get_flowchart_item_uid_coordinates(study_uid=tst_data.study.uid)
+    results = service.get_flowchart_item_uid_coordinates(
+        study_uid=soa_test_data.study.uid
+    )
     assert isinstance(results, dict)
 
     collected_coordinates: dict(str, tuple(int, int)) = {
@@ -1797,7 +491,7 @@ def test_get_flowchart_item_uid_coordinates(
     study_epoch: StudyEpoch
     for study_epoch in (
         StudyEpochService()
-        .get_all_epochs(study_uid=tst_data.study.uid, sort_by={"order": True})
+        .get_all_epochs(study_uid=soa_test_data.study.uid, sort_by={"order": True})
         .items
     ):
         assert results.pop(
@@ -1805,10 +499,10 @@ def test_get_flowchart_item_uid_coordinates(
         ), f"Missing coordinates of StudyEpoch[{study_epoch.uid}]"
 
     # THEN all StudyVisits have coordinates
-    study_visit: models.StudyVisit
+    study_visit: StudyVisit
     for study_visit in (
-        StudyVisitService(study_uid=tst_data.study.uid)
-        .get_all_visits(study_uid=tst_data.study.uid, sort_by={"order": True})
+        StudyVisitService(study_uid=soa_test_data.study.uid)
+        .get_all_visits(study_uid=soa_test_data.study.uid, sort_by={"order": True})
         .items
     ):
         assert results.pop(
@@ -1817,10 +511,10 @@ def test_get_flowchart_item_uid_coordinates(
     shared_soa_groups = []
     shared_study_activity_groups = []
     shared_study_activity_subgroups = []
-    study_selection_activity: models.StudySelectionActivity
+    study_selection_activity: StudySelectionActivity
     for study_selection_activity in (
         StudyActivitySelectionService()
-        .get_all_selection(study_uid=tst_data.study.uid)
+        .get_all_selection(study_uid=soa_test_data.study.uid)
         .items
     ):
         # THEN all StudySelectionActivity have coordinates
@@ -1879,9 +573,9 @@ def test_get_flowchart_item_uid_coordinates(
             )
 
     # THEN all StudyActivitySchedules have coordinates
-    study_activity_schedule: models.StudyActivitySchedule
+    study_activity_schedule: StudyActivitySchedule
     for study_activity_schedule in StudyActivityScheduleService().get_all_schedules(
-        study_uid=tst_data.study.uid, operational=False
+        study_uid=soa_test_data.study.uid, operational=False
     ):
         assert results.pop(
             study_activity_schedule.study_activity_schedule_uid, None
@@ -1896,12 +590,12 @@ def test_get_flowchart_item_uid_coordinates(
     [None, True, False],
 )
 def test_download_detailed_soa_content(
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     protocol_flowchart: bool | None,
 ):
     """Test returned data of download_detailed_soa_content"""
 
-    study_uid = tst_data.study.uid
+    study_uid = soa_test_data.study.uid
     service = StudyFlowchartService()
     results = service.download_detailed_soa_content(
         study_uid=study_uid,
@@ -1914,13 +608,13 @@ def test_download_detailed_soa_content(
         study_uid=study_uid,
         operational=False,
     )
-    study_visits_map: dict[str, models.StudyVisit] = {
+    study_visits_map: dict[str, StudyVisit] = {
         svis.uid: svis
-        for svis in StudyVisitService(study_uid=tst_data.study.uid)
+        for svis in StudyVisitService(study_uid=soa_test_data.study.uid)
         .get_all_visits(study_uid=study_uid, sort_by={"order": True})
         .items
     }
-    study_activities_map: dict[str, models.StudySelectionActivity] = {
+    study_activities_map: dict[str, StudySelectionActivity] = {
         ssa.study_activity_uid: ssa
         for ssa in StudyActivitySelectionService()
         .get_all_selection(study_uid=study_uid)
@@ -1944,16 +638,16 @@ def test_download_detailed_soa_content(
         study_visit = study_visits_map[sched.study_visit_uid]
 
         assert len(res.keys()) == 9, f"record #{i} property count mismatch"
-        assert res["study_version"] == study_version(tst_data.study) or res[
+        assert res["study_version"] == study_version(soa_test_data.study) or res[
             "study_version"
         ].startswith("LATEST on 20")
         assert (
             res["study_number"]
-            == tst_data.study.current_metadata.identification_metadata.study_number
+            == soa_test_data.study.current_metadata.identification_metadata.study_number
         )
         assert res["epoch"] == study_visit.study_epoch.sponsor_preferred_name
         assert res["visit"] == study_visit.visit_short_name
-        assert res["soa_group"] == study_activity.study_soa_group.soa_group_name
+        assert res["soa_group"] == study_activity.study_soa_group.soa_group_term_name
         assert (
             res["activity_group"]
             == study_activity.study_activity_group.activity_group_name
@@ -1968,11 +662,11 @@ def test_download_detailed_soa_content(
 
 
 def test_download_operational_soa_content(
-    tst_data: TestData,
+    soa_test_data: SoATestData,
 ):
     """Test returned data of download_operational_soa_content"""
 
-    study_uid = tst_data.study.uid
+    study_uid = soa_test_data.study.uid
     service = StudyFlowchartService()
     results = service.download_operational_soa_content(
         study_uid=study_uid,
@@ -1984,19 +678,19 @@ def test_download_operational_soa_content(
         study_uid=study_uid,
         operational=True,
     )
-    study_visits_map: dict[str, models.StudyVisit] = {
+    study_visits_map: dict[str, StudyVisit] = {
         svis.uid: svis
-        for svis in StudyVisitService(study_uid=tst_data.study.uid)
+        for svis in StudyVisitService(study_uid=soa_test_data.study.uid)
         .get_all_visits(study_uid=study_uid, sort_by={"order": True})
         .items
     }
-    study_activities_map: dict[str, models.StudySelectionActivity] = {
+    study_activities_map: dict[str, StudySelectionActivity] = {
         ssa.study_activity_uid: ssa
         for ssa in StudyActivitySelectionService()
         .get_all_selection(study_uid=study_uid)
         .items
     }
-    study_activity_instances_map: dict[str, models.StudySelectionActivityInstance] = {
+    study_activity_instances_map: dict[str, StudySelectionActivityInstance] = {
         sais.study_activity_instance_uid: sais
         for sais in StudyActivityInstanceSelectionService()
         .get_all_selection(
@@ -2022,16 +716,16 @@ def test_download_operational_soa_content(
         study_visit = study_visits_map[sched.study_visit_uid]
 
         assert len(res.keys()) == 11, f"record #{i} property count mismatch"
-        assert res["study_version"] == study_version(tst_data.study) or res[
+        assert res["study_version"] == study_version(soa_test_data.study) or res[
             "study_version"
         ].startswith("LATEST on 20")
         assert (
             res["study_number"]
-            == tst_data.study.current_metadata.identification_metadata.study_number
+            == soa_test_data.study.current_metadata.identification_metadata.study_number
         )
         assert res["epoch"] == study_visit.study_epoch.sponsor_preferred_name
         assert res["visit"] == study_visit.visit_short_name
-        assert res["soa_group"] == study_activity.study_soa_group.soa_group_name
+        assert res["soa_group"] == study_activity.study_soa_group.soa_group_term_name
         assert (
             res["activity_group"]
             == study_activity.study_activity_group.activity_group_name
@@ -2057,3 +751,730 @@ def test_download_operational_soa_content(
             if study_activity_instance.activity_instance
             else None
         )
+
+
+class TestSoASnapshot:
+    """Tests StudyFlowchartService and StudySoARepository saving and loading SoA snapshots with Study versioning"""
+
+    def test_soa_snapshot_versioned(
+        self, soa_test_data: SoATestData, layout: SoALayout = SoALayout.PROTOCOL
+    ):
+        """Tests saving and retrieving SoA snapshots with study versioning"""
+
+        study_flowchart_service = StudyFlowchartService()
+        study_service = StudyService()
+
+        # GIVEN: a Study populated with data required for SoA
+        study_uid = soa_test_data.study.uid
+
+        # GIVEN: references of SoA snapshot
+        expected_refs: list[SoACellReference] = (
+            study_flowchart_service.build_soa_snapshot(
+                study_uid, study_value_version=None, layout=layout
+            )
+        )
+
+        # SCENARIO: After locking the Study, the SoA snapshot can be read back from database
+        # WHEN: Study is locked
+        study = study_service.lock(uid=study_uid, change_description="v1")
+        previous_study_version = str(
+            study.current_metadata.version_metadata.version_number
+        )
+        # THEN: StudyValue has HAS_PROTOCOL_SOA_CELL relationship
+        assert len(
+            StudyRoot.nodes.get(uid=study_uid)
+            .has_version.match(status="RELEASED", version=previous_study_version)[0]
+            .has_protocol_soa_cell
+        )
+        # THEN: StudyValue has HAS_PROTOCOL_SOA_FOOTNOTE relationship
+        assert len(
+            StudyRoot.nodes.get(uid=study_uid)
+            .has_version.match(status="RELEASED", version=previous_study_version)[0]
+            .has_protocol_soa_footnote
+        )
+        # WHEN: SoA snapshot of the previous Study version read back from the db
+        # THEN: It matches the SoA snapshot of the previous Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+            expected_refs=expected_refs,
+        )
+
+        # SCENARIO: After unlocking the Study, the latest draft version has no SoA snapshot
+        # WHEN: Study is unlocked
+        study_service.unlock(uid=study_uid)
+        # THEN StudyValue has no HAS_PROTOCOL_SOA_CELL relationships
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_cell
+            )
+            == 0
+        )
+        # THEN StudyValue has no HAS_PROTOCOL_SOA_FOOTNOTE relationships
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_footnote
+            )
+            == 0
+        )
+        # THEN SoA snapshot read form db returns empty result
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+            expected_refs=([], []),
+        )
+
+        # SCENARIO: After Study is unlocked, the SoA snapshot of the previous study version can be read
+        # GIVEN: Study is recently unlocked (and no modifications made)
+        # WHEN: SoA snapshot of the previous Study version read from the db
+        # THEN: It matches the SoA snapshot of the previous Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+            expected_refs=expected_refs,
+        )
+
+        # SCENARIO: After changing the SoA data of DRAFT Study, the SoA snapshot of the previous Study version reads back correctly
+        # WHEN: Changed Study SoA data
+        self._remove_first_visible_study_activity(soa_test_data)
+        # WHEN: SoA snapshot of the previous Study version read from the db
+        # THEN: It matches the SoA snapshot of the previous Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+            expected_refs=expected_refs,
+        )
+
+        # SCENARIO: After locking the Study, the SoA snapshots of the latest draft and previous locked versions differ
+        # GIVEN: Study is locked
+        study = study_service.lock(uid=study_uid, change_description="v2")
+        latest_study_version = str(
+            study.current_metadata.version_metadata.version_number
+        )
+        # GIVEN: SoA snapshot of the latest Study version built
+        latest_refs: list[SoACellReference] = (
+            study_flowchart_service.build_soa_snapshot(
+                study_uid, study_value_version=None, layout=layout
+            )
+        )
+        # THEN: SoA snapshots of the latest and previous version differ
+        assert latest_refs[0] != expected_refs[1]
+        # WHEN: SoA snapshot of the previous Study version read from the db
+        # THEN: It matches the SoA snapshot of the previous Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+            expected_refs=expected_refs,
+        )
+        # WHEN: SoA snapshot of the latest draft Study version read from the db
+        # THEN: It matches the SoA snapshot of the latest Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=latest_study_version,
+            layout=layout,
+            expected_refs=latest_refs,
+        )
+        # WHEN: SoA snapshot read from db without specifying Study version
+        # THEN: It matches the SoA snapshot of the latest Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+            expected_refs=latest_refs,
+        )
+        # WHEN: unlocking Study
+        study = study_service.unlock(uid=study_uid)
+        # THEN Latest StudyValue has no HAS_PROTOCOL_SOA_CELL relationships
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_cell
+            )
+            == 0
+        )
+        # THEN Latest StudyValue has no HAS_PROTOCOL_SOA_FOOTNOTE relationships
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_footnote
+            )
+            == 0
+        )
+        # THEN SoA snapshot read form the db returns empty result
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+            expected_refs=([], []),
+        )
+
+        # WHEN: SoA snapshot of the latest locked Study version read from the db
+        # THEN: It matches the SoA snapshot of the latest locked Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=latest_study_version,
+            layout=layout,
+            expected_refs=latest_refs,
+        )
+        # WHEN: SoA snapshot of the previous locked Study version read from the db
+        # THEN: It matches the SoA snapshot of the previous locked Study version
+        self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+            study_flowchart_service,
+            study_uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+            expected_refs=expected_refs,
+        )
+
+    @classmethod
+    def _assert_soa_snapshot_refs_from_db_match_expected_refs(
+        cls,
+        study_flowchart_service: StudyFlowchartService,
+        study_uid: str,
+        study_value_version: str,
+        layout: SoALayout,
+        expected_refs: list[SoACellReference],
+    ):
+        """loads SoA snapshot references from db and compares them to expected references"""
+
+        # pylint: disable=unused-variable
+        __tracebackhide__ = True
+
+        refs = TestSoASnapshot._load_soa_snapshot_for_comparison(
+            study_flowchart_service, study_uid, study_value_version, layout
+        )
+
+        # THEN: SoA snapshot (without cell footnote references) match as expected
+        assert refs == expected_refs
+
+    @staticmethod
+    def _load_soa_snapshot_for_comparison(
+        study_flowchart_service, study_uid, study_value_version, layout
+    ):
+        """loads SoA snapshot references from db, and removes cell footnote references to prepare for comparison"""
+
+        refs = study_flowchart_service.repository.load(
+            study_uid=study_uid,
+            study_value_version=study_value_version,
+            layout=layout,
+        )
+
+        # Remove cell footnote references for comparison
+        for ref in refs[0]:
+            ref.footnote_references = None
+
+        return refs
+
+    @staticmethod
+    def _remove_first_visible_study_activity(test_data: SoATestData):
+        service = StudyActivitySelectionService()
+
+        ssact: StudySelectionActivity
+        for ssact in service.get_all_selection(study_uid=test_data.study.uid).items:
+            if ssact.show_activity_in_protocol_flowchart:
+                service.delete_selection(
+                    study_uid=test_data.study.uid,
+                    study_selection_uid=ssact.study_activity_uid,
+                )
+                log.info("deleted StudyActivity [%s]", ssact.study_activity_uid)
+                break
+
+    def test_build_soa_snapshot_versioned(
+        self, soa_test_data: SoATestData, layout: SoALayout = SoALayout.PROTOCOL
+    ):
+        """tests StudyFlowchartService.get_soa_row_refs with versioning
+
+        SCENARIO: When a Study with SoA data has a previous locked version,
+         and a later draft version with a new activity row added,
+         then the row references from the SoA snapshot of the previous locked Study version
+         are a subset of those from the SoA snapshot of the latest draft version.
+        """
+
+        study_flowchart_service = StudyFlowchartService()
+
+        # GIVEN: SoA snapshot of latest draft built
+        previous_refs = study_flowchart_service.build_soa_snapshot(
+            study_uid=soa_test_data.study.uid, study_value_version=None, layout=layout
+        )
+        # GIVEN: Study has a locked version
+        previous_study_version = TestUtils.lock_and_unlock_study(
+            soa_test_data.study.uid
+        )
+
+        # GIVEN: Latest draft version has a new activity added
+        soa_test_data.create_study_activity(
+            name="Mind the gap",
+            soa_group="Safety",
+            group="General",
+            subgroup="Napoleon",
+            visits=["V2", "V6"],
+            show_soa_group=True,
+            show_group=True,
+            show_subgroup=False,
+            show_activity=True,
+        )
+
+        # WHEN Building SoA snapshot of the locked study version
+        refs = study_flowchart_service.build_soa_snapshot(
+            study_uid=soa_test_data.study.uid,
+            study_value_version=previous_study_version,
+            layout=layout,
+        )
+        # THEN It matches the SoA snapshot built from the previous study version
+        assert refs == previous_refs
+
+        # WHEN Building SoA snapshot of the latest draft
+        current_refs = study_flowchart_service.build_soa_snapshot(
+            study_uid=soa_test_data.study.uid,
+            study_value_version=None,
+            layout=layout,
+        )
+        # THEN The row references from the SoA snapshot of the previous study version is a subset of those from the SoA snapshot of the latest draft version
+        current_refs = set(ref.referenced_item.item_uid for ref in current_refs[0])
+        previous_refs = set(ref.referenced_item.item_uid for ref in previous_refs[0])
+        assert current_refs > previous_refs
+
+    def test_soa_snapshot_of_previous_locked_versions(
+        self, soa_test_data: SoATestData, layout: SoALayout = SoALayout.PROTOCOL
+    ):
+        """Tests SoA snapshot of previous locked Study versions"""
+
+        study_flowchart_service = StudyFlowchartService()
+        study_service = StudyService()
+
+        # GIVEN: a Study populated with SoA data
+        study_uid = soa_test_data.study.uid
+        # GIVEN: Study has 3 locked versions and a draft version, all differs in SoA
+
+        # Build SoA snapshot
+        refs_v1 = study_flowchart_service.build_soa_snapshot(
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+        )
+        # create a locked study version
+        version_v1 = str(
+            study_service.lock(
+                uid=study_uid, change_description="vz1"
+            ).current_metadata.version_metadata.version_number
+        )
+        study_service.unlock(uid=study_uid)
+
+        # add a new activity
+        activity_v2 = soa_test_data.create_study_activity(
+            name="Potassium",
+            soa_group="Efficacy",
+            group="Laboratory Assessments",
+            subgroup="Biochemistry",
+            visits=["V1", "V6"],
+            show_soa_group=True,
+            show_group=True,
+            show_subgroup=False,
+            show_activity=True,
+        )
+        # Build SoA snapshot
+        refs_v2 = study_flowchart_service.build_soa_snapshot(
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+        )
+        # create a locked study version
+        version_v2 = str(
+            study_service.lock(
+                uid=study_uid, change_description="vz2"
+            ).current_metadata.version_metadata.version_number
+        )
+        study_service.unlock(uid=study_uid)
+
+        # add another activity
+        soa_test_data.create_study_activity(
+            name="Potato peeler",
+            soa_group="Safety",
+            group="General",
+            subgroup="Napoleon",
+            visits=["V2", "V4", "V5"],
+            show_soa_group=True,
+            show_group=True,
+            show_subgroup=False,
+            show_activity=True,
+        )
+        # Build SoA snapshot
+        refs_v3 = study_flowchart_service.build_soa_snapshot(
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+        )
+        # create a locked study version
+        version_v3 = str(
+            study_service.lock(
+                uid=study_uid, change_description="vz2"
+            ).current_metadata.version_metadata.version_number
+        )
+        study_service.unlock(uid=study_uid)
+
+        # remove an activity from draft version
+        StudyActivitySelectionService().delete_selection(
+            study_uid=soa_test_data.study.uid,
+            study_selection_uid=activity_v2.study_activity_uid,
+        )
+        log.info("deleted StudyActivity [%s]", activity_v2.study_activity_uid)
+        # Build SoA snapshot
+        refs_draft = study_flowchart_service.build_soa_snapshot(
+            study_uid,
+            study_value_version=None,
+            layout=layout,
+        )
+
+        # all versions differ
+        assert refs_v2 != refs_v1
+        assert refs_v3 != refs_v1
+        assert refs_v3 != refs_v2
+        assert refs_draft != refs_v2
+        assert refs_draft != refs_v3
+
+        # GIVEN: removed SoA snapshot
+        for study_version in StudyRoot.nodes.get(uid=study_uid).has_version.all():
+            study_version.has_protocol_soa_cell.disconnect_all()
+            study_version.has_protocol_soa_footnote.disconnect_all()
+            # THEN: StudyValue has no HAS_PROTOCOL_SOA_CELL or HAS_PROTOCOL_SOA_FOOTNOTE relationships
+            assert len(study_version.has_protocol_soa_cell) == 0
+            assert len(study_version.has_protocol_soa_footnote) == 0
+
+        # WHEN SoA snapshots of older study versions created one-by-one
+        for study_value_version in (version_v1, version_v2, version_v3):
+            study_flowchart_service.update_soa_snapshot(
+                study_uid=study_uid,
+                study_value_version=study_value_version,
+                layout=layout,
+            )
+        # THEN Latest draft version of Study has no SoA snapshot
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_cell
+            )
+            == 0
+        )
+        assert (
+            len(
+                StudyRoot.nodes.get(uid=study_uid)
+                .latest_value.get()
+                .has_protocol_soa_footnote
+            )
+            == 0
+        )
+        # THEN SoA snapshots loaded from db matches with SoA snapshot built for the particular Study version
+        for study_value_version, expected_refs in (
+            (version_v1, refs_v1),
+            (version_v2, refs_v2),
+            (version_v3, refs_v3),
+        ):
+            self._assert_soa_snapshot_refs_from_db_match_expected_refs(
+                study_flowchart_service,
+                study_uid,
+                study_value_version=study_value_version,
+                layout=layout,
+                expected_refs=expected_refs,
+            )
+
+    def test_soa_snapshot_references(
+        self, soa_test_data: SoATestData, layout: SoALayout = SoALayout.PROTOCOL
+    ):
+        """checks that saving and loading SoA snapshot references match"""
+
+        service = StudyFlowchartService()
+
+        expected_cell_references, expected_footnote_references = (
+            service.build_soa_snapshot(
+                study_uid=soa_test_data.study.uid,
+                study_value_version=None,
+                layout=layout,
+            )
+        )
+
+        service.update_soa_snapshot(
+            study_uid=soa_test_data.study.uid, study_value_version=None, layout=layout
+        )
+
+        cell_references, footnote_references = self._load_soa_snapshot_for_comparison(
+            service,
+            study_uid=soa_test_data.study.uid,
+            study_value_version=None,
+            layout=layout,
+        )
+
+        assert cell_references == expected_cell_references
+        assert footnote_references == expected_footnote_references
+
+    @pytest.mark.parametrize(
+        "time_unit",
+        [
+            "day",
+            "week",
+        ],
+    )
+    def test_soa_snapshot_and_reconstruction(
+        self,
+        soa_test_data: SoATestData,
+        time_unit: str,
+        layout: SoALayout = SoALayout.PROTOCOL,
+    ):
+        """tests saving of SoA snapshot and reconstruction of SoA from snapshot"""
+
+        service = StudyFlowchartService()
+
+        expected_table = service.build_flowchart_table(
+            study_uid=soa_test_data.study.uid,
+            time_unit=time_unit,
+            study_value_version=None,
+            operational=(layout == SoALayout.OPERATIONAL),
+            hide_soa_groups=(layout not in {SoALayout.DETAILED, SoALayout.OPERATIONAL}),
+        )
+        if layout == SoALayout.PROTOCOL:
+            service.propagate_hidden_rows(expected_table.rows)
+            expected_table.rows = [row for row in expected_table.rows if not row.hide]
+        else:
+            service.show_hidden_rows(expected_table.rows)
+
+        # unique cell references
+        for row in expected_table.rows:
+            for cell in row.cells:
+                if cell.refs:
+                    cell.refs = list(dict.fromkeys(cell.refs))
+
+        service.update_soa_snapshot(
+            study_uid=soa_test_data.study.uid, study_value_version=None, layout=layout
+        )
+
+        table = service.load_soa_snapshot(
+            study_uid=soa_test_data.study.uid,
+            study_value_version=None,
+            layout=layout,
+            time_unit=time_unit,
+        )
+
+        assert table.dict() == expected_table.dict()
+
+
+def test_soa_snapshot_versioning_with_footnote_linking(
+    soa_test_data: SoATestData,
+    layout: SoALayout = SoALayout.PROTOCOL,
+):
+    # soa_test_data = SoATestDataMinimal(project=temp_database_populated.project)
+    service = StudyFlowchartService()
+
+    # get protocol soa
+    soa_v1 = service.get_flowchart_table(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=None,
+        layout=layout,
+        force_build=True,
+    )
+
+    # get cell references
+    expected_cell_references_v1, expected_footnote_references_v1 = (
+        service.build_soa_snapshot(
+            study_uid=soa_test_data.study.uid,
+            study_value_version=None,
+            layout=layout,
+        )
+    )
+
+    # create a locked study version
+    v1_version = TestUtils.lock_and_unlock_study(soa_test_data.study.uid)
+
+    # check SoA after locking v1
+    soa = service.get_flowchart_table(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+        force_build=True,
+    )
+    assert soa.dict() == soa_v1.dict()
+
+    # check v1 SoA snapshot
+    cell_references, footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    for ref in cell_references:
+        ref.footnote_references = None
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # assign footnote to study-activity-group
+    study_activity_subgroup = next(
+        iter(soa_test_data.study_activities.values())
+    ).study_activity_subgroup
+    soa_footnote = soa_test_data.soa_footnotes[-1]
+    item_ref = ReferencedItem(
+        item_uid=study_activity_subgroup.study_activity_subgroup_uid,
+        item_name=study_activity_subgroup.activity_subgroup_name,
+        item_type=SoAItemType.STUDY_ACTIVITY_SUBGROUP.value,
+    )
+    StudySoAFootnoteService().edit(
+        study_uid=soa_test_data.study.uid,
+        study_soa_footnote_uid=soa_footnote.uid,
+        footnote_edit_input=StudySoAFootnoteEditInput(
+            referenced_items=soa_footnote.referenced_items + [item_ref]
+        ),
+    )
+
+    # get protocol soa
+    soa_v2 = service.get_flowchart_table(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=None,
+        layout=layout,
+        force_build=True,
+    )
+
+    # ensure SoA changed between Study versions
+    assert soa_v1.dict() != soa_v2.dict()
+
+    # check v1 SoA after modifications to draft
+    soa = service.get_flowchart_table(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+        force_build=True,
+    )
+    assert soa.dict() == soa_v1.dict()
+
+    # check v1 SoA snapshot build after modifications to draft
+    cell_references, footnote_references = service.build_soa_snapshot(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # check v1 SoA snapshot after modifications to draft
+    cell_references, footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    for ref in cell_references:
+        ref.footnote_references = None
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # create a locked study version
+    v2_version = TestUtils.lock_and_unlock_study(soa_test_data.study.uid)
+
+    # check SoA after locking v2
+    soa = service.get_flowchart_table(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+        force_build=True,
+    )
+    assert soa.dict() == soa_v1.dict()
+
+    # check v1 SoA snapshot build after modifications to draft
+    cell_references, footnote_references = service.build_soa_snapshot(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # check v1 SoA snapshot after locking v2
+    cell_references, footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    for ref in cell_references:
+        ref.footnote_references = None
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # update protocol SoA snapshot of v1
+    cell_references, footnote_references = service.update_soa_snapshot(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    assert cell_references == expected_cell_references_v1
+    assert footnote_references == expected_footnote_references_v1
+
+    # fetch updated SoA references from db
+    expected_cell_references, expected_footnote_references = (
+        cell_references,
+        footnote_references,
+    )
+    cell_references, footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v1_version,
+        layout=layout,
+    )
+    for ref in cell_references:
+        ref.footnote_references = None
+    assert cell_references == expected_cell_references
+    assert footnote_references == expected_footnote_references
+
+    # compare v1 SoA
+    soa = service.load_soa_snapshot(
+        study_uid=soa_test_data.study.uid, study_value_version=v1_version, layout=layout
+    )
+    assert soa.dict() == soa_v1.dict()
+
+    # check v2 SoA snapshot
+    expected_cell_references, expected_footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v2_version,
+        layout=layout,
+    )
+    for ref in expected_cell_references:
+        ref.footnote_references = None
+
+    # update protocol SoA snapshot of v2
+    cell_references, footnote_references = service.update_soa_snapshot(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v2_version,
+        layout=layout,
+    )
+    assert cell_references == expected_cell_references
+    assert footnote_references == expected_footnote_references
+
+    # check v2 SoA snapshot
+    cell_references, footnote_references = service.repository.load(
+        study_uid=soa_test_data.study.uid,
+        study_value_version=v2_version,
+        layout=layout,
+    )
+    for ref in cell_references:
+        ref.footnote_references = None
+    assert cell_references == expected_cell_references
+    assert footnote_references == expected_footnote_references
+
+    # compare v2 SoA
+    soa = service.load_soa_snapshot(
+        study_uid=soa_test_data.study.uid, study_value_version=v2_version, layout=layout
+    )
+    assert soa.dict() == soa_v2.dict()

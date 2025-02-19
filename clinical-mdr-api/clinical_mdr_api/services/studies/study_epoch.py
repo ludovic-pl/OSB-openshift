@@ -2,9 +2,6 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import config as settings
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import STUDY_EPOCH_EPOCH_UID
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_attributes import (
     CTTermAttributesAR,
     CTTermAttributesVO,
@@ -45,16 +42,25 @@ from clinical_mdr_api.models.utils import (
     GenericFilteringReturn,
     get_latest_on_datetime_str,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
+    ensure_transaction,
     fill_missing_values_in_base_model_from_reference_base_model,
     service_level_generic_filtering,
     service_level_generic_header_filtering,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from clinical_mdr_api.services.user_info import UserInfoService
+from common import config as settings
+from common.auth.user import user
+from common.config import STUDY_EPOCH_EPOCH_UID
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
+)
 
 
 class StudyEpochService(StudySelectionMixin):
@@ -277,7 +283,9 @@ class StudyEpochService(StudySelectionMixin):
                 else None
             ),
             start_date=epoch.start_date.strftime(settings.DATE_TIME_FORMAT),
-            user_initials=epoch.author,
+            author_username=UserInfoService.get_author_username_from_id(
+                epoch.author_id
+            ),
             possible_actions=epoch.possible_actions,
             change_description=epoch.change_description,
             color_hash=epoch.color_hash,
@@ -336,7 +344,7 @@ class StudyEpochService(StudySelectionMixin):
                 )
         return epoch, subtype, epoch_type
 
-    @db.transaction
+    @ensure_transaction(db)
     def get_all_epochs(
         self,
         study_uid: str,
@@ -407,27 +415,25 @@ class StudyEpochService(StudySelectionMixin):
             repos.close()
 
     def _validate_creation(self, epoch_input: StudyEpochCreateInput):
-        if epoch_input.epoch_subtype not in StudyEpochSubType:
-            raise exceptions.ValidationException(
-                "Invalid value for study epoch sub type"
-            )
+        ValidationException.raise_if(
+            epoch_input.epoch_subtype not in StudyEpochSubType,
+            msg="Invalid value for study epoch sub type",
+        )
         epoch_subtype_name = StudyEpochSubType[
             epoch_input.epoch_subtype
         ].sponsor_preferred_name
         if epoch_subtype_name == settings.BASIC_EPOCH_NAME:
-            if self.repo.get_basic_epoch(study_uid=epoch_input.study_uid):
-                raise exceptions.ValidationException(
-                    "There can exist only one Supplemental Study Epoch."
-                )
+            ValidationException.raise_if(
+                self.repo.get_basic_epoch(study_uid=epoch_input.study_uid),
+                msg="There can exist only one Supplemental Study Epoch.",
+            )
 
     def _validate_update(self, epoch_input: StudyEpochCreateInput):
-        if (
+        ValidationException.raise_if(
             epoch_input.epoch_subtype is not None
-            and epoch_input.epoch_subtype not in StudyEpochSubType
-        ):
-            raise exceptions.ValidationException(
-                "Invalid value for study epoch sub type"
-            )
+            and epoch_input.epoch_subtype not in StudyEpochSubType,
+            msg="Invalid value for study epoch sub type",
+        )
 
     def _get_or_create_epoch_in_specific_subtype(
         self,
@@ -464,7 +470,7 @@ class StudyEpochService(StudySelectionMixin):
                     codelist_uid=STUDY_EPOCH_EPOCH_UID,
                     term_uid=epoch.term_uid,
                     # this is name prop of enum which is uid
-                    author=self.author,
+                    author_id=self.author,
                     order=999999,
                 )
                 # connecting the created epoch to the corresponding epoch sub type
@@ -476,7 +482,7 @@ class StudyEpochService(StudySelectionMixin):
                 if epoch.term_uid not in StudyEpochEpoch:
                     StudyEpochEpoch[epoch.term_uid] = epoch
 
-            except exceptions.ValidationException:
+            except (AlreadyExistsException, ValidationException):
                 pass
         # we are trying to find the ct term with given epoch name
         else:
@@ -512,7 +518,7 @@ class StudyEpochService(StudySelectionMixin):
                 )
 
                 ct_term_attributes_ar = CTTermAttributesAR.from_input_values(
-                    author=self.author,
+                    author_id=self.author,
                     ct_term_attributes_vo=CTTermAttributesVO.from_input_values(
                         codelists=[
                             CTTermCodelistVO(
@@ -536,7 +542,7 @@ class StudyEpochService(StudySelectionMixin):
                     library=library,
                     generate_uid_callback=self._repos.ct_term_attributes_repository.generate_uid,
                 )
-                ct_term_attributes_ar.approve(author=self.author)
+                ct_term_attributes_ar.approve(author_id=self.author)
                 self._repos.ct_term_attributes_repository.save(ct_term_attributes_ar)
 
                 ct_term_name_ar = CTTermNameAR.from_input_values(
@@ -548,9 +554,9 @@ class StudyEpochService(StudySelectionMixin):
                         name_sentence_case=epoch_name.lower(),
                     ),
                     library=library,
-                    author=self.author,
+                    author_id=self.author,
                 )
-                ct_term_name_ar.approve(author=self.author)
+                ct_term_name_ar.approve(author_id=self.author)
                 self._repos.ct_term_name_repository.save(ct_term_name_ar)
                 # connecting the created epoch to the corresponding epoch sub type
                 self._repos.ct_term_attributes_repository.add_parent(
@@ -623,7 +629,7 @@ class StudyEpochService(StudySelectionMixin):
             order=study_epoch_create_input.order,
             start_date=datetime.datetime.now(datetime.timezone.utc),
             status=StudyStatus.DRAFT,
-            author=self.author,
+            author_id=self.author,
             color_hash=study_epoch_create_input.color_hash,
         )
 
@@ -780,8 +786,10 @@ class StudyEpochService(StudySelectionMixin):
         created_study_epoch = self._from_input_values(study_uid, study_epoch_input)
 
         if study_epoch_input.order:
-            if len(all_epochs) + 1 < created_study_epoch.order:
-                raise exceptions.ValidationException("Order is too big.")
+            ValidationException.raise_if(
+                len(all_epochs) + 1 < created_study_epoch.order, msg="Order is too big."
+            )
+
             for epoch in all_epochs[created_study_epoch.order :]:
                 epoch.order += 1
                 self.repo.save(epoch)
@@ -799,8 +807,10 @@ class StudyEpochService(StudySelectionMixin):
         )
 
         if study_epoch_input.order:
-            if len(all_epochs) + 1 < created_study_epoch.order:
-                raise exceptions.ValidationException("Order is too big.")
+            ValidationException.raise_if(
+                len(all_epochs) + 1 < created_study_epoch.order, msg="Order is too big."
+            )
+
             for epoch in all_epochs[created_study_epoch.order :]:
                 epoch.order += 1
         else:
@@ -860,12 +870,13 @@ class StudyEpochService(StudySelectionMixin):
                 old_order = i
                 epoch = epoch_checked
 
-        if new_order < 0:
-            raise exceptions.ValidationException("New order cannot be lesser than 0")
-        if new_order > len(study_epochs):
-            raise exceptions.ValidationException(
-                f"New order cannot be greater than {len(study_epochs)}"
-            )
+        ValidationException.raise_if(
+            new_order < 0, msg="New order cannot be lesser than 0"
+        )
+        ValidationException.raise_if(
+            new_order > len(study_epochs),
+            msg=f"New order cannot be greater than {len(study_epochs)}",
+        )
         if new_order > old_order:
             start_order = old_order + 1
             end_order = new_order + 1
@@ -876,10 +887,10 @@ class StudyEpochService(StudySelectionMixin):
             order_modifier = 2
         for i in range(start_order, end_order):
             replaced_epoch = study_epochs[i]
-            if len(replaced_epoch.visits()) > 0 and len(epoch.visits()) > 0:
-                raise exceptions.ValidationException(
-                    "Cannot reorder epochs that already have visits"
-                )
+            ValidationException.raise_if(
+                len(replaced_epoch.visits()) > 0 and len(epoch.visits()) > 0,
+                msg="Cannot reorder epochs that already have visits",
+            )
             replaced_epoch.set_order(i + order_modifier)
             self.repo.save(replaced_epoch)
         epoch.set_order(new_order + 1)
@@ -934,7 +945,7 @@ class StudyEpochService(StudySelectionMixin):
                 for design_cell in all_design_cells[study_design_cell.order - 1 :]:
                     design_cell.order -= 1
                     self._repos.study_design_cell_repository.save(
-                        design_cell, author=self.author, create=False
+                        design_cell, author_id=self.author, create=False
                     )
 
         # delete the StudyEpoch
@@ -950,10 +961,10 @@ class StudyEpochService(StudySelectionMixin):
 
         timeline = TimelineAR(study_uid=study_uid, _visits=study_visits_in_epoch)
         visits = timeline.collect_visits_to_epochs(epochs=[study_epoch])
-        if len(visits[study_epoch.uid]) > 0:
-            raise exceptions.BusinessLogicException(
-                "Study Epoch contains assigned Study Visits, it can't be removed"
-            )
+        BusinessLogicException.raise_if(
+            len(visits[study_epoch.uid]) > 0,
+            msg="Study Epoch contains assigned Study Visits, it can't be removed",
+        )
 
         study_epoch.delete()
 
@@ -1049,7 +1060,7 @@ class StudyEpochService(StudySelectionMixin):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ):
         all_items = self.get_all_epochs(
@@ -1062,7 +1073,7 @@ class StudyEpochService(StudySelectionMixin):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
         return header_values

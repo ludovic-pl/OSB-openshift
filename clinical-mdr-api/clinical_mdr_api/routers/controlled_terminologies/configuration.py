@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, Query, Request, Response
 from fastapi import status as fast_api_status
@@ -10,12 +11,12 @@ from clinical_mdr_api.models.controlled_terminologies.configuration import (
     CTConfigPatchInput,
     CTConfigPostInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.controlled_terminologies.configuration import (
     CTConfigService,
 )
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/configurations"
 router = APIRouter()
@@ -24,7 +25,7 @@ Service = CTConfigService
 
 
 # Argument definitions
-CodelistConfigUID = Path(None, description="The unique id of configuration.")
+CodelistConfigUID = Path(description="The unique id of configuration.")
 
 
 @router.get(
@@ -38,13 +39,13 @@ CodelistConfigUID = Path(None, description="The unique id of configuration.")
             "content": {
                 "text/csv": {
                     "example": """
-"uid","name","start_date","end_date","status","version","change_description","user_initials"
+"uid","name","start_date","end_date","status","version","change_description","author_username"
 "826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -63,7 +64,7 @@ CodelistConfigUID = Path(None, description="The unique id of configuration.")
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -76,7 +77,7 @@ CodelistConfigUID = Path(None, description="The unique id of configuration.")
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    service: Service = Depends(),
+    service: Annotated[Service, Depends(Service)],
 ) -> list[CTConfigOGM]:
     return service.get_all()
 
@@ -99,33 +100,36 @@ def get_all(
     },
 )
 def get_by_uid(
-    configuration_uid: str = CodelistConfigUID,
-    at_specified_date_time: datetime
-    | None = Query(
-        None,
-        description="If specified, the latest/newest representation of the configuration at this point in time is returned.\n"
-        "The point in time needs to be specified in ISO 8601 format including the timezone, e.g.: "
-        "'2020-10-31T16:00:00+02:00' for October 31, 2020 at 4pm in UTC+2 timezone. ",
-    ),
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, the representation of the configuration in that status is returned (if existent). "
-        "This may be particularly useful if the configuration has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    version: str
-    | None = Query(
-        None,
-        description=r"If specified, the latest/newest representation of the configuration is returned. "
-        r"Only exact matches are considered. "
-        r"The version is specified in the following format: \<major\>.\<minor\> where \<major\> and \<minor\> are digits. "
-        r"E.g. '0.1', '0.2', '1.0', ...",
-    ),
-    service: Service = Depends(),
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
+    at_specified_date_time: Annotated[
+        datetime | None,
+        Query(
+            description="If specified, the latest/newest representation of the configuration at this point in time is returned.\n"
+            "The point in time needs to be specified in ISO 8601 format including the timezone, e.g.: "
+            "'2020-10-31T16:00:00+02:00' for October 31, 2020 at 4pm in UTC+2 timezone. ",
+        ),
+    ] = None,
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, the representation of the configuration in that status is returned (if existent). "
+            "This may be particularly useful if the configuration has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    version: Annotated[
+        str | None,
+        Query(
+            description=r"If specified, the latest/newest representation of the configuration is returned. "
+            r"Only exact matches are considered. "
+            r"The version is specified in the following format: \<major\>.\<minor\> where \<major\> and \<minor\> are digits. "
+            r"E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ] = None,
 ) -> CTConfigModel:
     return service.get_by_uid(
         configuration_uid,
@@ -148,13 +152,13 @@ def get_by_uid(
             "content": {
                 "text/csv": {
                     "example": """
-"uid";"name";"start_date";"end_date";"status";"version";"change_description";"user_initials"
+"uid";"name";"start_date";"end_date";"status";"version";"change_description";"author_username"
 "826d80a7-0b6a-419d-8ef1-80aa241d7ac7";"First  [ComparatorIntervention]";"2020-10-22T10:19:29+00:00";;"Draft";"0.1";"Initial version";"NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><user_initials type="str">TODO user initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -177,7 +181,7 @@ def get_by_uid(
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -190,8 +194,8 @@ def get_by_uid(
 #  pylint: disable=unused-argument
 def get_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    configuration_uid: str = CodelistConfigUID,
-    service: Service = Depends(),
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
 ) -> list[CTConfigModel]:
     return service.get_versions(configuration_uid)
 
@@ -221,10 +225,10 @@ If the request succeeds:
     },
 )
 def post(
-    post_input: CTConfigPostInput = Body(
-        description="The configuration that shall be created."
-    ),
-    service: Service = Depends(),
+    service: Annotated[Service, Depends(Service)],
+    post_input: Annotated[
+        CTConfigPostInput, Body(description="The configuration that shall be created.")
+    ],
 ) -> CTConfigModel:
     return service.post(post_input)  # type: ignore
 
@@ -258,11 +262,14 @@ If the request succeeds:
     },
 )
 def patch(
-    configuration_uid: str = CodelistConfigUID,
-    patch_input: CTConfigPatchInput = Body(
-        description="The new content of the configuration including the change description.",
-    ),
-    service: Service = Depends(),
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
+    patch_input: Annotated[
+        CTConfigPatchInput,
+        Body(
+            description="The new content of the configuration including the change description.",
+        ),
+    ],
 ) -> CTConfigModel:
     return service.patch(configuration_uid, patch_input)
 
@@ -297,7 +304,8 @@ If the request succeeds:
     },
 )
 def new_version(
-    configuration_uid: str = CodelistConfigUID, service: Service = Depends()
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
 ) -> CTConfigModel:
     return service.new_version(configuration_uid)
 
@@ -331,7 +339,8 @@ If the request succeeds:
     },
 )
 def approve(
-    configuration_uid: str = CodelistConfigUID, service: Service = Depends()
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
 ) -> CTConfigModel:
     return service.approve(configuration_uid)
 
@@ -365,7 +374,8 @@ If the request succeeds:
     },
 )
 def inactivate(
-    configuration_uid: str = CodelistConfigUID, service: Service = Depends()
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
 ) -> CTConfigModel:
     return service.inactivate(configuration_uid)
 
@@ -399,7 +409,8 @@ If the request succeeds:
     },
 )
 def reactivate(
-    configuration_uid: str = CodelistConfigUID, service: Service = Depends()
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
 ) -> CTConfigModel:
     return service.reactivate(configuration_uid)
 
@@ -432,7 +443,8 @@ def reactivate(
     },
 )
 def delete(
-    configuration_uid: str = CodelistConfigUID, service: Service = Depends()
-) -> None:
+    service: Annotated[Service, Depends(Service)],
+    configuration_uid: Annotated[str, CodelistConfigUID],
+) -> Response:
     service.delete(configuration_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)

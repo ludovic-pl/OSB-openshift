@@ -351,7 +351,7 @@ The following relationship types are part of the library objects data model:
    - `version: String (Required)`: the version number, e.g. 2.0.
   - `status: String (Optional)`: status message of the version.
    - `change_description: String (Optional)`: a description of what was changed in the version.
-   - `user_initials: String (Required)`: the initials of the user that created the version.
+   - `author_id: String (Required)`: the ID of the user that created the version.
 - Cardinality: `(0..1)`
 - Start nodes: `ObjectiveTemplateRoot`, `ObjectiveRoot`, `EndpointTemplateRoot`, `EndpointRoot`, `TimeframeTemplateRoot`, `TimeframeRoot`
 - End nodes: `ObjectiveTemplateValue`, `ObjectiveValue`, `EndpointTemplateValue`, `EndpointValue`, `TimeframeTemplateValue`, `TimeframeValue`
@@ -373,7 +373,7 @@ The following relationship types are part of the library objects data model:
    - `version: String (Required)`: the version number, e.g. 2.0.
    - `status: String (Optional)`: status message of the version.
    - `change_description: String (Optional)`: a description of what was changed in the version.
-   - `user_initials: String (Required)`: the initials of the user that created the version.
+   - `author_id: String (Required)`: the ID of the user that created the version.
 - Cardinality: `(0..*)`
 - Start nodes: `ObjectiveTemplateRoot`, `ObjectiveRoot`, `EndpointTemplateRoot`, `EndpointRoot`, `TimeframeTemplateRoot`, `TimeframeRoot`
 - End nodes: `ObjectiveTemplateValue`, `ObjectiveValue`, `EndpointTemplateValue`, `EndpointValue`, `TimeframeTemplateValue`, `TimeframeValue`

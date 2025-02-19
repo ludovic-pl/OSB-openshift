@@ -1,17 +1,28 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Path, Query, Response, status
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domains.comments.comments import CommentThreadStatus
+from clinical_mdr_api.models.comments.comments import (
+    CommentReply,
+    CommentReplyCreateInput,
+    CommentReplyEditInput,
+    CommentThread,
+    CommentThreadCreateInput,
+    CommentThreadEditInput,
+    CommentTopic,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services.comments.comments import CommentsService
+from common import config
+from common.auth import rbac
 
 # Endpoints prefixed with "/comment*"
 router = APIRouter()
 
-CommentThreadUID = Path(None, description="Unique id of comment thread")
-CommentReplyUID = Path(None, description="Unique id of comment reply")
+CommentThreadUID = Path(description="Unique id of comment thread")
+CommentReplyUID = Path(description="Unique id of comment reply")
 Service = CommentsService
 
 
@@ -19,7 +30,7 @@ Service = CommentsService
     "/comment-topics",
     dependencies=[rbac.ANY],
     summary="Returns all comment topics",
-    response_model=CustomPage[models.CommentTopic],
+    response_model=CustomPage[CommentTopic],
     status_code=200,
     responses={
         500: _generic_descriptions.ERROR_500,
@@ -27,28 +38,32 @@ Service = CommentsService
 )
 # pylint: disable=redefined-outer-name
 def get_comment_topics(
-    topic_path: str
-    | None = Query(
-        None,
-        min_length=1,
-        description="If specified, only topic matching the specified value are returned.",
-    ),
-    topic_path_partial_match: bool
-    | None = Query(
-        False,
-        description="""If `false`, only topics whose topic path is equal to the specified `topic_path` are returned.
+    topic_path: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            description="If specified, only topic matching the specified value are returned.",
+        ),
+    ] = None,
+    topic_path_partial_match: Annotated[
+        bool | None,
+        Query(
+            description="""If `false`, only topics whose topic path is equal to the specified `topic_path` are returned.
         If `true`, topics whose topic path partially matches the specified `topic_path` are returned.""",
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-) -> CustomPage[models.CommentTopic]:
+        ),
+    ] = False,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+) -> CustomPage[CommentTopic]:
     results = Service().get_all_comment_topics(
         topic_path=topic_path,
         topic_path_partial_match=topic_path_partial_match,
@@ -64,7 +79,7 @@ def get_comment_topics(
     "/comment-threads",
     dependencies=[rbac.ANY],
     summary="Returns all comment threads",
-    response_model=CustomPage[models.CommentThread],
+    response_model=CustomPage[CommentThread],
     status_code=200,
     responses={
         500: _generic_descriptions.ERROR_500,
@@ -72,33 +87,38 @@ def get_comment_topics(
 )
 # pylint: disable=redefined-outer-name
 def get_comment_threads(
-    topic_path: str
-    | None = Query(
-        None,
-        min_length=1,
-        description="The topic path of the comment thread. If not specified, comment threads associated with any topic are returned.",
-    ),
-    topic_path_partial_match: bool
-    | None = Query(
-        False,
-        description="""If `false`, only comment threads whose topic path is equal to the specified `topic_path` are returned.
+    topic_path: Annotated[
+        str | None,
+        Query(
+            min_length=1,
+            description="The topic path of the comment thread. If not specified, comment threads associated with any topic are returned.",
+        ),
+    ] = None,
+    topic_path_partial_match: Annotated[
+        bool | None,
+        Query(
+            description="""If `false`, only comment threads whose topic path is equal to the specified `topic_path` are returned.
         If `true`, comment threads whose topic path partially matches the specified `topic_path` are returned.""",
-    ),
-    status: CommentThreadStatus
-    | None = Query(
-        None,
-        description="The status of the comment thread. If not specified, comment threads with any status are returned.",
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-) -> CustomPage[models.CommentThread]:
+        ),
+    ] = False,
+    status: Annotated[
+        CommentThreadStatus | None,
+        Query(
+            description="The status of the comment thread. If not specified, comment threads with any status are returned.",
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+) -> CustomPage[CommentThread]:
     results = Service().get_all_comment_threads(
         topic_path=topic_path,
         topic_path_partial_match=topic_path_partial_match,
@@ -115,7 +135,7 @@ def get_comment_threads(
     "/comment-threads/{comment_thread_uid}",
     dependencies=[rbac.ANY],
     summary="Returns the comment thread identified by the specified 'comment_thread_uid'.",
-    response_model=models.CommentThread,
+    response_model=CommentThread,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -123,8 +143,8 @@ def get_comment_threads(
     },
 )
 def get_comment_thread(
-    comment_thread_uid: str = CommentThreadUID,
-) -> models.CommentThread:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+) -> CommentThread:
     return Service().get_comment_thread(comment_thread_uid)
 
 
@@ -132,7 +152,7 @@ def get_comment_thread(
     "/comment-threads",
     dependencies=[rbac.ANY],
     summary="Creates a new comment thread",
-    response_model=models.CommentThread,
+    response_model=CommentThread,
     status_code=201,
     responses={
         201: {"description": "Comment thread was successfully created"},
@@ -140,10 +160,11 @@ def get_comment_thread(
     },
 )
 def create_comment_thread(
-    create_input: models.CommentThreadCreateInput = Body(
-        description="Comment thread that shall be created"
-    ),
-) -> models.CommentThread:
+    create_input: Annotated[
+        CommentThreadCreateInput,
+        Body(description="Comment thread that shall be created"),
+    ],
+) -> CommentThread:
     return Service().create_comment_thread(create_input)
 
 
@@ -151,7 +172,7 @@ def create_comment_thread(
     "/comment-threads/{comment_thread_uid}",
     dependencies=[rbac.ANY],
     summary="Edits a comment thread's 'text' and/or 'status' properties",
-    response_model=models.CommentThread,
+    response_model=CommentThread,
     status_code=200,
     responses={
         200: {"description": "Comment thread was successfully edited"},
@@ -160,11 +181,12 @@ def create_comment_thread(
     },
 )
 def edit_comment_thread(
-    comment_thread_uid: str = CommentThreadUID,
-    edit_input: models.CommentThreadEditInput = Body(
-        description="Properties of the comment thread that shall be updated"
-    ),
-) -> models.CommentThread:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+    edit_input: Annotated[
+        CommentThreadEditInput,
+        Body(description="Properties of the comment thread that shall be updated"),
+    ],
+) -> CommentThread:
     return Service().edit_comment_thread(comment_thread_uid, edit_input)
 
 
@@ -179,7 +201,9 @@ def edit_comment_thread(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_comment_thread(comment_thread_uid: str = CommentThreadUID) -> Response:
+def delete_comment_thread(
+    comment_thread_uid: Annotated[str, CommentThreadUID]
+) -> Response:
     Service().delete_comment_thread(comment_thread_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -188,7 +212,7 @@ def delete_comment_thread(comment_thread_uid: str = CommentThreadUID) -> Respons
     "/comment-threads/{comment_thread_uid}/replies",
     dependencies=[rbac.ANY],
     summary="Creates a reply to a comment thread",
-    response_model=models.CommentReply,
+    response_model=CommentReply,
     status_code=201,
     responses={
         201: {"description": "Reply was successfully created"},
@@ -197,11 +221,11 @@ def delete_comment_thread(comment_thread_uid: str = CommentThreadUID) -> Respons
     },
 )
 def create_comment_reply(
-    comment_thread_uid: str = CommentThreadUID,
-    create_input: models.CommentReplyCreateInput = Body(
-        description="Comment reply that shall be created"
-    ),
-) -> models.CommentReply:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+    create_input: Annotated[
+        CommentReplyCreateInput, Body(description="Comment reply that shall be created")
+    ],
+) -> CommentReply:
     return Service().create_comment_reply(comment_thread_uid, create_input)
 
 
@@ -209,7 +233,7 @@ def create_comment_reply(
     "/comment-threads/{comment_thread_uid}/replies",
     dependencies=[rbac.ANY],
     summary="Returns all replies to the specified comment thread",
-    response_model=list[models.CommentReply],
+    response_model=list[CommentReply],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -217,8 +241,8 @@ def create_comment_reply(
     },
 )
 def get_comment_thread_replies(
-    comment_thread_uid: str = CommentThreadUID,
-) -> list[models.CommentReply]:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+) -> list[CommentReply]:
     return Service().get_all_comment_thread_replies(comment_thread_uid)
 
 
@@ -226,7 +250,7 @@ def get_comment_thread_replies(
     "/comment-threads/{comment_thread_uid}/replies/{reply_uid}",
     dependencies=[rbac.ANY],
     summary="Returns the comment thread reply identified by the specified 'reply_uid'.",
-    response_model=models.CommentReply,
+    response_model=CommentReply,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -235,8 +259,9 @@ def get_comment_thread_replies(
 )
 # pylint: disable=unused-argument
 def get_comment_thread_reply(
-    comment_thread_uid: str = CommentThreadUID, reply_uid: str = CommentReplyUID
-) -> models.CommentThread:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+    reply_uid: Annotated[str, CommentReplyUID],
+) -> CommentThread:
     return Service().get_comment_thread_reply(reply_uid)
 
 
@@ -244,7 +269,7 @@ def get_comment_thread_reply(
     "/comment-threads/{comment_thread_uid}/replies/{reply_uid}",
     dependencies=[rbac.ANY],
     summary="Edits the specified comment reply's text",
-    response_model=models.CommentReply,
+    response_model=CommentReply,
     status_code=200,
     responses={
         200: {"description": "Comment reply was successfully edited"},
@@ -254,12 +279,12 @@ def get_comment_thread_reply(
 )
 # pylint: disable=unused-argument
 def edit_comment_thread_reply(
-    comment_thread_uid: str = CommentThreadUID,
-    reply_uid: str = CommentReplyUID,
-    edit_input: models.CommentReplyEditInput = Body(
-        description="Updated text of the comment reply"
-    ),
-) -> models.CommentReply:
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+    reply_uid: Annotated[str, CommentReplyUID],
+    edit_input: Annotated[
+        CommentReplyEditInput, Body(description="Updated text of the comment reply")
+    ],
+) -> CommentReply:
     return Service().edit_comment_thread_reply(reply_uid, edit_input)
 
 
@@ -276,7 +301,8 @@ def edit_comment_thread_reply(
 )
 # pylint: disable=unused-argument
 def delete_comment_reply(
-    comment_thread_uid: str = CommentThreadUID, reply_uid: str = CommentReplyUID
+    comment_thread_uid: Annotated[str, CommentThreadUID],
+    reply_uid: Annotated[str, CommentReplyUID],
 ):
     Service().delete_comment_reply(reply_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,10 +1,8 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Body, Query, Response, status
 from pydantic import Json
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections.study_soa_footnote import (
     StudySoAFootnote,
     StudySoAFootnoteBatchEditInput,
@@ -15,12 +13,14 @@ from clinical_mdr_api.models.study_selections.study_soa_footnote import (
     StudySoAFootnoteVersion,
 )
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.routers.studies import utils
 from clinical_mdr_api.services.studies.study_soa_footnote import StudySoAFootnoteService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 
 @router.get(
@@ -34,25 +34,33 @@ from clinical_mdr_api.services.studies.study_soa_footnote import StudySoAFootnot
     },
 )
 def get_all_study_soa_footnotes_from_all_studies(
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ) -> CustomPage[StudySoAFootnote]:
     service = StudySoAFootnoteService()
     all_footnotes = service.get_all(
@@ -86,27 +94,37 @@ def get_all_study_soa_footnotes_from_all_studies(
     },
 )
 def get_all_study_soa_footnotes(
-    study_uid: str = utils.studyUID,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, utils.studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> CustomPage[StudySoAFootnote]:
     service = StudySoAFootnoteService()
     all_footnotes = service.get_all_by_study_uid(
@@ -144,20 +162,29 @@ def get_all_study_soa_footnotes(
     },
 )
 def get_distinct_values_for_header(
-    study_uid: str = utils.studyUID,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, utils.studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudySoAFootnoteService()
     return service.get_distinct_values_for_header(
@@ -166,7 +193,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -188,18 +215,25 @@ def get_distinct_values_for_header(
     },
 )
 def get_distinct_values_for_header_top_level(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudySoAFootnoteService()
     return service.get_distinct_values_for_header(
@@ -208,7 +242,7 @@ def get_distinct_values_for_header_top_level(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -228,9 +262,11 @@ def get_distinct_values_for_header_top_level(
 )
 def get_study_soa_footnote(
     # pylint: disable=unused-argument
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.get_by_uid(
@@ -254,17 +290,19 @@ def get_study_soa_footnote(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_soa_footnote(
-    study_uid: str = utils.studyUID,
-    soa_footnote_input: StudySoAFootnoteCreateFootnoteInput
-    | StudySoAFootnoteCreateInput = Body(
-        description="Related parameters of the schedule that shall be created."
-    ),
-    create_footnote: bool = Query(
-        False,
-        description="Indicates whether the specified footnote should be created in the library.\n"
-        "- If this parameter is set to `true`, a `StudySoAFootnoteCreateFootnoteInput` payload needs to be sent.\n"
-        "- Otherwise, `StudySoAFootnoteCreateInput` payload should be sent, referencing an existing library footnote by uid.",
-    ),
+    study_uid: Annotated[str, utils.studyUID],
+    soa_footnote_input: Annotated[
+        StudySoAFootnoteCreateFootnoteInput | StudySoAFootnoteCreateInput,
+        Body(description="Related parameters of the schedule that shall be created."),
+    ],
+    create_footnote: Annotated[
+        bool,
+        Query(
+            description="Indicates whether the specified footnote should be created in the library.\n"
+            "- If this parameter is set to `true`, a `StudySoAFootnoteCreateFootnoteInput` payload needs to be sent.\n"
+            "- Otherwise, `StudySoAFootnoteCreateInput` payload should be sent, referencing an existing library footnote by uid.",
+        ),
+    ] = False,
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.create(
@@ -290,10 +328,11 @@ def post_new_soa_footnote(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_soa_footnotes_batch_select(
-    study_uid: str = utils.studyUID,
-    soa_footnote_input: list[StudySoAFootnoteCreateFootnoteInput] = Body(
-        description="Related parameters of the footnote that shall be created."
-    ),
+    study_uid: Annotated[str, utils.studyUID],
+    soa_footnote_input: Annotated[
+        list[StudySoAFootnoteCreateFootnoteInput],
+        Body(description="Related parameters of the footnote that shall be created."),
+    ],
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.batch_create(study_uid=study_uid, footnote_input=soa_footnote_input)
@@ -312,10 +351,11 @@ def post_new_soa_footnotes_batch_select(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def batch_edit_study_soa_footnote(
-    study_uid: str = utils.studyUID,
-    edit_payloads: list[StudySoAFootnoteBatchEditInput] = Body(
-        description="List of Patch payloads to update StudySoAFootnotes"
-    ),
+    study_uid: Annotated[str, utils.studyUID],
+    edit_payloads: Annotated[
+        list[StudySoAFootnoteBatchEditInput],
+        Body(description="List of Patch payloads to update StudySoAFootnotes"),
+    ],
 ):
     service = StudySoAFootnoteService()
     return service.batch_edit(
@@ -343,11 +383,12 @@ def batch_edit_study_soa_footnote(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def edit_study_soa_footnote(
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
-    soa_footnote_edit_input: StudySoAFootnoteEditInput = Body(
-        description="Related parameters of the schedule that shall be edited."
-    ),
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
+    soa_footnote_edit_input: Annotated[
+        StudySoAFootnoteEditInput,
+        Body(description="Related parameters of the schedule that shall be edited."),
+    ],
 ):
     service = StudySoAFootnoteService()
     return service.edit(
@@ -376,8 +417,8 @@ def edit_study_soa_footnote(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_study_soa_footnote(
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
 ):
     service = StudySoAFootnoteService()
     service.delete(study_uid=study_uid, study_soa_footnote_uid=study_soa_footnote_uid)
@@ -405,10 +446,13 @@ def delete_study_soa_footnote(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def preview_new_soa_footnote(
-    study_uid: str = utils.studyUID,
-    footnote_input: StudySoAFootnoteCreateFootnoteInput = Body(
-        description="Related parameters of the selection that shall be previewed."
-    ),
+    study_uid: Annotated[str, utils.studyUID],
+    footnote_input: Annotated[
+        StudySoAFootnoteCreateFootnoteInput,
+        Body(
+            description="Related parameters of the selection that shall be previewed."
+        ),
+    ],
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.preview_soa_footnote(
@@ -423,7 +467,7 @@ def preview_new_soa_footnote(
     description="""
 The following values should be returned for all study soa footnotes:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - order
@@ -437,8 +481,8 @@ The following values should be returned for all study soa footnotes:
     },
 )
 def get_specific_soa_footnotes_audit_trail(
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
 ) -> list[StudySoAFootnoteVersion]:
     service = StudySoAFootnoteService()
     return service.audit_trail_specific_soa_footnote(
@@ -453,7 +497,7 @@ def get_specific_soa_footnotes_audit_trail(
     description="""
 The following values should be returned for all study soa footnotes:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - order
@@ -467,7 +511,7 @@ The following values should be returned for all study soa footnotes:
     },
 )
 def get_all_soa_footnotes_audit_trail(
-    study_uid: str = utils.studyUID,
+    study_uid: Annotated[str, utils.studyUID],
 ) -> list[StudySoAFootnoteVersion]:
     service = StudySoAFootnoteService()
     return service.audit_trail_all_soa_footnotes(study_uid=study_uid)
@@ -504,8 +548,8 @@ def get_all_soa_footnotes_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_footnote_accept_version(
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.edit(
@@ -549,8 +593,8 @@ def patch_footnote_accept_version(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_footnote_sync_to_latest_footnote(
-    study_uid: str = utils.studyUID,
-    study_soa_footnote_uid: str = utils.study_soa_footnote_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_soa_footnote_uid: Annotated[str, utils.study_soa_footnote_uid],
 ) -> StudySoAFootnote:
     service = StudySoAFootnoteService()
     return service.edit(

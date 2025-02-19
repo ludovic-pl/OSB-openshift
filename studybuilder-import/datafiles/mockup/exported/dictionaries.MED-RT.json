@@ -15,14 +15,14 @@
     "start_date": "2022-10-18T12:44:04.015380",
     "status": "Final",
     "term_uid": "DictionaryTerm_000069",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
     "abbreviation": null,
     "change_description": "Approved version",
     "definition": "Ziltivekimab",
-    "dictionary_id": "",
+    "dictionary_id": "TBD",
     "end_date": null,
     "library_name": "MED-RT",
     "name": "Ziltivekimab",
@@ -34,7 +34,7 @@
     "start_date": "2022-10-18T12:44:03.716678",
     "status": "Final",
     "term_uid": "DictionaryTerm_000068",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -53,7 +53,7 @@
     "start_date": "2022-10-18T12:44:03.424424",
     "status": "Final",
     "term_uid": "DictionaryTerm_000067",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -72,7 +72,7 @@
     "start_date": "2022-10-18T12:44:03.158477",
     "status": "Final",
     "term_uid": "DictionaryTerm_000066",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -91,7 +91,7 @@
     "start_date": "2022-10-18T12:44:02.733007",
     "status": "Final",
     "term_uid": "DictionaryTerm_000065",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -110,7 +110,7 @@
     "start_date": "2022-10-18T12:44:02.438771",
     "status": "Final",
     "term_uid": "DictionaryTerm_000064",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -129,7 +129,7 @@
     "start_date": "2022-10-18T12:44:02.096891",
     "status": "Final",
     "term_uid": "DictionaryTerm_000063",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -148,7 +148,7 @@
     "start_date": "2022-10-18T12:44:01.693233",
     "status": "Final",
     "term_uid": "DictionaryTerm_000062",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -167,7 +167,7 @@
     "start_date": "2022-10-18T12:44:01.400902",
     "status": "Final",
     "term_uid": "DictionaryTerm_000061",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -186,7 +186,7 @@
     "start_date": "2022-10-18T12:44:01.141884",
     "status": "Final",
     "term_uid": "DictionaryTerm_000060",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -205,7 +205,7 @@
     "start_date": "2022-10-18T12:44:00.852473",
     "status": "Final",
     "term_uid": "DictionaryTerm_000059",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -224,7 +224,7 @@
     "start_date": "2022-10-18T12:44:00.565989",
     "status": "Final",
     "term_uid": "DictionaryTerm_000058",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -243,7 +243,7 @@
     "start_date": "2022-10-18T12:44:00.301326",
     "status": "Final",
     "term_uid": "DictionaryTerm_000057",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -262,7 +262,7 @@
     "start_date": "2022-10-18T12:44:00.037909",
     "status": "Final",
     "term_uid": "DictionaryTerm_000056",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -281,7 +281,7 @@
     "start_date": "2022-10-18T12:43:59.511321",
     "status": "Final",
     "term_uid": "DictionaryTerm_000055",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -300,7 +300,7 @@
     "start_date": "2022-10-18T12:43:59.128846",
     "status": "Final",
     "term_uid": "DictionaryTerm_000054",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -319,7 +319,7 @@
     "start_date": "2022-10-18T12:43:58.863073",
     "status": "Final",
     "term_uid": "DictionaryTerm_000053",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -338,7 +338,7 @@
     "start_date": "2022-10-18T12:43:58.579731",
     "status": "Final",
     "term_uid": "DictionaryTerm_000052",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -357,7 +357,7 @@
     "start_date": "2022-10-18T12:43:58.095846",
     "status": "Final",
     "term_uid": "DictionaryTerm_000051",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -376,7 +376,7 @@
     "start_date": "2022-10-18T12:43:57.800435",
     "status": "Final",
     "term_uid": "DictionaryTerm_000050",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -395,7 +395,7 @@
     "start_date": "2022-10-18T12:43:57.441311",
     "status": "Final",
     "term_uid": "DictionaryTerm_000049",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -414,7 +414,7 @@
     "start_date": "2022-10-18T12:43:57.173085",
     "status": "Final",
     "term_uid": "DictionaryTerm_000048",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -433,7 +433,7 @@
     "start_date": "2022-10-18T12:43:56.815604",
     "status": "Final",
     "term_uid": "DictionaryTerm_000047",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -452,7 +452,7 @@
     "start_date": "2022-10-18T12:43:56.496727",
     "status": "Final",
     "term_uid": "DictionaryTerm_000046",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -471,7 +471,7 @@
     "start_date": "2022-10-18T12:43:56.209813",
     "status": "Final",
     "term_uid": "DictionaryTerm_000045",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -490,7 +490,7 @@
     "start_date": "2022-10-18T12:43:55.915428",
     "status": "Final",
     "term_uid": "DictionaryTerm_000044",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -509,7 +509,7 @@
     "start_date": "2022-10-18T12:43:55.654358",
     "status": "Final",
     "term_uid": "DictionaryTerm_000043",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -528,7 +528,7 @@
     "start_date": "2022-10-18T12:43:55.380860",
     "status": "Final",
     "term_uid": "DictionaryTerm_000042",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -547,7 +547,7 @@
     "start_date": "2022-10-18T12:43:55.127471",
     "status": "Final",
     "term_uid": "DictionaryTerm_000041",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -566,7 +566,7 @@
     "start_date": "2022-10-18T12:43:54.700316",
     "status": "Final",
     "term_uid": "DictionaryTerm_000040",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

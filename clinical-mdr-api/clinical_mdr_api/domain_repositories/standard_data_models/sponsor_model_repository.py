@@ -1,15 +1,8 @@
-from neomodel import RelationshipDefinition
+from neomodel import NodeSet, RelationshipDefinition
+from neomodel.sync_.match import Collect, Last, RawCypher, RelationNameResolver
 
-from clinical_mdr_api.config import (
-    SPONSOR_MODEL_PREFIX,
-    SPONSOR_MODEL_VERSION_NUMBER_PREFIX,
-)
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    LATEST_VERSION_ORDER_BY,
-    CustomNodeSet,
 )
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
@@ -31,8 +24,10 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModel
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.config import SPONSOR_MODEL_PREFIX, SPONSOR_MODEL_VERSION_NUMBER_PREFIX
+from common.exceptions import BusinessLogicException
 
 
 class SponsorModelRepository(
@@ -42,17 +37,23 @@ class SponsorModelRepository(
     value_class = SponsorModelValue
     return_model = SponsorModel
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return DataModelIGRoot.nodes.fetch_relations(
             "has_library",
             "has_latest_sponsor_model_value__extends_version",
-        ).fetch_optional_single_relation_of_type(
-            {
-                "has_sponsor_model_version": (
-                    "latest_version",
-                    LATEST_VERSION_ORDER_BY,
-                ),
-            }
+        ).subquery(
+            DataModelIGRoot.nodes.fetch_relations("has_sponsor_model_version")
+            .intermediate_transform(
+                {"rel": {"source": RelationNameResolver("has_sponsor_model_version")}},
+                ordering=[
+                    RawCypher("toInteger(split(rel.version, '.')[0])"),
+                    RawCypher("toInteger(split(rel.version, '.')[1])"),
+                    "rel.end_date",
+                    "rel.start_date",
+                ],
+            )
+            .annotate(latest_version=Last(Collect("rel"))),
+            ["latest_version"],
         )
 
     def generate_name(self, ig_uid: str, ig_version_number: str, version_number: str):
@@ -76,10 +77,7 @@ class SponsorModelRepository(
         relation_data: SponsorModelMetadataVO = item.item_metadata
         root = DataModelIGRoot.nodes.get_or_none(uid=item.uid)
 
-        if root is None:
-            raise BusinessLogicException(
-                f"The target Implementation Guide {item.uid} does not exist in the database."
-            )
+        BusinessLogicException.raise_if(root is None, "Implementation Guide", item.uid)
 
         value = self._get_or_create_value(root=root, ar=item)
 
@@ -98,9 +96,7 @@ class SponsorModelRepository(
 
         return item
 
-    def _get_version_relation_keys(
-        self, root_node: DataModelIGRoot
-    ) -> tuple[
+    def _get_version_relation_keys(self, root_node: DataModelIGRoot) -> tuple[
         RelationshipDefinition,
         RelationshipDefinition,
         RelationshipDefinition,
@@ -123,7 +119,10 @@ class SponsorModelRepository(
         return SponsorModelMetadataVO.from_repository_values(
             change_description=relationship.change_description,
             status=LibraryItemStatus(relationship.status),
-            author=relationship.user_initials,
+            author_id=relationship.author_id,
+            author_username=UserInfoService.get_author_username_from_id(
+                relationship.author_id
+            ),
             start_date=relationship.start_date,
             end_date=relationship.end_date,
             major_version=int(major),
@@ -145,11 +144,11 @@ class SponsorModelRepository(
         ig_versions = root.has_version.filter(
             version_number=ar.sponsor_model_vo.ig_version_number
         )
-        if ig_versions is None or len(ig_versions) == 0:
-            raise BusinessLogicException(
-                f"The target version {ar.sponsor_model_vo.ig_version_number}"
-                f" for the Implementation Guide {ar.sponsor_model_vo.ig_uid} does not exist in the database."
-            )
+        BusinessLogicException.raise_if(
+            ig_versions is None or len(ig_versions) == 0,
+            msg=f"The target version '{ar.sponsor_model_vo.ig_version_number}'"
+            f" for the Implementation Guide with UID '{ar.sponsor_model_vo.ig_uid}' doesn't exist.",
+        )
 
         new_value.extends_version.connect(ig_versions[0])
 

@@ -4,8 +4,8 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.models.feature_flag import (
     FeatureFlag as FeatureFlagNode,
 )
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.feature_flag import FeatureFlag
+from common.exceptions import NotFoundException
 
 
 class FeatureFlagRepository:
@@ -58,10 +58,9 @@ class FeatureFlagRepository:
             resolve_objects=True,
         )
 
-        if rs[0]:
-            return self._transform_to_model(rs[0][0][0])
+        NotFoundException.raise_if_not(rs[0], "Feature Flag", sn, "Serial Number")
 
-        raise NotFoundException(f"Couldn't find Feature Flag with Serial Number ({sn})")
+        return self._transform_to_model(rs[0][0][0])
 
     def create_feature_flag(
         self,
@@ -99,35 +98,20 @@ class FeatureFlagRepository:
 
         return self._transform_to_model(rs[0][0][0])
 
-    def update_feature_flag(
-        self,
-        sn: int,
-        name: str,
-        enabled: bool,
-        description: str,
-    ) -> FeatureFlag:
+    def update_feature_flag(self, sn: int, enabled: bool) -> FeatureFlag:
         rs = db.cypher_query(
             """
             MATCH (n:FeatureFlag {sn: $sn})
-            SET
-                n.name = $name,
-                n.enabled = $enabled,
-                n.description = $description
+            SET n.enabled = $enabled
             RETURN n
             """,
-            params={
-                "sn": sn,
-                "name": name,
-                "enabled": enabled,
-                "description": description,
-            },
+            params={"sn": sn, "enabled": enabled},
             resolve_objects=True,
         )
 
-        if rs[0]:
-            return self._transform_to_model(rs[0][0][0])
+        NotFoundException.raise_if_not(rs[0], "Feature Flag", sn, "Serial Number")
 
-        raise NotFoundException(f"Couldn't find Feature Flag with Serial Number ({sn})")
+        return self._transform_to_model(rs[0][0][0])
 
     def delete_feature_flag(self, sn: int) -> None:
         db.cypher_query(

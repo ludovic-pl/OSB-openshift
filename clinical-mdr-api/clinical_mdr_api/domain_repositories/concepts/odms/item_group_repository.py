@@ -4,7 +4,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
 )
@@ -33,7 +32,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import OdmItemGroup
+from clinical_mdr_api.models.concepts.odms.odm_item_group import OdmItemGroup
+from common.utils import convert_to_datetime
 
 
 class ItemGroupRepository(OdmGenericRepository[OdmItemGroupAR]):
@@ -127,7 +127,8 @@ class ItemGroupRepository(OdmGenericRepository[OdmItemGroupAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -141,34 +142,49 @@ class ItemGroupRepository(OdmGenericRepository[OdmItemGroupAR]):
         self, only_specific_status: str = ObjectStatus.LATEST.name
     ) -> str:
         return f"""
-        WITH *,
-        concept_value.oid AS oid,
-        toString(concept_value.repeating) AS repeating,
-        toString(concept_value.is_reference_data) AS is_reference_data,
-        concept_value.sas_dataset_name AS sas_dataset_name,
-        concept_value.origin AS origin,
-        concept_value.purpose AS purpose,
-        concept_value.comment AS comment,
+WITH *,
+concept_value.oid AS oid,
+toString(concept_value.repeating) AS repeating,
+toString(concept_value.is_reference_data) AS is_reference_data,
+concept_value.sas_dataset_name AS sas_dataset_name,
+concept_value.origin AS origin,
+concept_value.purpose AS purpose,
+concept_value.comment AS comment,
 
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_DESCRIPTION]->(dr:OdmDescriptionRoot)-[:LATEST]->(dv:OdmDescriptionValue) | {{uid: dr.uid, name: dv.name, language: dv.language, description: dv.description, instruction: dv.instruction}}] AS descriptions,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_ALIAS]->(ar:OdmAliasRoot)-[:LATEST]->(av:OdmAliasValue) | {{uid: ar.uid, name: av.name, context: av.context}}] AS aliases,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_SDTM_DOMAIN]->(tr:CTTermRoot)-[:HAS_ATTRIBUTES_ROOT]->(:CTTermAttributesRoot)-[:LATEST]->(tav:CTTermAttributesValue) | {{uid: tr.uid, code_submission_value: tav.code_submission_value, preferred_term: tav.preferred_term}}] AS sdtm_domains,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_ACTIVITY_SUB_GROUP]->(agr:ActivitySubGroupRoot)-[:LATEST]->(agv:ActivitySubGroupValue) | {{uid: agr.uid, name: agv.name}}] AS activity_subgroups,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[iref:ITEM_REF]->(ir:OdmItemRoot)-[:LATEST]->(iv:OdmItemValue) | {{uid: ir.uid, name: iv.name, order: iref.order, mandatory: iref.mandatory}}] AS items,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hve:HAS_VENDOR_ELEMENT]->(ver:OdmVendorElementRoot)-[:LATEST]->(vev:OdmVendorElementValue) | {{uid: ver.uid, name: vev.name, value: hve.value}}] AS vendor_elements,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hva:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) | {{uid: var.uid, name: vav.name, value: hva.value}}] AS vendor_attributes,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hvea:HAS_VENDOR_ELEMENT_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) | {{uid: var.uid, name: vav.name, value: hvea.value}}] AS vendor_element_attributes
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_DESCRIPTION]->(dr:OdmDescriptionRoot)-[:LATEST]->(dv:OdmDescriptionValue) |
+{{uid: dr.uid, name: dv.name, language: dv.language, description: dv.description, instruction: dv.instruction}}] AS descriptions,
 
-        WITH *,
-        apoc.coll.toSet([description in descriptions | description.uid]) AS description_uids,
-        apoc.coll.toSet([alias in aliases | alias.uid]) AS alias_uids,
-        apoc.coll.toSet([sdtm_domain in sdtm_domains | sdtm_domain.uid]) AS sdtm_domain_uids,
-        apoc.coll.toSet([activity_subgroup in activity_subgroups | activity_subgroup.uid]) AS activity_subgroup_uids,
-        apoc.coll.toSet([item in items | item.uid]) AS item_uids,
-        apoc.coll.toSet([vendor_element in vendor_elements | vendor_element.uid]) AS vendor_element_uids,
-        apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids,
-        apoc.coll.toSet([vendor_element_attribute in vendor_element_attributes | vendor_element_attribute.uid]) AS vendor_element_attribute_uids
-        """
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_ALIAS]->(ar:OdmAliasRoot)-[:LATEST]->(av:OdmAliasValue) |
+{{uid: ar.uid, name: av.name, context: av.context}}] AS aliases,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_SDTM_DOMAIN]->(tr:CTTermRoot)-[:HAS_ATTRIBUTES_ROOT]->(:CTTermAttributesRoot)-[:LATEST]->(tav:CTTermAttributesValue) |
+{{uid: tr.uid, code_submission_value: tav.code_submission_value, preferred_term: tav.preferred_term}}] AS sdtm_domains,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[:HAS_ACTIVITY_SUB_GROUP]->(agr:ActivitySubGroupRoot)-[:LATEST]->(agv:ActivitySubGroupValue) |
+{{uid: agr.uid, name: agv.name}}] AS activity_subgroups,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[iref:ITEM_REF]->(ir:OdmItemRoot)-[:LATEST]->(iv:OdmItemValue) |
+{{uid: ir.uid, name: iv.name, order: iref.order, mandatory: iref.mandatory}}] AS items,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hve:HAS_VENDOR_ELEMENT]->(ver:OdmVendorElementRoot)-[:LATEST]->(vev:OdmVendorElementValue) |
+{{uid: ver.uid, name: vev.name, value: hve.value}}] AS vendor_elements,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hva:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) |
+{{uid: var.uid, name: vav.name, value: hva.value}}] AS vendor_attributes,
+
+[(concept_value)<-[:{only_specific_status}]-(:OdmItemGroupRoot)-[hvea:HAS_VENDOR_ELEMENT_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) |
+{{uid: var.uid, name: vav.name, value: hvea.value}}] AS vendor_element_attributes
+
+WITH *,
+apoc.coll.toSet([description in descriptions | description.uid]) AS description_uids,
+apoc.coll.toSet([alias in aliases | alias.uid]) AS alias_uids,
+apoc.coll.toSet([sdtm_domain in sdtm_domains | sdtm_domain.uid]) AS sdtm_domain_uids,
+apoc.coll.toSet([activity_subgroup in activity_subgroups | activity_subgroup.uid]) AS activity_subgroup_uids,
+apoc.coll.toSet([item in items | item.uid]) AS item_uids,
+apoc.coll.toSet([vendor_element in vendor_elements | vendor_element.uid]) AS vendor_element_uids,
+apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids,
+apoc.coll.toSet([vendor_element_attribute in vendor_element_attributes | vendor_element_attribute.uid]) AS vendor_element_attribute_uids
+"""
 
     def _get_or_create_value(
         self, root: VersionRoot, ar: ConceptARBase

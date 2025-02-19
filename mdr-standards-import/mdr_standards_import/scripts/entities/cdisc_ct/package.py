@@ -181,7 +181,7 @@ class Package:
             terms.add(term_copy)
             self.__codelist_terms_map[codelist.concept_id] = terms
 
-    def get_inconsistencies(self, user_initials: str):
+    def get_inconsistencies(self, author_id: str):
         inconsistencies = []
         if len(self.__codelists) == 0:
             message = Inconsistency.no_codelists_in_package_template.format(
@@ -191,7 +191,7 @@ class Package:
                 Inconsistency(
                     Inconsistency.no_codelists_in_package_tagline,
                     message,
-                    user_initials,
+                    author_id,
                 )
             )
 

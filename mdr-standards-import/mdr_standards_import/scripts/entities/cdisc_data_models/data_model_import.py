@@ -15,12 +15,12 @@ from mdr_standards_import.scripts.entities.cdisc_data_models.data_model_variable
 
 
 class DataModelImport:
-    def __init__(self, library:str, catalogue: str, version_number: str, user_initials: str):
+    def __init__(self, library:str, catalogue: str, version_number: str, author_id: str):
         self.import_date_time: str = datetime.datetime.now().astimezone().isoformat()
         self.library: str = library
         self.catalogue: str = catalogue
         self.version_number: str = version_number
-        self.user_initials: str = user_initials
+        self.author_id: str = author_id
         self.automatic_resolution_done: bool = False
 
         self.__version: Version = None

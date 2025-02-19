@@ -6,7 +6,7 @@ from mdr_standards_import.scripts.entities.resolution import Resolution
 
 class InconsistencyResolver:
 
-    user_initials = "iResolve"
+    author_id = "iResolve"
 
     def __init__(
         self, resolutions: "list[Resolution]" = None, catalogue_priority=None
@@ -20,7 +20,7 @@ class InconsistencyResolver:
             if inconsistency.tagline == Inconsistency.unexpected_codelist_name_tagline:
                 if inconsistency.affected_codelist.concept_id in ["C66788", "C170452"]:
                     inconsistency.comment = "Automatic resolution: ignore"
-                    inconsistency.user_initials = InconsistencyResolver.user_initials
+                    inconsistency.author_id = InconsistencyResolver.author_id
                     inconsistency.set_resolved()
             elif (
                 inconsistency.tagline
@@ -29,7 +29,7 @@ class InconsistencyResolver:
                 term = inconsistency.affected_term
                 if term.concept_id in ["C90473"]:
                     inconsistency.comment = "Automatic resolution: ignore"
-                    inconsistency.user_initials = InconsistencyResolver.user_initials
+                    inconsistency.author_id = InconsistencyResolver.author_id
                     inconsistency.set_resolved()
                 else:
                     attributes_set: set[Attributes] = term.get_attributes_set()
@@ -42,14 +42,14 @@ class InconsistencyResolver:
                             inconsistency.comment = (
                                 "Automatic resolution: catalogue-priority"
                             )
-                            inconsistency.user_initials = (
-                                InconsistencyResolver.user_initials
+                            inconsistency.author_id = (
+                                InconsistencyResolver.author_id
                             )
                             inconsistency.set_resolved()
                             break
             elif inconsistency.tagline == Inconsistency.inconsistent_terms_tagline:
                 inconsistency.comment = "Automatic resolution: ignore"
-                inconsistency.user_initials = InconsistencyResolver.user_initials
+                inconsistency.author_id = InconsistencyResolver.author_id
                 inconsistency.set_resolved()
             elif (
                 inconsistency.tagline
@@ -65,8 +65,8 @@ class InconsistencyResolver:
                         inconsistency.comment = (
                             "Automatic resolution: catalogue-priority"
                         )
-                        inconsistency.user_initials = (
-                            InconsistencyResolver.user_initials
+                        inconsistency.author_id = (
+                            InconsistencyResolver.author_id
                         )
                         inconsistency.set_resolved()
                         break

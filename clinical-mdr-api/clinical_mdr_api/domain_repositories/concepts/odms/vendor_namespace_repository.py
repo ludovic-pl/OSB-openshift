@@ -4,7 +4,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -25,7 +24,10 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import OdmVendorNamespace
+from clinical_mdr_api.models.concepts.odms.odm_vendor_namespace import (
+    OdmVendorNamespace,
+)
+from common.utils import convert_to_datetime
 
 
 class VendorNamespaceRepository(OdmGenericRepository[OdmVendorNamespaceAR]):
@@ -85,7 +87,8 @@ class VendorNamespaceRepository(OdmGenericRepository[OdmVendorNamespaceAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -99,17 +102,20 @@ class VendorNamespaceRepository(OdmGenericRepository[OdmVendorNamespaceAR]):
         self, only_specific_status: str = ObjectStatus.LATEST.name
     ) -> str:
         return f"""
-        WITH *,
-        concept_value.prefix AS prefix,
-        concept_value.url AS url,
+WITH *,
+concept_value.prefix AS prefix,
+concept_value.url AS url,
 
-        [(concept_value)<-[:{only_specific_status}]-(:OdmVendorNamespaceRoot)-[hve:HAS_VENDOR_ELEMENT]->(ver:OdmVendorElementRoot)-[:LATEST]->(vev:OdmVendorElementValue) | {{uid: ver.uid, name: vev.name, value: hve.value}}] AS vendor_elements,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmVendorNamespaceRoot)-[hva:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) | {{uid: var.uid, name: vav.name, value: hva.value}}] AS vendor_attributes
+[(concept_value)<-[:{only_specific_status}]-(:OdmVendorNamespaceRoot)-[hve:HAS_VENDOR_ELEMENT]->(ver:OdmVendorElementRoot)-[:LATEST]->(vev:OdmVendorElementValue) |
+{{uid: ver.uid, name: vev.name, value: hve.value}}] AS vendor_elements,
 
-        WITH *,
-        apoc.coll.toSet([vendor_element in vendor_elements | vendor_element.uid]) AS vendor_element_uids,
-        apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids
-        """
+[(concept_value)<-[:{only_specific_status}]-(:OdmVendorNamespaceRoot)-[hva:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) |
+{{uid: var.uid, name: vav.name, value: hva.value}}] AS vendor_attributes
+
+WITH *,
+apoc.coll.toSet([vendor_element in vendor_elements | vendor_element.uid]) AS vendor_element_uids,
+apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids
+"""
 
     def _create_new_value_node(
         self, ar: OdmVendorNamespaceAR

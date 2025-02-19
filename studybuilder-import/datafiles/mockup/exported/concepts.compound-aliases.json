@@ -19,7 +19,7 @@
     "start_date": "2022-10-18T13:18:16.956538",
     "status": "Final",
     "uid": "CompoundAlias_000003",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -42,7 +42,7 @@
     "start_date": "2022-10-18T13:18:30.506299",
     "status": "Final",
     "uid": "CompoundAlias_000006",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -65,7 +65,7 @@
     "start_date": "2022-10-18T13:22:41.907973",
     "status": "Final",
     "uid": "CompoundAlias_000011",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -88,7 +88,7 @@
     "start_date": "2022-10-18T13:22:42.383958",
     "status": "Final",
     "uid": "CompoundAlias_000012",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -111,7 +111,7 @@
     "start_date": "2023-04-18T06:13:18.273960+00:00",
     "status": "Final",
     "uid": "CompoundAlias_000013",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -134,7 +134,7 @@
     "start_date": "2023-04-18T06:13:09.354403+00:00",
     "status": "Final",
     "uid": "CompoundAlias_000014",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -157,7 +157,7 @@
     "start_date": "2023-04-18T06:32:00.834895+00:00",
     "status": "Final",
     "uid": "CompoundAlias_000015",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

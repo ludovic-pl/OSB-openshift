@@ -27,7 +27,6 @@ from clinical_mdr_api.main import app
 from clinical_mdr_api.models.listings.listings_adam import StudyEndpntAdamListing
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -38,6 +37,7 @@ from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_STUDY_OBJECTIVE_CYPHER,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 study: Study
@@ -74,7 +74,6 @@ def test_data():
     TimeframeRoot.generate_node_uids_if_not_present()
 
     yield
-    drop_db(db_name)
 
 
 def test_adam_listing_mdendpnt(api_client):
@@ -88,7 +87,7 @@ def test_adam_listing_mdendpnt(api_client):
     res = response.json()
     global objective_uid
     objective_uid = res["study_objective_uid"]
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # create en endpoint 1
     response = api_client.post(
@@ -96,7 +95,7 @@ def test_adam_listing_mdendpnt(api_client):
         json={"endpoint_uid": "Endpoint_000001", "study_objective_uid": objective_uid},
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # create endpoint 2
     response = api_client.post(
@@ -111,19 +110,19 @@ def test_adam_listing_mdendpnt(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all endpoints
     response = api_client.get(
         f"/studies/{study.uid}/study-endpoints/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         "/listings/studies/Study_000002/adam/mdendpnt/",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     res_objectives = response.json()["items"]
     assert res is not None
@@ -156,10 +155,10 @@ def test_adam_listing_mdendpnt(api_client):
         if value:
             expected_result.append(value)
     url = "/listings/studies/Study_000002/adam/mdendpnt"
-    response = api_client.get(f"{url}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{url}/headers?field_name={field_name}&page_size=100")
     res_headers = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     log.info("Returned %s", res_headers)
     log.info("Expected result is %s", expected_result)
     if expected_result:
@@ -176,19 +175,19 @@ def test_adam_listing_mdendpnt_versioning(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         f"/listings/studies/{study.uid}/adam/mdendpnt/",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
     md_endpnt_before_unlock = res
@@ -198,12 +197,12 @@ def test_adam_listing_mdendpnt_versioning(api_client):
         f"/listings/studies/{study.uid}/adam/mdendpnt/headers?field_name=OBJTVLVL",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     md_endpnt_headers_before_unlock = res
 
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study endpoint
     response = api_client.patch(
@@ -215,14 +214,14 @@ def test_adam_listing_mdendpnt_versioning(api_client):
     )
     res = response.json()
     assert res["endpoint_level"]["term_uid"] == "term_root_final5"
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all study mdendpts of a specific study version
     response = api_client.get(
         f"/listings/studies/{study.uid}/adam/mdendpnt",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"][1]["ENDPNTLVL"] == "term_value_name1"
 
     # get all mdendpts of a specific study version
@@ -230,7 +229,7 @@ def test_adam_listing_mdendpnt_versioning(api_client):
         f"/listings/studies/{study.uid}/adam/mdendpnt?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"] == md_endpnt_before_unlock
     assert res["items"][1]["ENDPNTLVL"] is None
 
@@ -239,7 +238,7 @@ def test_adam_listing_mdendpnt_versioning(api_client):
         f"/listings/studies/{study.uid}/adam/mdendpnt/headers?field_name=OBJTVLVL",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert "term_value_name1" in res
 
     # get study mdendpt headers
@@ -247,5 +246,5 @@ def test_adam_listing_mdendpnt_versioning(api_client):
         f"/listings/studies/{study.uid}/adam/mdendpnt/headers?field_name=OBJTVLVL&study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == md_endpnt_headers_before_unlock

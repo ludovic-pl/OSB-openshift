@@ -4,7 +4,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -25,7 +24,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import OdmStudyEvent
+from clinical_mdr_api.models.concepts.odms.odm_study_event import OdmStudyEvent
+from common.utils import convert_to_datetime
 
 
 class StudyEventRepository(OdmGenericRepository[OdmStudyEventAR]):
@@ -83,7 +83,8 @@ class StudyEventRepository(OdmGenericRepository[OdmStudyEventAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -97,18 +98,19 @@ class StudyEventRepository(OdmGenericRepository[OdmStudyEventAR]):
         self, only_specific_status: str = ObjectStatus.LATEST.name
     ) -> str:
         return f"""
-        WITH *,
-        concept_value.oid AS oid,
-        concept_value.effective_date AS effective_date,
-        concept_value.retired_date AS retired_date,
-        concept_value.description AS description,
-        concept_value.display_in_tree AS display_in_tree,
+WITH *,
+concept_value.oid AS oid,
+concept_value.effective_date AS effective_date,
+concept_value.retired_date AS retired_date,
+concept_value.description AS description,
+concept_value.display_in_tree AS display_in_tree,
 
-        [(concept_value)<-[:{only_specific_status}]-(:OdmStudyEventRoot)-[fref:FORM_REF]->(fr:OdmFormRoot)-[:LATEST]->(fv:OdmFormValue) | {{uid: fr.uid, name: fv.name, order: fref.order, mandatory: fref.mandatory, collection_exception_condition_oid: fref.collection_exception_condition_oid}}] AS forms
-        
-        WITH *,
-        apoc.coll.toSet([form in forms | form.uid]) AS form_uids
-        """
+[(concept_value)<-[:{only_specific_status}]-(:OdmStudyEventRoot)-[fref:FORM_REF]->(fr:OdmFormRoot)-[:LATEST]->(fv:OdmFormValue) |
+{{uid: fr.uid, name: fv.name, order: fref.order, mandatory: fref.mandatory, collection_exception_condition_oid: fref.collection_exception_condition_oid}}] AS forms
+
+WITH *,
+apoc.coll.toSet([form in forms | form.uid]) AS form_uids
+"""
 
     def _create_new_value_node(self, ar: OdmStudyEventAR) -> OdmStudyEventValue:
         value_node = super()._create_new_value_node(ar=ar)

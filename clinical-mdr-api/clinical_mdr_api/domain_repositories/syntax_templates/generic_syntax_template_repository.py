@@ -4,7 +4,19 @@ from typing import Any, TypeVar
 
 from neomodel import db
 
-from clinical_mdr_api.config import (
+from clinical_mdr_api.domain_repositories.generic_repository import EntityNotFoundError
+from clinical_mdr_api.domain_repositories.generic_syntax_repository import (
+    GenericSyntaxRepository,
+)
+from clinical_mdr_api.domain_repositories.models.generic import VersionRoot
+from clinical_mdr_api.domain_repositories.models.syntax import SyntaxTemplateValue
+from clinical_mdr_api.domain_repositories.models.template_parameter import (
+    TemplateParameter,
+)
+from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
+from clinical_mdr_api.utils import strip_html
+from common.config import (
     OPERATOR_PARAMETER_NAME,
     STUDY_DAY_NAME,
     STUDY_DURATION_DAYS_NAME,
@@ -17,18 +29,6 @@ from clinical_mdr_api.config import (
     STUDY_WEEK_NAME,
     WEEK_IN_STUDY_NAME,
 )
-from clinical_mdr_api.domain_repositories.generic_repository import EntityNotFoundError
-from clinical_mdr_api.domain_repositories.generic_syntax_repository import (
-    GenericSyntaxRepository,
-)
-from clinical_mdr_api.domain_repositories.models.generic import VersionRoot
-from clinical_mdr_api.domain_repositories.models.syntax import SyntaxTemplateValue
-from clinical_mdr_api.domain_repositories.models.template_parameter import (
-    TemplateParameter,
-)
-from clinical_mdr_api.domains._utils import strip_html
-from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
-from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -186,11 +186,12 @@ class GenericSyntaxTemplateRepository(
                     CALL{{
                             WITH pt
                             OPTIONAL MATCH (pt)<-[:HAS_PARENT_PARAMETER*0..]-(pt_parents)-[:HAS_PARAMETER_TERM]->(pr)-[:LATEST_FINAL]->(pv)
-                                WHERE pt.name <> "{OPERATOR_PARAMETER_NAME}" 
+                                WHERE pt.name <> "{OPERATOR_PARAMETER_NAME}"
                                 // Filter out the child template parameter values if theirs parent contains the same value.
                                 // This ensures that the terms response will contain unique values.
                                 // Also filter out the values that are part of the Requested library.
-                                AND (pt=pt_parents OR NOT ((pt_parents)-[:HAS_PARAMETER_TERM]->(pr) AND (pt)-[:HAS_PARAMETER_TERM]->(pr))) AND NOT (pr)<-[:CONTAINS_CONCEPT]-(:Library {{name: "Requested"}})
+                                AND (pt=pt_parents OR NOT ((pt_parents)-[:HAS_PARAMETER_TERM]->(pr) AND (pt)-[:HAS_PARAMETER_TERM]->(pr)))
+                                AND NOT (pr)<-[:CONTAINS_CONCEPT]-(:Library {{name: "Requested"}})
                             CALL apoc.case(
                             [
                                 pv.name_sentence_case IS NOT NULL, 'RETURN pv.name_sentence_case AS name',
@@ -220,8 +221,7 @@ class GenericSyntaxTemplateRepository(
                     }}
                     WITH labels,uid,value,data_type
                         WHERE uid IS NOT NULL
-                    RETURN  
-                            collect({{uid: uid, name: value, type: data_type, labels: labels}}) AS terms
+                    RETURN collect({{uid: uid, name: value, type: data_type, labels: labels}}) AS terms
             }}
             RETURN
                 pt.name AS name, tpd.uid as definition, tpv.template_string as template,
@@ -265,7 +265,7 @@ class GenericSyntaxTemplateRepository(
                         OPTIONAL MATCH (pr)-[rel:HAS_UNIT]->(un:UnitDefinitionRoot)-[:LATEST_FINAL]->(udv:UnitDefinitionValue)
                         WITH rel, udv, pr ORDER BY rel.index
                         WITH collect(udv.name) as unit_names, pr
-                        OPTIONAL MATCH (pr)-[:HAS_CONJUNCTION]->(co:Conjunction) 
+                        OPTIONAL MATCH (pr)-[:HAS_CONJUNCTION]->(co:Conjunction)
                         WITH unit_names, co
                         RETURN apoc.text.join(unit_names, " " + coalesce(co.string, "") + " ") AS unit
                     }}
@@ -403,9 +403,10 @@ class GenericSyntaxTemplateRepository(
 
     def _query_by_name_in_library(self, name, library, type_uid):
         query = f"""
-            MATCH (:Library {{name: $library}})-[:{self.root_class.LIBRARY_REL_LABEL}]->(root:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED|LATEST]->(:{self.value_class.__label__} {{name: $name}})
-            WITH DISTINCT root
-            """
+MATCH (:Library {{name: $library}})-[:{self.root_class.LIBRARY_REL_LABEL}]->(root:{self.root_class.__label__})
+-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED|LATEST]->(:{self.value_class.__label__} {{name: $name}})
+WITH DISTINCT root
+"""
         if type_uid:
             query += "MATCH (type:CTTermRoot {uid: $typeUid})<-[:HAS_TYPE]-(root)"
         query += "RETURN root.uid"

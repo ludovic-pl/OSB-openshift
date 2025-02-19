@@ -495,7 +495,7 @@ class ApiBinding:
         response = requests.get(
             self.api_base_url + "/ct/terms/attributes",
             params={
-                "library": "CDISC",
+                "library_name": "CDISC",
                 "page_number": 1,
                 "page_size": 0,
                 "filters": filters,
@@ -614,7 +614,7 @@ class ApiBinding:
     def find_dictionary_uid(self, name):
         response = requests.get(
             path_join(self.api_base_url, "dictionaries/codelists"),
-            params={"library": name},
+            params={"library_name": name},
             headers=self.api_headers,
         )
         if response.ok:

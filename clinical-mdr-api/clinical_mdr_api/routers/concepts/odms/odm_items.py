@@ -1,34 +1,34 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models import (
-    OdmItem,
-    OdmItemActivityPostInput,
-    OdmItemPatchInput,
-    OdmItemPostInput,
-)
 from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmElementWithParentUid,
     OdmVendorElementRelationPostInput,
     OdmVendorRelationPostInput,
     OdmVendorsPostInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.concepts.odms.odm_item import (
+    OdmItem,
+    OdmItemActivityPostInput,
+    OdmItemPatchInput,
+    OdmItemPostInput,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.odms.odm_items import OdmItemService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts/odms/items"
 router = APIRouter()
 
 # Argument definitions
-OdmItemUID = Path(None, description="The unique id of the ODM Item.")
+OdmItemUID = Path(description="The unique id of the ODM Item.")
 
 
 @router.get(
@@ -124,30 +124,38 @@ OdmItemUID = Path(None, description="The unique id of the ODM Item.")
 # pylint: disable=unused-argument
 def get_all_odm_items(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     odm_item_service = OdmItemService()
     results = odm_item_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -177,19 +185,26 @@ def get_all_odm_items(
     },
 )
 def get_distinct_values_for_header(
-    library_name: str | None = Query(None),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.get_distinct_values_for_header(
@@ -198,7 +213,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -206,7 +221,6 @@ def get_distinct_values_for_header(
     "/item-groups",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get all ODM Items that belongs to an ODM Item Group",
-    description="",
     response_model=list[OdmElementWithParentUid],
     status_code=200,
     responses={
@@ -223,7 +237,6 @@ def get_odm_items_that_belongs_to_item_group():
     "/{odm_item_uid}",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get details on a specific ODM Item (in a specific version)",
-    description="",
     response_model=OdmItem,
     status_code=200,
     responses={
@@ -231,7 +244,7 @@ def get_odm_items_that_belongs_to_item_group():
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_odm_item(odm_item_uid: str = OdmItemUID):
+def get_odm_item(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
     return odm_item_service.get_by_uid(uid=odm_item_uid)
 
@@ -240,7 +253,6 @@ def get_odm_item(odm_item_uid: str = OdmItemUID):
     "/{odm_item_uid}/relationships",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get UIDs of a specific ODM Item's relationships",
-    description="",
     response_model=dict,
     status_code=200,
     responses={
@@ -248,7 +260,7 @@ def get_odm_item(odm_item_uid: str = OdmItemUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_active_relationships(odm_item_uid: str = OdmItemUID):
+def get_active_relationships(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
     return odm_item_service.get_active_relationships(uid=odm_item_uid)
 
@@ -281,7 +293,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_odm_item_versions(odm_item_uid: str = OdmItemUID):
+def get_odm_item_versions(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
     return odm_item_service.get_version_history(uid=odm_item_uid)
 
@@ -290,7 +302,6 @@ def get_odm_item_versions(odm_item_uid: str = OdmItemUID):
     "",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Creates a new Item in 'Draft' status with version 0.1",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -298,13 +309,14 @@ def get_odm_item_versions(odm_item_uid: str = OdmItemUID):
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_odm_item(odm_item_create_input: OdmItemPostInput = Body(description="")):
+def create_odm_item(odm_item_create_input: Annotated[OdmItemPostInput, Body()]):
     odm_item_service = OdmItemService()
     return odm_item_service.create_with_relations(concept_input=odm_item_create_input)
 
@@ -313,7 +325,6 @@ def create_odm_item(odm_item_create_input: OdmItemPostInput = Body(description="
     "/{odm_item_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Update ODM Item",
-    description="",
     response_model=OdmItem,
     status_code=200,
     responses={
@@ -323,7 +334,7 @@ def create_odm_item(odm_item_create_input: OdmItemPostInput = Body(description="
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Item is not in draft status.\n"
             "- The ODM Item had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -333,8 +344,8 @@ def create_odm_item(odm_item_create_input: OdmItemPostInput = Body(description="
     },
 )
 def edit_odm_item(
-    odm_item_uid: str = OdmItemUID,
-    odm_item_edit_input: OdmItemPatchInput = Body(description=""),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_item_edit_input: Annotated[OdmItemPatchInput, Body()],
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.update_with_relations(
@@ -367,7 +378,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create ODM Items.\n",
+            "- The library doesn't allow to create ODM Items.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -378,16 +389,17 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_odm_item_version(odm_item_uid: str = OdmItemUID):
+def create_odm_item_version(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
-    return odm_item_service.create_new_version(uid=odm_item_uid)
+    return odm_item_service.create_new_version(
+        uid=odm_item_uid, cascade_new_version=True
+    )
 
 
 @router.post(
     "/{odm_item_uid}/approvals",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Approve draft version of ODM Item",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -396,7 +408,7 @@ def create_odm_item_version(odm_item_uid: str = OdmItemUID):
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Item is not in draft status.\n"
-            "- The library does not allow to approve ODM Item.\n",
+            "- The library doesn't allow to approve ODM Item.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -405,16 +417,15 @@ def create_odm_item_version(odm_item_uid: str = OdmItemUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve_odm_item(odm_item_uid: str = OdmItemUID):
+def approve_odm_item(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
-    return odm_item_service.approve(uid=odm_item_uid)
+    return odm_item_service.approve(uid=odm_item_uid, cascade_edit_and_approve=True)
 
 
 @router.delete(
     "/{odm_item_uid}/activations",
     dependencies=[rbac.LIBRARY_WRITE],
     summary=" Inactivate final version of ODM Item",
-    description="",
     response_model=OdmItem,
     status_code=200,
     responses={
@@ -431,16 +442,15 @@ def approve_odm_item(odm_item_uid: str = OdmItemUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate_odm_item(odm_item_uid: str = OdmItemUID):
+def inactivate_odm_item(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
-    return odm_item_service.inactivate_final(uid=odm_item_uid)
+    return odm_item_service.inactivate_final(uid=odm_item_uid, cascade_inactivate=True)
 
 
 @router.post(
     "/{odm_item_uid}/activations",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Reactivate retired version of a ODM Item",
-    description="",
     response_model=OdmItem,
     status_code=200,
     responses={
@@ -457,16 +467,17 @@ def inactivate_odm_item(odm_item_uid: str = OdmItemUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate_odm_item(odm_item_uid: str = OdmItemUID):
+def reactivate_odm_item(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
-    return odm_item_service.reactivate_retired(uid=odm_item_uid)
+    return odm_item_service.reactivate_retired(
+        uid=odm_item_uid, cascade_reactivate=True
+    )
 
 
 @router.post(
     "/{odm_item_uid}/activities",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Add an activity to the ODM Item.",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -485,12 +496,14 @@ def reactivate_odm_item(odm_item_uid: str = OdmItemUID):
     },
 )
 def add_activity_to_odm_item(
-    odm_item_uid: str = OdmItemUID,
-    override: bool = Query(
-        False,
-        description="If true, the existing activity relationship will be replaced with the provided activity relationship.",
-    ),
-    odm_item_activity_post_input: OdmItemActivityPostInput = Body(description=""),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_item_activity_post_input: Annotated[OdmItemActivityPostInput, Body()],
+    override: Annotated[
+        bool,
+        Query(
+            description="If true, the existing activity relationship will be replaced with the provided activity relationship.",
+        ),
+    ] = False,
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.add_activity(
@@ -504,7 +517,6 @@ def add_activity_to_odm_item(
     "/{odm_item_uid}/vendor-elements",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Adds ODM Vendor Elements to the ODM Item.",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -523,14 +535,16 @@ def add_activity_to_odm_item(
     },
 )
 def add_vendor_elements_to_odm_item(
-    odm_item_uid: str = OdmItemUID,
-    override: bool = Query(
-        False,
-        description="If true, all existing ODM Vendor Element relationships will be replaced with the provided ODM Vendor Element relationships.",
-    ),
-    odm_vendor_relation_post_input: list[OdmVendorElementRelationPostInput] = Body(
-        description=""
-    ),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_vendor_relation_post_input: Annotated[
+        list[OdmVendorElementRelationPostInput], Body()
+    ],
+    override: Annotated[
+        bool,
+        Query(
+            description="If true, all existing ODM Vendor Element relationships will be replaced with the provided ODM Vendor Element relationships.",
+        ),
+    ] = False,
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.add_vendor_elements(
@@ -544,7 +558,6 @@ def add_vendor_elements_to_odm_item(
     "/{odm_item_uid}/vendor-attributes",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Adds ODM Vendor Attributes to the ODM Item.",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -563,15 +576,14 @@ def add_vendor_elements_to_odm_item(
     },
 )
 def add_vendor_attributes_to_odm_item(
-    odm_item_uid: str = OdmItemUID,
-    override: bool = Query(
-        False,
-        description="""If true, all existing ODM Vendor Attribute relationships will
-        be replaced with the provided ODM Vendor Attribute relationships.""",
-    ),
-    odm_vendor_relation_post_input: list[OdmVendorRelationPostInput] = Body(
-        description=""
-    ),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_vendor_relation_post_input: Annotated[list[OdmVendorRelationPostInput], Body()],
+    override: Annotated[
+        bool,
+        Query(
+            description="""If true, all existing ODM Vendor Attribute relationships will be replaced with the provided ODM Vendor Attribute relationships.""",
+        ),
+    ] = False,
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.add_vendor_attributes(
@@ -585,7 +597,6 @@ def add_vendor_attributes_to_odm_item(
     "/{odm_item_uid}/vendor-element-attributes",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Adds ODM Vendor Element attributes to the ODM Item.",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -604,15 +615,14 @@ def add_vendor_attributes_to_odm_item(
     },
 )
 def add_vendor_element_attributes_to_odm_item(
-    odm_item_uid: str = OdmItemUID,
-    override: bool = Query(
-        False,
-        description="""If true, all existing ODM Vendor Element attribute relationships will
-        be replaced with the provided ODM Vendor Element attribute relationships.""",
-    ),
-    odm_vendor_relation_post_input: list[OdmVendorRelationPostInput] = Body(
-        description=""
-    ),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_vendor_relation_post_input: Annotated[list[OdmVendorRelationPostInput], Body()],
+    override: Annotated[
+        bool,
+        Query(
+            description="""If true, all existing ODM Vendor Element attribute relationships will be replaced with the provided ODM Vendor Element attribute relationships.""",
+        ),
+    ] = False,
 ):
     odm_item_service = OdmItemService()
     return odm_item_service.add_vendor_element_attributes(
@@ -626,7 +636,6 @@ def add_vendor_element_attributes_to_odm_item(
     "/{odm_item_uid}/vendors",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Manages all ODM Vendors by replacing existing ODM Vendors by provided ODM Vendors.",
-    description="",
     response_model=OdmItem,
     status_code=201,
     responses={
@@ -645,8 +654,8 @@ def add_vendor_element_attributes_to_odm_item(
     },
 )
 def manage_vendors_of_odm_item_group(
-    odm_item_uid: str = OdmItemUID,
-    odm_vendors_post_input: OdmVendorsPostInput = Body(description=""),
+    odm_item_uid: Annotated[str, OdmItemUID],
+    odm_vendors_post_input: Annotated[OdmVendorsPostInput, Body()],
 ):
     odm_item_group_service = OdmItemService()
     return odm_item_group_service.manage_vendors(
@@ -658,7 +667,6 @@ def manage_vendors_of_odm_item_group(
     "/{odm_item_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Delete draft version of ODM Item",
-    description="",
     response_model=None,
     status_code=204,
     responses={
@@ -668,7 +676,7 @@ def manage_vendors_of_odm_item_group(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Item is not in draft status.\n"
             "- The ODM Item was already in final state or is in use.\n"
-            "- The library does not allow to delete ODM Item.",
+            "- The library doesn't allow to delete ODM Item.",
         },
         404: {
             "model": ErrorResponse,
@@ -677,6 +685,6 @@ def manage_vendors_of_odm_item_group(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_odm_item(odm_item_uid: str = OdmItemUID):
+def delete_odm_item(odm_item_uid: Annotated[str, OdmItemUID]):
     odm_item_service = OdmItemService()
-    odm_item_service.soft_delete(uid=odm_item_uid)
+    odm_item_service.soft_delete(uid=odm_item_uid, cascade_delete=True)

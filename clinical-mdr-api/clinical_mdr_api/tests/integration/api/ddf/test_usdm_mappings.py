@@ -15,11 +15,11 @@ from fastapi.testclient import TestClient
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 # Global variables shared between fixtures and tests
 study: Study
@@ -43,11 +43,10 @@ def test_data():
     study = TestUtils.create_study()
 
     yield
-    drop_db(db_name)
 
 
 def test_ddf_study(api_client):
     response = api_client.get(
         f"/ddf/v3/studyDefinitions/{study.uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)

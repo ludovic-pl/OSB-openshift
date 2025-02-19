@@ -30,7 +30,7 @@
         <slot name="body" />
       </v-card-text>
       <v-divider />
-      <v-card-actions>
+      <v-card-actions class="pr-6 my-2">
         <v-spacer />
         <div>
           <slot name="actions" />
@@ -51,9 +51,9 @@
           data-cy="save-button"
           color="secondary"
           variant="flat"
+          width="120px"
           :loading="working"
           :disabled="actionDisabled"
-          elevation="0"
           rounded
           @click="submit"
         >

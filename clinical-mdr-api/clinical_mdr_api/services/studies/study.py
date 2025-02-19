@@ -6,14 +6,9 @@ from typing import Any, Callable, Collection, Iterable
 
 from neomodel import NodeSet, db  # type: ignore
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import (
-    DAY_UNIT_NAME,
-    STUDY_FIELD_PREFERRED_TIME_UNIT_NAME,
-    STUDY_FIELD_SOA_PREFERRED_TIME_UNIT_NAME,
-    WEEK_UNIT_NAME,
+from clinical_mdr_api.domain_repositories.study_selections.study_soa_repository import (
+    SoALayout,
 )
-from clinical_mdr_api.domain_repositories.models._utils import CustomNodeSet
 from clinical_mdr_api.domains.clinical_programmes.clinical_programme import (
     ClinicalProgrammeAR,
 )
@@ -67,12 +62,12 @@ from clinical_mdr_api.models.study_selections.study import (
     StudySubpartReorderingInput,
 )
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
 from clinical_mdr_api.services._utils import (  # type: ignore
     FieldsDirective,
     create_duration_object_from_api_input,
+    ensure_transaction,
     fill_missing_values_in_base_model_from_reference_base_model,
     filter_base_model_using_fields_directive,
     get_term_uid_or_none,
@@ -80,7 +75,19 @@ from clinical_mdr_api.services._utils import (  # type: ignore
     service_level_generic_filtering,
     service_level_generic_header_filtering,
 )
-from clinical_mdr_api.utils import booltostr
+from common.auth.user import user
+from common.config import (
+    DAY_UNIT_NAME,
+    STUDY_FIELD_PREFERRED_TIME_UNIT_NAME,
+    STUDY_FIELD_SOA_PREFERRED_TIME_UNIT_NAME,
+    WEEK_UNIT_NAME,
+)
+from common.exceptions import (
+    BusinessLogicException,
+    NotFoundException,
+    ValidationException,
+)
+from common.utils import booltostr
 
 
 def validate_if_study_is_not_locked(
@@ -100,10 +107,10 @@ def validate_if_study_is_not_locked(
             is_study_locked = StudyService().check_if_study_is_locked(
                 study_uid=study_uid
             )
-            if is_study_locked:
-                raise exceptions.ValidationException(
-                    f"Study with specified uid '{study_uid}' is locked."
-                )
+            BusinessLogicException.raise_if(
+                is_study_locked,
+                msg=f"Study with UID '{study_uid}' is locked.",
+            )
             return func(*args, **kwargs)
 
         return wrapper
@@ -115,8 +122,8 @@ class StudyService:
     _repos: MetaRepository
 
     def __init__(self):
-        self.user = user().id()
-        self._repos = MetaRepository(self.user)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     # and convenience method to close all repos
     def _close_all_repos(self) -> None:
@@ -254,17 +261,17 @@ class StudyService:
         filtered_sections = default_sections
         if include_sections:
             for section in include_sections:
-                if section.value in default_sections:
-                    raise exceptions.ValidationException(
-                        f"""The specified section {section.value} is a default section, and is included by default. Please remove this argument."""
-                    )
+                ValidationException.raise_if(
+                    section.value in default_sections,
+                    msg=f"""The specified section '{section.value}' is a default section, and is included by default. Please remove this argument.""",
+                )
                 filtered_sections.append(section.value)
         if exclude_sections:
             for section in exclude_sections:
-                if section.value not in default_sections:
-                    raise exceptions.ValidationException(
-                        f"""The specified section {section.value} is not a default section, and cannot be filtered out."""
-                    )
+                ValidationException.raise_if(
+                    section.value not in default_sections,
+                    msg=f"""The specified section '{section.value}' is not a default section, and cannot be filtered out.""",
+                )
                 filtered_sections.remove(section.value)
         return filtered_sections
 
@@ -288,10 +295,11 @@ class StudyService:
                 study_uid=uid,
                 study_value_version=study_value_version,
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
             return self._models_study_from_study_definition_ar(
                 study_definition_ar=study_definition,
                 find_project_by_project_number=self._repos.project_repository.find_by_project_number,
@@ -319,26 +327,12 @@ class StudyService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> Study:
+    ) -> list[StudyStructureOverview]:
         all_items = (
             self._repos.study_definition_repository.get_study_structure_overview()
         )
 
-        parsed_items = [
-            StudyStructureOverview(
-                uid=item[0],
-                study_id=item[1],
-                arms=item[2]["arms"],
-                pre_treatment_epochs=item[2]["pre_treatment_epochs"],
-                treatment_epochs=item[2]["treatment_epochs"],
-                no_treatment_epochs=item[2]["no_treatment_epochs"],
-                post_treatment_epochs=item[2]["post_treatment_epochs"],
-                treatment_elements=item[2]["treatment_elements"],
-                no_treatment_elements=item[2]["no_treatment_elements"],
-                cohorts_in_study=booltostr(item[2]["cohorts"], "Y"),
-            )
-            for item in all_items[0]
-        ]
+        parsed_items = self._group_study_structure_overview_by_data(all_items[0])
 
         if not sort_by:
             sort_by = {"study_id": False}
@@ -354,6 +348,65 @@ class StudyService:
         )
 
         return filtered_items
+
+    @db.transaction
+    def get_study_structure_overview_header(
+        self,
+        field_name: str,
+        search_string: str | None = "",
+        filter_by: dict | None = None,
+        filter_operator: FilterOperator | None = FilterOperator.AND,
+        page_size: int = 10,
+    ):
+        all_items = (
+            self._repos.study_definition_repository.get_study_structure_overview()
+        )
+
+        parsed_items = self._group_study_structure_overview_by_data(all_items[0])
+
+        # Do filtering, sorting, pagination and count
+        header_values = service_level_generic_header_filtering(
+            items=parsed_items,
+            field_name=field_name,
+            search_string=search_string,
+            filter_by=filter_by,
+            filter_operator=filter_operator,
+            page_size=page_size,
+        )
+        # Return values for field_name
+        return header_values
+
+    def _group_study_structure_overview_by_data(self, items):
+        parsed_items: dict[tuple, StudyStructureOverview] = {}
+
+        for study_id, item in items:
+            index = (
+                item["arms"],
+                item["pre_treatment_epochs"],
+                item["treatment_epochs"],
+                item["no_treatment_epochs"],
+                item["post_treatment_epochs"],
+                item["treatment_elements"],
+                item["no_treatment_elements"],
+                booltostr(item["cohorts"], "Y"),
+            )
+
+            if index in parsed_items:
+                parsed_items[index].study_ids.append(study_id)
+            else:
+                parsed_items[index] = StudyStructureOverview(
+                    study_ids=[study_id],
+                    arms=item["arms"],
+                    pre_treatment_epochs=item["pre_treatment_epochs"],
+                    treatment_epochs=item["treatment_epochs"],
+                    no_treatment_epochs=item["no_treatment_epochs"],
+                    post_treatment_epochs=item["post_treatment_epochs"],
+                    treatment_elements=item["treatment_elements"],
+                    no_treatment_elements=item["no_treatment_elements"],
+                    cohorts_in_study=booltostr(item["cohorts"], "Y"),
+                )
+
+        return list(parsed_items.values())
 
     def _extract_terms_at_date(self, study_uid, study_value_version: str = None):
         study_standard_versions = self._repos.study_standard_version_repository.find_standard_versions_in_study(
@@ -389,19 +442,25 @@ class StudyService:
 
     @db.transaction
     def lock(self, uid: str, change_description: str) -> Study:
+        # avoid circular imports
+        from clinical_mdr_api.services.studies.study_flowchart import (
+            StudyFlowchartService,
+        )
+
         # lock the study
         try:
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid, for_update=True
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
-            if study_definition.study_parent_part_uid:
-                raise exceptions.BusinessLogicException(
-                    f"Study Subparts cannot be locked independently from its Study Parent Part with uid ({study_definition.study_parent_part_uid})."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
+            BusinessLogicException.raise_if(
+                study_definition.study_parent_part_uid,
+                msg=f"Study Subparts cannot be locked independently from its Study Parent Part with UID '{study_definition.study_parent_part_uid}'.",
+            )
             # get the study standard version
             study_standard_versions = self._repos.study_standard_version_repository.find_standard_versions_in_study(
                 uid
@@ -440,7 +499,7 @@ class StudyService:
                         self._repos.ct_package_repository.create_sponsor_package(
                             extends_package=all_ct_packages[-1].uid,
                             effective_date=date.today(),
-                            user_initials=self.user,
+                            author_id=self.author_id,
                         )
                     )
                     # create study standard version
@@ -449,10 +508,10 @@ class StudyService:
                             study_uid=uid,
                             start_date=datetime.now(timezone.utc),
                             study_status=StudyStatus.DRAFT,
-                            description=f"""A StudyStandardVersion is automatically created whenever the study is locked.
-                                            The StudyStandardVersion has been generated using the latest CTPackage available, with the unique ID '{all_ct_packages[-1].uid}'. 
-                                            Additionally, a Sponsor CTPackage was created with today's date as the effective date.""",
-                            author=self.user,
+                            description="A StudyStandardVersion is automatically created whenever the study is locked."
+                            f"The StudyStandardVersion has been generated using the latest CTPackage available, with the unique ID '{all_ct_packages[-1].uid}'. "
+                            "Additionally, a Sponsor CTPackage was created with today's date as the effective date.",
+                            author_id=self.author_id,
                             ct_package_uid=sponsor_ct_package_with_latest_ct_package._uid,
                             automatically_created=True,
                         )
@@ -464,10 +523,10 @@ class StudyService:
                             study_uid=uid,
                             start_date=datetime.now(timezone.utc),
                             study_status=StudyStatus.DRAFT,
-                            description=f"""A StudyStandardVersion is automatically created whenever the study is locked.
-                                            The StudyStandardVersion has been generated using the latest CTPackage available with ID '{all_ct_packages[-1].uid}' 
-                                            and the SponsorCTPackage with ID '{sponsor_ct_package_with_latest_ct_package[0]._uid}'""",
-                            author=self.user,
+                            description="A StudyStandardVersion is automatically created whenever the study is locked."
+                            f"The StudyStandardVersion has been generated using the latest CTPackage available with ID '{all_ct_packages[-1].uid}' "
+                            f"and the SponsorCTPackage with ID '{sponsor_ct_package_with_latest_ct_package[0]._uid}'",
+                            author_id=self.author_id,
                             ct_package_uid=sponsor_ct_package_with_latest_ct_package[
                                 0
                             ]._uid,
@@ -487,13 +546,21 @@ class StudyService:
                 if study_standard_versions_sdtm
                 else None
             )
-            if not study_standard_version_sdtm:
-                raise exceptions.ValidationException(
-                    "StudyStandardVersion has to be selected before Study is locked"
-                )
+            ValidationException.raise_if_not(
+                study_standard_version_sdtm,
+                msg="StudyStandardVersion has to be selected before Study is locked",
+            )
+
+            # save Protocol SoA snapshot
+            StudyFlowchartService().update_soa_snapshot(
+                study_uid=uid,
+                layout=SoALayout.PROTOCOL,
+                study_status=study_definition.study_status,
+            )
+
             study_definition.lock(
                 version_description=change_description,
-                version_author=self.user,
+                author_id=self.author_id,
             )
             self._repos.study_definition_repository.save(study_definition)
 
@@ -504,7 +571,7 @@ class StudyService:
                     )
                     study_subpart.lock(
                         version_description=change_description,
-                        version_author=self.user,
+                        author_id=self.author_id,
                     )
                     self._repos.study_definition_repository.save(study_subpart)
 
@@ -526,14 +593,15 @@ class StudyService:
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid, for_update=True
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
-            if study_definition.study_parent_part_uid:
-                raise exceptions.BusinessLogicException(
-                    f"Study Subparts cannot be unlocked independently from its Study Parent Part with uid ({study_definition.study_parent_part_uid})."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
+            BusinessLogicException.raise_if(
+                study_definition.study_parent_part_uid,
+                msg=f"Study Subparts cannot be unlocked independently from its Study Parent Part with UID '{study_definition.study_parent_part_uid}'.",
+            )
             study_definition.unlock()
             self._repos.study_definition_repository.save(study_definition)
 
@@ -587,14 +655,15 @@ class StudyService:
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid, for_update=True
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
-            if study_definition.study_parent_part_uid:
-                raise exceptions.BusinessLogicException(
-                    f"Study Subparts cannot be released independently from its Study Parent Part with uid ({study_definition.study_parent_part_uid})."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
+            BusinessLogicException.raise_if(
+                study_definition.study_parent_part_uid,
+                msg=f"Study Subparts cannot be released independently from its Study Parent Part with UID '{study_definition.study_parent_part_uid}'.",
+            )
             study_definition.release(change_description=change_description)
             self._repos.study_definition_repository.save(study_definition)
 
@@ -624,10 +693,11 @@ class StudyService:
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid, for_update=True
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
             study_definition.mark_deleted()
 
             is_subpart = bool(study_definition.study_parent_part_uid)
@@ -700,8 +770,9 @@ class StudyService:
                 self._repos.study_definition_repository.get_audit_trail_by_uid(uid)
             )
 
-            if study_fields_audit_trail_vo_sequence is None:
-                raise exceptions.NotFoundException(f"The study '{uid}' was not found.")
+            NotFoundException.raise_if(
+                study_fields_audit_trail_vo_sequence is None, "Study", uid
+            )
 
             # Filter to see only the relevant sections.
             result = self._models_study_field_audit_trail_from_audit_trail_vo(
@@ -842,7 +913,7 @@ class StudyService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         # Note that for this endpoint, we have to override the generic filtering
         # Some transformation logic is happening from an aggregated object to the pydantic return model
@@ -871,7 +942,7 @@ class StudyService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         # Return values for field_name
         return header_values
@@ -883,10 +954,11 @@ class StudyService:
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid=uid, study_value_version=study_value_version
             )
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"StudyDefinition '{uid}' not found."
-                )
+
+            NotFoundException.raise_if(
+                study_definition is None, "Study Definition", uid
+            )
+
             result = self._models_study_protocol_title_from_study_definition_ar(
                 study_definition_ar=study_definition,
                 study_value_version=study_value_version,
@@ -926,10 +998,9 @@ class StudyService:
             letter for letter in ascii_lowercase if letter not in occupied_letters
         ]
 
-        if not available_letters:
-            raise exceptions.BusinessLogicException(
-                "Reached maximum limit of Study Subparts: 26"
-            )
+        BusinessLogicException.raise_if_not(
+            available_letters, msg="Reached maximum limit of Study Subparts: 26"
+        )
 
         return available_letters[0]
 
@@ -952,14 +1023,14 @@ class StudyService:
                 parent_part_ar = self._repos.study_definition_repository.find_by_uid(
                     study_create_input.study_parent_part_uid
                 )
-                if not parent_part_ar:
-                    raise exceptions.BusinessLogicException(
-                        f"Study Parent Part with uid ({study_create_input.study_parent_part_uid}) not found."
-                    )
-                if parent_part_ar.study_parent_part_uid:
-                    raise exceptions.BusinessLogicException(
-                        f"Provided study_parent_part_uid ({study_create_input.study_parent_part_uid}) is a Study Subpart uid."
-                    )
+                BusinessLogicException.raise_if_not(
+                    parent_part_ar,
+                    msg=f"Study Parent Part with UID '{study_create_input.study_parent_part_uid}' doesn't exist.",
+                )
+                BusinessLogicException.raise_if(
+                    parent_part_ar.study_parent_part_uid,
+                    msg=f"Provided study_parent_part_uid '{study_create_input.study_parent_part_uid}' is a Study Subpart UID.",
+                )
                 project_number = (
                     parent_part_ar.current_metadata.id_metadata.project_number
                 )
@@ -1013,7 +1084,11 @@ class StudyService:
                     project_number=project_number,
                     study_number=study_number,
                     subpart_id=subpart_id,
-                    study_acronym=study_create_input.study_acronym,
+                    study_acronym=(
+                        study_create_input.study_acronym
+                        if hasattr(study_create_input, "study_acronym")
+                        else parent_part_ar.current_metadata.id_metadata.study_acronym
+                    ),
                     study_subpart_acronym=getattr(
                         study_create_input, "study_subpart_acronym", None
                     ),
@@ -1021,7 +1096,7 @@ class StudyService:
                     registry_identifiers=registry_identifiers,
                 ),
                 initial_study_description=initial_study_description,
-                author=self.user,
+                author_id=self.author_id,
                 is_subpart=is_subpart,
             )
 
@@ -1125,12 +1200,14 @@ class StudyService:
             trial_blinding_schema_null_value_code=get_term_uid_or_none(
                 request_study_intervention.trial_blinding_schema_null_value_code
             ),
-            trial_intent_types_codes=[
-                get_term_uid_or_none(trial_intent_type_code)
-                for trial_intent_type_code in request_study_intervention.trial_intent_types_codes
-            ]
-            if request_study_intervention.trial_intent_types_codes
-            else [],
+            trial_intent_types_codes=(
+                [
+                    get_term_uid_or_none(trial_intent_type_code)
+                    for trial_intent_type_code in request_study_intervention.trial_intent_types_codes
+                ]
+                if request_study_intervention.trial_intent_types_codes
+                else []
+            ),
             trial_intent_type_null_value_code=get_term_uid_or_none(
                 request_study_intervention.trial_intent_types_null_value_code
             ),
@@ -1502,58 +1579,55 @@ class StudyService:
 
             initial_study_definition_ar = copy(study_definition_ar)
 
-            if study_definition_ar is None:
-                raise exceptions.NotFoundException(
-                    f"The study with UID '{uid}' cannot be found."
-                )
+            NotFoundException.raise_if(study_definition_ar is None, "Study", uid)
 
             if (
                 study_definition_ar.study_parent_part_uid
                 and study_patch_request.current_metadata
             ):
-                if study_patch_request.current_metadata.study_description:
-                    raise exceptions.BusinessLogicException(
-                        "Cannot add or edit Study Description of Study Subparts."
-                    )
-                if (
+                BusinessLogicException.raise_if(
+                    study_patch_request.current_metadata.study_description,
+                    msg="Cannot add or edit Study Description of Study Subparts.",
+                )
+                BusinessLogicException.raise_if(
                     study_patch_request.current_metadata.identification_metadata
-                    and study_patch_request.current_metadata.identification_metadata.registry_identifiers
-                ):
-                    raise exceptions.BusinessLogicException(
-                        "Cannot edit Registry Identifiers of Study Subparts."
+                    and study_patch_request.current_metadata.identification_metadata.registry_identifiers,
+                    msg="Cannot edit Registry Identifiers of Study Subparts.",
+                )
+                if study_patch_request.study_parent_part_uid:
+                    BusinessLogicException.raise_if(
+                        study_patch_request.current_metadata.identification_metadata
+                        and study_patch_request.current_metadata.identification_metadata.study_acronym,
+                        msg="Cannot edit Study Acronym of Study Subparts.",
                     )
 
-            if study_patch_request.study_parent_part_uid == uid:
-                raise exceptions.BusinessLogicException(
-                    "A Study cannot be a Study Parent Part for itself."
-                )
+            BusinessLogicException.raise_if(
+                study_patch_request.study_parent_part_uid == uid,
+                msg="A Study cannot be a Study Parent Part for itself.",
+            )
 
             if study_patch_request.study_parent_part_uid:
                 parent_part_ar = self._repos.study_definition_repository.find_by_uid(
                     study_patch_request.study_parent_part_uid
                 )
-                if (
+                BusinessLogicException.raise_if(
                     not parent_part_ar
-                    or parent_part_ar.study_status == StudyStatus.LOCKED
-                ):
-                    raise exceptions.BusinessLogicException(
-                        f"Study Parent Part with UID ({study_patch_request.study_parent_part_uid}) is locked or doesn't exist."
-                    )
-                if parent_part_ar.study_parent_part_uid:
-                    raise exceptions.BusinessLogicException(
-                        f"Provided study_parent_part_uid ({study_patch_request.study_parent_part_uid}) is a Study Subpart UID."
-                    )
-                if study_definition_ar.study_subpart_uids:
-                    raise exceptions.BusinessLogicException(
-                        f"Cannot use Study Parent Part with UID ({study_definition_ar.uid}) as a Study Subpart."
-                    )
-                if (
+                    or parent_part_ar.study_status == StudyStatus.LOCKED,
+                    msg=f"Study Parent Part with UID '{study_patch_request.study_parent_part_uid}' is locked or doesn't exist.",
+                )
+                BusinessLogicException.raise_if(
+                    parent_part_ar.study_parent_part_uid,
+                    msg=f"Provided study_parent_part_uid '{study_patch_request.study_parent_part_uid}' is a Study Subpart UID.",
+                )
+                BusinessLogicException.raise_if(
+                    study_definition_ar.study_subpart_uids,
+                    msg=f"Cannot use Study Parent Part with UID '{study_definition_ar.uid}' as a Study Subpart.",
+                )
+                BusinessLogicException.raise_if(
                     study_definition_ar.current_metadata.id_metadata.project_number
-                    != parent_part_ar.current_metadata.id_metadata.project_number
-                ):
-                    raise exceptions.BusinessLogicException(
-                        "Project number of Study Parent Part and Study Subpart must be same."
-                    )
+                    != parent_part_ar.current_metadata.id_metadata.project_number,
+                    msg="Project number of Study Parent Part and Study Subpart must be same.",
+                )
 
                 if not study_patch_request.current_metadata:
                     study_patch_request.current_metadata = StudyMetadataJsonModel(
@@ -1597,6 +1671,9 @@ class StudyService:
                     study_patch_request.current_metadata.identification_metadata.registry_identifiers = RegistryIdentifiersJsonModel.from_study_registry_identifiers_vo(
                         parent_part_ar.current_metadata.id_metadata.registry_identifiers,
                         self._repos.ct_term_name_repository.find_by_uids,
+                    )
+                    study_patch_request.current_metadata.identification_metadata.study_acronym = (
+                        parent_part_ar.current_metadata.id_metadata.study_acronym
                     )
 
                 new_id_metadata = self._patch_prepare_new_id_metadata(
@@ -1696,7 +1773,7 @@ class StudyService:
                 intervention_model_exists_callback=self._repos.ct_term_name_repository.term_exists,
                 trial_blinding_schema_exists_callback=self._repos.ct_term_name_repository.term_exists,
                 is_subpart=study_definition_ar.study_parent_part_uid is not None,
-                author=self.user,
+                author_id=self.author_id,
                 previous_is_subpart=previous_is_subpart,
             )
 
@@ -1744,7 +1821,7 @@ class StudyService:
                     request_id_metadata=StudyIdentificationMetadataJsonModel(
                         project_number=study_definition_ar.current_metadata.id_metadata.project_number,
                         study_number=study_definition_ar.current_metadata.id_metadata.study_number,
-                        study_acronym=subpart_ar.current_metadata.id_metadata.study_acronym,
+                        study_acronym=study_definition_ar.current_metadata.id_metadata.study_acronym,
                         study_subpart_acronym=subpart_ar.current_metadata.id_metadata.study_subpart_acronym,
                         description=subpart_ar.current_metadata.id_metadata.description,
                         registry_identifiers=RegistryIdentifiersJsonModel.from_study_registry_identifiers_vo(
@@ -1829,12 +1906,13 @@ class StudyService:
         )
 
     def check_if_study_exists(self, study_uid: str):
-        if not self._repos.study_definition_repository.study_exists_by_uid(
-            study_uid=study_uid
-        ):
-            raise exceptions.NotFoundException(
-                f"Study with specified uid '{study_uid}' was not found."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.study_definition_repository.study_exists_by_uid(
+                study_uid=study_uid
+            ),
+            "Study",
+            study_uid,
+        )
 
     def check_if_study_uid_and_version_exists(
         self, study_uid: str, study_value_version: str | None = None
@@ -1853,48 +1931,50 @@ class StudyService:
         if not self._repos.study_definition_repository.check_if_study_uid_and_version_exists(
             study_uid=study_uid, study_value_version=study_value_version
         ):
-            if study_value_version:
-                raise exceptions.NotFoundException(
-                    f"Study with specified uid '{study_uid}' and version '{study_value_version}' was not found."
-                )
-            raise exceptions.NotFoundException(
-                f"Study with specified uid '{study_uid}' was not found."
+            NotFoundException.raise_if(
+                study_value_version,
+                msg=f"Study with UID '{study_uid}' and version '{study_value_version}' was not found.",
             )
+
+            raise NotFoundException("Study", study_uid)
 
     def _check_if_unit_definition_exists(self, unit_definition_uid: str):
-        if not self._repos.unit_definition_repository.final_concept_exists(
-            uid=unit_definition_uid
-        ):
-            raise exceptions.NotFoundException(
-                f"Unit definition with specified uid '{unit_definition_uid}' was not found."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.unit_definition_repository.final_concept_exists(
+                uid=unit_definition_uid
+            ),
+            "Unit Definition",
+            unit_definition_uid,
+        )
 
     def _check_repository_output(
-        self, nodes: CustomNodeSet, study_uid: str, for_protocol_soa: bool = False
+        self, nodes: NodeSet, study_uid: str, for_protocol_soa: bool = False
     ):
         study_field_name = (
             STUDY_FIELD_SOA_PREFERRED_TIME_UNIT_NAME
             if for_protocol_soa
             else STUDY_FIELD_PREFERRED_TIME_UNIT_NAME
         )
-        if len(nodes) > 1:
-            raise exceptions.BusinessLogicException(
-                f"Found more than one {study_field_name} StudyTimeField node for the following study_uid='{study_uid}'."
-            )
-        if len(nodes) == 0:
-            raise exceptions.BusinessLogicException(
-                f"The {study_field_name} StudyTimeField node for the following study_uid='{study_uid}' could not be found."
-            )
+        BusinessLogicException.raise_if(
+            len(nodes) > 1,
+            msg=f"Found more than one '{study_field_name}' StudyTimeField node for Study with UID '{study_uid}'.",
+        )
+        BusinessLogicException.raise_if(
+            len(nodes) == 0,
+            msg=f"The '{study_field_name}' StudyTimeField node for Study with UID '{study_uid}' doesn't exist.",
+        )
         return nodes[0]
 
-    @db.transaction
+    @ensure_transaction(db)
     def get_study_preferred_time_unit(
         self,
         study_uid: str,
         for_protocol_soa: bool = False,
         study_value_version: str | None = None,
     ) -> StudyPreferredTimeUnit:
-        self.check_if_study_exists(study_uid=study_uid)
+        self.check_if_study_uid_and_version_exists(
+            study_uid=study_uid, study_value_version=study_value_version
+        )
         nodes = self._repos.study_definition_repository.get_preferred_time_unit(
             study_uid=study_uid,
             for_protocol_soa=for_protocol_soa,
@@ -1947,18 +2027,15 @@ class StudyService:
             self._repos.study_definition_repository.find_by_uid(study_parent_part_uid)
         )
 
-        if not study_parent_part:
-            raise exceptions.NotFoundException(
-                f"Study identified by UID ({study_parent_part_uid}) doesn't exist."
-            )
+        NotFoundException.raise_if_not(
+            study_parent_part, "Study", study_parent_part_uid
+        )
 
-        if (
+        BusinessLogicException.raise_if(
             study_parent_part.current_metadata.ver_metadata.study_status
-            != StudyStatus.DRAFT
-        ):
-            raise exceptions.BusinessLogicException(
-                "Cannot reorder Study Subparts of a non-draft Study Parent Part."
-            )
+            != StudyStatus.DRAFT,
+            msg="Cannot reorder Study Subparts of a non-draft Study Parent Part.",
+        )
 
         study_subparts = sorted(
             [
@@ -1979,14 +2056,11 @@ class StudyService:
                     self._update_study_subpart_id(study_subpart, new_subpart_id)
                 )
         else:
-            if (
+            BusinessLogicException.raise_if(
                 study_subpart_reordering_input.uid
-                not in study_parent_part.study_subpart_uids
-            ):
-                raise exceptions.BusinessLogicException(
-                    f"Study Subparts identified by ({study_subpart_reordering_input.uid}) "
-                    f"don't belong to the Study Parent Part identified by ({study_parent_part_uid})."
-                )
+                not in study_parent_part.study_subpart_uids,
+                msg=f"Study Subparts with UID '{study_subpart_reordering_input.uid}' don't belong to the Study Parent Part with UID '{study_parent_part_uid}'.",
+            )
 
             studies = self._reorder_study(
                 study_subpart_reordering_input,
@@ -2079,7 +2153,7 @@ class StudyService:
                 )
         return studies
 
-    @db.transaction
+    @ensure_transaction(db)
     def get_study_soa_preferences(
         self, study_uid: str, study_value_version: str | None = None
     ) -> StudySoaPreferences:

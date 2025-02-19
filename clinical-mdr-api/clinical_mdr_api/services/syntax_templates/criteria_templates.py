@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.syntax_instances.criteria_repository import (
     CriteriaRepository,
 )
@@ -14,8 +13,6 @@ from clinical_mdr_api.domains.syntax_templates.criteria_template import (
     CriteriaTemplateAR,
 )
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.syntax_templates.criteria_template import (
     CriteriaTemplate,
     CriteriaTemplateCreateInput,
@@ -26,6 +23,7 @@ from clinical_mdr_api.models.syntax_templates.criteria_template import (
 from clinical_mdr_api.services.syntax_templates.generic_syntax_template_service import (
     GenericSyntaxTemplateService,
 )
+from common.exceptions import AlreadyExistsException
 
 
 class CriteriaTemplateService(GenericSyntaxTemplateService[CriteriaTemplateAR]):
@@ -61,7 +59,7 @@ class CriteriaTemplateService(GenericSyntaxTemplateService[CriteriaTemplateAR]):
 
         # Process item to save
         item = CriteriaTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=self.repository.generate_uid_callback,
@@ -78,41 +76,37 @@ class CriteriaTemplateService(GenericSyntaxTemplateService[CriteriaTemplateAR]):
     def edit_draft(
         self, uid: str, template: CriteriaTemplateEditInput
     ) -> CriteriaTemplate:
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
+        item = self.repository.find_by_uid(uid, for_update=True)
 
-            self.authorize_user_defined_syntax_write(item.library.name)
+        self.authorize_user_defined_syntax_write(item.library.name)
 
-            if (
-                self.repository.check_exists_by_name_in_library(
-                    name=template.name,
-                    library=item.library.name,
-                    type_uid=self.repository.get_template_type_uid(
-                        self._repos.criteria_template_repository.root_class.nodes.get_or_none(
-                            uid=uid
-                        )
-                    ),
-                )
-                and template.name != item.name
-            ):
-                raise exceptions.ValidationException(
-                    f"Duplicate templates not allowed - template exists: {template.name}"
-                )
-
-            template_vo = TemplateVO.from_input_values_2(
-                template_name=template.name,
-                guidance_text=template.guidance_text,
-                parameter_name_exists_callback=self._parameter_name_exists,
+        AlreadyExistsException.raise_if(
+            self.repository.check_exists_by_name_in_library(
+                name=template.name,
+                library=item.library.name,
+                type_uid=self.repository.get_template_type_uid(
+                    self._repos.criteria_template_repository.root_class.nodes.get_or_none(
+                        uid=uid
+                    )
+                ),
             )
+            and template.name != item.name,
+            field_value=template.name,
+            field_name="Name",
+        )
 
-            item.edit_draft(
-                author=self.user_initials,
-                change_description=template.change_description,
-                template=template_vo,
-            )
+        template_vo = TemplateVO.from_input_values_2(
+            template_name=template.name,
+            guidance_text=template.guidance_text,
+            parameter_name_exists_callback=self._parameter_name_exists,
+        )
 
-            # Save item
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item.edit_draft(
+            author_id=self.author_id,
+            change_description=template.change_description,
+            template=template_vo,
+        )
+
+        # Save item
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)

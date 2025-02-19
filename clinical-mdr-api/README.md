@@ -117,13 +117,21 @@ All in all, you should be able to start the API by performing these steps:
   ```
 
 ## Running Schemathesis checks
-- In order to run schemathesis checks on a subset of endpoints and/or http methods, 
-you can specify parameters for the desired http methods (`-M`) and endpoint names (`-E`)
+- Set the following environment variables in `.env` file
+  ```
+  SCHEMATHESIS_STUDY_UID=Study_000006
+  SCHEMATHESIS_HOOKS=clinical_mdr_api.hooks.schemathesis_hooks
+  ```
 
-  For example, this will only test `GET` and `POST` endpoints whose name starts with `/concepts/numeric-values-with-unit`:
+- Run `pipenv run schemathesis` (to test the main API) or `pipenv run consumer-api-schemathesis` (to test the Consumer API). 
+
+- To run schemathesis checks on a subset of endpoints and/or http methods, 
+you can specify parameters for the desired http methods (`--include-method`) and/or endpoint paths (`--include-path-regex`).
+
+  For example, this will only test `POST` endpoints `OR` endpoints whose path starts with `/concepts/numeric-values-with-unit`:
 
   ```
-  pipenv run schemathesis -M GET -M POST -E ^/concepts/numeric-values-with-unit
+  pipenv run schemathesis --include-method POST --include-path-regex ^/concepts/numeric-values-with-unit
   ```
 
 ## Authentication setup

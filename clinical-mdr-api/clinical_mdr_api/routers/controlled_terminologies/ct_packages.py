@@ -1,28 +1,34 @@
 """CTPackage router."""
 
 from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Path, Query
 
-from clinical_mdr_api import models
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.models.controlled_terminologies.ct_package import (
+    CTPackage,
+    CTPackageChanges,
+    CTPackageChangesSpecificCodelist,
+    CTPackageDates,
+)
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services.controlled_terminologies.ct_package import (
     CTPackageService,
 )
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/ct"
 router = APIRouter()
 
-CTCodelistUid = Path(None, description="The unique id of the CTCodelist")
+CTCodelistUid = Path(description="The unique id of the CTCodelist")
 
 
 @router.get(
     "/packages",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all controlled terminology packages.",
-    response_model=list[models.CTPackage],
+    response_model=list[CTPackage],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -30,21 +36,24 @@ CTCodelistUid = Path(None, description="The unique id of the CTCodelist")
     },
 )
 def get_packages(
-    catalogue_name: str
-    | None = Query(
-        None,
-        description="If specified, only packages from given catalogue are returned.",
-    ),
-    standards_only: bool
-    | None = Query(
-        True,
-        description="If set to True, only standard packages are returned. Defaults to True",
-    ),
-    sponsor_only: bool
-    | None = Query(
-        False,
-        description="If set to True, only sponsor packages are returned.",
-    ),
+    catalogue_name: Annotated[
+        str | None,
+        Query(
+            description="If specified, only packages from given catalogue are returned.",
+        ),
+    ] = None,
+    standards_only: Annotated[
+        bool | None,
+        Query(
+            description="If set to True, only standard packages are returned. Defaults to True",
+        ),
+    ] = True,
+    sponsor_only: Annotated[
+        bool | None,
+        Query(
+            description="If set to True, only sponsor packages are returned.",
+        ),
+    ] = False,
 ):
     ct_package_service = CTPackageService()
 
@@ -59,7 +68,7 @@ def get_packages(
     "/packages/changes",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns changes between codelists and terms inside two different packages.",
-    response_model=models.CTPackageChanges,
+    response_model=CTPackageChanges,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -68,16 +77,20 @@ def get_packages(
 )
 def get_packages_changes_between_codelists_and_terms(
     catalogue_name: str,
-    old_package_date: date = Query(
-        ...,
-        description="The date for the old package, for instance '2020-03-27'"
-        "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
-    ),
-    new_package_date: date = Query(
-        ...,
-        description="The datetime for the new package, for instance '2020-06-26'"
-        "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
-    ),
+    old_package_date: Annotated[
+        date,
+        Query(
+            description="The date for the old package, for instance '2020-03-27'"
+            "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
+        ),
+    ],
+    new_package_date: Annotated[
+        date,
+        Query(
+            description="The datetime for the new package, for instance '2020-06-26'"
+            "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
+        ),
+    ],
 ):
     ct_package_service = CTPackageService()
     return ct_package_service.get_ct_packages_changes(
@@ -91,7 +104,7 @@ def get_packages_changes_between_codelists_and_terms(
     "/packages/{codelist_uid}/changes",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns changes from given codelist and all associated terms inside two different packages.",
-    response_model=models.CTPackageChangesSpecificCodelist,
+    response_model=CTPackageChangesSpecificCodelist,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -100,17 +113,21 @@ def get_packages_changes_between_codelists_and_terms(
 )
 def get_packages_changes_between_codelist_and_all_associated_terms(
     catalogue_name: str,
-    codelist_uid: str = CTCodelistUid,
-    old_package_date: date = Query(
-        ...,
-        description="The date for the old package, for instance '2020-03-27'"
-        "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
-    ),
-    new_package_date: date = Query(
-        ...,
-        description="The date for the new package, for instance '2020-06-26'"
-        "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
-    ),
+    codelist_uid: Annotated[str, CTCodelistUid],
+    old_package_date: Annotated[
+        date,
+        Query(
+            description="The date for the old package, for instance '2020-03-27'"
+            "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
+        ),
+    ],
+    new_package_date: Annotated[
+        date,
+        Query(
+            description="The date for the new package, for instance '2020-06-26'"
+            "\n_the possible dates for given catalogue_name can be retrieved by the /ct/packages/dates endpoint",
+        ),
+    ],
 ):
     ct_package_service = CTPackageService()
     return ct_package_service.get_ct_packages_codelist_changes(
@@ -125,7 +142,7 @@ def get_packages_changes_between_codelist_and_all_associated_terms(
     "/packages/dates",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all effective dates for packages in a given catalogue.",
-    response_model=models.CTPackageDates,
+    response_model=CTPackageDates,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -141,7 +158,7 @@ def get_package_dates(catalogue_name: str):
     "/packages/sponsor",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Creates a sponsor CT package, in the context of a study.",
-    response_model=models.CTPackage,
+    response_model=CTPackage,
     status_code=201,
     responses={
         201: {"description": "Created - The sponsor package was successfully created."},
@@ -152,20 +169,24 @@ def get_package_dates(catalogue_name: str):
         404: {
             "model": ErrorResponse,
             "description": "Entity not found - Reasons include: \n"
-            "- The parent package does not exist.",
+            "- The parent package doesn't exist.",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    extends_package: str = Body(
-        ...,
-        description="The name of the parent package that the sponsor package extends.",
-    ),
-    effective_date: date = Body(
-        ...,
-        description="The effective date of the package, for instance '2020-09-27'",
-    ),
+    extends_package: Annotated[
+        str,
+        Body(
+            description="The name of the parent package that the sponsor package extends."
+        ),
+    ],
+    effective_date: Annotated[
+        date,
+        Body(
+            description="The effective date of the package, for instance '2020-09-27'"
+        ),
+    ],
 ):
     ct_package_service = CTPackageService()
     return ct_package_service.create_sponsor_ct_package(extends_package, effective_date)

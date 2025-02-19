@@ -20,11 +20,11 @@ from clinical_mdr_api.main import app
 from clinical_mdr_api.models.standard_data_models.data_model import DataModel
 from clinical_mdr_api.models.standard_data_models.data_model_ig import DataModelIG
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -86,8 +86,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 DATA_MODEL_FIELDS_ALL = [
     "uid",
@@ -109,7 +107,7 @@ def test_get_data_model(api_client):
     response = api_client.get(f"/standards/data-models/{data_models_all[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(DATA_MODEL_FIELDS_ALL)
@@ -185,7 +183,7 @@ def test_get_data_models(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -228,7 +226,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -286,7 +284,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # if we expect a nested property to be equal to specified value
@@ -341,11 +339,11 @@ def test_get_data_models_csv_xml_excel(api_client, export_format):
     ],
 )
 def test_headers(api_client, field_name):
-    url = f"/standards/data-models/headers?field_name={field_name}&result_count=100"
+    url = f"/standards/data-models/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
 
     nested_path = None

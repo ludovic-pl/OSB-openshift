@@ -24,7 +24,6 @@ from clinical_mdr_api.tests.integration.api.study_selections.utils import (
     ct_term_retrieval_at_date_test_common,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -33,6 +32,7 @@ from clinical_mdr_api.tests.integration.utils.factory_controlled_terminology imp
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -93,7 +93,6 @@ def test_data():
     )
 
     yield
-    drop_db(db_name)
 
 
 def test_arm_modify_actions_on_locked_study(api_client):
@@ -111,14 +110,14 @@ def test_arm_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all arms
     response = api_client.get(
         f"/studies/{study.uid}/study-arms/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     arm_uid = res[0]["arm_uid"]
 
@@ -127,14 +126,14 @@ def test_arm_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-arms",
@@ -149,8 +148,8 @@ def test_arm_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert_response_status_code(response, 400)
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
     # edit arm
     response = api_client.patch(
         f"/studies/{study.uid}/study-arms/{arm_uid}",
@@ -159,24 +158,21 @@ def test_arm_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert_response_status_code(response, 400)
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-arms/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(f"/studies/{study.uid}/study-arms/{arm_uid}")
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_arm_previous_study_version(api_client):
@@ -185,12 +181,12 @@ def test_study_arm_previous_study_version(api_client):
         f"/studies/{study.uid}/study-arms/{arm_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock = res
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit arm
     response = api_client.patch(
@@ -200,14 +196,14 @@ def test_study_arm_previous_study_version(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all arm of a specific study version
     response = api_client.get(
         f"/studies/{study.uid}/study-arms?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock["study_version"] = mock.ANY
     assert res["items"][0] == before_unlock
 
@@ -220,7 +216,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
     response = api_client.post(
         f"/ct/terms/{initial_ct_term_study_standard_test.term_uid}/names/versions",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.patch(
         f"/ct/terms/{initial_ct_term_study_standard_test.term_uid}/names",
         json={
@@ -232,7 +228,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
     response = api_client.post(
         f"/ct/terms/{initial_ct_term_study_standard_test.term_uid}/names/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study selection with ctterm latest
     suffix_txt = "ct_package"
@@ -250,7 +246,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["arm_type"]["sponsor_preferred_name"] == new_ctterm_name
     study_selection_uid_study_standard_test = res["arm_uid"]
 
@@ -268,7 +264,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["ct_package"]["uid"] == ct_package_uid
 
     # get study selection with previous ctterm
@@ -276,7 +272,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         f"/studies/{study.uid}/study-arms/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res["arm_type"]["sponsor_preferred_name"]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -290,7 +286,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res["arm_type"]["sponsor_preferred_name"]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -301,7 +297,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         f"/studies/{study.uid}/study-arms/{study_selection_uid_study_standard_test}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[0]["arm_type"]["sponsor_preferred_name"]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -313,7 +309,7 @@ def test_study_arm_type_version_selecting_ct_package(api_client):
         f"/studies/{study.uid}/study-arms/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[2]["arm_type"]["sponsor_preferred_name"]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -350,7 +346,7 @@ def test_study_arm_ct_term_retrieval_at_date(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res[study_selection_ctterm_keys]["queried_effective_date"] is None
     assert res[study_selection_ctterm_keys]["date_conflict"] is False
     study_selection_uid_study_standard_test = res["arm_uid"]

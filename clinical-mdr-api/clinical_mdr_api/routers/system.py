@@ -1,16 +1,18 @@
 """System router."""
+
 import os
 
 from fastapi import APIRouter
 from fastapi.responses import FileResponse, PlainTextResponse
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.models.feature_flag import FeatureFlag
 from clinical_mdr_api.models.notification import Notification
+from clinical_mdr_api.models.system import SystemInformation
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services import system as service
 from clinical_mdr_api.services.feature_flags import FeatureFlagService
 from clinical_mdr_api.services.notifications import NotificationService
+from common import config
 
 # Mounted under "/system" path as a sub-application, endpoints do not require authentication.
 router = APIRouter()
@@ -19,7 +21,7 @@ router = APIRouter()
 @router.get(
     "/information",
     summary="Returns various information about this API (running version, etc.)",
-    response_model=models.SystemInformation,
+    response_model=SystemInformation,
     status_code=200,
 )
 def get_system_information():
@@ -49,10 +51,10 @@ def healthcheck():
 @router.get(
     "/information/sbom.md",
     summary="Returns SBOM as markdown text",
-    response_class=PlainTextResponse,
+    response_class=FileResponse,
     status_code=200,
 )
-def get_sbom_md() -> str:
+def get_sbom_md() -> FileResponse:
     filename = "sbom.md"
     filepath = os.path.join(config.APP_ROOT_DIR, filename)
     return FileResponse(path=filepath, media_type="text/markdown", filename=filename)
@@ -61,10 +63,10 @@ def get_sbom_md() -> str:
 @router.get(
     "/information/license.md",
     summary="Returns license as markdown text",
-    response_class=PlainTextResponse,
+    response_class=FileResponse,
     status_code=200,
 )
-def get_license_md() -> str:
+def get_license_md() -> FileResponse:
     filename = "LICENSE.md"
     filepath = os.path.join(config.APP_ROOT_DIR, filename)
     return FileResponse(path=filepath, media_type="text/markdown", filename=filename)

@@ -1,7 +1,6 @@
 import unittest
 from typing import Callable
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.activities.activity_group import (
     ActivityGroupAR,
     ActivityGroupVO,
@@ -10,7 +9,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
+from common import exceptions
 
 
 def create_random_activity_group_vo() -> ActivityGroupVO:
@@ -36,8 +36,9 @@ def create_random_activity_group_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
         concept_exists_by_callback=lambda x, y, z: False,
+        concept_exists_by_library_and_name_callback=lambda x, y: False,
     )
 
     return random_activity_group_ar
@@ -62,16 +63,16 @@ class TestActivityGroup(unittest.TestCase):
         # given
         activity_group_ar = create_random_activity_group_ar()
 
-        activity_group_ar.approve(author="Test")
-        activity_group_ar.create_new_version(author="TODO")
+        activity_group_ar.approve(author_id="Test")
+        activity_group_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         activity_vo = create_random_activity_group_vo()
         activity_group_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             concept_vo=activity_vo,
-            concept_exists_by_callback=lambda x, y, z: False,
+            concept_exists_by_library_and_name_callback=lambda x, y: False,
         )
 
         # then
@@ -81,7 +82,7 @@ class TestActivityGroup(unittest.TestCase):
         self.assertEqual(
             activity_group_ar.item_metadata.status, LibraryItemStatus.DRAFT
         )
-        self.assertEqual(activity_group_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(activity_group_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(activity_group_ar.item_metadata.change_description, "Test")
         self.assertEqual(activity_group_ar.name, activity_vo.name)
         self.assertEqual(
@@ -97,7 +98,7 @@ class TestActivityGroup(unittest.TestCase):
         activity_group_ar = create_random_activity_group_ar()
 
         # when
-        activity_group_ar.approve(author="TODO")
+        activity_group_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_group_ar.item_metadata._end_date)
@@ -110,10 +111,10 @@ class TestActivityGroup(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         activity_group_ar = create_random_activity_group_ar()
-        activity_group_ar.approve(author="TODO")
+        activity_group_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_group_ar.create_new_version(author="TODO")
+        activity_group_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_group_ar.item_metadata._end_date)
@@ -126,10 +127,10 @@ class TestActivityGroup(unittest.TestCase):
     def test__inactivate_final__version_created(self):
         # given
         activity_group_ar = create_random_activity_group_ar()
-        activity_group_ar.approve(author="TODO")
+        activity_group_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_group_ar.inactivate(author="TODO")
+        activity_group_ar.inactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_group_ar.item_metadata._end_date)
@@ -142,11 +143,11 @@ class TestActivityGroup(unittest.TestCase):
     def test__reactivate_retired__version_created(self):
         # given
         activity_group_ar = create_random_activity_group_ar()
-        activity_group_ar.approve(author="TODO")
-        activity_group_ar.inactivate(author="TODO")
+        activity_group_ar.approve(author_id=AUTHOR_ID)
+        activity_group_ar.inactivate(author_id=AUTHOR_ID)
 
         # when
-        activity_group_ar.reactivate(author="TODO")
+        activity_group_ar.reactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_group_ar.item_metadata._end_date)
@@ -182,7 +183,7 @@ class TestActivityGroupNegative(unittest.TestCase):
                 library=LibraryVO.from_repository_values(
                     library_name="library", is_editable=True
                 ),
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
                 concept_exists_by_callback=lambda x, y, z: False,
             )
 
@@ -194,13 +195,13 @@ class TestActivityGroupNegative(unittest.TestCase):
     def test__edit_draft_version__validation_failure(self):
         activity_group_ar = create_random_activity_group_ar()
 
-        activity_group_ar.approve(author="Test")
-        activity_group_ar.create_new_version(author="TODO")
+        activity_group_ar.approve(author_id="Test")
+        activity_group_ar.create_new_version(author_id=AUTHOR_ID)
 
         name = random_str()
         with self.assertRaises(exceptions.ValidationException) as context:
             activity_group_ar.edit_draft(
-                author="TODO",
+                author_id=AUTHOR_ID,
                 change_description="Test",
                 concept_vo=ActivityGroupVO.from_repository_values(
                     name=name,

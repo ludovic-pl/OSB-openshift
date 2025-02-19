@@ -1,104 +1,91 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.standard_data_models.sponsor_model_dataset import (
     SponsorModelDatasetAR,
 )
-from clinical_mdr_api.models import Library
+from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModelBase
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import InputModel
 
 
 class SponsorModelDataset(SponsorModelBase):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="",
-        source="has_library.name",
-    )
-    is_basic_std: bool = Field(
-        None, title="is_basic_std", source="has_sponsor_model_instance.is_basic_std"
-    )
-    xml_path: str = Field(
-        None, title="xml_path", source="has_sponsor_model_instance.xml_path"
-    )
-    xml_title: str = Field(
-        None, title="xml_title", source="has_sponsor_model_instance.xml_title"
-    )
-    structure: str = Field(
-        None, title="structure", source="has_sponsor_model_instance.structure"
-    )
-    purpose: str = Field(
-        None, title="purpose", source="has_sponsor_model_instance.purpose"
-    )
-    keys: list[str] | None = Field(
-        None, title="keys", source="has_sponsor_model_instance.has_key.uid"
-    )
-    sort_keys: list[str] | None = Field(
-        None, title="sort_keys", source="has_sponsor_model_instance.has_sort_key.uid"
-    )
-    source_ig: str | None = Field(
-        None, title="Source IG", source="has_sponsor_model_instance.source_ig"
-    )
-    comment: str = Field(
-        None, title="comment", source="has_sponsor_model_instance.comment"
-    )
-    ig_comment: str = Field(
-        None, title="ig_comment", source="has_sponsor_model_instance.ig_comment"
-    )
-    map_domain_flag: bool = Field(
-        None,
-        title="map_domain_flag",
-        source="has_sponsor_model_instance.map_domain_flag",
-    )
-    suppl_qual_flag: bool = Field(
-        None,
-        title="suppl_qual_flag",
-        source="has_sponsor_model_instance.suppl_qual_flag",
-    )
-    include_in_raw: bool = Field(
-        None,
-        title="include_in_raw",
-        source="has_sponsor_model_instance.include_in_raw",
-    )
-    gen_raw_seqno_flag: bool = Field(
-        None,
-        title="gen_raw_seqno_flag",
-        source="has_sponsor_model_instance.gen_raw_seqno_flag",
-    )
-    enrich_build_order: int = Field(
-        None,
-        title="enrich_build_order",
-        source="has_sponsor_model_instance.has_dataset|ordinal",
-    )
-    label: str | None = Field(
-        None,
-        title="label",
-        source="has_sponsor_model_instance.label",
-        nullable=True,
-    )
-    state: str | None = Field(
-        None,
-        title="state",
-        source="has_sponsor_model_instance.state",
-        nullable=True,
-    )
-    extended_domain: str | None = Field(
-        None,
-        title="extended_domain",
-        source="has_sponsor_model_instance.extended_domain",
-        nullable=True,
-    )
+    uid: Annotated[
+        str | None,
+        Field(source="uid", nullable=True),
+    ] = None
+    library_name: Annotated[
+        str | None,
+        Field(source="has_library.name", nullable=True),
+    ] = None
+    is_basic_std: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.is_basic_std", nullable=True),
+    ] = None
+    xml_path: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.xml_path", nullable=True)
+    ] = None
+    xml_title: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.xml_title", nullable=True)
+    ] = None
+    structure: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.structure", nullable=True)
+    ] = None
+    purpose: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.purpose", nullable=True)
+    ] = None
+    keys: Annotated[
+        list[str] | None,
+        Field(source="has_sponsor_model_instance.has_key.uid", nullable=True),
+    ] = None
+    sort_keys: Annotated[
+        list[str] | None,
+        Field(source="has_sponsor_model_instance.has_sort_key.uid", nullable=True),
+    ] = None
+    source_ig: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.source_ig", nullable=True),
+    ] = None
+    comment: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.comment", nullable=True)
+    ] = None
+    ig_comment: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.ig_comment", nullable=True)
+    ] = None
+    map_domain_flag: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.map_domain_flag", nullable=True),
+    ] = None
+    suppl_qual_flag: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.suppl_qual_flag", nullable=True),
+    ] = None
+    include_in_raw: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.include_in_raw", nullable=True),
+    ] = None
+    gen_raw_seqno_flag: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.gen_raw_seqno_flag", nullable=True),
+    ] = None
+    enrich_build_order: Annotated[
+        int | None,
+        Field(source="has_sponsor_model_instance.has_dataset|ordinal", nullable=True),
+    ] = None
+    label: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.label", nullable=True)
+    ] = None
+    state: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.state", nullable=True)
+    ] = None
+    extended_domain: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.extended_domain", nullable=True),
+    ] = None
 
     @classmethod
     def from_sponsor_model_dataset_ar(
@@ -129,42 +116,45 @@ class SponsorModelDataset(SponsorModelBase):
         )
 
 
-class SponsorModelDatasetInput(BaseModel):
-    dataset_uid: str = Field(
-        ..., title="uid", description="Unique identifier of the dataset"
-    )
-    sponsor_model_name: str = Field(
-        ...,
-        title="sponsor_model_name",
-        description="Name of the sponsor model in which to create the dataset. E.g sdtmig_sponsormodel...",
-    )
-    sponsor_model_version_number: str = Field(
-        ...,
-        title="sponsor_model_version_number",
-        description="Version number of the sponsor model in which to create the dataset",
-    )
-    is_basic_std: bool = Field(None, title="is_basic_std", description="")
-    xml_path: str = Field(None, title="xml_path", description="")
-    xml_title: str = Field(None, title="xml_title", description="")
-    structure: str = Field(None, title="structure", description="")
-    purpose: str = Field(None, title="purpose", description="")
-    keys: list[str] = Field(None, title="keys", description="")
-    sort_keys: list[str] = Field(None, title="sort_keys", description="")
-    source_ig: str = Field(
-        None,
-        title="source_ig",
-        description="Source Implementation Guide, e.g. SDTMIG 3.3 or TAUG-DIABETES 1.0",
-    )
-    comment: str = Field(None, title="comment", description="")
-    ig_comment: str = Field(None, title="ig_comment", description="")
-    map_domain_flag: bool = Field(None, title="map_domain_flag", description="")
-    suppl_qual_flag: bool = Field(None, title="suppl_qual_flag", description="")
-    include_in_raw: bool = Field(None, title="include_in_raw", description="")
-    gen_raw_seqno_flag: bool = Field(None, title="gen_raw_seqno_flag", description="")
-    enrich_build_order: int = Field(None, title="enrich_build_order", description="")
-    label: str = Field(None, title="label", description="")
-    state: str = Field(None, title="state", description="")
-    extended_domain: str = Field(None, title="extended_domain", description="")
-    library_name: str | None = Field(
-        "CDISC", title="library_name", description="Defaults to CDISC"
-    )
+class SponsorModelDatasetInput(InputModel):
+    dataset_uid: Annotated[str, Field(min_length=1)]
+    sponsor_model_name: Annotated[
+        str,
+        Field(
+            description="Name of the sponsor model in which to create the dataset. E.g sdtmig_sponsormodel...",
+            min_length=1,
+        ),
+    ]
+    sponsor_model_version_number: Annotated[
+        str,
+        Field(
+            description="Version number of the sponsor model in which to create the dataset",
+            min_length=1,
+        ),
+    ]
+    is_basic_std: bool | None = None
+    xml_path: str | None = None
+    xml_title: str | None = None
+    structure: str | None = None
+    purpose: str | None = None
+    keys: list[str] | None = None
+    sort_keys: list[str] | None = None
+    source_ig: Annotated[
+        str | None,
+        Field(
+            description="Source Implementation Guide, e.g. SDTMIG 3.3 or TAUG-DIABETES 1.0",
+        ),
+    ] = None
+    comment: str | None = None
+    ig_comment: str | None = None
+    map_domain_flag: bool | None = None
+    suppl_qual_flag: bool | None = None
+    include_in_raw: bool | None = None
+    gen_raw_seqno_flag: bool | None = None
+    enrich_build_order: int | None = None
+    label: str | None = None
+    state: str | None = None
+    extended_domain: str | None = None
+    library_name: Annotated[
+        str | None, Field(description="Defaults to CDISC", min_length=1)
+    ] = "CDISC"

@@ -10,7 +10,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,8 @@ class ActivityVO(ConceptVO):
     """
 
     nci_concept_id: str | None
+    nci_concept_name: str | None
+    synonyms: list[str]
     activity_groupings: list[ActivityGroupingVO]
 
     # ActivityRequest related
@@ -49,8 +51,10 @@ class ActivityVO(ConceptVO):
     def from_repository_values(
         cls,
         nci_concept_id: str | None,
+        nci_concept_name: str | None,
         name: str,
         name_sentence_case: str | None,
+        synonyms: list[str],
         definition: str | None,
         abbreviation: str | None,
         activity_groupings: list[ActivityGroupingVO],
@@ -68,8 +72,10 @@ class ActivityVO(ConceptVO):
     ) -> Self:
         activity_vo = cls(
             nci_concept_id=nci_concept_id,
+            nci_concept_name=nci_concept_name,
             name=name,
             name_sentence_case=name_sentence_case,
+            synonyms=synonyms,
             definition=definition,
             abbreviation=abbreviation,
             is_template_parameter=True,
@@ -94,26 +100,40 @@ class ActivityVO(ConceptVO):
         activity_exists_by_name_callback: Callable[[str, str], bool],
         activity_subgroup_exists: Callable[[str], bool],
         activity_group_exists: Callable[[str], bool],
+        get_activity_uids_by_synonyms_callback: Callable[[str], dict[str, list[str]]],
         previous_name: str | None = None,
+        previous_synonyms: str | None = None,
         library_name: str | None = None,
     ) -> None:
+        if previous_synonyms is None:
+            previous_synonyms = []
+
         self.validate_name_sentence_case()
-        ex = activity_exists_by_name_callback(library_name, self.name)
-        if ex and previous_name != self.name:
-            raise BusinessLogicException(
-                f"Activity with ['name: {self.name}'] already exists."
-            )
+        existing_name = activity_exists_by_name_callback(library_name, self.name)
+        existing_synonyms_with_uids = get_activity_uids_by_synonyms_callback(
+            list(set(self.synonyms) - set(previous_synonyms))
+        )
+
+        AlreadyExistsException.raise_if(
+            existing_name and previous_name != self.name, "Activity", self.name, "Name"
+        )
+
+        AlreadyExistsException.raise_if(
+            existing_synonyms_with_uids,
+            msg=f"Following Activities already have the provided synonyms: {existing_synonyms_with_uids}",
+        )
+
         for activity_grouping in self.activity_groupings:
-            if not activity_subgroup_exists(activity_grouping.activity_subgroup_uid):
-                raise BusinessLogicException(
-                    "Activity tried to connect to non-existent or non-final concepts "
-                    f"""[('Concept Name: Activity Subgroup', "uids: {{'{activity_grouping.activity_subgroup_uid}'}}")]."""
-                )
-            if not activity_group_exists(activity_grouping.activity_group_uid):
-                raise BusinessLogicException(
-                    "Activity tried to connect to non-existent or non-final concepts "
-                    f"""[('Concept Name: Activity Group', "uids: {{'{activity_grouping.activity_group_uid}'}}")]."""
-                )
+            BusinessLogicException.raise_if_not(
+                activity_subgroup_exists(activity_grouping.activity_subgroup_uid),
+                msg="Activity tried to connect to non-existent or non-final concepts "
+                f"""[('Concept Name: Activity Subgroup', "uids: {{'{activity_grouping.activity_subgroup_uid}'}}")].""",
+            )
+            BusinessLogicException.raise_if_not(
+                activity_group_exists(activity_grouping.activity_group_uid),
+                msg="Activity tried to connect to non-existent or non-final concepts "
+                f"""[('Concept Name: Activity Group', "uids: {{'{activity_grouping.activity_group_uid}'}}")].""",
+            )
 
 
 @dataclass
@@ -131,7 +151,7 @@ class ActivityAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: ActivityVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -143,17 +163,23 @@ class ActivityAR(ConceptARBase):
         ] = lambda _: True,
         activity_subgroup_exists: Callable[[str], bool] = lambda _: False,
         activity_group_exists: Callable[[str], bool] = lambda _: False,
+        get_activity_uids_by_synonyms_callback: Callable[
+            [str], dict[str, list[str]]
+        ] = lambda _: {},
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
-        if not library.is_editable:
-            raise BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
         concept_vo.validate(
             activity_exists_by_name_callback=concept_exists_by_library_and_name_callback,
             activity_subgroup_exists=activity_subgroup_exists,
             activity_group_exists=activity_group_exists,
+            get_activity_uids_by_synonyms_callback=get_activity_uids_by_synonyms_callback,
             library_name=library.name,
         )
 
@@ -167,7 +193,7 @@ class ActivityAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: ActivityVO,
         concept_exists_by_callback: Callable[
@@ -178,6 +204,9 @@ class ActivityAR(ConceptARBase):
         ] = lambda x, y, z: True,
         activity_subgroup_exists: Callable[[str], bool] | None = None,
         activity_group_exists: Callable[[str], bool] = lambda _: False,
+        get_activity_uids_by_synonyms_callback: Callable[
+            [str], dict[str, list[str]]
+        ] = lambda _: {},
     ) -> None:
         """
         Creates a new draft version for the object.
@@ -186,9 +215,13 @@ class ActivityAR(ConceptARBase):
             activity_exists_by_name_callback=concept_exists_by_library_and_name_callback,
             activity_subgroup_exists=activity_subgroup_exists,
             activity_group_exists=activity_group_exists,
+            get_activity_uids_by_synonyms_callback=get_activity_uids_by_synonyms_callback,
             previous_name=self.name,
+            previous_synonyms=self.concept_vo.synonyms,
             library_name=self.library.name,
         )
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

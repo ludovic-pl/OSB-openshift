@@ -1,41 +1,45 @@
 import datetime
 import sys
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Iterable, Self
+from typing import Annotated, Any, Callable, Iterable, Self
 
 from pydantic import Field
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
+)
 
 
 class EndpointUnitItem(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="uid of the endpoint unit",
-    )
+    uid: Annotated[str, Field(description="uid of the endpoint unit")]
 
-    name: str | None = Field(
-        None,
-        title="name",
-        description="name of the endpoint unit",
-    )
+    name: Annotated[
+        str | None, Field(description="name of the endpoint unit", nullable=True)
+    ] = None
 
 
 class EndpointUnits(BaseModel):
-    units: tuple[EndpointUnitItem, ...] | None = Field(
-        ...,
-        title="units",
-        description="list of endpoint units selected for the study endpoint",
-    )
+    units: Annotated[
+        tuple[EndpointUnitItem, ...] | None,
+        Field(
+            description="list of endpoint units selected for the study endpoint",
+            nullable=True,
+        ),
+    ]
 
-    separator: str | None = Field(
-        None,
-        title="separator",
-        description="separator, if more than one endpoint units were selected for the study endpoint",
-    )
+    separator: Annotated[
+        str | None,
+        Field(
+            description="separator, if more than one endpoint units were selected for the study endpoint",
+            nullable=True,
+        ),
+    ] = None
 
 
 @dataclass
@@ -54,11 +58,12 @@ class StudyEndpointSelectionHistory:
     unit_separator: str | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
     change_type: str
     end_date: datetime.datetime | None
     order: int
     status: str | None
+    author_username: str | None = None
 
 
 @dataclass(frozen=True)
@@ -82,7 +87,8 @@ class StudySelectionEndpointVO:
     is_instance: bool
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str
+    author_id: str
+    author_username: str | None = None
     accepted_version: bool = False
 
     @classmethod
@@ -98,7 +104,7 @@ class StudySelectionEndpointVO:
         timeframe_version: str | None,
         endpoint_units: list[Any] | None,
         endpoint_level_order: int | None,
-        user_initials: str,
+        author_id: str,
         study_uid: str | None = None,
         study_selection_uid: str | None = None,
         is_instance: bool = True,
@@ -158,7 +164,8 @@ class StudySelectionEndpointVO:
             endpoint_level_order=endpoint_level_order,
             endpoint_units=units,
             is_instance=is_instance,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             start_date=start_date,
             accepted_version=accepted_version,
         )
@@ -181,59 +188,55 @@ class StudySelectionEndpointVO:
         :return:
         """
         # Checks if there exists a endpoint which is approved with endpoint_uid
-        if self.endpoint_uid is not None and not endpoint_exist_callback(
-            normalize_string(self.endpoint_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved endpoint identified by provided uid ({self.endpoint_uid})"
-            )
+        BusinessLogicException.raise_if(
+            self.endpoint_uid is not None
+            and not endpoint_exist_callback(normalize_string(self.endpoint_uid)),
+            msg=f"There is no approved Endpoint with UID '{self.endpoint_uid}'.",
+        )
         # Checks if there exists a timeframe with the
-        if self.timeframe_uid is not None and not timeframe_exist_callback(
-            normalize_string(self.timeframe_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved timeframe identified by provided uid ({self.timeframe_uid})"
-            )
+        BusinessLogicException.raise_if(
+            self.timeframe_uid is not None
+            and not timeframe_exist_callback(normalize_string(self.timeframe_uid)),
+            msg=f"There is no approved Timeframe with UID '{self.timeframe_uid}'.",
+        )
         # Check if the study objective exists
-        if self.study_objective_uid is not None and not study_objective_exist_callback(
-            normalize_string(self.study_objective_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no selected study objective identified by provided uid ({self.study_objective_uid})"
-            )
+        BusinessLogicException.raise_if(
+            self.study_objective_uid is not None
+            and not study_objective_exist_callback(
+                normalize_string(self.study_objective_uid)
+            ),
+            msg=f"There is no selected Study Objective with UID '{self.study_objective_uid}'.",
+        )
         # check that if there are more than one unit then there need to be a separator
-        if len(self.endpoint_units) > 1 and self.unit_separator is None:
-            raise exceptions.ValidationException(
-                "In case of more than one endpoint units, a unit separator is required."
-            )
-        if self.unit_separator is not None and len(self.endpoint_units) < 2:
-            raise exceptions.ValidationException(
-                f"Separator should only be set if more than 1 unit is selected ({self.endpoint_units})"
-            )
+        ValidationException.raise_if(
+            len(self.endpoint_units) > 1 and self.unit_separator is None,
+            msg="In case of more than one endpoint units, a unit separator is required.",
+        )
+        ValidationException.raise_if(
+            self.unit_separator is not None and len(self.endpoint_units) < 2,
+            msg=f"Separator should only be set if more than 1 units are selected '{self.endpoint_units}'.",
+        )
         # Check if there exist a Term with the selected uid
-        if (
+        BusinessLogicException.raise_if(
             not ct_term_exists_callback(self.endpoint_level_uid)
-            and self.endpoint_level_uid
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved endpoint level identified by provided term uid ({self.endpoint_level_uid})"
-            )
-        if self.endpoint_sublevel_uid and not ct_term_exists_callback(
+            and self.endpoint_level_uid,
+            msg=f"There is no approved Endpoint Level with UID '{self.endpoint_level_uid}'.",
+        )
+        BusinessLogicException.raise_if(
             self.endpoint_sublevel_uid
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved endpoint sub level identified by provided term uid ({self.endpoint_sublevel_uid})"
-            )
+            and not ct_term_exists_callback(self.endpoint_sublevel_uid),
+            msg=f"There is no approved Endpoint Sub Level with UID '{self.endpoint_sublevel_uid}'.",
+        )
         for unit in self.endpoint_units:
             uid = unit.get("uid")
-            if not uid:
-                raise exceptions.ValidationException(
-                    f"There is no uid for unit definition {unit}"
-                )
-            if not unit_definition_exists_callback(uid):
-                raise exceptions.ValidationException(
-                    f"There is no approved unit definition identified by provided uid ({uid})"
-                )
+
+            ValidationException.raise_if_not(
+                uid, msg=f"There is no uid for unit definition '{unit}'."
+            )
+            ValidationException.raise_if_not(
+                unit_definition_exists_callback(uid),
+                msg=f"There is no approved Unit Definition with UID '{uid}'.",
+            )
 
     def update_endpoint_version(self, endpoint_version: str):
         return replace(self, endpoint_version=endpoint_version)
@@ -277,7 +280,7 @@ class StudySelectionEndpointsAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the study endpoint '{study_selection_uid}' and the study"
+            msg=f"There is no selection between the Study Endpoint with UID '{study_selection_uid}' and the study."
         )
 
     def _add_selection(self, study_endpoint_selection) -> None:
@@ -388,43 +391,38 @@ class StudySelectionEndpointsAR:
                     # Check if we are allowed to insert the value here, the rules are:
                     # - The study objective have to be the same as the looped selection
                     # - The endpoint level have to be the same as the looped selection
-                    if (
+                    ValidationException.raise_if(
                         selection.endpoint_level_order
-                        == selected_value.endpoint_level_order
-                        and selection.study_objective_uid
-                        == selected_value.study_objective_uid
+                        != selected_value.endpoint_level_order
+                        or selection.study_objective_uid
+                        != selected_value.study_objective_uid,
+                        msg=f"Not allowed to move the selection to order ({str(new_order)})",
+                    )
+                    updated_selections.append(selected_value)
+                    if (
+                        selection.study_selection_uid
+                        != selected_value.study_selection_uid
                     ):
-                        updated_selections.append(selected_value)
-                        if (
-                            selection.study_selection_uid
-                            != selected_value.study_selection_uid
-                        ):
-                            updated_selections.append(selection)
-                    else:
-                        raise exceptions.ValidationException(
-                            f"Not allowed to move the selection to order ({str(new_order)})"
-                        )
+                        updated_selections.append(selection)
                 else:
                     # moving the selection to higher order
                     # Check if we are allowed to insert the value here, the rules are:
                     # - The study objective have to be the same as the looped selection
                     # - The endpoint level have to be the same as the looped selection
-                    if (
+                    ValidationException.raise_if(
                         selection.endpoint_level_order
-                        == selected_value.endpoint_level_order
-                        and selection.study_objective_uid
-                        == selected_value.study_objective_uid
+                        != selected_value.endpoint_level_order
+                        or selection.study_objective_uid
+                        != selected_value.study_objective_uid,
+                        msg=f"Not allowed to move the selection to order ({str(new_order)})",
+                    )
+                    if (
+                        selection.study_selection_uid
+                        != selected_value.study_selection_uid
                     ):
-                        if (
-                            selection.study_selection_uid
-                            != selected_value.study_selection_uid
-                        ):
-                            updated_selections.append(selection)
-                        updated_selections.append(selected_value)
-                    else:
-                        raise exceptions.ValidationException(
-                            f"Not allowed to move the selection to order ({str(new_order)})"
-                        )
+                        updated_selections.append(selection)
+                    updated_selections.append(selected_value)
+
             # We add all other vo to in the same order as before, except for the vo we are moving
             elif selection.study_selection_uid != selected_value.study_selection_uid:
                 updated_selections.append(selection)
@@ -509,7 +507,7 @@ class StudySelectionEndpointsAR:
                         timeframe_version=selection.timeframe_version,
                         endpoint_units=selection.endpoint_units,
                         endpoint_level_order=selection.endpoint_level_order,
-                        user_initials=selection.user_initials,
+                        author_id=selection.author_id,
                     )
                 )
             else:
@@ -519,15 +517,16 @@ class StudySelectionEndpointsAR:
     def validate(self):
         endpoints_timeframes = []
         for selection in self.study_endpoints_selection:
-            if (
-                selection.study_objective_uid,
-                selection.endpoint_uid,
-                selection.timeframe_uid,
-                *selection.endpoint_units,
-            ) in endpoints_timeframes:
-                raise exceptions.ValidationException(
-                    "There is already a study endpoint created for the selected endpoint, timeframe and unit combination"
+            AlreadyExistsException.raise_if(
+                (
+                    selection.study_objective_uid,
+                    selection.endpoint_uid,
+                    selection.timeframe_uid,
+                    *selection.endpoint_units,
                 )
+                in endpoints_timeframes,
+                msg="There is already a study endpoint created for the selected endpoint, timeframe and unit combination",
+            )
             endpoints_timeframes.append(
                 (
                     selection.study_objective_uid,

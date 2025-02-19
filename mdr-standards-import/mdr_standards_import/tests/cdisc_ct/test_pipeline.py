@@ -71,10 +71,10 @@
 
 
 # class Import:
-#     def __init__(self, effective_date=None, user_initials=None, packages=None, discontinued_codelists=None,
+#     def __init__(self, effective_date=None, author_id=None, packages=None, discontinued_codelists=None,
 #                  log_entries=None):
 #         self.effective_date = effective_date
-#         self.user_initials = user_initials
+#         self.author_id = author_id
 #         self.import_date = None
 #         self.packages = packages
 #         self.discontinued_codelists = discontinued_codelists
@@ -86,7 +86,7 @@
 #         if node_record:
 #             import_object.effective_date = node_record.get('effective_date', None)
 #             import_object.import_date = node_record.get('import_date', None)
-#             import_object.user_initials = node_record.get('user_initials', None)
+#             import_object.author_id = node_record.get('author_id', None)
 
 #             import_object.packages = node_record.get('packages', None)
 
@@ -140,11 +140,11 @@
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case1"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -152,17 +152,17 @@
 # #                                                  expected_num_submission_values=1, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case1 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case2(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case2"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -170,17 +170,17 @@
 # #                                                  expected_num_submission_values=4, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case2 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case3(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case3"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -188,17 +188,17 @@
 # #                                                  expected_num_submission_values=1, expected_num_info_messages=1,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case3 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case4(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case4"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -206,17 +206,17 @@
 # #                                                  expected_num_submission_values=1, expected_num_info_messages=2,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case4 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case5(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case5"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -224,17 +224,17 @@
 # #                                                  expected_num_submission_values=2, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case5 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case6(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case6"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -242,17 +242,17 @@
 # #                                                  expected_num_submission_values=2, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case6 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case7(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case7"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -260,17 +260,17 @@
 # #                                                  expected_num_submission_values=8, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case7 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case8(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case8"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -278,17 +278,17 @@
 # #                                                  expected_num_submission_values=3, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=1)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case8 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case9(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case9"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                                mdr_db_name, user_initials)
+# #                                mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=1,
@@ -296,17 +296,17 @@
 # #                                                  expected_num_submission_values=2, expected_num_info_messages=0,
 # #                                                  expected_num_warning_messages=0)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case9 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case10(self):
 # #         # given
 # #         effective_date = "2020-01-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case10"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                      mdr_db_name, user_initials)
+# #                      mdr_db_name, author_id)
 
 # #         # then
 # #         TestCDISCImportDb.assert_number_of_nodes(expected_num_imports=1, expected_num_packages=7,
@@ -314,19 +314,19 @@
 # #                                                  expected_num_submission_values=12, expected_num_info_messages=2,
 # #                                                  expected_num_warning_messages=3)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case10 import get_expected_imports
-# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     def test__cdisc_import_case10_2(self):
 # #         # given
 # #         effective_date = "2020-02-01"
 # #         data_dir = "./mdr_standards_import/tests/cdisc_ct/json_data/case10"
-# #         user_initials = "TST"
+# #         author_id = "TST"
 
 # #         # when
 # #         run_preprocessing_step("2020-01-01", data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                      mdr_db_name, user_initials)
+# #                      mdr_db_name, author_id)
 # #         run_preprocessing_step(effective_date, data_dir, cdisc_import_neo4j_driver, cdisc_db_name, mdr_neo4j_driver,
-# #                      mdr_db_name, user_initials)
+# #                      mdr_db_name, author_id)
 
 # #         # then
 # #         number_of_discontinued_codelists = 3
@@ -336,7 +336,7 @@
 # #                                                  expected_num_submission_values=12 + 6, expected_num_info_messages=2,
 # #                                                  expected_num_warning_messages=5)
 # #         from mdr_standards_import.tests.cdisc_ct.expected_preprocessing_data.case10 import get_expected_imports
-# #         # TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, user_initials))
+# #         # TestCDISCImportDb.assert_imports(get_expected_imports(effective_date, author_id))
 
 # #     @staticmethod
 # #     def assert_number_of_nodes(expected_num_imports, expected_num_packages, expected_num_codelists, expected_num_terms,
@@ -550,7 +550,7 @@
 # #         assert str(actual_import.import_date.month) == month
 # #         assert str(actual_import.import_date.day) == day
 
-# #         assert actual_import.user_initials == expected_import.user_initials
+# #         assert actual_import.author_id == expected_import.author_id
 
 # #     @staticmethod
 # #     def assert_package_properties(actual_package, expected_package):

@@ -3,7 +3,7 @@ from typing import Callable, Self
 
 from pydantic import BaseModel
 
-from clinical_mdr_api import exceptions
+from common.exceptions import BusinessLogicException
 
 
 class LibraryItem(BaseModel):
@@ -45,17 +45,17 @@ class ActivityItemVO:
         ct_term_exists: Callable[[str], bool],
         unit_definition_exists: Callable[[str], bool],
     ) -> None:
-        if not activity_item_class_exists(self.activity_item_class_uid):
-            raise exceptions.ValidationException(
-                f"ActivityItemVO tried to connect to non-existent ActivityItemClass ({self.activity_item_class_uid})."
-            )
+        BusinessLogicException.raise_if_not(
+            activity_item_class_exists(self.activity_item_class_uid),
+            msg=f"ActivityItemVO tried to connect to non-existent Activity Item Class with UID '{self.activity_item_class_uid}'.",
+        )
         for term in self.ct_terms:
-            if not ct_term_exists(term.uid):
-                raise exceptions.ValidationException(
-                    f"ActivityItemVO tried to connect to non-existent or non-final CTTerm ({term.uid})."
-                )
+            BusinessLogicException.raise_if_not(
+                ct_term_exists(term.uid),
+                msg=f"ActivityItemVO tried to connect to non-existent or non-final CTTerm with UID {term.uid}'.",
+            )
         for unit in self.unit_definitions:
-            if not unit_definition_exists(unit.uid):
-                raise exceptions.ValidationException(
-                    f"ActivityItemVO tried to connect to non-existent UnitDefinition ({unit.uid})."
-                )
+            BusinessLogicException.raise_if_not(
+                unit_definition_exists(unit.uid),
+                msg=f"ActivityItemVO tried to connect to non-existent Unit Definition with UID {unit.uid}'.",
+            )

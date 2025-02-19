@@ -1,69 +1,95 @@
 <template>
-  <v-card bg-color="dfltBackground">
+  <v-card bg-color="dfltBackground" data-cy="form-body" rounded="xl">
     <v-card-title class="d-flex align-center">
       <span class="dialog-title">{{ $t('StudyActivityEditForm.title') }}</span>
-      <HelpButtonWithPanels :title="$t('_global.help')" :items="helpItems" />
+      <HelpButton :help-text="$t('_help.StudyActivityEditForm.general')" />
     </v-card-title>
+    <v-divider />
     <v-card-text class="mt-4">
-      <div class="bg-white pa-4">
-        <div class="d-flex">
+      <div class="bg-white">
+        <v-form ref="observer">
           <v-text-field
             :label="$t('_global.library')"
             :model-value="library"
             disabled
-            variant="filled"
-            class="mr-2"
+            rounded="lg"
+            variant="outlined"
+            class="mb-1"
           />
-          <v-text-field
-            :label="$t('StudyActivity.activity_group')"
-            :model-value="activity_group"
-            disabled
-            variant="filled"
-            class="mr-2"
-          />
-          <v-text-field
-            :label="$t('StudyActivity.activity_sub_group')"
-            :model-value="activity_subgroup"
-            disabled
-            variant="filled"
-            class="mr-2"
-          />
-          <v-text-field
-            :label="$t('StudyActivity.activity')"
-            :model-value="activity"
-            disabled
-            variant="filled"
-          />
-        </div>
-        <v-form ref="observer">
           <v-autocomplete
             v-model="form.study_soa_group"
             :label="$t('StudyActivityForm.flowchart_group')"
             data-cy="flowchart-group"
             :items="flowchartGroups"
+            variant="outlined"
+            color="nnBaseBlue"
+            rounded="lg"
             item-title="name.sponsor_preferred_name"
             return-object
             :rules="[formRules.required]"
             clearable
           />
+          <v-autocomplete
+            v-model="form.activity_group"
+            :label="$t('StudyActivity.activity_group')"
+            :items="groups"
+            variant="outlined"
+            color="nnBaseBlue"
+            rounded="lg"
+            class="mb-1"
+            item-title="activity_group_name"
+            return-object
+            :disabled="Boolean(groups.length <= 1)"
+            :rules="[formRules.required]"
+            @update:model-value="form.activity_subgroup = null"
+          />
+          <v-autocomplete
+            v-model="form.activity_subgroup"
+            :label="$t('StudyActivity.activity_sub_group')"
+            :items="subgroups"
+            variant="outlined"
+            color="nnBaseBlue"
+            rounded="lg"
+            class="mb-1"
+            item-title="activity_subgroup_name"
+            return-object
+            :disabled="Boolean(subgroups.length <= 1 && form.activity_subgroup)"
+            :rules="[formRules.required]"
+            clearable
+          />
+          <v-text-field
+            :label="$t('StudyActivity.activity')"
+            :model-value="activity"
+            variant="outlined"
+            color="nnBaseBlue"
+            rounded="lg"
+            class="mb-1"
+            disabled
+          />
+          <v-checkbox
+            v-model="form.activity.is_data_collected"
+            disabled
+            :label="$t('StudyActivityForm.is_data_collected')"
+          />
         </v-form>
       </div>
     </v-card-text>
-    <v-card-actions class="pr-6 pb-6">
+    <v-divider />
+    <v-card-actions class="pr-6 my-2">
       <v-spacer />
       <v-btn
         class="secondary-btn"
         variant="outlined"
-        elevation="2"
+        rounded
         width="120px"
         @click="close"
       >
         {{ $t('_global.cancel') }}
       </v-btn>
       <v-btn
-        color="secondary"
+        color="nnBaseBlue"
+        rounded
         variant="flat"
-        elevation="2"
         width="120px"
         :loading="working"
         @click="submit"
@@ -77,10 +103,9 @@
 <script setup>
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useStudiesGeneralStore } from '@/stores/studies-general'
 import study from '@/api/study'
 import terms from '@/api/controlledTerminology/terms'
-import HelpButtonWithPanels from '@/components/tools/HelpButtonWithPanels.vue'
+import HelpButton from '@/components/tools/HelpButton.vue'
 
 const { t } = useI18n()
 const eventBusEmit = inject('eventBusEmit')
@@ -92,8 +117,6 @@ const props = defineProps({
   },
 })
 const emit = defineEmits(['close', 'updated'])
-
-const studiesGeneralStore = useStudiesGeneralStore()
 
 const flowchartGroups = ref([])
 const form = ref({})
@@ -107,39 +130,30 @@ const library = computed(() => {
     ? props.studyActivity.activity.library_name
     : ''
 })
-const activity_group = computed(() => {
-  return props.studyActivity &&
-    props.studyActivity.study_activity_group &&
-    props.studyActivity.study_activity_group.activity_group_name
-    ? props.studyActivity.study_activity_group.activity_group_name
-    : ''
-})
-const activity_subgroup = computed(() => {
-  return props.studyActivity &&
-    props.studyActivity.study_activity_subgroup &&
-    props.studyActivity.study_activity_subgroup.activity_subgroup_name
-    ? props.studyActivity.study_activity_subgroup.activity_subgroup_name
-    : ''
-})
+
 const activity = computed(() => {
   return props.studyActivity ? props.studyActivity.activity.name : ''
+})
+
+const groups = computed(() => {
+  return props.studyActivity.activity.activity_groupings.map(grouping => ({ activity_group_name: grouping.activity_group_name, activity_group_uid: grouping.activity_group_uid }))
+})
+
+const subgroups = computed(() => {
+  const groupings = props.studyActivity.activity.activity_groupings.filter(grouping => grouping.activity_group_uid === form.value.activity_group.activity_group_uid)
+  return groupings.map(grouping => ({ activity_subgroup_name: grouping.activity_subgroup_name, activity_subgroup_uid: grouping.activity_subgroup_uid }))
 })
 
 watch(
   () => props.studyActivity,
   (value) => {
     if (value) {
-      study
-        .getStudyActivity(
-          studiesGeneralStore.selectedStudy.uid,
-          value.study_activity_uid
-        )
-        .then((resp) => {
-          form.value = { ...resp.data }
-          form.value.study_soa_group.name = {
-            sponsor_preferred_name: form.value.study_soa_group.soa_group_name,
-          }
-        })
+      form.value = { ...props.studyActivity }
+      form.value.study_soa_group.name = {
+        sponsor_preferred_name: form.value.study_soa_group.soa_group_term_name,
+      }
+      form.value.activity_group = props.studyActivity.study_activity_group
+      form.value.activity_subgroup = props.studyActivity.study_activity_subgroup
     } else {
       form.value = {}
     }
@@ -168,6 +182,8 @@ async function submit() {
   working.value = true
   const data = {
     soa_group_term_uid: form.value.study_soa_group.term_uid,
+    activity_group_uid: form.value.activity_group.activity_group_uid,
+    activity_subgroup_uid: form.value.activity_subgroup.activity_subgroup_uid,
   }
   study
     .updateStudyActivity(

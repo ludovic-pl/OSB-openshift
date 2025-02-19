@@ -4,8 +4,8 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.models.notification import (
     Notification as NotificationNode,
 )
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.notification import Notification
+from common.exceptions import NotFoundException
 
 
 class NotificationRepository:
@@ -63,10 +63,9 @@ class NotificationRepository:
             resolve_objects=True,
         )
 
-        if rs[0]:
-            return self._transform_to_model(rs[0][0][0])
+        NotFoundException.raise_if_not(rs[0], "Notification", sn, "Serial Number")
 
-        raise NotFoundException(f"Couldn't find Notification with Serial Number ({sn})")
+        return self._transform_to_model(rs[0][0][0])
 
     def create_notification(
         self,
@@ -147,10 +146,9 @@ class NotificationRepository:
             resolve_objects=True,
         )
 
-        if rs[0]:
-            return self._transform_to_model(rs[0][0][0])
+        NotFoundException.raise_if_not(rs[0], "Notification", sn, "Serial Number")
 
-        raise NotFoundException(f"Couldn't find Notification with Serial Number ({sn})")
+        return self._transform_to_model(rs[0][0][0])
 
     def delete_notification(self, sn: int) -> None:
         db.cypher_query(

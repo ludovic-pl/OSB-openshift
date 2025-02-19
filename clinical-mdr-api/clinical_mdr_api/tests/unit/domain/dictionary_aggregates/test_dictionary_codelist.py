@@ -9,7 +9,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 def create_random_dictionary_codelist_vo() -> DictionaryCodelistVO:
@@ -34,7 +34,7 @@ def create_random_dictionary_codelist_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
     return random_dictionary_codelist_ar
 
@@ -59,7 +59,7 @@ class TestDictionaryCodelist(unittest.TestCase):
         dictionary_codelist_ar = create_random_dictionary_codelist_ar()
 
         # when
-        dictionary_codelist_ar.approve(author="TODO")
+        dictionary_codelist_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(dictionary_codelist_ar.item_metadata._end_date)
@@ -72,10 +72,10 @@ class TestDictionaryCodelist(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         dictionary_codelist_ar = create_random_dictionary_codelist_ar()
-        dictionary_codelist_ar.approve(author="TODO")
+        dictionary_codelist_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        dictionary_codelist_ar.create_new_version(author="TODO")
+        dictionary_codelist_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(dictionary_codelist_ar.item_metadata._end_date)
@@ -89,13 +89,13 @@ class TestDictionaryCodelist(unittest.TestCase):
         # given
         dictionary_codelist_ar = create_random_dictionary_codelist_ar()
 
-        dictionary_codelist_ar.approve(author="Test")
-        dictionary_codelist_ar.create_new_version(author="TODO")
+        dictionary_codelist_ar.approve(author_id="Test")
+        dictionary_codelist_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         dictionary_codelist_vo = create_random_dictionary_codelist_vo()
         dictionary_codelist_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             dictionary_codelist_vo=dictionary_codelist_vo,
             codelist_exists_by_name_callback=lambda _: False,
@@ -108,7 +108,7 @@ class TestDictionaryCodelist(unittest.TestCase):
         self.assertEqual(
             dictionary_codelist_ar.item_metadata.status, LibraryItemStatus.DRAFT
         )
-        self.assertEqual(dictionary_codelist_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(dictionary_codelist_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(
             dictionary_codelist_ar.item_metadata.change_description, "Test"
         )
@@ -128,10 +128,10 @@ class TestDictionaryCodelist(unittest.TestCase):
         for _ in range(amount_of_terms):
             codelist_uid = random_str()
             term_uid = random_str()
-            author = random_str()
-            term_data.append({"term_uid": term_uid, "author": author})
+            author_id = random_str()
+            term_data.append({"term_uid": term_uid, "author_id": author_id})
             dictionary_codelist_ar.add_term(
-                codelist_uid=codelist_uid, term_uid=term_uid, author=author
+                codelist_uid=codelist_uid, term_uid=term_uid, author_id=author_id
             )
 
         # then
@@ -154,7 +154,7 @@ class TestDictionaryCodelist(unittest.TestCase):
         ):
             with self.subTest():
                 self.assertEqual(term["term_uid"], current_term[0])
-                self.assertEqual(term["author"], current_term[1])
+                self.assertEqual(term["author_id"], current_term[1])
 
     def test__remove_term__term_removed(self):
         # given
@@ -165,10 +165,10 @@ class TestDictionaryCodelist(unittest.TestCase):
         codelist_uid = random_str()
         for _ in range(amount_of_terms):
             term_uid = random_str()
-            author = random_str()
-            term_data.append({"term_uid": term_uid, "author": author})
+            author_id = random_str()
+            term_data.append({"term_uid": term_uid, "author_id": author_id})
             dictionary_codelist_ar.add_term(
-                codelist_uid=codelist_uid, term_uid=term_uid, author=author
+                codelist_uid=codelist_uid, term_uid=term_uid, author_id=author_id
             )
 
         # when
@@ -179,7 +179,7 @@ class TestDictionaryCodelist(unittest.TestCase):
             dictionary_codelist_ar.remove_term(
                 codelist_uid=codelist_uid,
                 term_uid=deleted_term["term_uid"],
-                author=deleted_term["author"],
+                author_id=deleted_term["author_id"],
             )
 
         # then
@@ -203,10 +203,10 @@ class TestDictionaryCodelist(unittest.TestCase):
         ):
             with self.subTest():
                 self.assertEqual(term["term_uid"], current_term[0])
-                self.assertEqual(term["author"], current_term[1])
+                self.assertEqual(term["author_id"], current_term[1])
         for term, previous_term in zip(
             deleted_terms, dictionary_codelist_ar.dictionary_codelist_vo.previous_terms
         ):
             with self.subTest():
                 self.assertEqual(term["term_uid"], previous_term[0])
-                self.assertEqual(term["author"], previous_term[1])
+                self.assertEqual(term["author_id"], previous_term[1])

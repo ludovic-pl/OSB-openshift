@@ -162,7 +162,7 @@ const headers = [
   },
   {
     title: t('_global.modified_by'),
-    key: 'user_initials',
+    key: 'author_username',
   },
 ]
 

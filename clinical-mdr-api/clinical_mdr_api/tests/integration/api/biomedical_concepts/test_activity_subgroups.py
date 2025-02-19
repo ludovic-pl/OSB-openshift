@@ -1,6 +1,7 @@
 """
 Tests for /concepts/activities/activity-sub-groups endpoints
 """
+
 import json
 import logging
 from operator import itemgetter
@@ -18,6 +19,7 @@ from clinical_mdr_api.tests.integration.utils.api import (
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -89,8 +91,8 @@ ACTIVITY_SUBGROUP_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
     "possible_actions",
+    "author_username",
     "activity_groups",
 ]
 
@@ -130,7 +132,7 @@ def test_get_activity_subgroups(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -170,7 +172,7 @@ def test_get_activity_subgroup(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVITY_SUBGROUP_FIELDS_ALL)
@@ -192,7 +194,7 @@ def test_get_activity_subgroups_versions(api_client):
     response = api_client.post(
         f"/concepts/activities/activity-sub-groups/{activity_subgroups_all[0].uid}/versions"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get all versions of all activities
     response = api_client.get(
@@ -200,7 +202,7 @@ def test_get_activity_subgroups_versions(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(["items", "total", "page", "size"])
@@ -233,7 +235,7 @@ def test_filtering_versions_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -286,7 +288,7 @@ def test_filtering_versions_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -313,3 +315,90 @@ def test_filtering_versions_exact(
                     assert row[expected_matched_field] == expected_result
     else:
         assert len(res["items"]) == 0
+
+
+def test_update_subgroup_to_new_group(api_client):
+    original_group_name = "original group name"
+    subgroup_name = "original subgroup name"
+    edited_group_name = "edited group name"
+
+    # ==== Create group and subgroup ====
+    group = TestUtils.create_activity_group(name=original_group_name)
+
+    subgroup = TestUtils.create_activity_subgroup(
+        name=subgroup_name, activity_groups=[group.uid]
+    )
+
+    # ==== Update group ====
+    # Create new version of subgroup
+    response = api_client.post(
+        f"/concepts/activities/activity-groups/{group.uid}/versions",
+        json={},
+    )
+    assert response.status_code == 201
+
+    # Patch the group
+    response = api_client.patch(
+        f"/concepts/activities/activity-groups/{group.uid}",
+        json={
+            "name": edited_group_name,
+            "name_sentence_case": edited_group_name,
+            "change_description": "patch group",
+        },
+    )
+    assert response.status_code == 200
+
+    # Approve the group
+    response = api_client.post(
+        f"/concepts/activities/activity-groups/{group.uid}/approvals"
+    )
+
+    # === Assert that the group was updated as expected ===
+    response = api_client.get(f"/concepts/activities/activity-groups/{group.uid}")
+
+    assert response.status_code == 200
+    res = response.json()
+
+    assert res["name"] == edited_group_name
+    assert res["version"] == "2.0"
+    assert res["status"] == "Final"
+
+    # ==== Update subgroup ====
+
+    # Create new version of subgroup
+    response = api_client.post(
+        f"/concepts/activities/activity-sub-groups/{subgroup.uid}/versions",
+        json={},
+    )
+    assert response.status_code == 201
+
+    # Patch the subgroup, no changes
+    response = api_client.patch(
+        f"/concepts/activities/activity-sub-groups/{subgroup.uid}",
+        json={
+            "change_description": "patch subgroup",
+        },
+    )
+    assert response.status_code == 200
+
+    # Approve the subgroup
+    response = api_client.post(
+        f"/concepts/activities/activity-sub-groups/{subgroup.uid}/approvals"
+    )
+    assert response.status_code == 201
+
+    # Get the activity by uid and assert that it was updated to the new group version
+    response = api_client.get(
+        f"/concepts/activities/activity-sub-groups/{subgroup.uid}"
+    )
+    assert response.status_code == 200
+    res = response.json()
+
+    assert res["version"] == "2.0"
+    assert res["status"] == "Final"
+
+    assert res["name"] == subgroup_name
+    assert len(res["activity_groups"]) == 1
+
+    assert res["activity_groups"][0]["uid"] == group.uid
+    assert res["activity_groups"][0]["name"] == edited_group_name

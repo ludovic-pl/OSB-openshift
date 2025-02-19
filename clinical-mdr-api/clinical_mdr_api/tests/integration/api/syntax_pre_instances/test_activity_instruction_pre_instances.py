@@ -16,8 +16,15 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.activities.activity import Activity
+from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
+from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
+    ActivitySubGroup,
+)
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.syntax_pre_instances.activity_instruction_pre_instance import (
     ActivityInstructionPreInstance,
 )
@@ -29,25 +36,25 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     MultiTemplateParameterTerm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 activity_instruction_pre_instances: list[ActivityInstructionPreInstance]
 activity_instruction_template: ActivityInstructionTemplate
-dictionary_term_indication: models.DictionaryTerm
-activity: models.Activity
-activity_group: models.ActivityGroup
-activity_subgroup: models.ActivitySubGroup
-indications_codelist: models.DictionaryCodelist
+dictionary_term_indication: DictionaryTerm
+activity: Activity
+activity_group: ActivityGroup
+activity_subgroup: ActivitySubGroup
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-text_value_1: models.TextValue
-text_value_2: models.TextValue
+text_value_1: TextValue
+text_value_2: TextValue
 
 URL = "activity-instruction-pre-instances"
 
@@ -251,8 +258,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 ACTIVITY_INSTRUCTION_PRE_INSTANCE_FIELDS_ALL = [
     "name",
@@ -266,7 +271,7 @@ ACTIVITY_INSTRUCTION_PRE_INSTANCE_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameter_terms",
     "library",
@@ -289,7 +294,7 @@ def test_get_activity_instruction(api_client):
     response = api_client.get(f"{URL}/{activity_instruction_pre_instances[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(ACTIVITY_INSTRUCTION_PRE_INSTANCE_FIELDS_ALL)
@@ -386,7 +391,7 @@ def test_activity_instruction_pre_instances(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -424,7 +429,7 @@ def test_get_versions_of_activity_instruction_pre_instance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == activity_instruction_pre_instances[1].uid
@@ -491,7 +496,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -508,10 +513,10 @@ def test_filtering_wildcard(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for activity_instruction_pre_instance in activity_instruction_pre_instances:
         value = getattr(activity_instruction_pre_instance, field_name)
@@ -534,7 +539,7 @@ def test_create_new_version_of_activity_instruction_pre_instance(api_client):
     res = response.json()
     log.info("Created new version of Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == activity_instruction_template.uid
@@ -590,7 +595,7 @@ def test_update_activity_instruction_pre_instance(api_client):
     res = response.json()
     log.info("Updated Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == activity_instruction_template.uid
@@ -660,7 +665,7 @@ def test_change_activity_instruction_pre_instance_indexings(api_client):
     res = response.json()
     log.info("Changed Activity Instruction Pre-Instance indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == activity_instruction_template.uid
@@ -721,7 +726,7 @@ def test_remove_activity_instruction_pre_instance_indexings(api_client):
     res = response.json()
     log.info("Removed Activity Instruction Pre-Instance indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == activity_instruction_template.uid
@@ -745,7 +750,7 @@ def test_delete_activity_instruction_pre_instance(api_client):
         activity_instruction_pre_instances[3].uid,
     )
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_activity_instruction_pre_instance(api_client):
@@ -754,7 +759,7 @@ def test_approve_activity_instruction_pre_instance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == activity_instruction_pre_instances[4].uid
     assert res["sequence_id"] == "AI1P5"
     assert res["template_uid"] == activity_instruction_template.uid
@@ -786,7 +791,7 @@ def test_inactivate_activity_instruction_pre_instance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == activity_instruction_pre_instances[4].uid
     assert res["sequence_id"] == "AI1P5"
     assert res["indications"][0]["term_uid"] == dictionary_term_indication.term_uid
@@ -816,7 +821,7 @@ def test_reactivate_activity_instruction_pre_instance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == activity_instruction_pre_instances[4].uid
     assert res["sequence_id"] == "AI1P5"
     assert res["indications"][0]["term_uid"] == dictionary_term_indication.term_uid
@@ -845,7 +850,7 @@ def test_activity_instruction_pre_instance_audit_trail(api_client):
     res = response.json()
     log.info("ActivityInstructionPreInstance Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 51
     expected_uids = [
         "ActivityInstructionPreInstance_000005",
@@ -933,7 +938,7 @@ def test_create_pre_instance_activity_instruction_template(api_client):
     res = response.json()
     log.info("Created Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "AI1P26"
     assert res["template_uid"] == activity_instruction_template.uid
@@ -1010,7 +1015,7 @@ def test_keep_original_case_of_unit_definition_parameter_if_it_is_in_the_start_o
     res = response.json()
     log.info("Created Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["name"] == f"[{_unit.name}] test ignore case"
 
 
@@ -1052,7 +1057,7 @@ def test_activity_instruction_pre_instance_sequence_id_generation(api_client):
     res = response.json()
     log.info("Created Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "AI3P1"
     assert res["template_uid"] == template.uid
@@ -1135,7 +1140,7 @@ def test_activity_instruction_pre_instance_template_parameter_rules(api_client):
     res = response.json()
     log.info("Created Activity Instruction Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "AI4P1"
     assert res["template_uid"] == template.uid

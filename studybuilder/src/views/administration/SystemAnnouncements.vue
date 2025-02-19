@@ -43,6 +43,7 @@
               <ChoiceField
                 v-model="form.notification_type"
                 :choices="announcementTypes"
+                :inline="false"
               />
             </v-col>
             <v-col md="6" sm="12" class="border-s-thin px-4">

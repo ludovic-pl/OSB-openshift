@@ -1,13 +1,13 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.dictionaries.dictionary_codelist import (
     DictionaryCodelistAR,
 )
-from clinical_mdr_api.models import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.libraries.library import Library
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class DictionaryCodelist(BaseModel):
@@ -25,75 +25,51 @@ class DictionaryCodelist(BaseModel):
             status=dictionary_codelist_ar.item_metadata.status.value,
             version=dictionary_codelist_ar.item_metadata.version,
             change_description=dictionary_codelist_ar.item_metadata.change_description,
-            user_initials=dictionary_codelist_ar.item_metadata.user_initials,
+            author_username=dictionary_codelist_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in dictionary_codelist_ar.get_possible_actions()]
             ),
         )
 
-    codelist_uid: str = Field(
-        ...,
-        title="codelist_uid",
-        description="",
-    )
+    codelist_uid: Annotated[str, Field()]
 
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: Annotated[str, Field()]
 
-    template_parameter: bool = Field(
-        ...,
-        title="template_parameter",
-        description="",
-    )
+    template_parameter: Annotated[bool, Field()]
 
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on the DictionaryCodelist. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the DictionaryCodelist. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ]
 
     library_name: str
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
 
 
-class DictionaryCodelistInput(BaseModel):
-    name: str | None = Field(
-        None,
-        title="name",
-        description="",
-    )
-
-    template_parameter: bool | None = Field(
-        None,
-        title="template_parameter",
-        description="",
-    )
+class DictionaryCodelistEditInput(PatchInputModel):
+    name: Annotated[str | None, Field(min_length=1)] = None
+    template_parameter: bool | None = None
+    change_description: Annotated[str | None, Field(min_length=1)] = None
 
 
-class DictionaryCodelistEditInput(DictionaryCodelistInput):
-    change_description: str = Field(None, title="change_description", description="")
+class DictionaryCodelistCreateInput(PostInputModel):
+    name: Annotated[str | None, Field(min_length=1)] = None
+    template_parameter: bool | None = None
+    library_name: Annotated[str, Field(min_length=1)]
 
 
-class DictionaryCodelistCreateInput(DictionaryCodelistInput):
-    library_name: str
-
-
-class DictionaryCodelistTermInput(BaseModel):
-    term_uid: str = Field(
-        ...,
-        title="term_uid",
-        description="",
-    )
+class DictionaryCodelistTermInput(PostInputModel):
+    term_uid: Annotated[str, Field(min_length=1)]
 
 
 class DictionaryCodelistVersion(DictionaryCodelist):
@@ -101,11 +77,13 @@ class DictionaryCodelistVersion(DictionaryCodelist):
     Class for storing DictionaryCodelist and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

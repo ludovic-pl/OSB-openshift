@@ -66,7 +66,7 @@ class TestStudyObjectiveUpversion(unittest.TestCase):
             name_plain=f"Test {self.TPR_LABEL}",
         )
         self.item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
-            author="Test"
+            author_id="Test"
         )
         self.ar = ObjectiveTemplateAR(
             _uid=self.tfr.root_class.get_next_free_uid_and_increment_counter(),
@@ -80,7 +80,7 @@ class TestStudyObjectiveUpversion(unittest.TestCase):
         self.ar: ObjectiveTemplateAR = self.tfr.find_by_uid(
             self.ar.uid, for_update=True
         )
-        self.ar.approve(author="TEST")
+        self.ar.approve(author_id="TEST")
         self.tfr.save(self.ar)
 
     def create_template_parameters(self, label=TPR_LABEL, count=1000):

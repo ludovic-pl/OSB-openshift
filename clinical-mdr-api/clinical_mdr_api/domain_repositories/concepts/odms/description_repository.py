@@ -1,4 +1,7 @@
+from collections import defaultdict
 from typing import Any
+
+from neomodel import db
 
 from clinical_mdr_api.domain_repositories._generic_repository_interface import (
     _AggregateRootType,
@@ -6,7 +9,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -26,7 +28,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import OdmDescription
+from clinical_mdr_api.models.concepts.odms.odm_description import OdmDescription
+from common.utils import convert_to_datetime
 
 
 class DescriptionRepository(OdmGenericRepository[OdmDescriptionAR]):
@@ -80,7 +83,8 @@ class DescriptionRepository(OdmGenericRepository[OdmDescriptionAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -122,3 +126,30 @@ class DescriptionRepository(OdmGenericRepository[OdmDescriptionAR]):
             or ar.concept_vo.instruction != value.instruction
             or ar.concept_vo.sponsor_instruction != value.sponsor_instruction
         )
+
+    def get_parent_uids(self, description_uids: str):
+        """
+        Fetches parent UIDs associated with the provided description UIDs.
+
+        Args:
+            description_uids (list[str]): List of ODM Description UIDs.
+
+        Returns:
+            dict[str, set[str]]: A dictionary mapping parent UIDs to sets of ODM Description UIDs.
+        """
+        rs = db.cypher_query(
+            """
+MATCH (dr:OdmDescriptionRoot)<-[:HAS_DESCRIPTION]-(pr:ConceptRoot)
+WHERE dr.uid IN $uids
+RETURN DISTINCT pr.uid, dr.uid ORDER BY pr.uid
+""",
+            params={"uids": description_uids},
+        )
+
+        parent_to_descriptions = defaultdict(set)
+        if rs[0]:
+            for item in rs[0]:
+                parent_to_descriptions[item[0]].add(item[1])
+            return parent_to_descriptions
+
+        return {}

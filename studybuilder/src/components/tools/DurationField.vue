@@ -13,6 +13,7 @@
           :disabled="disabled"
           density="compact"
           :rules="durationRules"
+          @update:model-value="update(numericFieldName, $event)"
           @focus="text_focused = true"
           @blur="text_focused = false"
         />
@@ -131,7 +132,7 @@ export default {
       if (val) {
         this.$emit('update:modelValue', {
           ...this.form,
-          [key]: { uid: val.uid, name: val.name },
+          [key]: val.uid ? { uid: val.uid, name: val.name } : val,
         })
       } else {
         this.$emit('update:modelValue', { ...this.form, [key]: undefined })

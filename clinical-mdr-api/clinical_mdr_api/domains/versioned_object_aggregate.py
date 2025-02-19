@@ -1,18 +1,11 @@
 import abc
 import datetime
 from dataclasses import dataclass, field, replace
-from enum import Enum
 from typing import AbstractSet, Any, Callable, Self
 
-from clinical_mdr_api import exceptions
-
-
-class VersioningException(Exception):
-    def __init__(self, msg, error_code=500, code="unexpected_error"):
-        self.error_code = error_code
-        self.code = code
-        self.msg = msg
-        super().__init__(msg)
+from clinical_mdr_api.domains.enums import LibraryItemStatus, ObjectAction
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -31,11 +24,10 @@ class LibraryVO:
             library_name
         )
 
-        if is_library_editable_callback_result is None:
-            raise exceptions.BusinessLogicException(
-                f"Can't infer if library: {library_name} is editable, "
-                f"because the is_editable callback wasn't passed."
-            )
+        BusinessLogicException.raise_if(
+            is_library_editable_callback_result is None,
+            msg=f"Can't infer if library with Name '{library_name}' is editable, because the is_editable callback wasn't passed.",
+        )
 
         return cls(name=library_name, is_editable=is_library_editable_callback_result)
 
@@ -45,29 +37,6 @@ class LibraryVO:
 
     name: str
     is_editable: bool
-
-
-class LibraryItemStatus(Enum):
-    """
-    Enumerator for library item statuses
-    """
-
-    FINAL = "Final"
-    DRAFT = "Draft"
-    RETIRED = "Retired"
-
-
-class ObjectAction(Enum):
-    """
-    Enumerator for library item actions that can change library item status
-    """
-
-    APPROVE = "approve"
-    EDIT = "edit"
-    DELETE = "delete"
-    NEWVERSION = "new_version"
-    INACTIVATE = "inactivate"
-    REACTIVATE = "reactivate"
 
 
 @dataclass(frozen=True)
@@ -80,26 +49,32 @@ class LibraryItemMetadataVO:
     # Versioning information
     _change_description: str
     _status: LibraryItemStatus
-    _author: str
+    _author_id: str
+
     _start_date: datetime.datetime
     _end_date: datetime.datetime | None
 
     _major_version: int
     _minor_version: int
 
+    _author_username: str | None = None
+
     @classmethod
     def get_initial_item_metadata(
         cls,
-        author: str,
+        author_id: str,
         start_date: datetime.datetime | None = None,
     ) -> Self:
         return cls(
             _change_description="Initial version",
             _status=LibraryItemStatus.DRAFT,
-            _author=author,
-            _start_date=start_date
-            if start_date
-            else datetime.datetime.now(datetime.timezone.utc),
+            _author_id=author_id,
+            _author_username=UserInfoService.get_author_username_from_id(author_id),
+            _start_date=(
+                start_date
+                if start_date
+                else datetime.datetime.now(datetime.timezone.utc)
+            ),
             _end_date=None,
             _major_version=0,
             _minor_version=1,
@@ -111,11 +86,12 @@ class LibraryItemMetadataVO:
         *,
         change_description: str,
         status: LibraryItemStatus,
-        author: str,
+        author_id: str,
         start_date: datetime.datetime,
         end_date: datetime.datetime | None,
         major_version: int,
         minor_version: int,
+        author_username: str | None,
     ) -> Self:
         assert major_version >= 0
         assert minor_version >= 0
@@ -123,7 +99,8 @@ class LibraryItemMetadataVO:
         return cls(
             _change_description=change_description,
             _status=status,
-            _author=author,
+            _author_id=author_id,
+            _author_username=author_username,
             _start_date=start_date,
             _end_date=end_date,
             _major_version=major_version,
@@ -139,8 +116,12 @@ class LibraryItemMetadataVO:
         return self._status
 
     @property
-    def user_initials(self) -> str:
-        return self._author
+    def author_id(self) -> str:
+        return self._author_id
+
+    @property
+    def author_username(self) -> str | None:
+        return self._author_username
 
     @property
     def start_date(self) -> datetime.datetime:
@@ -197,7 +178,7 @@ class LibraryItemMetadataVO:
             v_major += 1
         return v_major, v_minor
 
-    def new_draft_version(self, author: str, change_description: str) -> Self:
+    def new_draft_version(self, author_id: str, change_description: str) -> Self:
         """
         Creates new object in draft version updating properly all values
         """
@@ -211,11 +192,11 @@ class LibraryItemMetadataVO:
                 _major_version=major,
                 _minor_version=minor,
                 _change_description=change_description,
-                _author=author,
+                _author_id=author_id,
             )
-        raise VersioningException("Cannot create new Draft version")
+        raise BusinessLogicException(msg="Cannot create new Draft version")
 
-    def new_final_version(self, author: str, change_description: str) -> Self:
+    def new_final_version(self, author_id: str, change_description: str) -> Self:
         """
         Creates new object in final version updating properly all values
         """
@@ -229,11 +210,11 @@ class LibraryItemMetadataVO:
                 _major_version=major,
                 _minor_version=minor,
                 _change_description=change_description,
-                _author=author,
+                _author_id=author_id,
             )
-        raise VersioningException("The object is not in draft status.")
+        raise BusinessLogicException(msg="The object isn't in draft status.")
 
-    def new_retired_version(self, author: str, change_description: str) -> Self:
+    def new_retired_version(self, author_id: str, change_description: str) -> Self:
         """
         Creates new object in retired version updating properly all values
         """
@@ -247,12 +228,11 @@ class LibraryItemMetadataVO:
                 _major_version=major,
                 _minor_version=minor,
                 _change_description=change_description,
-                _author=author,
+                _author_id=author_id,
             )
-        raise VersioningException("Cannot retire draft version.")
+        raise BusinessLogicException(msg="Cannot retire draft version.")
 
-    # @deprecated
-    def new_version_start_date(self, author, change_description, date):
+    def new_version_start_date(self, author_id, change_description, date):
         """
         Creates new object in the same version - used for cascading updates
         """
@@ -263,7 +243,7 @@ class LibraryItemMetadataVO:
             _major_version=major,
             _minor_version=minor,
             _change_description=change_description,
-            _author=author,
+            _author_id=author_id,
         )
 
 
@@ -276,7 +256,7 @@ class VersioningActionMixin:
 
     # implementations of basic versioning actions
     def approve(
-        self, author: str, change_description: str = _FINAL_VERSION_LABEL
+        self, author_id: str, change_description: str = _FINAL_VERSION_LABEL
     ) -> None:
         """
         Approves the latest draft version and sets the latest version to final.
@@ -284,18 +264,16 @@ class VersioningActionMixin:
         self.__raise_error_if_deleted()
         self.__raise_error_if_edit_is_not_allowed_in_the_library()
         new_metadata = self._item_metadata.new_final_version(
-            author=author, change_description=change_description
+            author_id=author_id, change_description=change_description
         )
-        if self.item_metadata.status != LibraryItemStatus.DRAFT:
-            raise VersioningException(
-                "Only DRAFT version can be approved.",
-                error_code=403,
-                code="invalid_status_non_draft",
-            )
+        BusinessLogicException.raise_if(
+            self.item_metadata.status != LibraryItemStatus.DRAFT,
+            msg="Only DRAFT version can be approved.",
+        )
         self._item_metadata = new_metadata
 
     def inactivate(
-        self, author: str, change_description: str = _RETIRED_VERSION_LABEL
+        self, author_id: str, change_description: str = _RETIRED_VERSION_LABEL
     ) -> None:
         """
         Inactivates latest version.
@@ -303,26 +281,28 @@ class VersioningActionMixin:
         self.__raise_error_if_deleted()
         self.__raise_error_if_edit_is_not_allowed_in_the_library()
         self._item_metadata = self._item_metadata.new_retired_version(
-            author=author, change_description=change_description
+            author_id=author_id, change_description=change_description
         )
 
     def reactivate(
-        self, author: str, change_description: str = _REACTIVATED_VERSION_LABEL
+        self, author_id: str, change_description: str = _REACTIVATED_VERSION_LABEL
     ) -> None:
         """
         Reactivates latest retired version and sets the version to draft.
         """
         self.__raise_error_if_deleted()
         self.__raise_error_if_edit_is_not_allowed_in_the_library()
-        if self.item_metadata.status != LibraryItemStatus.RETIRED:
-            raise VersioningException("Only RETIRED version can be reactivated.")
+        BusinessLogicException.raise_if(
+            self.item_metadata.status != LibraryItemStatus.RETIRED,
+            msg="Only RETIRED version can be reactivated.",
+        )
         new_metadata = self._item_metadata.new_final_version(
-            author=author, change_description=change_description
+            author_id=author_id, change_description=change_description
         )
         self._item_metadata = new_metadata
 
     def _create_new_version(
-        self, author: str, change_description: str = _NEW_VERSION_LABEL
+        self, author_id: str, change_description: str = _NEW_VERSION_LABEL
     ) -> None:
         """
         Creates a new draft version for the object.
@@ -330,53 +310,54 @@ class VersioningActionMixin:
         self.__raise_error_if_deleted()
         self.__raise_error_if_edit_is_not_allowed_in_the_library()
         new_metadata = self._item_metadata.new_draft_version(
-            author=author, change_description=change_description
+            author_id=author_id, change_description=change_description
         )
-        if self.item_metadata.status != LibraryItemStatus.FINAL:
-            raise VersioningException(
-                "New draft version can be created only for FINAL versions.",
-                error_code=403,
-                code="invalid_status_non_final",
-            )
+        BusinessLogicException.raise_if(
+            self.item_metadata.status != LibraryItemStatus.FINAL,
+            msg="New draft version can be created only for FINAL versions.",
+        )
         self._item_metadata = new_metadata
 
-    def _edit_draft(self, author: str, change_description: str) -> None:
+    def _edit_draft(self, author_id: str, change_description: str) -> None:
         """
         Edits a draft version of the object, creating a new draft version.
         """
         self.__raise_error_if_deleted()
         self.__raise_error_if_edit_is_not_allowed_in_the_library()
 
-        if self._item_metadata.status != LibraryItemStatus.DRAFT:
-            raise VersioningException("The object is not in draft status.")
+        BusinessLogicException.raise_if(
+            self._item_metadata.status != LibraryItemStatus.DRAFT,
+            msg="The object isn't in draft status.",
+        )
         self._item_metadata = self._item_metadata.new_draft_version(
-            author=author, change_description=change_description
+            author_id=author_id, change_description=change_description
         )
 
     def soft_delete(self) -> None:
-        if self._item_metadata.major_version == 0:
-            self._is_deleted = True
-        else:
-            raise VersioningException("Object has been accepted")
+        BusinessLogicException.raise_if(
+            self._item_metadata.major_version != 0, msg="Object has been accepted"
+        )
+
+        self._is_deleted = True
 
     @abc.abstractmethod
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         raise NotImplementedError("You cannot get possible actions for abstract class")
 
     def __raise_error_if_deleted(self) -> None:
-        if self.is_deleted:
-            raise exceptions.BusinessLogicException("Cannot use deleted object.")
+        BusinessLogicException.raise_if(
+            self.is_deleted, msg="Cannot use deleted object."
+        )
 
     # Validator functions
     def __raise_error_if_edit_is_not_allowed_in_the_library(self) -> None:
         # some of the derived classes allow to edit theirs instances even
         # when connected to not editable library
-        if self._is_edit_allowed_in_non_editable_library():
-            return
-        if not self.library.is_editable:
-            raise VersioningException(
-                "Library is not editable.", error_code=403, code="invalid_status_final"
-            )
+        BusinessLogicException.raise_if(
+            not self._is_edit_allowed_in_non_editable_library()
+            and not self.library.is_editable,
+            msg="Library isn't editable.",
+        )
 
 
 @dataclass
@@ -443,21 +424,21 @@ class LibraryItemAggregateRootBase(VersioningActionMixin, abc.ABC):
     def _from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         uid_supplier: Callable[[], str | None] = lambda: None,
         **kwargs,
     ) -> Self:
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                "Creating objects in non-editable library is forbidden."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg="Creating objects in non-editable library is forbidden.",
+        )
 
         return cls(
             _uid=uid_supplier(),
             _library=library,
             _item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author=author
+                author_id=author_id
             ),
             **kwargs,
         )
@@ -480,5 +461,6 @@ class LibraryItemAggregateRootBase(VersioningActionMixin, abc.ABC):
         )
 
     def __raise_error_if_deleted(self) -> None:
-        if self.is_deleted:
-            raise exceptions.BusinessLogicException("Cannot use deleted object.")
+        BusinessLogicException.raise_if(
+            self.is_deleted, msg="Cannot use deleted object."
+        )

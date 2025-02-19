@@ -60,6 +60,8 @@ class ADAMListingsService:
         GenericFilteringReturn[StudyVisitAdamListing]
         | GenericFilteringReturn[StudyEndpntAdamListing]
     ):
+        result = []
+
         if adam_report == AdamReport.MDVISIT:
             result = self.list_mdvisit(
                 study_uid, study_value_version=study_value_version
@@ -88,9 +90,11 @@ class ADAMListingsService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ):
+        result = []
+
         if adam_report == AdamReport.MDVISIT:
             result = self.list_mdvisit(
                 study_uid, study_value_version=study_value_version
@@ -106,6 +110,6 @@ class ADAMListingsService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         return filtered_items

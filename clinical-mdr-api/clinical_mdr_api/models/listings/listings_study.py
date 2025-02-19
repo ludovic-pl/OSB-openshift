@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Callable, Self
+from typing import Annotated, Any, Callable, Self
 
 from pydantic import Field
 
@@ -83,17 +83,21 @@ class SimpleListingCTModel(BaseModel):
             simple_listing_ct_model = None
         return simple_listing_ct_model
 
-    id: str | None = Field(
-        None,
-        title="concept id: c code for CDISC CT, dictionary id for dictionary codes",
-        description="",
-    )
+    id: Annotated[
+        str | None,
+        Field(
+            title="concept id: c code for CDISC CT, dictionary id for dictionary codes",
+            nullable=True,
+        ),
+    ] = None
 
-    name: str | None = Field(
-        None,
-        title="name: submission name for CDISC CT, name for dictionary codes",
-        description="",
-    )
+    name: Annotated[
+        str | None,
+        Field(
+            title="name: submission name for CDISC CT, name for dictionary codes",
+            nullable=True,
+        ),
+    ] = None
 
 
 def ct_term_uid_to_str(ct_uid: str, find_term_by_uid: Callable[[str], Any | None]):
@@ -321,7 +325,7 @@ class StudyPopulationListingModel(BaseModel):
     relapse_criteria: str
     relapse_criteria_nf: str
 
-    plan_no_subject: int | None = Field(None, nullable=True)
+    plan_no_subject: Annotated[int | None, Field(nullable=True)] = None
     plan_no_subject_nf: str
 
     @classmethod
@@ -571,7 +575,7 @@ class StudySelctionListingModel(BaseModel):
     name: str
     short_name: str
     code: str
-    no_subject: int | None = Field(None, nullable=True)
+    no_subject: Annotated[int | None, Field(nullable=True)] = None
     desc: str
 
 
@@ -695,12 +699,16 @@ class StudyCohortListingModel(StudySelctionListingModel):
             code=none_to_empty_str(study_selection_cohort_vo.code),
             no_subject=study_selection_cohort_vo.number_of_subjects,
             desc=none_to_empty_str(study_selection_cohort_vo.description),
-            arm_uid=study_selection_cohort_vo.arm_root_uids
-            if study_selection_cohort_vo.arm_root_uids
-            else [],
-            branch_uid=study_selection_cohort_vo.branch_arm_root_uids
-            if study_selection_cohort_vo.branch_arm_root_uids
-            else [],
+            arm_uid=(
+                study_selection_cohort_vo.arm_root_uids
+                if study_selection_cohort_vo.arm_root_uids
+                else []
+            ),
+            branch_uid=(
+                study_selection_cohort_vo.branch_arm_root_uids
+                if study_selection_cohort_vo.branch_arm_root_uids
+                else []
+            ),
         )
 
     @staticmethod
@@ -862,9 +870,9 @@ class StudyVisitListingModel(BaseModel):
     visit_no: str
     name: str
     short_name: str
-    study_day: int | None = Field(None, nullable=True)
-    window_min: int | None = Field(None, nullable=True)
-    window_max: int | None = Field(None, nullable=True)
+    study_day: Annotated[int | None, Field(nullable=True)] = None
+    window_min: Annotated[int | None, Field(nullable=True)] = None
+    window_max: Annotated[int | None, Field(nullable=True)] = None
     window_unit: str
     desc: str
     epoch_alloc: str
@@ -884,9 +892,9 @@ class StudyVisitListingModel(BaseModel):
             visit_no=study_visit_vo.unique_visit_number,
             name=study_visit_vo.derive_visit_name(),
             short_name=study_visit_vo.visit_short_name,
-            study_day=study_visit_vo.study_day_number
-            if study_visit_vo.study_day
-            else None,
+            study_day=(
+                study_visit_vo.study_day_number if study_visit_vo.study_day else None
+            ),
             window_min=study_visit_vo.visit_window_min,
             window_max=study_visit_vo.visit_window_max,
             window_unit=none_to_empty_str(
@@ -1047,11 +1055,13 @@ class StudyEndpointListingModel(BaseModel):
                 ).name_plain
             ),
             objective_uid=none_to_empty_str(study_endpoint_vo.study_objective_uid),
-            timeframe=Timeframe.from_timeframe_ar(
-                find_timeframe_by_uid(uid=study_endpoint_vo.timeframe_uid)
-            ).name_plain
-            if study_endpoint_vo.timeframe_uid
-            else "",
+            timeframe=(
+                Timeframe.from_timeframe_ar(
+                    find_timeframe_by_uid(uid=study_endpoint_vo.timeframe_uid)
+                ).name_plain
+                if study_endpoint_vo.timeframe_uid
+                else ""
+            ),
             endpoint_unit=ep_unit,
         )
 
@@ -1086,22 +1096,40 @@ class StudyMetadataListingModel(BaseModel):
     specified_dt: str
     request_dt: str
     title: str
-    reg_id: RegistryIdentifiersListingModel | None = Field(None, nullable=True)
-    study_type: StudyTypeListingModel | None = Field(None, nullable=True)
-    study_attributes: StudyAttributesListingModel | None = Field(None, nullable=True)
-    study_population: StudyPopulationListingModel | None = Field(None, nullable=True)
-    arms: list[StudyArmListingModel] | None = Field(None, nullable=True)
-    branches: list[StudyBranchArmListingModel] | None = Field(None, nullable=True)
-    cohorts: list[StudyCohortListingModel] | None = Field(None, nullable=True)
-    epochs: list[StudyEpochListingModel] | None = Field(None, nullable=True)
-    elements: list[StudyElementListingModel] | None = Field(None, nullable=True)
-    design_matrix: list[StudyDesignMatrixListingModel] | None = Field(
-        None, nullable=True
+    reg_id: Annotated[RegistryIdentifiersListingModel | None, Field(nullable=True)] = (
+        None
     )
-    visits: list[StudyVisitListingModel] | None = Field(None, nullable=True)
-    criteria: list[StudyCriteriaListingModel] | None = Field(None, nullable=True)
-    objectives: list[StudyObjectiveListingModel] | None = Field(None, nullable=True)
-    endpoints: list[StudyEndpointListingModel] | None = Field(None, nullable=True)
+    study_type: Annotated[StudyTypeListingModel | None, Field(nullable=True)] = None
+    study_attributes: Annotated[
+        StudyAttributesListingModel | None, Field(nullable=True)
+    ] = None
+    study_population: Annotated[
+        StudyPopulationListingModel | None, Field(nullable=True)
+    ] = None
+    arms: Annotated[list[StudyArmListingModel] | None, Field(nullable=True)] = None
+    branches: Annotated[
+        list[StudyBranchArmListingModel] | None, Field(nullable=True)
+    ] = None
+    cohorts: Annotated[list[StudyCohortListingModel] | None, Field(nullable=True)] = (
+        None
+    )
+    epochs: Annotated[list[StudyEpochListingModel] | None, Field(nullable=True)] = None
+    elements: Annotated[list[StudyElementListingModel] | None, Field(nullable=True)] = (
+        None
+    )
+    design_matrix: Annotated[
+        list[StudyDesignMatrixListingModel] | None, Field(nullable=True)
+    ] = None
+    visits: Annotated[list[StudyVisitListingModel] | None, Field(nullable=True)] = None
+    criteria: Annotated[
+        list[StudyCriteriaListingModel] | None, Field(nullable=True)
+    ] = None
+    objectives: Annotated[
+        list[StudyObjectiveListingModel] | None, Field(nullable=True)
+    ] = None
+    endpoints: Annotated[
+        list[StudyEndpointListingModel] | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_metadata_vo(

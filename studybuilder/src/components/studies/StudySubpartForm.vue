@@ -253,6 +253,10 @@ export default {
       headers: [
         { title: '', key: 'select', width: '5%' },
         {
+          title: this.$t('StudySubparts.study_id'),
+          key: 'current_metadata.identification_metadata.study_id',
+        },
+        {
           title: this.$t('StudyTable.acronym'),
           key: 'current_metadata.identification_metadata.study_acronym',
         },
@@ -324,6 +328,9 @@ export default {
         filtersObj['current_metadata.identification_metadata.study_acronym'] = {
           v: [null],
           op: 'ne',
+        }
+        filtersObj['current_metadata.identification_metadata.project_number'] = {
+          v: [this.selectedStudy.current_metadata.identification_metadata.project_number],
         }
         filters = filtersObj
       } else {

@@ -3,14 +3,9 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api import config as settings
-from clinical_mdr_api.domain_repositories._utils import helpers
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
-    to_relation_trees,
 )
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
@@ -27,7 +22,9 @@ from clinical_mdr_api.domains.study_selections.study_selection_element import (
     StudySelectionElementAR,
     StudySelectionElementVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common import config as settings
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -47,7 +44,7 @@ class SelectionHistoryElement:
     element_subtype: str | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
     change_type: str
     end_date: datetime.datetime | None
     order: int
@@ -158,19 +155,19 @@ class StudySelectionElementRepository:
                 sar.text AS text,
                 count(scd) AS study_compound_dosing_count,
                 sa.date AS start_date,
-                sa.user_initials AS user_initials
+                sa.author_id AS author_id
                 ORDER BY order
             """
 
         all_element_selections = db.cypher_query(query, query_parameters)
         all_selections = []
 
-        for selection in helpers.db_result_to_list(all_element_selections):
+        for selection in utils.db_result_to_list(all_element_selections):
             acv = selection.get("accepted_version", False)
             if acv is None:
                 acv = False
             selection_vo = StudySelectionElementVO.from_input_values(
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
                 study_uid=selection["study_uid"],
                 name=selection["element_name"],
                 short_name=selection["element_short_name"],
@@ -254,12 +251,12 @@ class StudySelectionElementRepository:
             se.text AS text,
             count(scd) AS study_compound_dosing_count,
             sa.date AS start_date,
-            sa.user_initials AS user_initials
+            sa.author_id AS author_id
             ORDER BY order
         """
 
         result = db.cypher_query(query, query_parameters)
-        result = helpers.db_result_to_list(result)
+        result = utils.db_result_to_list(result)
         assert (
             len(result) == 1
         ), f"Found more than 1 study element with uid {study_element_uid}"
@@ -278,7 +275,7 @@ class StudySelectionElementRepository:
             study_compound_dosing_count=selection["study_compound_dosing_count"],
             study_selection_uid=selection["study_selection_uid"],
             start_date=convert_to_datetime(value=selection["start_date"]),
-            user_initials=selection["user_initials"],
+            author_id=selection["author_id"],
         )
         return selection_vo, selection["order"]
 
@@ -307,20 +304,22 @@ class StudySelectionElementRepository:
         :return:
         """
 
-        sdc_node = to_relation_trees(
-            StudyElement.nodes.fetch_relations("has_design_cell", "has_after").filter(
+        sdc_node = (
+            StudyElement.nodes.fetch_relations("has_design_cell", "has_after")
+            .filter(
                 study_value__latest_value__uid=study_uid,
                 uid=element_uid,
                 has_design_cell__study_value__latest_value__uid=study_uid,
             )
+            .resolve_subgraph()
         )
         return len(sdc_node) > 0
 
-    def save(self, study_selection: StudySelectionElementAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionElementAR, author_id: str) -> None:
         """
         Persist the set of selected study element from the aggregate to the database
         :param study_selection:
-        :param author:
+        :param author_id:
         """
         assert study_selection.repository_closure_data is not None
 
@@ -332,10 +331,10 @@ class StudySelectionElementRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -379,7 +378,7 @@ class StudySelectionElementRepository:
                 audit_node=audit_node,
                 study_selection_node=last_study_selection_node,
                 study_root_node=study_root_node,
-                author=author,
+                author_id=author_id,
             )
             # storage of the removed node audit trail to after put the "after" relationship to the new one
             audit_trail_nodes[selection.study_selection_uid] = audit_node
@@ -407,7 +406,7 @@ class StudySelectionElementRepository:
                 last_study_selection_node = last_nodes[selection.study_selection_uid]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -425,9 +424,9 @@ class StudySelectionElementRepository:
         audit_node: StudyAction,
         study_selection_node: StudyElement,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -534,14 +533,15 @@ class StudySelectionElementRepository:
                 at.uid AS element_subtype_uid,
                 all_sa.text AS text,
                 asa.date AS start_date,
-                asa.user_initials AS user_initials,
+                asa.author_id AS author_id,
                 labels(asa) AS change_type,
                 bsa.date AS end_date
             """,
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_element_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_element_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -562,7 +562,7 @@ class StudySelectionElementRepository:
                     element_colour=res["element_colour"],
                     element_subtype=res["element_subtype_uid"],
                     start_date=convert_to_datetime(value=res["start_date"]),
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     end_date=end_date,
                     accepted_version=res["accepted_version"],

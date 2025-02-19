@@ -1,10 +1,13 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.domain_repositories.user_repository import UserRepository
+from clinical_mdr_api.models.user import UserInfo, UserInfoPatchInput
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services._meta_repository import MetaRepository
+from common import exceptions
+from common.auth import rbac
 
 # Prefixed with "/admin"
 router = APIRouter()
@@ -26,7 +29,7 @@ CACHE_STORE_NAMES = [
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_caches(show_items: bool | None = Query(False)) -> list[dict]:
+def get_caches(show_items: Annotated[bool | None, Query()] = False) -> list[dict]:
     all_repos = _get_all_repos()
     return [_get_cache_info(x, show_items) for x in all_repos]
 
@@ -52,6 +55,40 @@ def clear_caches() -> list[dict]:
     return get_caches()
 
 
+@router.get(
+    "/users",
+    dependencies=[rbac.ADMIN_READ],
+    summary="Returns all users",
+    status_code=200,
+    responses={
+        404: _generic_descriptions.ERROR_404,
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+def get_users() -> list[UserInfo]:
+    user_repository = UserRepository()
+    return user_repository.get_all_users()
+
+
+@router.patch(
+    "/users/{user_id}",
+    dependencies=[rbac.ADMIN_WRITE],
+    summary="Patch user",
+    description="Set the username and/or email of a user",
+    status_code=200,
+    responses={
+        404: _generic_descriptions.ERROR_404,
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+def patch_user(user_id: str, payload: UserInfoPatchInput) -> UserInfo:
+    user_repository = UserRepository()
+    user = user_repository.patch_user(user_id, payload)
+    if user:
+        return user
+    raise exceptions.NotFoundException(msg=f"User with ID '{user_id}' doesn't exist.")
+
+
 def _get_all_repos():
     meta_repository = MetaRepository()
     all_repos = []
@@ -71,12 +108,16 @@ def _get_cache_info(repo: Any, show_items: bool = False) -> dict:
     for store_name in CACHE_STORE_NAMES:
         store_details = {
             "store_name": store_name,
-            "size": repo.cache_store_item_by_uid.currsize
-            if getattr(repo, store_name, None) is not None
-            else None,
-            "items": _get_cache_item_info(repo.cache_store_item_by_uid._Cache__data)
-            if getattr(repo, store_name, None) is not None and show_items
-            else None,
+            "size": (
+                getattr(repo, store_name).currsize
+                if getattr(repo, store_name, None) is not None
+                else None
+            ),
+            "items": (
+                _get_cache_item_info(getattr(repo, store_name)._Cache__data)
+                if getattr(repo, store_name, None) is not None and show_items
+                else None
+            ),
         }
         ret["cache_stores"].append(store_details)
 

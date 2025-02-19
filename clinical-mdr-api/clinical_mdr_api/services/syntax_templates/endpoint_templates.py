@@ -54,7 +54,7 @@ class EndpointTemplateService(GenericSyntaxTemplateService[EndpointTemplateAR]):
 
         # Process item to save
         item = EndpointTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=self.repository.generate_uid_callback,

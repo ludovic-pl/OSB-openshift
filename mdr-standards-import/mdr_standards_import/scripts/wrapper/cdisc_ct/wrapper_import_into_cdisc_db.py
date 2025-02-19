@@ -20,7 +20,7 @@ from mdr_standards_import.scripts.import_scripts.cdisc_ct.import_json_data_into_
 )
 from mdr_standards_import.scripts.utils import (
     get_directory_name,
-    get_user_initials,
+    get_author_id,
     get_cdisc_neo4j_driver,
     get_ordered_package_dates,
 )
@@ -30,7 +30,7 @@ CDISC_IMPORT_DATABASE = environ.get("NEO4J_CDISC_IMPORT_DATABASE", "cdisc")
 
 
 def wrapper_import_cdisc_ct_into_cdisc_db(
-    user_initials: str, json_data_directory: str = ""
+    author_id: str, json_data_directory: str = ""
 ):
     """
     Calls the import step to transform the JSON files into the CDISC CT graph structure.
@@ -50,11 +50,11 @@ def wrapper_import_cdisc_ct_into_cdisc_db(
             json_data_directory,
             cdisc_neo4j_driver,
             CDISC_IMPORT_DATABASE,
-            user_initials,
+            author_id,
         )
 
     cdisc_neo4j_driver.close()
 
 
 if __name__ == "__main__":
-    wrapper_import_cdisc_ct_into_cdisc_db(get_user_initials(1), get_directory_name(2, "cdisc_ct"))
+    wrapper_import_cdisc_ct_into_cdisc_db(get_author_id(1), get_directory_name(2, "cdisc_ct"))

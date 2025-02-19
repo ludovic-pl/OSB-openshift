@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ICH M11 Template - Study {{ study_id }}</title>
+  <!-- <link rel="stylesheet" type="text/css" href="./m11_style.css" /> -->
+  <!-- <script type="text/javascript" src="./m11_script.js"></script> -->
+  <style type="text/css">
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+    }
+
+    h1 {
+      font: small-caps bold large black "Times New Roman", serif;
+    }
+    h2 {
+      font: bold large black "Times New Roman", serif;
+    }
+    h3 {
+      font: bold smaller black "Times New Roman", serif;
+    }
+
+    .instructional-text {
+      color: red;
+      font-family: "Calibri", sans-serif;
+      margin-top: 10px;
+      margin-left: 5px;
+    }
+
+    .suggested-text {
+      color: blue;
+      font-family: Century, serif;
+      margin-top: 10px;
+      margin-left: 5px;
+    }
+
+    .metadata-title {
+      font-family: "Times New Roman", serif;
+      font-weight: bold;
+    }
+
+    .metadata-reply {
+      background-color: lightgrey;
+      margin-top: 10px;
+      margin-left: 5px;
+    }
+
+    .key-field {
+      margin-top: 10px;
+      margin-left: 5px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    td, th {
+      border:1px solid black;
+    }
+
+    .tsignature {
+      border: none;
+    }
+
+    .tsignature tr, .tsignature td {
+      border: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .float{
+      position:fixed;
+      width:200px;
+      top:10px;
+      right:10px;
+      text-align:center;
+    }
+
+    .subTitle {
+      text-decoration: underline;
+    }
+
+    @media print {
+      .float {
+        display: none;
+      }
+    }
+
+    .header1 {
+      width: 1%;
+    }
+
+    .soaGroup {
+      font: bold;
+      font-size: 14px;
+      text-transform: uppercase !important;
+      text-align: left;
+      padding-left: 5px;
+    }
+
+    .group {
+      font-size: 12px;
+      text-transform: uppercase !important;
+      text-align: left;
+      padding-left: 15px;
+    }
+
+    .subGroup {
+      font-size: 12px;
+      text-align: left;
+      padding-left: 25px;
+    }
+
+    .activity {
+      font-size: 11px;
+      text-align: left;
+      padding-left: 35px;
+    }
+
+    .activitySchedule {
+      text-align: center !important;
+    }
+
+  </style>
+</head>
+<body>
+  <h1>ICH M11 Template - Study {{ study_name }} {{ study_id }}</h1>
+  <div class="float"><button onclick="toggleinstruction()">Show/Hide instructional text</button></br><button onclick="togglesuggested()">Show/Hide suggested text</button></br><button onclick="togglefield()">Show/Hide fields</button></div>
+
+  <table width="100%">
+    <tbody>
+      <tr>
+        <th width="30%">Protocol Full Title: </th>
+        <td width="70%">
+          {{ protocol_full_title }}</br><span class="metadata-reply">[Protocol Full Title]</span>
+          <div class="instructional-text">The protocol should have a descriptive title that identifies the scientific aspects of the trial sufficiently to ensure it is immediately evident what the trial is investigating and on whom, and to allow retrieval from literature or internet searches.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Sponsor Confidentiality Statement: </th>
+        <td width="70%" class="suggested-text">
+          {{ protocol_number }}</br><span class="metadata-reply">[Sponsor Confidentiality Statement]</span>
+          <div class="instructional-text">Insert the Sponsor's confidentiality statement, if applicable, otherwise delete.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Protocol Number: </th>
+        <td width="70%" class="suggested-text">
+          {{ study_id }} - {{ protocol_version }}</br><span class="metadata-reply">[version]</span>
+          <div class="instructional-text">A unique alphanumeric identifier for the trial, designated by the Sponsor, is a standard part of trial data, and should be included for most trials.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Amendment Number: </th>
+        <td width="70%" class="suggested-text">
+          <span class="metadata-reply">[Amendment Number]</span>
+          <div class="instructional-text">Enter the amendment number. If this is the original instance of the protocol, indicate Not Applicable.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%">Amendment Scope: </th>
+        <td width="70%">
+          <span class="suggested-text metadata-reply">[Amendment Scope] [Country/Region Identifer]</span>
+          <div class="instructional-text">Acceptable entries for amendment scope are: "global" or "Country-specific/Regional"</br>Use the ISO-3166 region or country identifier (for example, DE or EU). For global trials delete the Country/Region Identifier field.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Compound Number(s): </th>
+        <td width="70%" class="suggested-text">
+          <span class="metadata-reply">[Compound Number]</span>
+          <div class="instructional-text">Enter the Sponsor's unique identifier for investigational compound(s) in the trial. Add or delete additional fields as needed.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Compound Name(s): </th>
+        <td width="70%" class="suggested-text">
+          <span class="metadata-reply">[Nonproprietary Name], [Proprietary Name], [Additional Proprietary Name]</span>
+          <div class="instructional-text">Delete this line from the table if a nonproprietary name has not yet been assigned. Omit proprietary name fields if not yet established.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%">Trial Phase: </th>
+        <td width="70%">
+          {{ trial_phase }}</br><span class="suggested-text metadata-reply">[Trial Phase], [Description of Trial Phase Other]</span>
+          <div class="instructional-text">Acceptable entries are: "Early Phase 1", "Phase 1", "Phase 1/Phase 2", "Phase 2", "Phase 2/Phase 3", "Phase 3", "Phase 4", or "Other". For trials combining investigational drugs or vaccines with devices, classify according to the phase of drug development.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Acronym: </th>
+        <td width="70%" class="suggested-text">
+          {{ protocol_acronym }}</br><span class="metadata-reply">[Protocol Acronym]</span>
+          <div class="instructional-text">Acronym or abbreviation used publicly to identify the clinical trial, if any. The acronym may include numerals, such as -1, -2, or I, II, III, or IV. Delete this line from the table if not applicable.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Short Title: </th>
+        <td width="70%" class="suggested-text">
+          {{ protocol_short_title }}</br><span class="metadata-reply">[Protocol Short Title]</span>
+          <div class="instructional-text">Short title should convey <u>in plain language</u> what the trial is about and is suitable for use as "Brief Title" or "Title in Plain Language" in global clinical trial registries. It can also be suitable for use with informed consents and ethics committee submissions.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%">Sponsor Name and Address: </th>
+        <td width="70%">
+          {{ sponsor_name }}</br>{{ sponsor_legal_address }}</br><span class="metadata-reply">[Sponsor Name]</br>[Sponsor Legal Address]</span>
+          <div class="instructional-text">Provide the legal name of the individual or pharmaceutical or medical device company, governmental agency, academic institution, private organisation, or other organisation who takes primary responsability for and initiates a clinical investigation. If more than on Sponsor, list the Primary Sponsor in this field.</div>
+          <span class="suggested-text">Local Sponsor Name and Address:</span></br>
+          <span class="suggested-text metadata-reply">[Sponsor Local Name]</br>[Sponsor Local Address]</span>
+          <div class="instructional-text">In some countries, the clinical trial Sponsor may be the local affiliate company (or designee). In such cases, indicate in the Sponsor Local Name and Address field.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%" class="suggested-text">Manufacturer Name and Address: </th>
+        <td width="70%" class="suggested-text">
+          <span class="metadata-reply">[Device Manufacturer Name]</br>[Device Manufacturer Address]</span>
+          <div class="instructional-text">Manufacturer name and address information is required only for protocols that include investigational device(s) and <u>should not</u> be included for other protocols. Include the manufacturer address only if the manufacturer is different than the Sponsor listed above.</br>
+          Add additional fields as needed if multiple investigational devices will be used in the trial. Delete this line from the table if not applicable.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%">Regulatory Agency Identifier Number(s): </th>
+        <td width="70%">
+          <span class="suggested-text metadata-reply">[EUDAMED: [EUDAMED Number]]</br>[EudraCT Number: [EudraCT Number]]</br>[EU Trial Number: EU Trial Number]]</br>[IDE: [IDE Number]]</br>[IND: [IND]]</br>[jRCT: [jRCT Number]]</br>[NCT: [NCT Number]]</br>[NMPA IND: [NMPA IND]]</br>[WHO: [WHO Number]]</br>[Other: [Other Regulatory Agency Identifier Number]]</span>
+          <div class="instructional-text">Include all numbers that are applicable for the trial and available at the time of protocol or amendment finalisation. Delete prompts for numbers not available at the time of document finalisation. Delete unused fields. Add fields for “other” if more than one is needed.</div>
+        </td>
+      </tr>
+      <tr>
+        <th width="30%">Sponsor Approval Date: </th>
+        <td width="70%">
+          <span class="suggested-text metadata-reply">[Approval Date] or [The approval date is included with the electronic signature, located {describe location}.]</span>
+          <div class="instructional-text">All versions should be uniquely identifiable. Use the CDISC date format (dd/mmm/yyyy, for example 07/JUN/2015) to indicate the date the protocol (or amendment) was approved by the Sponsor.</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Sponsor Signatory:</h3>
+  <table class="tsignature">
+    <tr>
+      <td width="50%">________________________________________________</td>
+      <td width="50%">________________________________________________</td>
+    </tr>
+    <tr>
+      <td width="50%"><span class="suggested-text">[Name]</br>[Title of Sponsor Signatory]</span></td>
+      <td width="50%"><span class="suggested-text">[Sponsor Signature Date]</span></td>
+    </tr>
+  </table>
+
+  <div class="instructional-text">Or</div>
+  <span class="suggested-text">[This protocol was approved via {describe method} as described on the approval page appended to the document]</span>
+  <div class="instructional-text">Where allowed, an electronic/digital signature may be used for approval rather than a wet signature. In such cases, replace the signature block with appropriate description of the electronic/digital approval and the location of relevant information for traceability.</div>
+  
+  </br>
+  <div>Medical Monitor Name and Contact Information:</div>
+  <span class="suggested-text">[Medical Monitor Institution Name], [Medical Monitor Institution Address]</span><span class="instructional-text"> or </span><span class="suggested-text">[ is provided separately/can be found in {describe location}].</span>
+  <div class="suggested-text">Report Serious Adverse Events within 24 hours {via E-mail/fax provided in the site
+manual. /per the options below:}</div>
+  <div class="suggested-text">E-mail: [Rapid Alert E-mail Address]</div>
+  <div class="suggested-text">Fax: [Rapid Alert Fax Number]</div>
+
+  </br>
+  <div>Amendment Details</div>
+  <div class="instructional-text">Delete this entire section for an original protocol.</div>
+
+  </br>
+  <div class="subTitle">History of Amendments</div>
+  <div> { #/A total of # } prior {global} amendments have occurred, as shown in the table below:</div>
+  <div>
+    <table width="100%"><thead>
+      <tr>
+        <th  width="33%">Document</th>
+        <th  width="33%">Sponsor Approval Date (dd/mmm/yyyy)</th>
+        <th  width="33%" class="suggested-text">Approximate {(#/%)} Enrolled</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Amendment x]</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Amendment x Date]</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">{(#/%)} {globally/locally}}</span></td>
+        </tr>
+        <tr>
+          <td>&nbsp;<span class="suggested-text">Original Protocol</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Original Protocol Date]</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">0</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="instructional-text">Do not include the current amendment in the table above, as final approval dates are often difficult to predict during document preparation. Previous amendments should appear in reverse chronological order with the most recent at the top (for example, Amendment 3, 2, 1). Delete lines not needed, add lines as needed. Inclusion of regional-, country-, and site-specific amendments in the table is optional. If included, ensure that the scope is clearly distinguishable from global amendments.</div>
+  <div class="instructional-text">If including the column with enrollment numbers, follow the instructions below. 
+    <ul>
+      <li>For global amendments, list approximate global enrollment total or percentage at the time of the amendment and select “globally”.</li>
+      <li>For country/region amendments, list the approximate local enrollment total or percentage at the time of the amendment and select “locally”.</li>
+    </ul>
+  </div>
+  <div class="subTitle">Current Amendment</div>
+  <div class="suggested-text">The table below provides an overview of the current amendment.</div>
+  <div>
+    <table width="100%">
+      <thead>
+        <tr>
+          <th width="30%">Amendment Number:</th>
+          <th width="70%" colspan="2">&nbsp;<span class="suggested-text metadata-reply">[Amendment Number]</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>&nbsp;<span class="suggested-text">Approximate { %/# } Enrolled:</span></td>
+          <td colspan="2">&nbsp;<span class="suggested-text metadata-reply">[Estimated % or # Enrolled]</span> enrolled <span class="suggested-text metadata-reply">[Globally/Locally]</span><div class="instructional-text">Enter the approximate number or percentage of participants enrolled as a percentage of the expected total. If the number of expected participants is changing as a result of the current amendment, use the updated number of expected participants to estimate the current percent of enrollment. Estimates are adequate, as precise enrollment figures will likely be changing while an amendment is being prepared. <u>For a global amendment</u>, provide the estimated global enrollment at the time of the Sponsor approved the amendment. <u>For a country/regional amendment</u>, provide the estimated local or regional enrollment at the time the Sponsor approved the amendment.</div></td>
+        </tr>
+        <tr>
+          <td>&nbsp;<span class="suggested-text">Reason(s) for Amendment:</span></td>
+          <td>&nbsp;<span class="suggested-text">Primary: </span><span class="suggested-text metadata-reply">[Primary Reason for Amendment]</span><div class="instructional-text">*</div><div class="instructional-text">Select from the following (multiple selections allowed):
+          <ul>
+            <li>Regulatory agency request to amend</li>
+            <li>New regulatory guidance</li>
+            <li>IRB/IEC feedback</li>
+            <li>New safety information available</li>
+            <li>Manufacturing change</li>
+            <li>Adaptive clinical trial IMP addition</li>
+            <li>Change in strategy</li>
+            <li>Change in standard of care</li>
+            <li>New data available (other than safety data)</li>
+            <li>Investigator/site feedback</li>
+            <li>Recruitment difficulty</li>
+            <li>Inconsistency and/or error in the protocol</li>
+            <li>Protocol design error</li>
+            <li>Other:</li>
+          </ul>
+          </div><span class="suggested-text metadata-reply">[Describe]</span></td>
+          <td>&nbsp;<span class="suggested-text">Other: </span><span class="suggested-text metadata-reply">[Other Reason for Amendment]</span><div class="instructional-text">*</div><div class="instructional-text">Select from the following (multiple selections allowed):
+          <ul>
+            <li>Regulatory agency request to amend</li>
+            <li>New regulatory guidance</li>
+            <li>IRB/IEC feedback</li>
+            <li>New safety information available</li>
+            <li>Manufacturing change</li>
+            <li>Adaptive clinical trial IMP addition</li>
+            <li>Change in strategy</li>
+            <li>Change in standard of care</li>
+            <li>New data available (other than safety data)</li>
+            <li>Investigator/site feedback</li>
+            <li>Recruitment difficulty</li>
+            <li>Inconsistency and/or error in the protocol</li>
+            <li>Protocol design error</li>
+            <li>Not applicable</li>
+            <li>Other:</li>
+          </ul>
+          </div><span class="suggested-text metadata-reply">[Describe]</span></td>
+        </tr>
+        <tr>
+          <td>Summary of the Amendment:</td>
+          <td colspan="2">&nbsp;<span class="metadata-reply">[Summary of Amendment]</span><div class="instructional-text">Specify on the primary reason for the amendment with details specific to the trial. If more than one key change prompted the amendment, discuss briefly. Incidental changes which are included in the amendment but unrelated to the key changes do not need to be described here.</div></td>
+        </tr>
+        <tr>
+          <td>&nbsp;<span class="suggested-text">Is this amendment likely to have a: 
+            <ul>
+              <li>safety or rights of the participants, or</li>
+              <li>on the reliability and robustness of the data generated in the clinical trial?</li>
+            </ul>
+          </span></td>
+          <td colspan="2">&nbsp;<span class="suggested-text metadata-reply">[Yes/No]</span><div class="instructional-text">Indicate whether the current amendment is likely to have a significant impact on either of the criteria listed.</div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="instructional-text">* Choose from the available categories as the primary reason and secondary reason(s) for the amendment. Select the closest match among the choices. Changes to key measures or endpoints should be listed as a change of strategy. If none of the choices apply, choose “other” and provide a description. If no secondary reason, indicate “not applicable” for the secondary reason.</div>
+
+  </br>
+  <div>Summary of Changes in the Current Amendment:</div>
+  <div>
+    <table width="100%"><thead>
+      <tr>
+        <th  width="33%">Section # and Name</th>
+        <th  width="33%">Description of Change</th>
+        <th  width="33%">Brief Rationale for Change</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Location of Change]</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Description of Change]</span></td>
+          <td>&nbsp;<span class="suggested-text metadata-reply">[Rationale for Amendment Change]</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="instructional-text">(Add lines as needed)</div>
+  <div class="instructional-text">Follow the steps below to prepare the summary of changes.
+    <ul>
+      <li>If a Summary of Changes already exists from a prior amendment, move it to Section 13.4, History of Previous Amendments, and populate a clean summary table for the present amendment.</li>
+      <li>List the changes that apply to the current amendment. Provide a brief description of the change(s) and a brief scientific rationale for specific changes (for example, change to individual inclusion/exclusion criteria).</li>
+    </ul>
+  </div>
+  <div class="instructional-text">Tabular presentation is common but not required. The page can be changed to landscape orientation if necessary.</div>
+
+
+<!--  TABLE OF CONTENT -->
+  <div id="toc">
+    <h1>Table of Contents</h1>
+  </div>
+
+  <div id="contents">
+    <h1>1. PROTOCOL SUMMARY</h1>
+    <p><div class="instructional-text">No text is intended here (header only).</div></p>
+    <h2>1.1. Protocol Synopsis</h2>
+    <p><div class="instructional-text">The protocol synopsis is a short summary of the key points of the trial. No text is intended here (header only).</div>
+    </p>
+    <h3>Primary and Secondary Objectives and Endpoints</h3>
+    <p><div class="instructional-text">Include a copy of the Objectives/Endpoints Table including primary and secondary endpoints only from Section 3 of the protocol and follow all the same instructions. Not all trials will have a complete estimand. Do not include exploratory endpoints in the synopsis.</div>
+    </p>
+    <span class="suggested-text metadata-reply">[Primary and Secondary Objectives and Endpoints]</span>
+    <table width="100%"><thead>
+      <tr>
+        <th  width="50%">Objectives</th>
+        <th  width="50%">Endpoints</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td colspan="2"><span class="metadata-title">Primary</span></td>
+        </tr>
+        {% for primary_objective in primary_objectives %}
+        <tr>
+          <td>{{ primary_objective.description|safe }} [{{ primary_objective.name }}]</td>
+          <td>
+            <ul>{% for endpoint in primary_objective.endpoints %}
+              <li>{{ endpoint.description|safe }} [{{ endpoint.name }}]</li>
+            {% endfor %}</ul>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td colspan="2"><span class="metadata-title">Secondary</span></td>
+        </tr>
+        {% for secondary_objective in secondary_objectives %}
+        <tr>
+          <td>{{ secondary_objective.description|safe }} [{{ secondary_objective.name }}]</td>
+          <td>
+            <ul>{% for endpoint in secondary_objective.endpoints %}
+              <li>{{ endpoint.description|safe }} [{{ endpoint.name }}]</li>
+            {% endfor %}</ul>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h3>Overall Design</h3>
+    <p>Several key aspects of the trial design are summarised below.</p>
+    <table width="100%">
+      <tbody>
+        <tr>
+          <td width="25%"><span class="metadata-title">Intervention Model:</span></td>
+          <td width="25%">{{ intervention_model }} <span class="metadata-reply">[intervention model]</span></td>
+          <td width="25%"><span class="metadata-title">Population Type:</span></td>
+          <td width="25%"><span class="metadata-reply">[population type]</span></td>
+        </tr>
+        <tr>
+          <td width="25%"><span class="metadata-title">Control: </span></td>
+          <td width="25%">{{ control }} <span class="metadata-reply">[control]</span></td>
+          <td width="25%"><span class="metadata-title">Population Diagnosis or Condition: </span></td>
+          <td width="25%"><span class="metadata-reply">[diagnosis or condition]</span></td>
+        </tr>
+        <tr>
+          <td width="25%"><span class="metadata-title">Active Comparator: </span></td>
+          <td width="25%"><span class="metadata-reply">[comparator]</span></td>
+          <td width="25%"><span class="metadata-title">Population Age: </span></td>
+          <td width="25%"> - Minimum: {{ population_planned_minimum_age }} {{ population_planned_minimum_age_unit }} <span class="metadata-reply">[minimum age]</span></br> - Maximum: {{ population_planned_maximum_age }} {{ population_planned_maximum_age_unit }} <span class="metadata-reply">[maximum age]</span></td>
+        </tr>
+        <tr>
+          <td width="25%"><span class="metadata-title">Trial Intervention Assignment Method: </span></td>
+          <td width="25%"><span class="metadata-reply">[intervention assignment method]</span></td>
+          <td width="25%"><span class="metadata-title">Site Distribution: </span></td>
+          <td width="25%"><span class="metadata-reply">[geographic scope]</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p><div class="instructional-text">Briefly state the following:</div>
+    </p>
+    <p>
+      <div class="instructional-text">
+        <ul>
+          <li><div class="instructional-text">Intervention model (for example, single group, parallel group, cross-over, factorial, sequential).</div></li>
+          <li><div class="instructional-text">Control (for example, placebo, active comparator, low dose, historical, standard of care, sham procedure, or none [uncontrolled]).</div></li>
+          <li><div class="instructional-text">Active comparator, if applicable; indicate N/A if not applicable.</div></li>
+          <li><div class="instructional-text">Trial intervention assignment method (for example, randomisation, stratification, or both). Do NOT state block size. If assignment to intervention is by randomisation, describe when randomisation occurs relative to screening.</div></li>
+          <li><div class="instructional-text">Trial population type (for example, healthy volunteers, adult patients, paediatric patients).</div></li>
+          <li><div class="instructional-text">Population Diagnosis or Condition (for example, “acute lung injury,” or a specific biomarker profile); indicate “N/A – Healthy” for trials in healthy volunteers.</div></li>
+          <li><div class="instructional-text">Population age range (for example ≤3 mos, ≥18 to ≤80 years old). List N/A if a maximum or minimum age limit does not apply. For trials in which multiple age ranges may be eligible (for example, a younger cohort and an older cohort), indicate the minimum and maximum ages for the trial overall, with an additional comment for any excluded age ranges.</div></li>
+          <li><div class="instructional-text">Site distribution (select from: single-site, multi-site, or multi-site and multi-regional). If none of these applies, indicate other and describe.</div></li>
+        </ul>
+      </div>
+    </p>
+
+    <p><span class="metadata-title">Number of arms:</span> {{ number_of_arms }} <span class="metadata-reply">[Number of Arms]</span></p>
+    <p><div class="instructional-text">Enter the numeric value for the number of arms in the trial. For trials with a different number of arms in different periods, populate this field based on the period with the greatest number of arms.</div></p>
+
+    <p><span class="metadata-title">Blinding:</span> The following roles indicated below will not be made aware of the treatment group assignment during the trial: {{ blinded_roles }} <span class="metadata-reply">[blinded roles].</span></p>
+    <p><div class="instructional-text">Select from the following blinded roles: 
+      <ul>
+        <li>Participant</li>
+        <li>Care Provider</li>
+        <li>Investigator</li>
+        <li>Outcomes Assessor: the individual who evaluates the outcome(s) of interest</li>
+        <li>Not applicable (No blinding).</li>
+      </ul>
+      For designs in which these details may differ in one or more trial periods, answer according to the portion of the trial in which the greatest blinding occurs. More details can be provided in Section 6.6 of the protocol. Note that this list does not include Sponsor staff or their designees who may be unblinded to complete ongoing safety oversight and surveillance reporting.
+    </div>
+    <div class="suggested-text">“Not Applicable (No blinding)” indicates an open-label trial.</div>
+    </p>
+
+    <p><span class="metadata-title">Number of Participants:</span> {{ number_participants }} <div class="suggested-text">{randomly assigned to trial intervention/ enrolled}: {x} participants</div><span class="suggested-text metadata-reply">[{Target/Maximum}]</span></p>
+    <div class="instructional-text">State the expected number of participants to be assigned to trial intervention/enrolled. Indicate whether the number provided is the target or maximum number of individuals to be randomly assigned to trial intervention/enrolled.</div>
+
+    <p><span class="suggested-text">Arms and Duration</span></p>
+    <p>
+      <div>Total duration of trial intervention for each participant:</div>
+      <span class="suggested-text metadata-reply">[Approximately] [x] Year(s)/[x] Month(s)/[x] Day(s)</span>
+      <div class="instructional-text">Or</div>
+      <div class="suggested-text">Duration will vary <span class="metadata-reply">[Reason duration of trial intervention will vary]</span></div>
+    </p>
+    </br>
+    <p>
+      <div>Total duration of trial participation for each participant:</div>
+      <span class="suggested-text metadata-reply">[Approximately] [x] Year(s)/[x] Month(s)/[x] Day(s)</span>
+      <div class="instructional-text">Or</div>
+      <div class="suggested-text">Duration will vary <span class="metadata-reply">[Reason duration of trial intervention will vary]</span></div>
+      <div class="instructional-text">Select the text that applies to the trial. Note that total duration of participation should include any washout and any follow-up periods in which the participant is not receiving trial intervention. Where the total durations can be provided, indicate whether the duration is approximate, and delete terms that are not applicable (for example, for a trial of only a few days, delete the years and months terms). When duration cannot be approximated, provide a short explanation (for example, “event-driven” or “adaptive design”).</div>
+    </p>
+    <p>
+      <span class="suggested-text metadata-reply">[Arms and Duration Description]</span>
+      <div class="instructional-text">Briefly state:
+        <ul>
+          <li>Total duration of participation for each participant with sequence and duration of trial periods (for example, screening, run-in, fixed dose/titration, follow-up/washout periods)</li>
+          <li>Dose regimens in each trial period and stage (if applicable) including frequency (for example, twice daily) and route of administration and criteria for individualised dosing (for example, participant weight or plasma concentrations), if applicable</li>
+          <li>Rules/procedures for any dose changes/adjustments including flexible dosing; dose reductions, dose interruptions, or tapering; discontinuation; and any circumstances for resuming trial intervention, as applicable</li>
+        </ul>
+        <span>If sufficiently detailed, a cross-reference to the trial schema is appropriate in lieu of text description.</span>
+      </div>
+    </p>
+
+    <p>
+      <span class="metadata-title">Committees:</span>
+      <div class="instructional-text">Indicate whether any committee(s) will be reviewing data while the trial is ongoing, and the type of committee. Common examples include Data Monitoring Committee, Dose Escalation Committee, or Endpoint Adjudication Committee; describe others, if applicable. List independent committees in the space indicated. Other committees may be included at the Sponsor’s discretion in the separate space provided. Committees listed here should be fully described in Section 10.3, Committees Structure.</div>
+      <div>Independent Committees: <span class="metadata-reply">[Independent Committees]</span></div>
+      <div class="instructional-text">Indicate “N/A” if no independent committees will be involved in the trial.</div>
+      <div class="suggested-text">Other Committees: <span class="metadata-reply">[Other Committees]</span></div>
+      <div class="instructional-text">Delete “Other Committees” if not applicable.</div>
+    </p>
+
+    <h2>1.2. Trial Schema</h2>
+    <div class="instructional-text">The purpose of this section is to provide a visual depiction of the trial design, orienting users of the protocol to the key features of the design. The schema depicts the trial arms, the flow of individual participants through the progression of trial period(s)/epochs (such as screening, washout/run-in, intervention, and key milestones [for example, randomisation, cross-over, end of treatment]). For complex trials, additional schemas may be added to describe activities or trial periods in greater detail.</div>
+    <div>{{ study_design_figure_svg|safe }}</div>
+    <div>
+      <span class="metadata-reply">[Schema]</span>
+    </div>
+
+    <h2>1.3. Schedule of Activities</h2>
+    <div class="instructional-text">The schedule of activities must capture the procedures that will be accomplished at each trial visit, and all contact with participants, for example, telephone contacts. This includes any tests that are used for eligibility, participant randomisation or stratification, or decisions on trial intervention discontinuation. Allowable windows should be stated for all visits.</div>
+
+    <div>{{ study_flowchart_html_table|safe }}</div>
+
+    <span class="metadata-reply">[Schedule of Activities]</span>
+
+    <h1>2. INTRODUCTION</h1>
+    <div class="instructional-text">No text is intended here (header only).</div>
+    <h2>2.1. Purpose of Trial</h2>
+    <div class="instructional-text">Explain why the trial is needed, why the research questions being asked are important. Do not restate the IB.</div>
+    <span class="metadata-reply">[Purpose]</span>
+    <div class="suggested-text">Refer to the Section 1.2, Trial Schema, and Section 1.3, Schedule of Activities, for 369 more information about the trial design.</div>
+
+    <h2>2.2. Summary of Benefits and Risks</h2>
+    <div class="instructional-text">Include an assessment of known benefits and potential risks, including the basis of the risk (for 372 example, preclinical studies or prior clinical trials).</div>
+    <div class="suggested-text">Benefit Summary</div>
+    <div class="instructional-text">The benefit summary should be written from the perspective of an individual participant, and 375 should describe any physical, psychological, social, legal, or any other potential benefits to 376 individual participants as a result of participating in the trial, addressing immediate potential 377 benefits and/or long-range potential benefits. Clearly state if no benefits to an individual 378 participant can be anticipated, or if potential benefits are unknown. For early clinical trials such 379 as Phase 1, benefits for an individual participant (other than those of altruism) are expected to 380 be minimal.</div>
+    <div class="instructional-text">Benefits to society in general may also be included but should be discussed separately.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Benefit Summary]</span></div>
+    <div class="suggested-text">Risk Summary and Mitigation Strategy</div>
+    <div class="instructional-text"><b>Trial Intervention</b> – Discuss risks related to trial-specific treatments and interventions. For the 385 protocol, focus discussion only on the relevant key risks for THIS trial. Provide a brief 386 description of strategies to mitigate identified risks or provide a cross-reference to the relevant 387 protocol section.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial-specific Discussion of Intervention Risks and Mitigations]</span></div>
+    <div class="instructional-text"><b>Trial Procedures</b> – Consider risks associated with the design (for example, placebo arm) and procedures specific to THIS trial (for example, biopsies), and any measures to control the risks. Provide a brief description of strategies to mitigate identified risks or provide a cross-reference to the relevant protocol section. This is not intended to be an exhaustive list of all possible risks associated with trial procedures but should focus on the unique risks inherent in the design or less common or high-risk procedures. As above, provide a brief description of strategies to mitigate identified risks or provide a cross-reference to the relevant protocol section.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial-specific Discussion of Procedure Risks and Mitigations]</span></div>
+    <div class="instructional-text"><b>Other</b> – Consider risks associated with other items (for example, comparators, challenge agents, imaging agents, medical devices). Insert a line for each, as needed.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial-specific Discussion of Other Risks and Mitigations]</span></div>
+    <div class="suggested-text">Overall Benefit:Risk Conclusion</div>
+    <div class="instructional-text">Provide a succinct, concluding statement on the perceived balance between risks that have been identified from cumulative safety data, protocol procedures, and anticipated efficacy/benefits within the context of the proposed trial. Risks need to be assessed against the benefits for the individual participant at least once a year.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Overall Benefit:Risk Conclusion]</span></div>
+
+    <h1>3. TRIAL OBJECTIVES, ENDPOINTS AND ESTIMANDS</h1>
+    <div class="instructional-text">In this section, precisely define each clinical question of interest by stating each trial objective and specifying the endpoint(s) and estimand(s) that correspond to each objective. Ensure alignment with every other section of the protocol.</div>
+    <div class="instructional-text">Include additional level 2 headers under Section 3 Trial Objectives, Endpoints, and Estimands as needed.</div>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2><span class="suggested-text">3.1.</span> {Primary/Secondary/Exploratory} Objective + Associated Endpoint<span class="suggested-text"> {and Estimand}</span></h2>
+
+    <table width="100%"><thead>
+      <tr>
+        <th  width="50%">{Primary/Secondary/Exploratory} Objective</th>
+        <th  width="50%">{Primary/Secondary/Exploratory} Endpoint</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td colspan="2"><span class="metadata-title">Primary</span></td>
+        </tr>
+        {% for primary_objective in primary_objectives %}
+        <tr>
+          <td>{{ primary_objective.description|safe }} [{{ primary_objective.name }}]</td>
+          <td>
+            <ul>{% for endpoint in primary_objective.endpoints %}
+              <li>{{ endpoint.description|safe }} [{{ endpoint.name }}]</li>
+            {% endfor %}</ul>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td colspan="2"><span class="metadata-title">Secondary</span></td>
+        </tr>
+        {% for secondary_objective in secondary_objectives %}
+        <tr>
+          <td>{{ secondary_objective.description|safe }} [{{ secondary_objective.name }}]</td>
+          <td>
+            <ul>{% for endpoint in secondary_objective.endpoints %}
+              <li>{{ endpoint.description|safe }} [{{ endpoint.name }}]</li>
+            {% endfor %}</ul>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div>{Primary/Secondary/Exploratory} Estimand</div>
+    <div class="instructional-text">Describe the attributes that construct the estimand: the treatment condition of interest, the population of participants targeted by the clinical question of interest, other intercurrent events (if applicable), a population level summary, and the endpoint (or variable) specified in the table above.</div>
+    <span class="metadata-reply">[Estimand Description]</span>
+
+    <h1>4. TRIAL DESIGN</h1>
+    <div class="instructional-text">In this section, describe the trial design with specific mention, as applicable, of the components of an adequate and well-controlled trial and reflect the principles of Quality by Design. The description of the design should be concise and consistent across Section 1.1, Protocol Synopsis and Section 1.2, Trial Schema.</div>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>4.1. Description of Trial Design</h2>
+    <div class="instructional-text">Describe the trial intervention model (for example, single group, parallel group, cross-over, factorial, sequential), the expected number of participants, and the control method (for example, placebo, active comparator, low dose, historical, standard of care, sham procedure, or none [uncontrolled]).</div>
+    <div class="instructional-text">If applicable, indicate the type of trial (for example, superiority, non-inferiority, dose escalation, or equivalence).</div>
+    <div class="instructional-text">If the trial will have an adaptive or novel design (for example, the trial will be conducted under a master protocol), provide a summary of these design aspects.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Description of Intervention Model]</span></div>
+    <div class="instructional-text">Describe the trial duration with reference to Section 1.2, Trial Schema. Explain what the overall duration for an individual participant is anticipated to be and why, including the sequence and duration of trial periods (for example, screening, run-in, randomisation, treatment [fixed dose/titration], follow-up/washout periods). Where applicable, include discussion of sentinel dosing (or lack thereof), dose escalation, and cohort expansion. If dose modification decisions are dependent upon review by a committee, include details in Section 10.2, Committees Structure.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Description of Trial Duration]</span></div>
+    <div class="instructional-text">Describe the method of assignment to trial intervention (for example, stratified randomisation). If assignment to trial intervention is by randomisation, describe when randomisation occurs relative to screening.</div>
+    <div class="instructional-text">Describe the level and method of blinding; for example, single-blind, double-blind, [including Sponsor unblinded], matching placebo, double-dummy, or open-label). Include mention of measures taken to minimise bias on the part of participants, investigators, and analysts.</div>
+    <div class="instructional-text">If applicable, describe within-trial transition rules, for example, transitions involving cohorts or trial parts. Dose escalation or dose-ranging details should also be described.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Method of Assignment to Trial Intervention]</span></div>
+    <div class="instructional-text">Discuss any other important aspects of the design, including but not limited to the following, where applicable:</div>
+    <div class="instructional-text">
+      <ul>
+        <li>Geographic scope of trial (for example, single-centre, multi-centre, or multi-centre and multi-national)</li>
+        <li>Use of decentralised processes, tools, or features in the trial</li>
+        <li>Planned use of a Data Monitoring Committee, or similar review group and cross reference Section 10.2, Committees, for details,</li>
+        <li>Whether an interim analysis is planned and, if so, refer to details in Section 9.7, Interim Analysis, and/or</li>
+        <li>Any planned extension trial, long-term follow-up/registry, or post-trial sample analysis or other data-related activities.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Additional Description of Design]</span></div>
+
+
+    <h3>4.1.1. Participant Input into Design</h3>
+    <div class="instructional-text">If applicable, describe any participant involvement in the design of the trial and any participant suggestions implemented.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Participant Input]</span></div>
+
+    <h2>4.2. Rationale for Trial Design</h2>
+    <div class="instructional-text">Provide a rationale for the trial intervention model selected in Section 4.1, Description of Trial Design. A rationale for the choice of comparator, if applicable, should be described separately in Section 4.2.1, Rationale for Comparator.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Intervention Model]</span></div>
+    <div class="instructional-text">Provide a rationale that the trial duration is appropriate to show a reliable and relevant effect of the trial intervention per the trial objective(s).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Duration]</span></div>
+    <div class="instructional-text">Provide a rationale that the trial endpoint(s) described in Section 3, Trial Objectives, Endpoints, and Estimands, are clinically relevant and provide a reliable and valid measurement of the intended intervention effect.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Endpoints]</span></div>
+    <div class="instructional-text">If applicable, provide a rationale for any interim analysis planned with respect to its purpose (for example, stopping the trial early for efficacy or futility) and timing.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Interim Analysis]</span></div>
+
+    <h3>4.2.1. Rationale for Comparator</h3>
+    <div class="instructional-text">If applicable, provide a rationale for the type of control selected for the trial (for example, placebo, active drug, combination, historical). Discuss any known or potential problems associated with the control group selected in light of the specific disease and intervention(s) being studied. If comparators will differ by region, describe. Describe prior trials that support the dose and/or dose regimen.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Comparator]</span></div>
+
+    <h3>4.2.2. Rationale for Adaptive or Novel Trial Design</h3>
+    <div class="instructional-text">If applicable, provide a rationale for the use of an adaptive or novel design.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Adaptive or Novel Design]</span></div>
+
+    <h3>4.2.3. Other Trial Design Considerations</h3>
+    <div class="instructional-text">Discuss rationale for any additional aspects of the design not addressed above.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Other Design Considerations]</span></div>
+
+    <h2>4.3. Access to Trial Intervention After End of Trial</h2>
+    <div class="instructional-text">If applicable, describe any possibilities for access to trial intervention, if any, beyond completion of the trial. Planned extension trials, if described above in Section 4.1 do not need to be repeated.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Access to Trial Intervention after End of Trial]</span></div>
+
+    <h2>4.4. Start of Trial and End of Trial</h2>
+    <div class="instructional-text">Define key timepoints in the trial, such as the start date, first act of recruitment, and site closure. These definitions should consider local regulatory requirements. Delineate sponsor and investigator decision rights to close a site or end the trial, including criteria for early closure of a site. List responsibilities of the sponsor and investigator following termination or suspension of the trial. Provide a cross-reference to Section 10.5, Early Site Closure or Trial Termination for criteria and responsibilities related to early site closure or trial termination.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial Start and End]</span></div>
+
+    <h1>5. TRIAL POPULATION</h1>
+    <div class="instructional-text">In this section, describe the trial population. Use the following guidance when developing participant eligibility criteria to be listed in Section 5.3, Inclusion Criteria, and Section 5.4, Exclusion Criteria.</div>
+    <div class="instructional-text">
+      <ul>
+        <li>List the criteria necessary for participation in the trial. Ensure that each criterion can be easily assessed definitively and answered with yes/no responses.</li>
+        <li>If participants require screening, distinguish between screening vs enrolling participants. Identify specific laboratory tests or clinical characteristics that will be used as criteria for inclusion or exclusion. If permitting existing medical diagnosis, imaging, genetic tests, or laboratory results, state any required window or acceptable test type.</li>
+        <li>If measures to enrich the trial population for pre-specified subgroups of interest are used, these should be described.</li>
+      </ul>
+    </div>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>5.1. Selection of Trial Population</h2>
+    <div class="instructional-text">Describe the population selected (for example, healthy volunteers, adult participants, paediatric participants) and how the enrollment criteria reflect the populations that are likely to use the drug if approved. Specify the population age range (for example, ≤3 months, ≥18 to ≤80 years old) and any key diagnostic criteria for the population (for example, “acute lung injury”, or a specific biomarker profile). If applicable, describe similar conditions or diseases and their differential diagnosis.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Selection of Trial Population]</span></div>
+
+    <h2>5.2. Rationale for Trial Population</h2>
+    <div class="instructional-text">Provide a rationale for the trial population ensuring that the population selected is well defined and clinically recognisable. Justify whether the trial intervention is to be evaluated in children, in adults unable to consent for themselves, other vulnerable participant populations, or those that may respond to the trial intervention differently (for example, elderly, hepatic or renally impaired, or immunocompromised participants).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Trial Population]</span></div>
+    <div>Individuals who do not meet criteria for trial eligibility must not be enrolled via protocol waivers or exemptions</div>
+
+    <h2>5.3. Inclusion Criteria</h2>
+    <div class="instructional-text">Inclusion criteria are characteristics that define the trial population, for example, those criteria that every potential participant must satisfy, to qualify for trial entry.</div>
+    <div>To be eligible to participate in this trial, an individual must meet all the following criteria:</div>
+    <span class="metadata-reply"># [Inclusion Criterion]</span>
+     <div class="instructional-text">Add criteria as needed. Number sequentially.</div>    
+
+    <h2>5.4. Exclusion Criteria</h2>
+    <div class="instructional-text">Exclusion criteria are characteristics that make an individual ineligible for participation.</div>
+    <div>An individual who meets any of the following criteria will be excluded from participation in this trial:</div>
+    <span class="metadata-reply"># [Exclusion Criterion]</span>
+    <div class="instructional-text">Add criteria as needed.</div>
+
+    <h2>5.5. Lifestyle Considerations</h2>
+    <div class="instructional-text">In the following subsections, describe any restrictions during the trial pertaining to lifestyle and/or diet, intake of caffeine, alcohol, or tobacco, or physical and other activities. If not applicable, include a statement that no restrictions are required.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Lifestyle Considerations]</span></div>
+
+    <h3>5.5.1. Meals and Dietary Restrictions</h3>
+    <div class="instructional-text">If applicable, describe any restrictions on diet (for example, food and drink restrictions, timing of meals relative to dosing).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Meals and Dietary Restrictions]</span></div>
+
+    <h3>5.5.2. Caffeine, Alcohol, Tobacco, and Other Habits</h3>
+    <div class="instructional-text">If applicable, describe any restrictions on the intake of caffeine, alcohol, tobacco, or other restrictions.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Caffeine, Alcohol, Tobacco, and Other Habits]</span></div>
+
+    <h3>5.5.3. Physical Activity</h3>
+    <div class="instructional-text">If applicable, describe any restrictions on activity (for example, in first-in-human trials, activity may be restricted by ensuring participants remain in bed for 4 to 6 hours after dosing).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Physical Activity]</span></div>
+
+    <h3>5.5.4. Other Activity</h3>
+    <div class="instructional-text">If applicable, describe restrictions on any other activity (for example, blood or tissue donation); or any other activity restrictions, such as on driving, heavy machinery use, or sun exposure.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Other Activity]</span></div>
+
+    <h2>5.6. Screen Failures</h2>
+    <div class="instructional-text">Indicate how screen failure will be handled in the trial, including conditions and criteria upon which rescreening is acceptable. If applicable, indicate the circumstances and time window under which a repeat procedure is allowed for screen failure relating to specific inclusion/exclusion criteria for the trial.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Screen Failure]</span></div>
+
+    <h1>6. TRIAL INTERVENTION AND CONCOMITANT THERAPY</h1>
+    <div class="instructional-text">In this section, describe the trial intervention being tested and any control product being used. If multiple trial interventions are to be evaluated, Section 6.1, Description of Trial Intervention, Section 6.3, Dosing and Administration, and Section 6.5, Preparation, Handling, Storage, and Accountability should differentiate between each product.</div>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>6.1. Description of Trial Intervention</h2>
+    <div class="instructional-text">Describe the intervention to be administered in each arm of the trial and for each period of the trial including route and mode of administration, dose, dosage regimen, duration of intervention, packaging, labelling, and storage co interventions (experimental, placebo, active comparator, sham comparator).</div>
+    <div class="instructional-text">The trial intervention should be designated as an investigational medicinal product (IMP) or non-investigational medicinal product (NIMP)/auxiliary medicinal product (AxMP).</div>
+    <div class="instructional-text">It is suggested that the trial intervention(s) be described concisely in a table.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Table of Trial Interventions]</span></div>
+    <div class="instructional-text">Indicate whether an additional product will be provided as part of the trial and its intended use (background intervention, challenge agent, rescue medication, diagnostic, or other). If use of an additional product is planned, include dosing information. Refer to approved regional labelling or describe any differences.</div>
+    <div class="instructional-text">For drug/device combination products, include details on the configuration and use of the device and device manufacturer. A device user manual may be referenced in this section.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Additional Text, if Needed]</span></div>
+
+    <h2>6.2. Rationale for Trial Intervention</h2>
+    <div class="instructional-text">Provide a rationale for the selection of the dose(s) or dose range, the route of administration, and dosing regimen (including starting dose, dose titration, dose interval) of the trial intervention and any control product. This rationale should include relevant results from previous preclinical studies and clinical trials that support selection of the dose and regimen. Include any information about age or sex-based pharmacokinetic or pharmacodynamic differences known from previous trials. If applicable, justify any differences in specifications, dose regimen, or therapeutic use relative to approved labelling.</div>
+    <div class="instructional-text">Include a rationale for prospective dose adjustments incorporated in the trial, if any; for example, as a result of interim analysis.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rationale for Dose and Regimen]</span></div>
+
+    <h2>6.3. Dosing and Administration</h2>
+    <div class="instructional-text">Describe the detailed procedures for administration of each participant’s dose of trial intervention and control product. This may include the timing of dosing (for example, time of day, interval), the duration (for example, the length of time participants will be administered the trial intervention), the planned route of administration (for example, oral, nasal, intramuscular), and the timing of dosing relative to meals.</div>
+    <div class="instructional-text">Include any specific instructions to trial participants about when or how to prepare and take the dose(s) and how delayed or missed doses should be handled.</div>
+    <div class="instructional-text">For an individual participant, describe dose modifications allowed. State any minimum period required before a participant’s dose might be raised to the next higher dose or dose range. Include whether it is permissible to start and stop treatment and how dose reductions (if permitted) are to be managed.</div>
+    <div class="instructional-text">Discussion of dose escalation or cohort expansion as part of the overall design should be covered in Section 4.2 (Rationale for Trial Design).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Dosing and Administration]</span></div>
+
+    <h3>6.3.1. Trial Intervention Dose Modification</h3>
+    <div class="instructional-text">If applicable, the protocol should state the conditions under which a dose modification will be made for an <u>individual participant</u>, particularly regarding failure to respond or to toxic or untoward changes in stipulated indicators. This section can also include discussion of dose titration. Do not include information on stopping trial intervention for individual participants due to safety/other reasons as this is detailed in Section 7, Discontinuation of Trial Intervention and Participant Discontinuation/Withdrawal from the Trial.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Dose Modification]</span></div>
+
+    <h2>6.4. Treatment of Overdose</h2>
+    <div class="instructional-text">Specify what is meant by trial intervention overdose and any known antidote or therapies. Although clinical experience with overdose is often limited in early phases of development, provide any available project-specific guidance and information; however, ensure consistency with and avoid unnecessary duplication with any overdose information in the Investigator’s Brochure /package insert. Cross-reference these documents if appropriate. Refer to the approved product label of the comparator (as applicable) for advice on overdose.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Treatment of Overdose]</span></div>
+
+    <h2>6.5. Preparation, Handling, Storage and Accountability</h2>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h3>6.5.1. Preparation of Trial Intervention</h3>
+    <div class="instructional-text">Describe any preparation of the trial intervention and control product and by whom. Discuss the maximum hold time once thawed/mixed, if appropriate, before administration. Include thawing, diluting, mixing, and reconstitution/preparation instructions in this section, as applicable. For drug/device combination products, include any relevant assembly or use instructions.</div>
+    <div class="instructional-text">If the instructions are lengthy or complicated, it is acceptable to reference the label (if applicable) or include them as a separate document(s) provided to the site (for example, a pharmacy manual). If instructions are provided to the site as a separate document(s), this should be noted in here.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial Intervention Preparation]</span></div>
+
+    <h3>6.5.2. Handling and Storage of Trial Intervention</h3>
+    <div class="instructional-text">Describe storage and handling requirements (for example, protection from light, temperature, humidity) for the trial intervention and control product. For trials in which multi-dose vials are utilised, provide additional information regarding stability and expiration time after initial use (for example, the seal is broken).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial Intervention Storage and Handling]</span></div>
+    <div class="instructional-text">State how the trial intervention and control product will be provided to the Investigator. If applicable, describe the kits, packaging, or other material of the trial intervention for blinding purposes.</div>
+
+    <h3>6.5.3. Accountability of Trial Intervention</h3>
+    <div class="instructional-text">Describe the method by which the accountability will be achieved, including trial intervention will be distributed and related details, including:
+      <ul>
+        <li>how and by whom the trial intervention will be distributed</li>
+        <li>participation of a drug repository or pharmacy, if applicable, </li>
+        <li>plans for disposal or return of unused product, and</li>
+        <li>expectations for reconciliation.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Accountability]</span></div>
+
+    <h2>6.6. Participant Assignment, Randomisation and Blinding</h2>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h3>6.6.1. Participant Assignment</h3>
+    <div class="instructional-text">Describe the method of assigning participants to trial intervention without being so specific that blinding or randomisation might be compromised. If assignment to trial intervention is by randomisation, describe when randomisation occurs relative to screening. If participants will be assigned to intervention sequences as in a cross-over trial, then describe these sequences.</div>
+    <div class="instructional-text">If adaptive randomisation or other methods of covariate balancing/minimisation are employed, include a cross-reference to the methods of analysis in Section 9, Statistical Considerations. As applicable, details regarding the implementation of procedures to minimise bias should be described.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Participant Assignment]</span></div>
+
+    <h3>6.6.2. Randomisation</h3>
+    <div class="instructional-text">Describe the randomisation procedures (for example, central randomisation procedures), the method used to generate the randomisation schedule (for example, computer generated), the source of the randomisation schedule (for example, sponsor, investigator, or other), and whether or not IVRS/IWRS will be used. To maintain the integrity of the blinding, do not include the block size. Describe the use and validation of any computer systems or programmes in randomisation, stratification, and unblinding.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Randomisation]</span></div>
+
+    <h3>6.6.3. Blinding and Unblinding</h3>
+    <div class="instructional-text">Describe efforts to ensure that the trial intervention and control products are as indistinguishable as possible. Plans for the maintenance of randomisation codes and appropriate blinding for the trial should be discussed. Procedures for planned and unplanned breaking of randomisation codes should be provided. </div>
+    <div class="instructional-text">If the trial allows for some investigators or other designated staff to remain unblinded (for example, to allow them to adjust medication), the means of maintaining the blinding for other investigators or staff should be explained. Measures to prevent unblinding by laboratory measurements, if used, should be described.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Blinding and Unblinding]</span></div>
+    <div><b>Emergency Unblinding</b></div>
+    <div class="instructional-text">Describe the criteria for breaking the trial blind or participant code. Discuss the circumstances in which the blinding would be broken for an individual or for all participants (for example, for SAEs) and who has responsibility. Include the procedure for emergency unblinding such as via IVRS/IWRS or code envelopes as well as documentation of unblinding. Indicate to whom the intentional and unintentional unblinding should be reported.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Emergency Unblinding]</span></div>
+
+    <h2>6.7. Trial Intervention Compliance</h2>
+    <div class="instructional-text">Describe measures employed to ensure and document dosing information and trial intervention compliance (for example, accountability records, diary cards, or concentration measurements). Include a discussion of what documents are mandatory to complete (for example, participant drug log) and what source data/records will be used to document trial intervention compliance.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Additional Trial Intervention Compliance]</span></div>
+
+    <h2>6.8. Concomitant Therapy</h2>
+    <div class="instructional-text">This section should be consistent with the medication restrictions in the inclusion/exclusion criteria previously listed. Describe the concomitant medications, supplements, complementary and alternative therapies, treatments, and/or procedures which are allowed or prohibited during the trial, and include details about when the information will be collected (for example, screening, all visits).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Concomitant Therapy]</span></div>
+
+    <h3>6.8.1. Prohibited Concomitant Therapy</h3>
+    <div class="instructional-text">If applicable, describe any prohibited concomitant therapy.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Prohibited Concomitant Therapy]</span></div>
+
+    <h3>6.8.2. Permitted Concomitant Therapy</h3>
+    <div class="instructional-text">If applicable, describe any permitted concomitant therapy.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Permitted Concomitant Therapy]</span></div>
+
+    <h3>6.8.3. Rescue Therapy</h3>
+    <div class="instructional-text">List all medications, treatments, and/or procedures which may be provided during the trial for rescue therapy and provide relevant instructions about the administration of rescue medications. Describe the circumstances under which use of rescue therapy is permitted.</div>
+    <div class="instructional-text">If administration of rescue therapy leads to the temporary discontinuation of trial intervention or a participant’s withdrawal from the trial, refer to Section 7, Discontinuation of Trial Intervention and Participant Discontinuation/Withdrawal from the Trial.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rescue Therapy]</span></div>
+
+    <h3>6.8.4. Other Therapy</h3>
+    <div class="instructional-text">If applicable, describe the use of other non-investigational or auxiliary therapy, for example, challenge agents.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Other Therapy]</span></div>
+
+    <h1>7. DISCONTINUATION OF TRIAL INTERVENTION AND PARTICIPANT WITHDRAWAL FROM TRIAL</h1>
+    <div class="instructional-text">This section must align with the intercurrent events introduced in Section 3, Trial Objectives, Endpoints, and Estimands, and the treatment described in Section 6 Trial Intervention and Concomitant Therapy.</div>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>7.1. Discontinuation of Trial Intervention</h2>
+    <div class="instructional-text">Discontinuation of trial intervention for a participant occurs when trial intervention is stopped earlier than the protocol planned duration.</div>
+
+    <h3>7.1.1. Criteria for Permanent Discontinuation of Trial Intervention</h3>
+    <div class="instructional-text">Describe the criteria for discontinuation of a participant from trial intervention, carefully evaluating which are appropriate for the participant population and therapy being studied.</div>
+    <div class="instructional-text">Specify whether participants who discontinue trial intervention can or cannot continue the trial (continue trial visits). Refer to the SoA for assessments to be performed at the time of and following discontinuation of trial intervention.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Criteria for Permanent Discontinuation of Trial Intervention]</span></div>
+
+    <h3>7.1.2. Temporary Discontinuation or Interruption of Trial Intervention</h3>
+    <div class="instructional-text">Describe
+      <ul>
+        <li>the criteria for temporary discontinuation or interruption of trial intervention for an individual participant</li>
+        <li>what to do and which restrictions still apply if the participant needs to temporarily discontinue or interrupt trial intervention </li>
+        <li>whether they will continue in the trial, and </li>
+        <li>whether all, or specify which, assessments will be performed for the stated duration of the trial.</li>
+      </ul>
+    </div>
+    <div class="instructional-text">Details of any rechallenge or restart after a safety-related event should be included in Section 7.1.3, Rechallenge.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Temporary Discontinuation/Interruption of Trial Intervention]</span></div>
+
+    <h3>7.1.3. Rechallenge</h3>
+    <div class="instructional-text">Describe the criteria for rechallenge/restarting trial intervention, how to perform rechallenge, number of rechallenges allowed during the trial, and whether all, or specify which, assessments will be performed for the stated duration of the trial.</div>
+    <div class="instructional-text">If rechallenge is not allowed, state this.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Rechallenge]</span></div>
+
+    <h2>7.2. Participant Withdrawal from the Trial</h2>
+    <div class="instructional-text">Describe the criteria for participant withdrawal from the trial.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Participant Withdrawal from Trial]</span></div>
+
+    <h2>7.3. Lost to Follow-Up</h2>
+    <div class="instructional-text">Describe how the trial will define and address participants who are lost to follow-up to help limit the amount and impact of missing data. Describe the nature and duration of follow-up, as appropriate.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Lost to Follow-Up]</span></div>
+
+    <h2>7.4. Trial Stopping Rules</h2>
+    <div class="instructional-text">If applicable, describe any trial-specific stopping rules, including guidance on when the trial should be stopped for safety reasons, when a cohort or dose escalation should be terminated, and/or when a given treatment arm should be terminated.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial Stopping Rules]</span></div>
+
+    <h1>8. TRIAL ASSESSMENTS AND PROCEDURES</h1>
+    <div class="instructional-text">
+      <ul>
+        <li>Describe the assessments and procedures required during each phase of the trial that are relevant to the stated endpoints. Provide details that are not already presented in the SoA, taking care not to duplicate information.</li>
+        <li>Describe methods, training, tools, instruments/questionnaires, calibration methods, etc. that will be used to record and assess data and ensure consistency across centres and participants. Include instructions on timing/conditions of assessments and if a specifically qualified person should be performing these assessments. Describe whether centralised readings and measurements will be utilised. Describe procedures to be used to maintain the blind.</li>
+        <li>Reference the literature for the validation of scales/instruments/questionnaires/assays.</li>
+        <li>Instructions or protocols for specialised tests may be presented in an appendix or a separate document and cross-referenced.</li>
+        <li>If the trial includes qualitative interviews, describe these evaluations</li>
+        <li>If COA measures are utilised, include instructions for the investigators per local guidance. All COA parameters should be fully integrated into the appropriate sections of the protocol; separate COA sections should not be created in the protocol.</li>
+        <li>Include minimums and limits for procedures (for example, volume of blood draws, number of imaging procedures/biopsies, radiation exposure, etc.) if appropriate to the trial.</li>
+      </ul>
+    </div>
+
+    <h2>8.1. Screening/Baseline Assessments and Procedures</h2>
+    <div class="instructional-text">Describe any assessments and procedures that are unique to screening/baseline (for example, collection of data on participant characteristics, assessments/procedures performed for the purpose of determining eligibility or for stratification) in this section.</div>
+    <div class="key-field"><span class="metadata-reply">[Screening/Baseline Assessments and Procedures]</span></div>
+
+    <h2>8.2. Efficacy Assessments and Procedures</h2>
+    <div class="instructional-text">Describe efficacy assessments and procedures in this section.</div>
+    <div class="key-field"><span class="metadata-reply">[Efficacy Assessments and Procedures]</span></div>
+
+    <h2>8.3. Safety Assessments and Procedures</h2>
+    <div class="instructional-text">Describe safety assessments and procedures in this section. Level 3 headings can be added as needed.
+      <ul>
+        <li>Identify any non-investigator party responsible for evaluation of laboratory or other safety assessments (for example, Sponsor or external Independent Data Monitoring Committee).</li>
+        <li>Include guidelines for the management of relevant laboratory or other safety assessment abnormalities.</li>
+      </ul>
+    </div>
+    <div class="key-field"><span class="metadata-reply">[Safety Assessments and Procedures]</span></div>
+
+    <h3>8.3.1. Physical Examination</h3>
+    <div class="instructional-text">Include any specific instructions for the collection and interpretation of physical examinations.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Physical Examination]</span></div>
+
+    <h3>8.3.2. Vital Signs</h3>
+    <div class="instructional-text">Include any specific instructions for the collection and interpretation of vital signs.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Vital Signs]</span></div>
+
+    <h3>8.3.3. Electrocardiograms</h3>
+    <div class="instructional-text">Include any specific instructions for the collection, interpretation, and archiving of ECGs.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Electrocardiograms]</span></div>
+
+    <h3>8.3.4. Clinical Laboratory Assessments</h3>
+    <div class="instructional-text">Include any specific instructions for the collection and interpretation of clinical laboratory assessments.
+      <ul>
+        <li>Specify if and when the use of local laboratories is allowed.</li>
+        <li>Specify which laboratory parameters should be included in each panel (for example, for haematology, chemistry, urinalysis).</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Clinical Safety Laboratory Assessments]</span></div>
+
+    <h3>8.3.5. Suicidal Ideation and Behaviour Risk Monitoring</h3>
+    <div class="instructional-text">If the trial meets any of the criteria requiring suicidal ideation and behaviour risk monitoring by the guidance/guideline in each region, include any specific instructions for the collection and interpretation of the assessment</div>
+    <div class="suggested-text"><span class="metadata-reply">[Suicidal Ideation and Behaviour Risk Monitoring]</span></div>
+
+    <h2>8.4. Adverse Events and Serious Adverse Events</h2>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h3>8.4.1. Definitions of AE and SAE</h3>
+    <div class="instructional-text">Specify the AE and SAE definitions.</div>
+    <div class="key-field"><span class="metadata-reply">[AE definition]</span></div>
+    <div class="key-field"><span class="metadata-reply">[SAE definition]</span></div>
+    <div class="key-field"><span class="metadata-reply">Additional details and clarifications for AEs and SAEs are in Appendices 12.1 and 12.2.</span></div>
+
+    <h3>8.4.2. Time Period and Frequency for Collecting AE and SAE Information</h3>
+    <div class="instructional-text">Specify the starting and ending time periods for collecting AEs and SAEs.</div>
+    <div class="key-field"><span class="metadata-reply">[Time period and/or frequency for collecting AEs and SAEs]</span></div>
+
+    <h3>8.4.3. Identifying AEs and SAEs</h3>
+    <div class="instructional-text">Specify how AEs and SAEs will be identified (for example, spontaneous reporting, solicited questions).</div>
+    <div class="key-field"><span class="metadata-reply">[Identifying AEs and SAEs]</span></div>
+
+    <h3>8.4.4. Recording of AEs and SAEs</h3>
+    <div class="instructional-text">Specify the Investigator’s actions for recording AEs and SAEs, including severity, causality, and the final outcome.</div>
+    <div class="key-field"><span class="metadata-reply">[Recording of AEs and SAEs]</span></div>
+    <div class="key-field"><span class="metadata-reply">Further details on assessing severity and causality of AEs and SAEs are in Appendices 12.3 and 12.4.</span></div>
+
+    <h3>8.4.5. Follow-up of AEs and SAEs</h3>
+    <div class="instructional-text">Specify the procedures for follow-up of AEs and SAEs until they are resolved or considered stable. Include the assessment tools that will be used to monitor the events and the duration of follow-up after appearance of the events. Specify any procedures to be used for trials in which death is not an endpoint.</div>
+    <div class="key-field"><span class="metadata-reply">[Follow-up of AEs and SAEs]</span></div>
+
+    <h3>8.4.6. Reporting of SAEs</h3>
+    <div class="instructional-text">Specify the SAE reporting method (for example, an electronic data collection tool or a paper CRF) to the Sponsor.</div>
+    <div class="key-field"><span class="metadata-reply">[Reporting of SAEs]</span></div>
+
+    <h3>8.4.7. Regulatory Reporting Requirements for SAEs</h3>
+    <div class="instructional-text">Specify:
+      <ul>
+        <li>The Sponsor’s legal/regulatory responsibilities to report SAEs to regulatory authorities, ethics committees, and investigators.</li>
+        <li>The investigators’ responsibilities for promptly reporting SAEs to the Sponsor (and to Ethics Committees, where required) to allow the Sponsor to meet their responsibilities.</li>
+      </ul>
+    </div>
+
+    <h3>8.4.8. Serious and Unexpected Adverse Reaction Reporting</h3>
+    <div class="instructional-text">Include this section, if applicable.</div>
+    <div class="key-field"><span class="metadata-reply">[Serious and Unexpected Adverse Reaction Reporting]</span></div>
+
+    <h3>8.4.9. Adverse Events of Special Interest</h3>
+    <div class="instructional-text">Include this section, if applicable.</div>
+    <div class="instructional-text">Specify any Adverse Events of Special Interest (AESI):
+      <ul>
+        <li>Other events that merit reporting to the Sponsor, trial leadership, IRB, and regulatory agencies (for example, secondary malignancies in oncology trials).</li>
+        <li>Other reportable events not already included in the previous sections, such as cardiovascular and death events, medical device incidents (including malfunctions), laboratory test abnormalities, and trial intervention overdose.</li>
+      </ul>
+    </div>
+    <div class="instructional-text">Include the following for each AESI:
+      <ul>
+        <li>The definition of the event. Specify the MedDRA preferred terms to use to report the AESI.</li>
+        <li>If it is a measurable quantity, specify how will the measurement be done.</li>
+        <li>If it is a clinical event, specify how will it be confirmed.</li>
+      </ul>
+    </div>
+    <div class="key-field"><span class="metadata-reply">[Adverse Events of Special Interest]</span></div>
+
+    <h3 class="suggested-text">8.4.10. Disease-related Events or Outcomes Not Qualifying as AEs or SAEs</h3>
+    <div class="instructional-text">Specify any Disease-Related Events (DREs), disease-related outcomes, or both that will not be reported as AEs or SAEs (for example, seizures in anticonvulsant trials).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Disease-related Events or Outcomes not Qualifying as AEs or SAEs]</span></div>
+
+    <h2>8.5. Pregnancy and Postpartum Information</h2>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h3>8.5.1. Participants Who Become Pregnant During the Trial</h3>
+    <div class="instructional-text">Specify
+      <ul>
+        <li>the assessments to be performed,</li>
+        <li>type and duration of monitoring, and</li>
+        <li>what information will be collected for a participant who becomes pregnant during the trial (for example, recording and reporting to the Sponsor, postpartum follow-up, trial intervention discontinuation or continuation, or trial withdrawal).</li>
+      </ul>
+    </div>
+    <div class="instructional-text">For postpartum follow-up, include the time period (for example, initial child development) with the justification.</div>
+    <div class="instructional-text">If exposure to trial intervention during breastfeeding is applicable, specify 
+      <ul>
+        <li>the assessments to be performed,</li>
+        <li>type and duration of monitoring, and</li>
+        <li>what information will be collected for both the participant and child.</li>
+      </ul>
+    </div>
+    <div class="instructional-text">Specify that pregnancy is not an AE, unless a negative or consequential outcome occurs in the participant or child/foetus. If the negative event meets the seriousness criteria, then this is considered an SAE (for example, spontaneous abortion, foetal death, stillbirth, congenital anomalies, ectopic pregnancy, or pre-eclampsia) and reported per Section 8.4.5, Reporting of SAEs.</div>
+    <div class="key-field"><span class="metadata-reply">[Participants Who Become Pregnant During the Trial]</span></div>
+
+    <h3>8.5.2. Participants Whose Partners Become Pregnant</h3>
+    <div class="instructional-text">Specify: 
+      <ul>
+        <li>If the investigator will attempt to collect pregnancy information for a participant’s partner, who becomes pregnant while the participant is in the trial.</li>
+        <li>The assessments to be performed, type and duration of monitoring, and what information will be collected.</li>
+      </ul>
+    </div>
+    <div class="key-field"><span class="metadata-reply">[Participants Whose Partners Become Pregnant]</span></div>
+
+    <h2>8.6. Medical Device Product Complaints for Drug/Device Combination Products</h2>
+    <div class="instructional-text">Optional section to include for drug/device combination products.</div>
+
+    <h3>8.6.1. Definition of Medical Device Product Complaints</h3>
+    <div class="key-field"><span class="metadata-reply">[Definition of Medical Device Product Complaints]</span></div>
+
+    <h3>8.6.2. Recording of Medical Device Product Complaints</h3>
+    <div class="instructional-text">Optional section to specify the investigator’s actions for recording product complaints, including the final complaint outcome</div>
+    <div class="key-field"><span class="metadata-reply">[Recording of Medical Device Product Complaints]</span></div>
+
+    <h3>8.6.3. Time Period and Frequency for Collecting Medical Device Product Complaints</h3>
+    <div class="instructional-text">Optional section to specify the start and ending time periods for collecting Medical Device Product Complaints (for example, from when the medical device use begins to end of trial participation).</div>
+    <div class="key-field"><span class="metadata-reply">[Time Period and Frequency for Collecting Medical Device Product Complaints]</span></div>
+
+    <h3>8.6.4. Follow-Up of Medical Device Product Complaints</h3>
+    <div class="key-field"><span class="metadata-reply">[Follow-up of Medical Device Product Complaints]</span></div>
+
+    <h3>8.6.5. Regulatory Reporting Requirements for Medical Device Product Complaints</h3>
+    <div class="instructional-text">Optional section to specify the investigators’ responsibilities for reporting Medical Device Product Complaints (for example, within 24 hours) to the Sponsor.</div>
+    <div class="instructional-text"><span class="metadata-reply">[Reporting of Medical Device Product Complaints]</span></div>
+
+    <h2>8.7. Pharmacokinetics</h2>
+    <div class="instructional-text">Include any specific instructions for the collection of samples and interpretation of PK assessments.
+      <ul>
+        <li>Specific sample collection and processing instructions can be described in an appendix or a separate document and cross-referenced.</li>
+        <li>Describe the biological sample(s) collected, the handling of samples, and the assay method.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Pharmacokinetics]</span></div>
+
+    <h2>8.8. Genetics</h2>
+    <div class="instructional-text">Include any specific instructions for the collection of samples for genetic analysis.
+      <ul>
+        <li>Include the biological samples that will be collected (for example, serum, plasma, etc.) and the retention time for the samples (ensuring alignment with the ICF).</li>
+        <li>Indicate the types of analyses that may be studied for each sample.</li>
+        <li>Specific sample collection and processing instructions can be described in an appendix or a separate document and cross-referenced.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Genetics]</span></div>
+
+    <h2>8.9. Biomarkers</h2>
+    <div class="instructional-text">Include any specific instructions for the collection of samples and interpretation of biomarkers, including pharmacodynamics.
+      <ul>
+        <li>Include the biological samples that will be collected (for example, serum, plasma, etc.) and the retention time for the samples (ensuring alignment with the ICF).</li>
+        <li>Indicate the types of biomarkers that will be studied for each sample.</li>
+        <li>Specific sample collection and processing instructions can be described in an appendix or a separate document and cross-referenced.</li>
+        <li>Specify whether optional or required. Required samples must be based on a protocol objective.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Biomarkers]</span></div>
+
+    <h2>8.10. Immunogenicity Assessments</h2>
+    <div class="instructional-text">Include any specific instructions for the collection of samples and interpretation of immunogenicity. If immunogenicity assessments are included within Efficacy Assessments or Safety Assessments, cross-reference to that section.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Immunogenicity Assessments]</span></div>
+
+    <h2>8.11. Medical Resource Utilisation and Health Economics</h2>
+    <div class="instructional-text">This section does not apply to COAs. Include this section only for any value evidence and outcomes assessments not included in either the efficacy or safety sections.</div>
+    <div class="instructional-text">Describe the health outcome measures, collection method (for example, diary, physician interview), and participant burden.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Medical Resource Utilisation and Health Economics]</span></div>
+
+    <h1>9. STATISTICAL CONSIDERATIONS</h1>
+    <div class="instructional-text">Ensure that the data analysis complies with ICH E9 Guideline and ICH E9(R1) Guideline.</div>
+    <div class="instructional-text">In general, all relevant data collected in the trial should be considered in this statistical considerations section.</div>
+    <div class="instructional-text">Provide a statement with regard to when the primary analyses will be conducted. For example: The analysis will be conducted on all participant data at the time the trial ends.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Statistical Considerations]</span></div>
+
+    <h2>9.1. Analysis Sets</h2>
+    <div class="instructional-text">Analysis sets to support each analysis will be specified here and described in the Statistical Analysis Plan.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Analysis Datasets]</span></div>
+
+    <h2>9.2. Analyses Supporting Primary Objective(s)</h2>
+    <div class="instructional-text">This section introduces the Statistical Analysis Plan, with the detail to be provided in the subsequent subsections. This includes describing the methods of estimation (analytic approach) in alignment with how the estimands are defined. Sensitivity analyses should be aligned with how the estimands and estimators are defined.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Analysis Supporting Primary Objectives]</span></div>
+
+    <h3>9.2.1. Statistical Model, Hypothesis, and Method of Analysis</h3>
+    <div class="instructional-text">Ensure that the statistical hypothesis/model (and corresponding assumptions)/analysis is aligned with the primary estimand(s).</div>
+    <div class="instructional-text">For all applicable objectives (for example, primary, secondary), under the appropriate header, state the null and alternative hypotheses, including the pre-planned type 1 error, or alternative criteria to define trial success and relevant operating characteristics if appropriate. Describe the statistical model used and the factors that will be included (covariates and interactions) and any rules for handling these factors (for example, pooling of centres). If applicable, state and discuss any adjustments to account for multiplicity. </div>
+    <div class="instructional-text">If modelling and simulation methods are to be used, please describe the model (inputs and outputs), the underlying assumptions, and the method of model fitting.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Statistical Model, Hypothesis, and Method of Analysis]</span></div>
+
+    <h3>9.2.2. Handling of Intercurrent Events of Primary Estimand(s)</h3>
+    <div class="instructional-text">For each intercurrent event of the primary estimand(s) (Section 3.1, Estimand[s] for the Primary Objective[s]), explain how data will be handled for the statistical analysis in line with the primary estimand. The handling of intercurrent events in statistical analysis should be aligned with the specific estimand strategies being used.</div>
+    <div class="instructional-text">This section should describe with more detail the rationale and handling of the data rather than repeating the guidance from the preceding sections.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Handling of Intercurrent Events of Primary Estimand]</span></div>
+
+    <h3>9.2.3. Handling of Missing Data</h3>
+    <div class="instructional-text">This section should describe how missing data will be dealt with. Refer to the E9(R1) addendum when estimand framework is used.</div>
+    <div class="instructional-text">The protocol should describe how missing data will be handled (for example, type of imputation technique, if any, and provide justification)</div>
+    <div class="instructional-text">In cases where the Primary Objective is related to safety, this section should also be completed. It may also be helpful to include additional statements regarding handling of missing data in general for other important efficacy or safety endpoints or this information can be included in the analysis of secondary endpoint section below.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Handling of Missing Data]</span></div>
+
+    <h3>9.2.4. Sensitivity Analysis</h3>
+    <div class="instructional-text">Sensitivity analyses are a series of analyses conducted with the intent to explore the robustness of inferences from the main estimator to deviations from its underlying modelling assumptions and limitations in the data.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Sensitivity Analysis]</span></div>
+
+    <h3>9.2.5. Supplementary Analysis</h3>
+    <div class="instructional-text">Describe any supplementary analysis if applicable.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Supplementary Analysis]</span></div>
+
+    <h2>9.3. Analysis Supporting Secondary Objective(s)</h2>
+    <div class="instructional-text">This section should focus on estimands for Secondary Objectives.</div>
+    <div class="instructional-text">In this section describe the statistical analysis, handling of intercurrent events, handling of missing data, and if applicable, sensitivity analysis corresponding to each secondary estimand.</div>
+    <div class="key-field"><span class="metadata-reply">[Analyses Supporting Secondary Objectives]</span></div>
+
+    <h2>9.4. Analysis of Exploratory Objective(s)</h2>
+    <div class="suggested-text"><span class="metadata-reply">[Analyses Supporting Tertiary/Exploratory Objective(s)]</span></div>
+
+    <h2>9.5. Safety Analyses</h2>
+    <div class="instructional-text">If safety is a primary and/or secondary objective, describe the corresponding safety analyses in the appropriate section above (Section 9.2 or Section 9.3).</div>
+    <div class="key-field"><span class="metadata-reply">[Safety Analyses]</span></div>
+
+    <h2>9.6. Other Analyses</h2>
+    <div class="instructional-text">Describe Other Analyses such as Subgroup analyses, Adjusted analysis if needed.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Other Analyses]</span></div>
+
+    <h2>9.7. Interim Analyses</h2>
+    <div class="instructional-text">Describe any interim analysis and criteria for stopping or adapting the trial.</div>
+    <div class="instructional-text">The description should include, but is not limited to, the following:
+      <ul>
+        <li>Any interim analysis plan, even if it is only to be performed at the request of an oversight body (for example, DMC).</li>
+        <li>Describe (briefly and concisely) and reference the applied statistical method, for example, group sequential test and spending function (for example, O’Brien-Fleming), as applicable.</li>
+        <li>Who will perform the analyses.</li>
+        <li>When they will be conducted (timing and/or triggers).</li>
+        <li>The decision criteria—statistical or other—that will be adopted to judge the interim results as part of a guideline for early stopping or other adaptations.</li>
+        <li>Who will see the outcome data while the trial is ongoing.</li>
+        <li>Whether these individuals will remain blinded to trial groups.</li>
+        <li>How the integrity of the trial implementation will be protected (for example, maintaining blinding) when any adaptations to the trial are made.</li>
+        <li>Who has the ultimate authority to stop or modify the trial, for example, investigator, principal investigator, Data Monitoring Committee, or sponsor.</li>
+        <li>The stopping guidelines.</li>
+        <li>If pre-specified interim analyses are to be used for other trial adaptations such as sample size re-estimation, alteration to the proportion of participants allocated to each trial group, and changes to eligibility criteria.</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Interim Analyses]</span></div>
+
+    <h2>9.8. Sample Size Determination</h2>
+    <div class="instructional-text">This section should detail the methods used for the determination of the sample size and a reference to tables or statistical software used to carry out the calculation. Sufficient information should be provided so that the sample size calculation can be reproduced or described.</div>
+    <div class="instructional-text">If the planned sample size is not derived statistically, then this should be explicitly stated along with a rationale for the intended sample size (for example, exploratory nature of pilot trials; pragmatic considerations for trials in rare diseases).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Sample Size Determination]</span></div>
+
+    <h2>9.9. Protocol Deviations</h2>
+    <div class="instructional-text">Plans for detecting, reviewing, and reporting any deviations from the protocol should be described.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Protocol Deviations Plans]</span></div>
+
+    <h1>10. GENERAL CONSIDERATIONS: REGULATORY, ETHICAL, AND TRIAL OVERSIGHT</h1>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>10.1. Regulatory and Ethical Considerations</h2>
+    <div class="instructional-text">List the prevailing ethical, legal, and regulatory guidelines that will be applied throughout the trial.</div>
+    <div class="key-field"><span class="metadata-reply">This trial will be conducted in accordance with the protocol and with the following:</span></div>
+    <div class="suggested-text">
+      <ul>
+        <li>Consensus ethical principles derived from international guidelines including the Declaration of Helsinki and Council for International Organisations of Medical Sciences (CIOMS) International Ethical Guidelines</li>
+        <li>ICH Good Clinical Practice (GCP) Guidelines</li>
+        <li>Applicable laws and regulations</li>
+      </ul>
+    </div>
+    <div class="instructional-text">List the investigators’ and sponsor’s responsibilities in this regard. </div>
+    <div class="suggested-text">Investigator Responsibilities <span class="metadata-reply">[Investigator Responsibilities]</span></div>
+    <div class="suggested-text">Sponsor Responsibilities <span class="metadata-reply">[Sponsor Responsibilities]</span></div>
+ 
+    <h2>10.2. Committees</h2>
+    <div class="instructional-text">Briefly describe the administrative structure of committees that will be reviewing data while the trial is ongoing, and the type of committee (for example, Dose Escalation Committee, Data Monitoring Committee or Data Safety Monitoring Board). Note that specific details may be required depending on local law or regulation. If applicable, Committee Charters may be cross referenced.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Committees Structure]</span></div>
+
+    <h2>10.3. Informed Consent Process</h2>
+    <div class="instructional-text">Specify the key elements of the informed consent process, including any special needs and how these are addressed (for example, assent, capacity, legally acceptable representative).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Informed Consent Process]</span></div>
+    <div class="instructional-text">If enrollment in the trial may occur during an emergency in which the participant or their legally authorised representative is not able or available to give consent, describe the consent process.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Emergency Consent Process]</span></div>
+    <div><b>Rescreening</b></div>
+    <div class="instructional-text">If participants can be rescreened, add the text to state whether the participant needs to complete a new consent. Screen failure and rescreening should be clearly defined in the protocol, with cross-reference to those definitions.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Consent Requirements for Rescreening]</span></div>
+    <div class="suggested-text"><span class="metadata-reply">[Additional ICF text for Use of Remaining Samples in Optional Exploratory Research]</span></div>
+
+    <h2>10.4. Data Protection</h2>
+    <div class="instructional-text">Describe how personal data will be protected and any measures that should be taken in case of a data security breach.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Data Protection]</span></div>
+
+    <h2>10.5. Early Site Closure or Trial Termination</h2>
+    <div class="instructional-text">List the decision rights of sponsor or designee to close a site or terminate the trial. Likewise, list the investigator’s right to initiate site closure.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Decision Rights for Site Closure and Trial Termination]</span></div>
+    <div class="instructional-text">List the criteria for early closure of a site by the sponsor or investigator.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Criteria for Early Closure]</span></div>
+    <div class="instructional-text">List the responsibilities of the sponsor and investigator following termination or suspension, such as informing the ethics committee(s), and prompt notification of the participant and transition to appropriate therapy and/or follow-up.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Responsibilities following Termination or Suspension]</span></div>
+
+    <h1>11. GENERAL CONSIDERATIONS: RISK MANAGEMENT AND QUALITY ASSURANCE</h1>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>11.1. Quality Tolerance Limits</h2>
+    <div class="instructional-text">Indicate where Quality Tolerance Limits will be predefined, how they will be monitored during the trial, and expected discussion in the clinical trial report.</div>
+    <div class="suggested-text"><span class="metadata-reply">[QTL]</span></div>
+
+    <h2>11.2. Data Quality Assurance</h2>
+    <div class="instructional-text">Delineate the responsibilities of the Sponsor with respect to data quality assurance.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Sponsor or Designee Responsibilities for Data Quality Assurance]</span></div>
+    <div class="suggested-text"><span class="metadata-reply">[Investigator Responsibilities for Data Quality Assurance]</span></div>
+
+    <h2>11.3. Source Data</h2>
+    <div class="instructional-text">Establish the importance of source data and expectation for traceability of transcribed information back to source. Delineate expectations for investigators (for example, maintain source data at the site, ensure availability of current records) and trial monitors (for example, verify CRF data relative to source, safety of participants is being protected, conduct is in accordance with GCP). Define what constitutes source data and its origin or provide a reference to the location of these definitions, if contained in a separate document, such as a monitoring guideline or source data acknowledgement).</div>
+    <div class="suggested-text"><span class="metadata-reply">[Source Data Introduction]</span></div>
+    <div class="suggested-text"><span class="metadata-reply">[Investigator Expectations for Source Data]</span></div>
+    <div class="suggested-text"><span class="metadata-reply">[Trial Monitor Expectations for Source Data]</span></div>
+    <div class="key-field"><span class="metadata-reply">[Definition of Source Data]</span></div>
+
+    <h1>12. APPENDIX: ADVERSE EVENTS AND SERIOUS ADVERSE EVENTS – DEFINITIONS, SEVERITY, AND CAUSALITY</h1>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>12.1. Further Details and Clarifications on the AE Definition</h2>
+    <div class="instructional-text">Specify:
+      <ul>
+        <li>Any relevant regional AE requirements.</li>
+        <li>Any events that meet and do not meet the AE definition.</li>
+        <li>Any trial-specific AE clarifications.</li>
+        <li>The trial-specific definition for an overdose.</li>
+        <li>If applicable, any clarifications on the AE and SAE definitions for efficacy trials (for example, lack of efficacy or failure of pharmacological actions reporting).</li>
+      </ul>
+    </div>
+
+    <h2>12.2. Further Details and Clarifications on the SAE Definition</h2>
+    <div class="instructional-text">Specify:
+      <ul>
+        <li>Any relevant regional SAE requirements.</li>
+        <li>Any events that meet and do not meet the SAE definition.</li>
+        <li>Any trial-specific SAE clarifications.</li>
+      </ul>
+    </div>
+
+    <h2>12.3. Severity</h2>
+    <div class="instructional-text">Specify the severity rating categories/scale.</div>
+    <div class="key-field"><span class="metadata-reply">[Severity]</span></div>
+
+    <h2>12.4. Causality</h2>
+    <div class="instructional-text">Specify:
+      <ul>
+        <li>The causality categories/scale.</li>
+        <li>Procedures for assessing causality.</li>
+      </ul>
+    </div>
+    <div class="key-field"><span class="metadata-reply">[Causality]</span></div>
+
+    <h1>13. APPENDIX: DEFINITIONS AND SUPPORTING OPERATIONAL DETAILS</h1>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h2>13.1. Contraception and Pregnancy Testing</h2>
+    <div class="instructional-text">No text is intended here (header only).</div>
+
+    <h3>13.1.1. Definitions Related to Childbearing Potential</h3>
+    <div class="instructional-text">Optional section to specify the definitions of:
+      <ul>
+        <li>Participant of childbearing potential</li>
+        <li>Participant of non-childbearing potential</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Definitions Related to Childbearing Potential]</span></div>
+
+    <h3>13.1.2. Contraception</h3>
+    <div class="instructional-text">Optional section to specify the:
+      <ul>
+        <li>Contraceptive methods required</li>
+        <li>Duration of use</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Contraception]</span></div>
+
+    <h3>13.1.3. Pregnancy Testing</h3>
+    <div class="instructional-text">Optional section to specify pregnancy testing requirements.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Pregnancy Testing]</span></div>
+
+    <h2>13.2. Clinical Laboratory Tests</h2>
+    <div class="instructional-text">Provide additional information, if needed, about clinical laboratory tests, such as 
+      <ul>
+        <li>whether they will be performed by a central or local laboratory (if important to distinguish)</li>
+        <li>specific analytes or parameters included in a panel</li>
+        <li>equations and references for locally calculated labs</li>
+        <li>acceptability of additional tests deemed necessary by the investigator or local regulations</li>
+        <li>instructions for situations in which central laboratory results are not available in time for trial intervention and/or response evaluation, or in the event of a severe disruption (for example, a pandemic or natural disaster)</li>
+        <li>treatment algorithms for results out of normal range.</li>
+      </ul>
+    </div>
+    <div class="instructional-text">A tabular presentation for such information is common.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Clinical Laboratory Tests]</span></div>
+
+    <h2>13.3. Country/Region-Specific Differences</h2>
+    <div class="instructional-text">Although global clinical trial practices are increasingly harmonised, some country/ region specific differences in requirements do exist (for example, document retention periods, contraception requirements). Where differences in requirements cannot be reconciled, sponsors should explain how they will document and communicate country/region-specific differences (for example, by country/region-specific amendments or addenda).</div>
+    <div class="instructional-text">An alternative to country/region-specific amendments is to list the specific differences by country or countries in this section, including a reference to the relevant section of the protocol where the differing requirement applies.</div>
+    <div class="suggested-text"><span class="metadata-reply">[Country/Region-specific Differences]</span></div>
+
+    <h2>13.4. Prior Protocol Amendments</h2>
+    <div class="instructional-text">Choose the appropriate text.</div>
+    <div class="key-field">{This protocol has not been amended.}</div>
+    <div class="instructional-text">or</div>
+    <div class="key-field">{The Protocol Amendment Summary of Changes for the current amendment is located directly before the Table of Contents. Details of prior amendments are presented below, beginning with the most recent}.</div>
+    <div class="instructional-text">See the instructions in the Protocol Amendment Summary of Changes located before the Table of Contents. Move all Protocol Amendment Summaries of Changes for previous amendments to this section in reverse chronological order (most recent first).</div>
+    <div class="suggested-text">Amendment {amendment number}: ({date})</div>
+    <div class="suggested-text">{Amendment details from this amendment}</div>
+    <div class="instructional-text">Add additional amendments/details as protocol amendments accrue.</div>
+    <div class="suggested-text">Amendment {amendment number}: ({date})</div>
+    <div class="suggested-text">{Amendment details from this amendment}</div>
+
+    <h1>14. APPENDIX: GLOSSARY OF TERMS</h1>
+    <div class="instructional-text">Define abbreviations and other terms used in the protocol. Abbreviations do not need to be defined at first mention within the protocol, and definition of abbreviations in common usage is not necessary (for example, DNA). A tabular presentation is common.</div>
+    <div class="instructional-text">Ensure the following terms are clearly defined within the protocol unless not applicable to the trial:
+      <ul>
+        <li>Pre-screening</li>
+        <li>Screening</li>
+        <li>Enrollment</li>
+        <li>Product Complaint</li>
+      </ul>
+    </div>
+    <div class="suggested-text"><span class="metadata-reply">[Abbreviations and Definitions]</span></div>
+
+    <h1>15. APPENDIX: REFERENCES</h1>
+    <div class="instructional-text">References should be listed in a common format that includes all relevant information to identify the source and date published. If not published, this should be clearly indicated. </div>
+    <div class="suggested-text"><span class="metadata-reply">[References]</span></div>
+
+  </div>
+
+</body>
+<script>
+  function toggleinstruction() {
+    const elements = document.getElementsByClassName('instructional-text');
+    for (let i = 0; i < elements.length; i++) {
+      element = elements.item(i);
+      element.classList.toggle('hidden');
+    }
+  }
+
+  function togglefield() {
+    const elements = document.getElementsByClassName('metadata-reply');
+    for (let i = 0; i < elements.length; i++) {
+      element = elements.item(i);
+      element.classList.toggle('hidden');
+    }
+  }
+
+  function togglesuggested() {
+    const elements = document.getElementsByClassName('suggested-text');
+    for (let i = 0; i < elements.length; i++) {
+      element = elements.item(i);
+      element.classList.toggle('hidden');
+    }
+  }
+
+  window.onload = function () {
+    var toc = "";
+    var level = 0;
+
+    document.getElementById("contents").innerHTML =
+    document.getElementById("contents").innerHTML.replace(
+      /<h([\d])>([^<]+)<\/h([\d])>/gi,
+      function (str, openLevel, titleText, closeLevel) {
+        if (openLevel != closeLevel) {
+          return str;
+        }
+
+        if (openLevel > level) {
+          toc += (new Array(openLevel - level + 1)).join("<ul>");
+        } else if (openLevel < level) {
+          toc += (new Array(level - openLevel + 1)).join("</ul>");
+        }
+
+        level = parseInt(openLevel);
+
+        var anchor = titleText.replace(/ /g, "_");
+        toc += "<li><a href=\"#" + anchor + "\">" + titleText
+        + "</a></li>";
+
+        return "<h" + openLevel + "><a name=\"" + anchor + "\">"
+        + titleText + "</a></h" + closeLevel + ">";
+      }
+      );
+
+    if (level) {
+      toc += (new Array(level + 1)).join("</ul>");
+    }
+
+    document.getElementById("toc").innerHTML += toc;
+  };
+
+</script>
+</html>

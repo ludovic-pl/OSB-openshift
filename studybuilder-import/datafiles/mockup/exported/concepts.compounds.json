@@ -94,7 +94,7 @@
       }
     ],
     "uid": "Compound_000003",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -168,7 +168,7 @@
       }
     ],
     "uid": "Compound_000006",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -203,7 +203,7 @@
     "strength_values": [],
     "substances": [],
     "uid": "Compound_000011",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "2.0"
   },
   {
@@ -247,7 +247,7 @@
       }
     ],
     "uid": "Compound_000012",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "2.0"
   },
   {
@@ -282,7 +282,7 @@
     "strength_values": [],
     "substances": [],
     "uid": "Compound_000013",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

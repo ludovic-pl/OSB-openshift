@@ -32,45 +32,78 @@
       />
     </template>
     <template #beforeSwitches="">
-      <v-autocomplete
+      <v-select
         v-model="selectedTerms"
-        v-model:search-input="search"
         :label="$t('CodelistTable.search_with_terms')"
         :items="termsStore.terms"
         item-title="sponsor_preferred_name"
         item-value="term_uid"
         density="compact"
-        class="max-width-300 mt-6"
+        class="max-width-400 mt-6"
         variant="outlined"
         bg-color="nnWhite"
+        clear-icon="mdi-close"
         single-line
         clearable
+        rounded="lg"
         return-object
         multiple
         :loading="loading"
-        hide-no-data
         clear-on-select
         @update:search="updateTerms"
       >
+        <template #item="{ props }">
+          <v-list-item
+            v-bind="props"
+            @click="props.onClick"
+          >
+            <template #prepend="{ isActive }">
+              <v-list-item-action start>
+                <v-checkbox-btn :model-value="isActive" />
+              </v-list-item-action>
+            </template>
+            <template #title>
+              {{ props.title }}
+            </template>
+          </v-list-item>
+        </template>
         <template #selection="{ index }">
           <div v-if="index === 0">
-            <span class="items-font-size">{{
-              selectedTerms[0].sponsor_preferred_name.substring(0, 12)
-            }}</span>
+            <span>
+              {{ termslabel }}
+            </span>
           </div>
           <span v-if="index === 1" class="text-grey text-caption mr-1">
             (+{{ selectedTerms.length - 1 }})
           </span>
         </template>
-      </v-autocomplete>
+        <template #prepend-item>
+          <v-row @keydown.stop>
+            <v-text-field
+              v-model="search"
+              class="pl-6"
+              :placeholder="$t('_global.search')"
+              @update:model-value="updateTerms"
+            />
+            <v-btn
+              variant="text"
+              size="small"
+              icon="mdi-close"
+              class="mr-3 mt-3"
+              @click="search = ''"
+            />
+          </v-row>
+        </template>
+      </v-select>
       <v-select
         v-model="termsFilterOperator"
         :items="operators"
+        rounded="lg"
         variant="outlined"
         bg-color="nnWhite"
         single-line
         :label="$t('_global.operator')"
-        class="ml-1 max-width-100 mt-6 mr-2"
+        class="ml-1 terms-operator mt-6 mr-2"
         density="compact"
       />
     </template>
@@ -254,10 +287,22 @@ const historyTitle = computed(() => {
   }
   return ''
 })
+
+const termslabel = computed(() => {
+  let label = ''
+  let labelLength = selectedTerms.value.length === 1 ? 36 : 30
+  if (selectedTerms.value[0].sponsor_preferred_name.length > 30) {
+    label = selectedTerms.value[0].sponsor_preferred_name.substring(0, labelLength) + '...'
+  } else {
+    label = selectedTerms.value[0].sponsor_preferred_name
+  }
+  return label
+})
+
 const exportUrlParams = computed(() => {
   const params = {}
   if (props.library) {
-    params.library = props.library
+    params.library_name = props.library
   }
   if (props.package) {
     params.package = props.package.name
@@ -273,6 +318,10 @@ watch(selectedTerms, () => {
 })
 watch(termsFilterOperator, () => {
   fetchCodelists()
+})
+
+termsStore.fetchTerms({}, true).then(() => {
+  loading.value = false
 })
 
 function getPackageObject() {
@@ -302,7 +351,7 @@ function fetchCodelists(filters, options, filtersUpdated) {
     ctCataloguesStore.currentCataloguePage = params.page_number
   }
   savedFilters.value = filters
-  params.library = props.library
+  params.library_name = props.library
   if (props.package) {
     params.package = props.package.name
     if (props.sponsor) {
@@ -376,21 +425,18 @@ function closeHistory() {
   showSponsorValuesHistory.value = false
 }
 
-const updateTerms = _debounce(function (value) {
-  termsStore.reset()
-  if (value) {
-    loading.value = true
-    const filters = { '*': { v: [value] } }
+const updateTerms = _debounce(function () {
+  loading.value = true
+  const filters = { '*': { v: [search.value] } }
 
-    if (props.library) {
-      filters['codelist_library_name'] = { v: [props.library] }
-    }
-
-    termsStore.fetchTerms(filters, true).then(() => {
-      loading.value = false
-    })
+  if (props.library) {
+    filters['codelist_library_name'] = { v: [props.library] }
   }
-}, 100)
+
+  termsStore.fetchTerms(filters, true).then(() => {
+    loading.value = false
+  })
+}, 300)
 
 function refresh() {
   table.value.filterTable()
@@ -427,10 +473,12 @@ defineExpose({
 </script>
 
 <style scoped>
-.max-width-100 {
+.terms-operator {
   max-width: 100px;
+  margin-bottom: 1px;
 }
-.max-width-300 {
-  max-width: 300px;
+.terms-search {
+  max-width: 400px;
+  margin-bottom: 1px;
 }
 </style>

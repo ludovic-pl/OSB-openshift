@@ -2,13 +2,14 @@ import datetime
 from dataclasses import dataclass
 
 from neomodel import db
-
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
-    to_relation_trees,
+from neomodel.sync_.match import (
+    Collect,
+    NodeNameResolver,
+    Optional,
+    RelationNameResolver,
 )
+
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.compounds import CompoundAliasRoot
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
@@ -28,14 +29,8 @@ from clinical_mdr_api.domains.study_selections.study_selection_compound import (
     StudySelectionCompoundsAR,
     StudySelectionCompoundVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
-
-
-def raise_exception_if_node_is_null(node, field, uid):
-    if node is None:
-        raise exceptions.NotFoundException(
-            f"The selected CT Term for '{field}' with UID '{uid}' cannot be found."
-        )
+from common.exceptions import BusinessLogicException, NotFoundException
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -54,7 +49,7 @@ class StudyCompoundSelectionHistory:
     other_info: str | None
     start_date: datetime.datetime
     status: str | None
-    user_initials: str
+    author_id: str
     change_type: str
     end_date: datetime.datetime | None
     order: int
@@ -149,12 +144,12 @@ class StudySelectionCompoundRepository:
                 nvr.uid AS reason_for_missing,
                 count(scd) AS study_compound_dosing_count,
                 sa.date AS start_date,
-                sa.user_initials AS user_initials
+                sa.author_id AS author_id
                 ORDER BY order
             """
         all_compound_selections = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in helpers.db_result_to_list(all_compound_selections):
+        for selection in utils.db_result_to_list(all_compound_selections):
             selection_vo = StudySelectionCompoundVO.from_input_values(
                 study_uid=selection["study_uid"],
                 other_info=selection["other_information"],
@@ -169,7 +164,7 @@ class StudySelectionCompoundRepository:
                 study_compound_dosing_count=selection["study_compound_dosing_count"],
                 study_selection_uid=selection["study_compound_uid"],
                 start_date=convert_to_datetime(value=selection["start_date"]),
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
             )
             all_selections.append(selection_vo)
         return tuple(all_selections)
@@ -279,16 +274,16 @@ class StudySelectionCompoundRepository:
             nvr.uid AS reason_for_missing,
             count(scd) AS study_compound_dosing_count,
             sa.date AS start_date,
-            sa.user_initials AS user_initials
+            sa.author_id AS author_id
             ORDER BY order
         """
 
         result = db.cypher_query(query, query_parameters)
-        result = helpers.db_result_to_list(result)
-        if len(result) == 0:
-            raise exceptions.NotFoundException(
-                f"Study compound '{study_compound_uid}' does not exist for study '{study_uid}'"
-            )
+        result = utils.db_result_to_list(result)
+        NotFoundException.raise_if(
+            len(result) == 0,
+            msg=f"Study Compound with UID '{study_compound_uid}' doesn't exist for Study with UID '{study_uid}'",
+        )
         assert (
             len(result) == 1
         ), f"Found more than 1 study compound with uid {study_compound_uid}"
@@ -307,7 +302,7 @@ class StudySelectionCompoundRepository:
             study_compound_dosing_count=selection["study_compound_dosing_count"],
             study_selection_uid=selection["study_compound_uid"],
             start_date=convert_to_datetime(value=selection["start_date"]),
-            user_initials=selection["user_initials"],
+            author_id=selection["author_id"],
         )
         return selection_vo, selection["order"]
 
@@ -328,7 +323,7 @@ class StudySelectionCompoundRepository:
             return Create()
         return Delete()
 
-    def save(self, study_selection: StudySelectionCompoundsAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionCompoundsAR, author_id: str) -> None:
         """
         Persist the set of selected study compounds from the aggregate to the database
         :param study_selection:
@@ -344,10 +339,10 @@ class StudySelectionCompoundRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -388,7 +383,7 @@ class StudySelectionCompoundRepository:
                 audit_node,
                 last_study_selection_node,
                 study_root_node,
-                author,
+                author_id,
             )
             audit_trail_nodes[selection.study_selection_uid] = audit_node
             if isinstance(audit_node, Delete):
@@ -402,7 +397,7 @@ class StudySelectionCompoundRepository:
                 audit_node = audit_trail_nodes[selection.study_selection_uid]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -443,9 +438,9 @@ class StudySelectionCompoundRepository:
         audit_node: StudyAction,
         study_objective_selection_node: StudyCompound,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -542,11 +537,13 @@ class StudySelectionCompoundRepository:
             type_of_treatment_node = CTTermRoot.nodes.get_or_none(
                 uid=selection.type_of_treatment_uid
             )
-            raise_exception_if_node_is_null(
-                type_of_treatment_node,
-                "type of treatment",
+
+            NotFoundException.raise_if(
+                type_of_treatment_node is None,
+                "CT Term for 'type of treatment'",
                 selection.type_of_treatment_uid,
             )
+
             # Connect new node with type_of_treatment node
             study_compound_selection_node.has_type_of_treatment.connect(
                 type_of_treatment_node
@@ -558,11 +555,13 @@ class StudySelectionCompoundRepository:
             null_value_reason_node = CTTermRoot.nodes.get_or_none(
                 uid=selection.reason_for_missing_value_uid
             )
-            raise_exception_if_node_is_null(
-                null_value_reason_node,
-                "reason for missing",
+
+            NotFoundException.raise_if(
+                null_value_reason_node is None,
+                "CT Term for 'reason for missing'",
                 selection.reason_for_missing_value_uid,
             )
+
             # connect to reason_for_missing node
             study_compound_selection_node.has_reason_for_missing.connect(
                 null_value_reason_node
@@ -618,7 +617,7 @@ class StudySelectionCompoundRepository:
                 deliveryDevice.uid AS device_uid,
                 nvr.uid AS reason_for_missing,
                 asa.date AS start_date,
-                asa.user_initials AS user_initials,
+                asa.author_id AS author_id,
                 asa.status AS status,
                 labels(asa) AS change_type,
                 bsa.date AS end_date
@@ -626,7 +625,8 @@ class StudySelectionCompoundRepository:
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(compound_selections_audit_trail):
+        for res in utils.db_result_to_list(compound_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -649,7 +649,7 @@ class StudySelectionCompoundRepository:
                     order=res["order"],
                     start_date=convert_to_datetime(value=res["start_date"]),
                     status=res["status"],
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     end_date=end_date,
                 )
@@ -687,7 +687,7 @@ class StudySelectionCompoundRepository:
             WITH *
             MATCH (sc)-[:HAS_DOSE_FREQUENCY]->(doseFrequency:CTTermRoot {uid: $dose_frequency_uid})
             WITH *
-            MATCH (sc)-[:HAS_DISPENSED_IN]->(dispenser:CTTermRoot {uid: $dispenser_uid})            
+            MATCH (sc)-[:HAS_DISPENSED_IN]->(dispenser:CTTermRoot {uid: $dispenser_uid})
             RETURN sc
             """
         result, _ = db.cypher_query(
@@ -708,10 +708,73 @@ class StudySelectionCompoundRepository:
 
     @staticmethod
     def get_compound_uid_to_arm_uids_mapping(study_uid: str) -> dict[str, set[str]]:
-        results = to_relation_trees(
-            StudyRoot.nodes.fetch_optional_relations_and_collect(
-                "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell__study_arm"
-            ).filter(uid=study_uid)
+        results = (
+            StudyRoot.nodes.fetch_relations(
+                Optional(
+                    "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell__study_arm"
+                )
+            )
+            .filter(uid=study_uid)
+            .annotate(
+                Collect(NodeNameResolver("latest_value"), distinct=True),
+                Collect(RelationNameResolver("latest_value"), distinct=True),
+                Collect(
+                    NodeNameResolver("latest_value__has_study_compound"), distinct=True
+                ),
+                Collect(
+                    RelationNameResolver("latest_value__has_study_compound"),
+                    distinct=True,
+                ),
+                Collect(
+                    NodeNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    RelationNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    NodeNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    RelationNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    NodeNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    RelationNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    NodeNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell__study_arm"
+                    ),
+                    distinct=True,
+                ),
+                Collect(
+                    RelationNameResolver(
+                        "latest_value__has_study_compound__has_compound_dosing__study_element__has_design_cell__study_arm"
+                    ),
+                    distinct=True,
+                ),
+            )
+            .resolve_subgraph()
         )
 
         if not results:

@@ -3,7 +3,6 @@ from typing import Any, Callable
 from fastapi import status
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.study_selections.study_soa_footnote_repository import (
     StudySoAFootnoteRepository,
 )
@@ -17,11 +16,9 @@ from clinical_mdr_api.domains.study_selections.study_soa_footnote import (
 )
 from clinical_mdr_api.domains.syntax_instances.footnote import FootnoteAR
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import NotFoundException
-from clinical_mdr_api.models import FootnoteCreateInput
 from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import ReferencedItem
 from clinical_mdr_api.models.study_selections.study_soa_footnote import (
-    ReferencedItem,
     StudySoAFootnote,
     StudySoAFootnoteBatchEditInput,
     StudySoAFootnoteBatchOutput,
@@ -31,25 +28,33 @@ from clinical_mdr_api.models.study_selections.study_soa_footnote import (
     StudySoAFootnoteHistory,
     StudySoAFootnoteVersion,
 )
+from clinical_mdr_api.models.syntax_instances.footnote import FootnoteCreateInput
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
     calculate_diffs_history,
     extract_filtering_values,
-    normalize_string,
     service_level_generic_filtering,
     service_level_generic_header_filtering,
 )
 from clinical_mdr_api.services.syntax_instances.footnotes import FootnoteService
-from clinical_mdr_api.telemetry import trace_calls
+from clinical_mdr_api.utils import normalize_string
+from common.auth.user import user
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    MDRApiBaseException,
+    NotFoundException,
+    ValidationException,
+)
+from common.telemetry import trace_calls
 
 
 class StudySoAFootnoteService:
     def __init__(self):
-        self.author = user().id()
+        self.author_id = user().id()
         self._repos = MetaRepository()
         self.repository_interface = StudySoAFootnoteRepository
 
@@ -164,7 +169,7 @@ class StudySoAFootnoteService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ) -> list[Any]:
         if study_uid:
@@ -183,7 +188,7 @@ class StudySoAFootnoteService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         # Return values for field_name
         return header_values
@@ -338,7 +343,7 @@ class StudySoAFootnoteService:
                 self.repository.generate_soa_footnote_uid if not uid else lambda: uid
             ),
             status=StudyStatus.DRAFT,
-            author=self.author,
+            author_id=self.author_id,
             accepted_version=accepted_version,
             footnote_version=footnote_version,
             footnote_template_version=footnote_template_version,
@@ -363,10 +368,12 @@ class StudySoAFootnoteService:
         footnote_template = self._repos.footnote_template_repository.find_by_uid(
             uid=footnote_input.footnote_data.footnote_template_uid
         )
-        if footnote_template is None:
-            raise exceptions.NotFoundException(
-                f"Footnote template with uid {footnote_input.footnote_data.footnote_template_uid} does not exist"
-            )
+
+        NotFoundException.raise_if(
+            footnote_template is None,
+            "Footnote Template",
+            footnote_input.footnote_data.footnote_template_uid,
+        )
 
         if (
             footnote_template.template_value.parameter_names is not None
@@ -401,16 +408,15 @@ class StudySoAFootnoteService:
             )
             footnote_uid = footnote_ar.uid
             if not footnote_service.repository.check_exists_by_name(footnote_ar.name):
-                footnote_ar.approve(author=self.author)
+                footnote_ar.approve(author_id=self.author_id)
                 footnote_service.repository.save(footnote_ar)
             else:
                 footnote_uid = footnote_service.repository.find_uid_by_name(
                     name=footnote_ar.name
                 )
-                if footnote_uid is None:
-                    raise NotFoundException(
-                        f"Could not find node with label FootnoteValue and name {footnote_ar.name}"
-                    )
+                NotFoundException.raise_if(
+                    footnote_uid is None, "Footnote Value", footnote_ar.name, "Name"
+                )
             footnote_ar = footnote_service.repository.find_by_uid(
                 footnote_uid, for_update=True
             )
@@ -430,14 +436,18 @@ class StudySoAFootnoteService:
 
         footnote_vo = self.instantiate_study_soa_vo(
             study_uid=study_uid,
-            footnote_uid=footnote_input.footnote_uid,
-            footnote_template_uid=footnote_input.footnote_template_uid,
+            footnote_uid=getattr(footnote_input, "footnote_uid", None),
+            footnote_template_uid=getattr(
+                footnote_input, "footnote_template_uid", None
+            ),
             referenced_items=footnote_input.referenced_items,
             footnote_number=len(all_soa_footnotes) + 1,
         )
         self.validate(
-            footnote_uid=footnote_input.footnote_uid,
-            footnote_template_uid=footnote_input.footnote_template_uid,
+            footnote_uid=getattr(footnote_input, "footnote_uid", None),
+            footnote_template_uid=getattr(
+                footnote_input, "footnote_template_uid", None
+            ),
             all_soa_footnotes=all_soa_footnotes,
             soa_footnote_uid=footnote_vo.uid,
         )
@@ -459,10 +469,10 @@ class StudySoAFootnoteService:
         create_footnote: bool,
     ) -> StudySoAFootnote:
         if create_footnote:
-            if not isinstance(footnote_input, StudySoAFootnoteCreateFootnoteInput):
-                raise exceptions.ValidationException(
-                    "footnote_data expected with create_footnote"
-                )
+            ValidationException.raise_if_not(
+                isinstance(footnote_input, StudySoAFootnoteCreateFootnoteInput),
+                msg="footnote_data expected with create_footnote",
+            )
             return self.create_with_underlying_footnote(
                 study_uid=study_uid, footnote_input=footnote_input
             )
@@ -498,36 +508,30 @@ class StudySoAFootnoteService:
         all_soa_footnotes: list[Any],
         soa_footnote_uid: str,
     ):
-        if (
+        NotFoundException.raise_if(
             footnote_template_uid
             and not self._repos.footnote_template_repository.check_exists_final_version(
                 normalize_string(footnote_template_uid)
-            )
-        ):
-            raise exceptions.ValidationException(
-                f"There is no Final footnote template identified by provided uid ({footnote_template_uid})"
-            )
-        if (
+            ),
+            msg=f"There is no Final Footnote Template with UID '{footnote_template_uid}'.",
+        )
+        NotFoundException.raise_if(
             footnote_uid
             and not self._repos.footnote_repository.check_exists_final_version(
                 normalize_string(footnote_uid)
-            )
-        ):
-            raise exceptions.ValidationException(
-                f"There is no Final footnote identified by provided uid ({footnote_uid})"
-            )
+            ),
+            msg=f"There is no Final Footnote with UID '{footnote_uid}'.",
+        )
         if footnote_uid:
             footnote_service = FootnoteService()
             footnote_ar = footnote_service.repository.find_by_uid(footnote_uid)
             for soa_footnote in all_soa_footnotes:
-                if (
+                AlreadyExistsException.raise_if(
                     soa_footnote.footnote_uid
                     and soa_footnote_uid != soa_footnote.uid
-                    and footnote_ar.uid == soa_footnote.footnote_uid
-                ):
-                    raise exceptions.ValidationException(
-                        f"The SoaFootnote already exists for a Footnote with the following instantiation ({footnote_ar.name_plain})"
-                    )
+                    and footnote_ar.uid == soa_footnote.footnote_uid,
+                    msg=f"The SoaFootnote already exists for the Footnote with Name '{footnote_ar.name_plain}'.",
+                )
 
     def non_transactional_edit(
         self,
@@ -561,14 +565,17 @@ class StudySoAFootnoteService:
                 accept_version is False
                 or soa_footnote.accepted_version == accept_version
             ):
-                if sync_latest_version is False or all(
-                    i and i is None
-                    for i in [
-                        soa_footnote.footnote_version,
-                        soa_footnote.footnote_template_version,
-                    ]
-                ):
-                    raise exceptions.ValidationException("Nothing is changed")
+                ValidationException.raise_if(
+                    sync_latest_version is False
+                    or all(
+                        i and i is None
+                        for i in [
+                            soa_footnote.footnote_version,
+                            soa_footnote.footnote_template_version,
+                        ]
+                    ),
+                    msg="Nothing is changed",
+                )
         footnote_uid = None
         footnote_version = None
         if footnote_edit_input.footnote_uid:
@@ -666,15 +673,17 @@ class StudySoAFootnoteService:
                     footnote_edit_input=edit_payload,
                 )
                 response_code = status.HTTP_200_OK
-            except exceptions.MDRApiBaseException as error:
-                result["response_code"] = error.status_code
-                result["content"] = BatchErrorResponse(message=str(error))
-            else:
                 result["response_code"] = response_code
                 if item:
                     result["content"] = item.dict()
-            finally:
                 results.append(StudySoAFootnoteBatchOutput(**result))
+            except MDRApiBaseException as error:
+                results.append(
+                    StudySoAFootnoteBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
         return results
 
     def preview_soa_footnote(
@@ -686,7 +695,7 @@ class StudySoAFootnoteService:
             generate_uid_callback=(lambda: "preview"),
             study_uid=study_uid,
         )
-        footnote_ar.approve(self.author)
+        footnote_ar.approve(self.author_id)
         all_soa_footnotes = self.repository.find_all_footnotes(study_uids=study_uid)
         footnote_number = self.derive_footnote_number(
             study_uid=study_uid,
@@ -743,9 +752,9 @@ class StudySoAFootnoteService:
         soa_footnote_uid = study_soa_footnote_vo.footnote_uid
         soa_footnote_ar = self._repos.footnote_repository.find_by_uid(soa_footnote_uid)
         if soa_footnote_ar.item_metadata.status == LibraryItemStatus.DRAFT:
-            soa_footnote_ar.approve(self.author)
+            soa_footnote_ar.approve(self.author_id)
             self._repos.footnote_repository.save(soa_footnote_ar)
         elif soa_footnote_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(
-                "Cannot add retired objective as selection. Please reactivate."
+            raise BusinessLogicException(
+                msg="Cannot add retired objective as selection. Please reactivate."
             )

@@ -1,13 +1,14 @@
+import json
 import os
 import re
+import subprocess
+import time
+import traceback
 from functools import wraps
 from inspect import getfullargspec
-import traceback
-from neo4j import GraphDatabase
-import json
+
 from jinja2 import Environment, FileSystemLoader
-import time
-import subprocess
+from neo4j import GraphDatabase, Neo4jDriver, Record, Result, ResultSummary
 
 from migrations.utils.utils import get_logger, load_env
 
@@ -37,16 +38,19 @@ def parse_db_url(db_url):
 
 def get_db_driver():
     url, username, password = parse_db_url(DATABASE_URL)
-    logger.info(f"Getting db connection to {url}")
+    logger.info("Getting db connection to %s", {url})
     driver = GraphDatabase.driver(url, auth=(username, password))
     return driver
 
 
-def run_cypher_query(driver, query, params=None):
+def run_cypher_query(
+    driver: Neo4jDriver, query, params=None
+) -> tuple[list[Record], ResultSummary]:
     with driver.session(database=DATABASE_NAME) as session:
-        result = session.run(query, params)
-        records = [record for record in result]
+        result: Result = session.run(query, params)
+        records = list(result)
         summary = result.consume()
+        print_counters_table(summary.counters)
         return records, summary
 
 
@@ -90,24 +94,37 @@ def write_to_md_file(run_label, text, append=True):
         openmode = "w"
     else:
         openmode = "a"
-    with open(filename, openmode) as f:
-        f.write(text + "\n")
+    with open(filename, openmode, encoding="UTF-8") as file:
+        file.write(text + "\n")
 
 
 # Start a new markdown file with a title and description
 def save_md_title(run_label, title, desc):
-    commit_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).strip().decode('utf-8')
-    commit_date = subprocess.check_output(
-        ["git", "show", "--format=%aI", "--no-patch"]
-    ).strip().decode('utf-8')
+    commit_hash = (
+        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+        .strip()
+        .decode("utf-8")
+    )
+    commit_date = (
+        subprocess.check_output(["git", "show", "--format=%aI", "--no-patch"])
+        .strip()
+        .decode("utf-8")
+    )
     template = environment.get_template("correction_summary.md.j2")
-    rendered = template.render({"title": title, "description": desc, "commit_hash": commit_hash, "commit_date": str(commit_date)})
+    rendered = template.render(
+        {
+            "title": title,
+            "description": desc,
+            "commit_hash": commit_hash,
+            "commit_date": str(commit_date),
+        }
+    )
     write_to_md_file(run_label, rendered, append=False)
 
 
 # Simple helper to print aligned columns to the console
-def print_aligned(label, v1, v2, v3):
-    print(f"{label:12}{v1:^9}{v2:^9}{v3:^9}")
+def print_aligned(label, val1, val2, val3):
+    print(f"{label:12}{val1:^9}{val2:^9}{val3:^9}")
 
 
 # ---------- CDC utils ----------
@@ -134,7 +151,7 @@ def enable_cdc(driver, database_name):
     set_log_enrichment(driver, database_name, LOG_ENRICHMENT_DIFF)
     current_enrichment_setting = query_log_enrichment_setting(driver, database_name)
     # Wait for the setting to take effect, give up after a few tries
-    for n in range(10):
+    for _ in range(10):
         if current_enrichment_setting == LOG_ENRICHMENT_DIFF:
             break
         time.sleep(0.1)
@@ -149,7 +166,7 @@ def enable_cdc(driver, database_name):
 
 def get_current_change_id(driver):
     query = """
-        CALL cdc.current
+        CALL db.cdc.current
     """
     records, _ = run_cypher_query(driver, query)
     return records[0]["id"]
@@ -157,7 +174,7 @@ def get_current_change_id(driver):
 
 def get_changes_since_id(driver, change_id):
     query = """
-        CALL cdc.query($change_id)
+        CALL db.cdc.query($change_id)
     """
     records, _ = run_cypher_query(driver, query, params={"change_id": change_id})
     return records
@@ -174,6 +191,7 @@ def _get_func_name(summary_params):
         )
         func_name = f"{func_name}.{argstring}"
     return func_name
+
 
 # Save change log to json and append a summary to the md file.
 def save_change_description(summary_params, label, has_subtasks=False, task_level=0):
@@ -192,7 +210,9 @@ def save_change_description(summary_params, label, has_subtasks=False, task_leve
 
 
 # Save change log to json and append a summary to the md file.
-def save_change_report(changes, summary_params, label, has_subtasks=False, task_level=0):
+def save_change_report(
+    changes, summary_params, label, has_subtasks=False, task_level=0
+):
     func_name = _get_func_name(summary_params)
 
     if changes is not None:
@@ -201,8 +221,12 @@ def save_change_report(changes, summary_params, label, has_subtasks=False, task_
         # Save the full change log as a separate file
         if not os.path.exists(CHANGE_LOG_DIR):
             os.makedirs(CHANGE_LOG_DIR)
-        with open(os.path.join(CHANGE_LOG_DIR, summary_params["filename"]), "w") as f:
-            json.dump(changes, f, indent=4, default=str)
+        with open(
+            os.path.join(CHANGE_LOG_DIR, summary_params["filename"]),
+            "w",
+            encoding="UTF-8",
+        ) as file:
+            json.dump(changes, file, indent=4, default=str)
         summary_params["changes_summary"] = format_dict_to_markdown(summary)
     else:
         summary_params["filename"] = None
@@ -220,6 +244,7 @@ def save_change_report(changes, summary_params, label, has_subtasks=False, task_
     rendered = template.render(summary_params)
     write_to_md_file(label, rendered)
 
+
 def get_arg_value(arg_values, arg_names, arg_name):
     if arg_name in arg_names:
         arg_idx = arg_names.index(arg_name)
@@ -228,7 +253,10 @@ def get_arg_value(arg_values, arg_names, arg_name):
 
 
 # Decorator to capture any changes made by a correction.
-def capture_changes(verify_func=None, docs_only=False, has_subtasks=False, task_level=0):
+# pylint: disable=broad-exception-caught
+def capture_changes(
+    verify_func=None, docs_only=False, has_subtasks=False, task_level=0
+):
     def capture_changes_decorator(func):
         func_name = func.__name__
         summary_params = {
@@ -301,7 +329,9 @@ def capture_changes(verify_func=None, docs_only=False, has_subtasks=False, task_
                         )
                 else:
                     changes = None
-                save_change_report(changes, summary_params, label, has_subtasks, task_level)
+                save_change_report(
+                    changes, summary_params, label, has_subtasks, task_level
+                )
 
         return wrapper
 
@@ -384,24 +414,25 @@ def summarize_changes(changes):
 
     for event in changes:
         details = event[4]
-        op = EVENT_MAP[details["operation"]]
+        operation = EVENT_MAP[details["operation"]]
         evtype = TYPE_MAP[details["eventType"]]
         state = details["state"]
+        labels_or_type = ""
         if evtype == "nodes":
             # Use all the node labels joined together as the name
             labels_or_type = "+".join(sorted(details["labels"]))
         elif evtype == "relationships":
             # Relationships can only have one type, just use this as name
             labels_or_type = details["type"]
-        increment_counter(labels_or_type, summary[evtype][op], "count")
-        count_changes(state, summary[evtype][op])
+        increment_counter(labels_or_type, summary[evtype][operation], "count")
+        count_changes(state, summary[evtype][operation])
     return summary
 
 
 # Format a dict as a markdown indented list
-def format_dict_to_markdown(input, level=0):
+def format_dict_to_markdown(data_dict, level=0):
     text = ""
-    for key, item in input.items():
+    for key, item in data_dict.items():
         if isinstance(item, dict):
             sub_text = format_dict_to_markdown(item, level + 1)
             if sub_text:

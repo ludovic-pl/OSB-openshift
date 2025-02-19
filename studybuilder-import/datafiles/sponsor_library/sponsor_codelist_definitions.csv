@@ -19,7 +19,7 @@ Sponsor,SDTM CT,,,Criteria Category,N,CRITCAT,Criteria Category,"Categori for cr
 Sponsor,SDTM CT,,,Criteria Sub Category,N,CRITSCAT,Criteria Sub Category,Sub categori for criteria,Y,,
 Sponsor,SDTM CT,,,Operator,Y,OPERATOR,Operator,Logical operators,Y,,
 Sponsor,SDTM CT,UNIT_SUBSET,Unit Subset,Unit Subset,N,UNITSUBS,Unit Subset,Unit Subset act as a grouping of unit definitions within a user scope. This can be across unit dimensions  and a unit definition can be part of multiple subsets.,Y,,
-Sponsor,SDTM CT,,,Flowchart Group,N,FLWCRTGRP,Flowchart Group,,Y,,
+Sponsor,SDTM CT,,,Flowchart Group,N,FLWCRTGRP,Flowchart Group,"Flowchart Group",Y,,
 Sponsor,SDTM CT,,,Visit Contact Mode,N,VISCNTMD,Visit Contact Mode,"Mode of contact for a visit (e.g. on site, virtual)",Y,,
 Sponsor,SDTM CT,,,Arm Type,N,ARMTTP,Arm Type,Type of Arm,Y,,
 Sponsor,SDTM CT,GEN_ELEM_TYPE,Generic Element Type,Element Type,N,ELEMTP,Element Type,Type of Element,Y,,

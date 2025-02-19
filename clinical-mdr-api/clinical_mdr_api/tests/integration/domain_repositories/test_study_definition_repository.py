@@ -1,12 +1,12 @@
 # pylint: disable=unused-argument
 
+import dataclasses
 import sys
 import unittest
 
 import pytest
 from neomodel import db  # type: ignore
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domain_repositories.clinical_programmes.clinical_programme_repository import (
     ClinicalProgrammeRepository,
 )
@@ -24,12 +24,11 @@ from clinical_mdr_api.domains.study_definition_aggregates.root import StudyDefin
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyDescriptionVO,
 )
-from clinical_mdr_api.models import Project
+from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.models.study_selections.study import (
     StudyFieldAuditTrailAction,
     StudySoaPreferencesInput,
 )
-from clinical_mdr_api.oauth import user
 from clinical_mdr_api.tests.integration.domain_repositories._utils import (
     wipe_study_definition_repository,  # type: ignore
 )
@@ -54,6 +53,38 @@ from clinical_mdr_api.tests.unit.domain.study_definition_aggregate.test_root imp
     make_random_study_metadata_edit,
 )
 from clinical_mdr_api.tests.unit.domain.utils import random_str
+from common import config
+from common.auth.user import user
+
+IGNORE_ORDER_FOR = ["trial_intent_types_codes", "trial_phase_codes", "trial_type_codes"]
+IGNORED_FIELDS = [
+    "not_for_update",
+    "additional_closure",
+    "repository_closure_data",
+    "repository",
+]
+
+
+def assert_dataclasses_equal(obj1, obj2):
+    for field in dataclasses.fields(obj1):
+        attr = field.name
+        if attr in IGNORED_FIELDS:
+            continue
+        attr1 = getattr(obj1, attr)
+        attr2 = getattr(obj2, attr)
+        if callable(attr1):
+            continue
+        if attr1 is None:
+            assert attr2 is None
+        elif isinstance(attr1, list | tuple):
+            if attr in IGNORE_ORDER_FOR:
+                assert set(attr1) == set(attr2)
+            else:
+                assert attr1 == attr2
+        elif dataclasses.is_dataclass(attr1):
+            assert_dataclasses_equal(attr1, attr2)
+        else:
+            assert attr1 == attr2
 
 
 class TestStudyDefinitionRepository(unittest.TestCase):
@@ -94,6 +125,46 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         TestUtils.create_study_ct_data_map(codelist_uid=codelist.codelist_uid)
         TestUtils.create_study_fields_configuration()
 
+    def test__assert_dataclasses_equal(self):
+        # create a study
+        with db.transaction:
+            repository1 = StudyDefinitionRepositoryImpl(current_function_name())
+            created_study = create_random_study(
+                repository1.generate_uid,
+                new_id_metadata_fixed_values={
+                    "project_number": self.created_project.project_number
+                },
+                is_study_after_create=True,
+                author_id=current_function_name(),
+            )
+            repository1.save(created_study)
+            repository1.close()
+
+        # edit the study
+        with db.transaction:
+            repository2 = StudyDefinitionRepositoryImpl(current_function_name())
+            amended_study = repository2.find_by_uid(created_study.uid, for_update=True)
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
+            make_random_study_metadata_edit(
+                amended_study,
+                new_id_metadata_fixed_values={
+                    "project_number": self.project_to_amend.project_number,
+                    "study_number": created_study.current_metadata.id_metadata.study_number,
+                },
+                author_id=current_function_name(),
+            )
+            repository2.save(amended_study)
+            repository2.close()
+
+        # fetch the edited study and make sure the assert function catches the difference
+        with db.transaction:
+            repository3 = StudyDefinitionRepositoryImpl(current_function_name())
+            amended_study = repository3.find_by_uid(created_study.uid, for_update=False)
+            with pytest.raises(AssertionError):
+                assert_dataclasses_equal(created_study, amended_study)
+            repository3.close()
+
     def test__find_by_uid__non_existent_uid__returns_none(self):
         with db.transaction:
             # given
@@ -117,7 +188,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             # when
             repository1.save(created_study)
@@ -130,7 +201,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             repository2.close()
         print("CRE", created_study)
         print("RET", retrieved_study)
-        self.assertEqual(retrieved_study, created_study)
+        assert_dataclasses_equal(retrieved_study, created_study)
 
     def test__save__locked__locked(self):
         def can_lock(_: StudyDefinitionAR) -> bool:
@@ -145,7 +216,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_id_metadata_fixed_values={
                     "project_number": self.created_project.project_number
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository1.save(created_study)
             repository1.close()
@@ -160,13 +231,13 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_study_description=StudyDescriptionVO.from_input_values(
                     study_title="new_study_title", study_short_title="study_short_title"
                 ),
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository2.save(study_to_lock)
             study_to_lock = repository2.find_by_uid(created_study.uid, for_update=True)
             study_to_lock.lock(
                 version_description="locked version",
-                version_author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository2.save(study_to_lock)
             repository2.close()
@@ -177,11 +248,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             locked_study = repository3.find_by_uid(created_study.uid)
             repository3.close()
         print("LOCKED", locked_study)
-        self.assertEqual(
+        assert_dataclasses_equal(
             locked_study.current_metadata.ver_metadata,
             study_to_lock.current_metadata.ver_metadata,
         )
-        self.assertEqual(locked_study, study_to_lock)
+        assert_dataclasses_equal(locked_study, study_to_lock)
 
     def test__save__after_metadata_edit_with_different_values__result(self):
         # given
@@ -193,7 +264,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository1.save(created_study)
             repository1.close()
@@ -202,16 +273,15 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repository2 = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repository2.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # this is not the test just making sure we are on track here
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_fixed_values={
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository2.save(amended_study)
             repository2.close()
@@ -223,7 +293,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             repository3.close()
         print(f"final {final_retrieved_study}")
         print(f"amended {amended_study}")
-        self.assertEqual(final_retrieved_study, amended_study)
+        assert_dataclasses_equal(final_retrieved_study, amended_study)
 
     def test__save__after_metadata_edit_with_same_values__result(self):
         # given
@@ -235,7 +305,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository1.save(created_study)
             repository1.close()
@@ -244,13 +314,12 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repository2 = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repository2.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # this is not the test just making sure we are on track here
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             amended_study.edit_metadata(
                 new_id_metadata=amended_study.current_metadata.id_metadata,
                 project_exists_callback=(lambda _: True),
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repository2.save(amended_study)
             repository2.close()
@@ -261,7 +330,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             final_retrieved_study = repository3.find_by_uid(created_study.uid)
             repository3.close()
 
-        self.assertEqual(final_retrieved_study, amended_study)
+        assert_dataclasses_equal(final_retrieved_study, amended_study)
 
     def test__save__after_unlock__result(self):
         # given
@@ -273,7 +342,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(created_study)
             repo.close()
@@ -281,9 +350,8 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_condition=(lambda _: _.study_number is not None),
@@ -291,7 +359,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             amended_study.edit_metadata(
                 study_title_exists_callback=(lambda _, study_number: False),
@@ -299,7 +367,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_study_description=StudyDescriptionVO.from_input_values(
                     study_title="new_study_title", study_short_title="study_short_title"
                 ),
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -309,12 +377,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             locked_study = repo.find_by_uid(created_study.uid, for_update=True)
             print("LCK", locked_study)
             print("LCK", amended_study)
-            assert (
-                locked_study == amended_study
-            )  # not a test, just making sure we're on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(locked_study, amended_study)
             locked_study.lock(
                 version_description="very important version",
-                version_author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(locked_study)
             repo.close()
@@ -323,10 +390,9 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             unlocked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                unlocked_study == locked_study
-            )  # not a test, just making sure we're on track
-            unlocked_study.unlock(author=current_function_name())
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(unlocked_study, locked_study)
+            unlocked_study.unlock(author_id=current_function_name())
             repo.save(unlocked_study)
             repo.close()
 
@@ -336,7 +402,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             final_retrieved_study = repo.find_by_uid(created_study.uid)
             repo.close()
 
-        self.assertEqual(final_retrieved_study, unlocked_study)
+        assert_dataclasses_equal(final_retrieved_study, unlocked_study)
 
     def test__save__after_release__result(self):
         # given
@@ -348,7 +414,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(created_study)
             repo.close()
@@ -356,16 +422,15 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_fixed_values={
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -373,12 +438,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             released_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                released_study == amended_study
-            )  # not a test, just making sure we're on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(released_study, amended_study)
             released_study.release(
                 change_description="making a release in test",
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(released_study)
             repo.close()
@@ -389,7 +453,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             final_retrieved_study = repo.find_by_uid(created_study.uid)
             repo.close()
 
-        self.assertEqual(final_retrieved_study, released_study)
+        assert_dataclasses_equal(final_retrieved_study, released_study)
 
     def test__save__after_release_and_edit__result(self):
         # given
@@ -401,7 +465,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(created_study)
             repo.close()
@@ -409,16 +473,15 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_fixed_values={
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -426,12 +489,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             released_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                released_study == amended_study
-            )  # not a test, just making sure we're on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(released_study, amended_study)
             released_study.release(
                 change_description="making a release in test",
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(released_study)
             repo.close()
@@ -439,16 +501,15 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == released_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, released_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_fixed_values={
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -470,7 +531,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         )
         print(f"final {final_retrieved_study}")
         print(f"amended {amended_study}")
-        self.assertEqual(final_retrieved_study, amended_study)
+        assert_dataclasses_equal(final_retrieved_study, amended_study)
 
     def test__save__after_lock_unlock_release_lock__result(self):
         # given
@@ -482,7 +543,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(created_study)
             repo.close()
@@ -490,9 +551,8 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_condition=(
@@ -503,7 +563,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             amended_study.edit_metadata(
                 study_title_exists_callback=(lambda _, study_number: False),
@@ -511,7 +571,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_study_description=StudyDescriptionVO.from_input_values(
                     study_title="new_study_title", study_short_title="study_short_title"
                 ),
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -519,12 +579,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             locked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                locked_study == amended_study
-            )  # not a test, just making sure we're on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(locked_study, amended_study)
             locked_study.lock(
                 version_description="very important version",
-                version_author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(locked_study)
             repo.close()
@@ -532,22 +591,20 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             unlocked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                unlocked_study == locked_study
-            )  # not a test, just making sure we are on track
-            unlocked_study.unlock(author=current_function_name())
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(unlocked_study, locked_study)
+            unlocked_study.unlock(author_id=current_function_name())
             repo.save(unlocked_study)
             repo.close()
 
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             released_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                released_study == unlocked_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(released_study, unlocked_study)
             released_study.release(
                 change_description="making a release in test",
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(released_study)
             repo.close()
@@ -555,11 +612,10 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             locked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                locked_study == released_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(locked_study, released_study)
             locked_study.lock(
-                version_author=current_function_name(),
+                author_id=current_function_name(),
                 version_description="another very important version",
             )
             repo.save(locked_study)
@@ -571,7 +627,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             final_retrieved_study = repo.find_by_uid(created_study.uid)
             repo.close()
 
-        self.assertEqual(final_retrieved_study, locked_study)
+        assert_dataclasses_equal(final_retrieved_study, locked_study)
 
     def test__save__after_lock_unlock_release_lock_and_edits_in_between__result(self):
         # given
@@ -583,7 +639,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.created_project.project_number
                 },
                 is_study_after_create=True,
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(created_study)
             repo.close()
@@ -591,9 +647,8 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                amended_study == created_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, created_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_condition=(lambda _: _.study_number is not None),
@@ -601,7 +656,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             amended_study.edit_metadata(
                 study_title_exists_callback=(lambda _, study_number: False),
@@ -609,7 +664,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_study_description=StudyDescriptionVO.from_input_values(
                     study_title="new_study_title", study_short_title="study_short_title"
                 ),
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -617,12 +672,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             locked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                locked_study == amended_study
-            )  # not a test, just making sure we're on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(locked_study, amended_study)
             locked_study.lock(
                 version_description="very important version",
-                version_author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(locked_study)
             repo.close()
@@ -630,10 +684,9 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         with db.transaction:
             repo = StudyDefinitionRepositoryImpl(current_function_name())
             unlocked_study = repo.find_by_uid(created_study.uid, for_update=True)
-            assert (
-                unlocked_study == locked_study
-            )  # not a test, just making sure we are on track
-            unlocked_study.unlock(author=current_function_name())
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(unlocked_study, locked_study)
+            unlocked_study.unlock(author_id=current_function_name())
             repo.save(unlocked_study)
             repo.close()
 
@@ -642,9 +695,8 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
             print("amended_study", amended_study)
             print("unlocked_study", unlocked_study)
-            assert (
-                amended_study == unlocked_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, unlocked_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_condition=(
@@ -655,7 +707,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -665,12 +717,11 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             released_study = repo.find_by_uid(created_study.uid, for_update=True)
             print("released_study", released_study)
             print("amended_study", amended_study)
-            assert (
-                released_study == amended_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(released_study, amended_study)
             released_study.release(
                 change_description="making a release in test",
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(released_study)
             repo.close()
@@ -680,9 +731,8 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             amended_study = repo.find_by_uid(created_study.uid, for_update=True)
             print("amended_study", amended_study)
             print("released_study", released_study)
-            assert (
-                amended_study == released_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(amended_study, released_study)
             make_random_study_metadata_edit(
                 amended_study,
                 new_id_metadata_condition=(lambda _: _.project_number is not None),
@@ -690,7 +740,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                     "project_number": self.project_to_amend.project_number,
                     "study_number": created_study.current_metadata.id_metadata.study_number,
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(amended_study)
             repo.close()
@@ -700,11 +750,10 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             locked_study = repo.find_by_uid(created_study.uid, for_update=True)
             print("locked_study", locked_study)
             print("amended_study", amended_study)
-            assert (
-                locked_study == amended_study
-            )  # not a test, just making sure we are on track
+            # this is not the test just making sure we are on track here
+            assert_dataclasses_equal(locked_study, amended_study)
             locked_study.lock(
-                version_author=current_function_name(),
+                author_id=current_function_name(),
                 version_description="another very important version",
             )
             repo.save(locked_study)
@@ -716,7 +765,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
             final_retrieved_study = repo.find_by_uid(created_study.uid)
             repo.close()
 
-        self.assertEqual(final_retrieved_study, locked_study)
+        assert_dataclasses_equal(final_retrieved_study, locked_study)
 
     def test__find_all__results(self):
         # given
@@ -729,7 +778,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                         "project_number": self.created_project.project_number
                     },
                     is_study_after_create=True,
-                    author="test__find_all__results",
+                    author_id="test__find_all__results",
                 )
                 for _ in range(0, 10)
             ]
@@ -755,7 +804,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         # then we go by test_studies and assert all of them are in the dictionary
         for test_study in test_studies:
             with self.subTest():
-                self.assertEqual(db_studies[test_study.uid], test_study)
+                assert_dataclasses_equal(db_studies[test_study.uid], test_study)
 
     def test__find_all__with_custom_sort_order__success(self):
         # given
@@ -768,7 +817,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                         "project_number": self.created_project.project_number
                     },
                     is_study_after_create=True,
-                    author="test__find_all__with_custom_sort_order__success",
+                    author_id="test__find_all__with_custom_sort_order__success",
                 )
                 for _ in range(0, 10)
             ]
@@ -795,7 +844,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
         # then we go by test_studies and assert all of them are in the dictionary
         for test_study in test_studies:
             with self.subTest():
-                self.assertEqual(db_studies[test_study.uid], test_study)
+                assert_dataclasses_equal(db_studies[test_study.uid], test_study)
 
     def test__find_by_id__find_for_update_without_transaction__failure(self):
         # given
@@ -816,7 +865,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_id_metadata_fixed_values={
                     "project_number": self.created_project.project_number
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
 
         # then
@@ -833,7 +882,7 @@ class TestStudyDefinitionRepository(unittest.TestCase):
                 new_id_metadata_fixed_values={
                     "project_number": self.created_project.project_number
                 },
-                author=current_function_name(),
+                author_id=current_function_name(),
             )
             repo.save(study)
             repo.close()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -10,7 +10,7 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term_codelist import (
     CTTermCodelist,
 )
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel
 
 
 class CTTermAttributes(BaseModel):
@@ -41,7 +41,7 @@ class CTTermAttributes(BaseModel):
             status=ct_term_attributes_ar.item_metadata.status.value,
             version=ct_term_attributes_ar.item_metadata.version,
             change_description=ct_term_attributes_ar.item_metadata.change_description,
-            user_initials=ct_term_attributes_ar.item_metadata.user_initials,
+            author_username=ct_term_attributes_ar.item_metadata.author_username,
         )
 
     @classmethod
@@ -62,68 +62,41 @@ class CTTermAttributes(BaseModel):
             status=ct_term_attributes_ar.item_metadata.status.value,
             version=ct_term_attributes_ar.item_metadata.version,
             change_description=ct_term_attributes_ar.item_metadata.change_description,
-            user_initials=ct_term_attributes_ar.item_metadata.user_initials,
+            author_username=ct_term_attributes_ar.item_metadata.author_username,
         )
 
-    term_uid: str | None = Field(
-        None,
-        title="term_uid",
-        description="",
-        nullable=True,
-    )
+    term_uid: Annotated[str | None, Field(nullable=True)] = None
 
-    catalogue_name: str | None = Field(
-        None,
-        title="catalogue_name",
-        description="",
-        nullable=True,
-    )
+    catalogue_name: Annotated[str | None, Field(nullable=True)] = None
 
-    codelists: list[CTTermCodelist] = Field(
-        [],
-        title="codelists",
-        description="",
-    )
+    codelists: Annotated[list[CTTermCodelist], Field()] = []
 
-    concept_id: str | None = Field(
-        None,
-        title="concept_id",
-        description="",
-        nullable=True,
-    )
+    concept_id: Annotated[str | None, Field(nullable=True)] = None
 
-    code_submission_value: str | None = Field(
-        None, title="code_submission_value", description="", nullable=True
-    )
+    code_submission_value: Annotated[str | None, Field(nullable=True)] = None
 
-    name_submission_value: str | None = Field(
-        None, title="name_submission_value", description="", nullable=True
-    )
+    name_submission_value: Annotated[str | None, Field(nullable=True)] = None
 
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
+    nci_preferred_name: Annotated[str, Field()]
 
-    definition: str = Field(
-        ..., title="definition", description="", remove_from_wildcard=True
-    )
+    definition: Annotated[str, Field(remove_from_wildcard=True)]
 
-    library_name: str | None = Field(None, nullable=True)
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the CTTermAttributes. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    library_name: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the CTTermAttributes. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ] = []
 
 
 class CTTermAttributesVersion(CTTermAttributes):
@@ -131,44 +104,21 @@ class CTTermAttributesVersion(CTTermAttributes):
     Class for storing CTTermAttributes and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class CTTermAttributesInput(BaseModel):
-    code_submission_value: str | None = Field(
-        None,
-        title="code_submission_value",
-        description="",
-    )
-
-    name_submission_value: str | None = Field(
-        None,
-        title="name_submission_value",
-        description="",
-        nullable=True,
-    )
-
-    nci_preferred_name: str | None = Field(
-        None,
-        title="nci_preferred_name",
-        description="",
-        nullable=True,
-    )
-
-    definition: str | None = Field(
-        None,
-        title="definition",
-        description="",
-        nullable=True,
-    )
-
-
-class CTTermAttributesEditInput(CTTermAttributesInput):
-    change_description: str = Field(None, title="change_description", description="")
+class CTTermAttributesEditInput(PatchInputModel):
+    code_submission_value: Annotated[str | None, Field(min_length=1)] = None
+    name_submission_value: Annotated[str | None, Field(min_length=1)] = None
+    nci_preferred_name: Annotated[str | None, Field(min_length=1)] = None
+    definition: Annotated[str | None, Field()] = None
+    change_description: Annotated[str | None, Field(min_length=1)] = None

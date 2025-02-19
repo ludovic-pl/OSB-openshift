@@ -3,8 +3,7 @@ import datetime
 from fastapi import status
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.study_selections import (
     StudyActivitySchedule as StudyActivityScheduleNeoModel,
 )
@@ -14,12 +13,22 @@ from clinical_mdr_api.domain_repositories.study_selections.study_activity_schedu
 from clinical_mdr_api.domains.study_selections.study_activity_schedule import (
     StudyActivityScheduleVO,
 )
-from clinical_mdr_api.oauth.user import user
+from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivitySchedule,
+    StudyActivityScheduleBatchInput,
+    StudyActivityScheduleBatchOutput,
+    StudyActivityScheduleCreateInput,
+    StudyActivityScheduleHistory,
+)
 from clinical_mdr_api.services._meta_repository import MetaRepository
+from clinical_mdr_api.services._utils import ensure_transaction
 from clinical_mdr_api.services.studies.study_endpoint_selection import (
     StudySelectionMixin,
 )
-from clinical_mdr_api.telemetry import trace_calls
+from common import exceptions
+from common.auth.user import user
+from common.telemetry import trace_calls
 
 
 class StudyActivityScheduleService(StudySelectionMixin):
@@ -35,7 +44,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
         study_uid: str,
         study_value_version: str | None = None,
         operational: bool = False,
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         study_activity_schedules = (
             self._repos.study_activity_schedule_repository._get_all_schedules_in_study(
                 study_uid=study_uid,
@@ -44,7 +53,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
             )
         )
         study_activity_schedules_response_model = [
-            models.StudyActivitySchedule.from_vo(
+            StudyActivitySchedule.from_vo(
                 i_study_activity_schedule_ogm,
                 study_value_version=study_value_version,
             )
@@ -54,7 +63,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
 
     def get_all_schedules_for_specific_visit(
         self, study_uid: str, study_visit_uid: str, detailed_soa: bool = True
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         relations_to_fetch = [
             "has_after__audit_trail",
             "study_visit__has_visit_name__has_latest_value",
@@ -79,20 +88,21 @@ class StudyActivityScheduleService(StudySelectionMixin):
                 }
             )
         return [
-            models.StudyActivitySchedule.from_orm(sas_node)
-            for sas_node in to_relation_trees(
+            StudyActivitySchedule.from_orm(sas_node)
+            for sas_node in ListDistinct(
                 StudyActivityScheduleNeoModel.nodes.fetch_relations(*relations_to_fetch)
                 .filter(**filters)
                 .order_by("uid")
+                .resolve_subgraph()
             ).distinct()
         ]
 
     def get_all_schedules_for_specific_activity(
         self, study_uid: str, study_activity_uid: str
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         return [
-            models.StudyActivitySchedule.from_orm(sas_node)
-            for sas_node in to_relation_trees(
+            StudyActivitySchedule.from_orm(sas_node)
+            for sas_node in ListDistinct(
                 StudyActivityScheduleNeoModel.nodes.fetch_relations(
                     "has_after__audit_trail",
                     "study_visit__has_visit_name__has_latest_value",
@@ -106,31 +116,32 @@ class StudyActivityScheduleService(StudySelectionMixin):
                     study_activity__has_study_activity__latest_value__uid=study_uid,
                 )
                 .order_by("uid")
+                .resolve_subgraph()
             ).distinct()
         ]
 
     def _from_input_values(
-        self, study_uid: str, schedule_input: models.StudyActivityScheduleCreateInput
+        self, study_uid: str, schedule_input: StudyActivityScheduleCreateInput
     ) -> StudyActivityScheduleVO:
         return StudyActivityScheduleVO(
             study_uid=study_uid,
             study_activity_uid=schedule_input.study_activity_uid,
             study_activity_instance_uid=None,
             study_visit_uid=schedule_input.study_visit_uid,
-            user_initials=self.author,
+            author_id=self.author,
             start_date=datetime.datetime.now(datetime.timezone.utc),
         )
 
-    @db.transaction
+    @ensure_transaction(db)
     def create(
-        self, study_uid: str, schedule_input: models.StudyActivityScheduleCreateInput
-    ) -> models.StudyActivitySchedule:
+        self, study_uid: str, schedule_input: StudyActivityScheduleCreateInput
+    ) -> StudyActivitySchedule:
         schedule_vo = self._repos.study_activity_schedule_repository.save(
             self._from_input_values(study_uid, schedule_input), self.author
         )
-        return models.StudyActivitySchedule.from_vo(schedule_vo)
+        return StudyActivitySchedule.from_vo(schedule_vo)
 
-    @db.transaction
+    @ensure_transaction(db)
     def delete(self, study_uid: str, schedule_uid: str):
         try:
             self._repos.study_activity_schedule_repository.delete(
@@ -141,11 +152,11 @@ class StudyActivityScheduleService(StudySelectionMixin):
 
     def _transform_history_to_response_model(
         self, study_selection_history: list[SelectionHistory], study_uid: str
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         result = []
         for history in study_selection_history:
             result.append(
-                models.StudyActivityScheduleHistory(
+                StudyActivityScheduleHistory(
                     study_uid=study_uid,
                     study_activity_schedule_uid=history.study_selection_uid,
                     study_activity_uid=history.study_activity_uid,
@@ -160,11 +171,11 @@ class StudyActivityScheduleService(StudySelectionMixin):
         self,
         study_selection: list[SelectionHistory],
         study_uid: str,
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         result = []
         for history in study_selection:
             result.append(
-                models.StudyActivityScheduleHistory(
+                StudyActivityScheduleHistory(
                     study_uid=study_uid,
                     study_activity_schedule_uid=history.study_selection_uid,
                     study_activity_uid=history.study_activity_uid,
@@ -185,7 +196,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
                     )
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             return self._transform_history_to_response_model(
                 selection_history, study_uid
@@ -196,7 +207,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, schedule_uid: str
-    ) -> list[models.StudyActivitySchedule]:
+    ) -> list[StudyActivitySchedule]:
         repos = self._repos
         try:
             try:
@@ -206,7 +217,7 @@ class StudyActivityScheduleService(StudySelectionMixin):
                     )
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             return self._transform_history_to_response_model(
                 selection_history, study_uid
@@ -214,11 +225,12 @@ class StudyActivityScheduleService(StudySelectionMixin):
         finally:
             repos.close()
 
+    @ensure_transaction(db)
     def handle_batch_operations(
         self,
         study_uid: str,
-        operations: list[models.StudyActivityScheduleBatchInput],
-    ) -> list[models.StudyActivityScheduleBatchOutput]:
+        operations: list[StudyActivityScheduleBatchInput],
+    ) -> list[StudyActivityScheduleBatchOutput]:
         results = []
         for operation in operations:
             result = {}
@@ -227,16 +239,20 @@ class StudyActivityScheduleService(StudySelectionMixin):
                 if operation.method == "POST":
                     item = self.create(study_uid, operation.content)
                     response_code = status.HTTP_201_CREATED
-                else:
+                elif operation.method == "DELETE":
                     self.delete(study_uid, operation.content.uid)
                     response_code = status.HTTP_204_NO_CONTENT
-            except exceptions.MDRApiBaseException as error:
-                result["response_code"] = error.status_code
-                result["content"] = models.error.BatchErrorResponse(message=str(error))
-            else:
+                else:
+                    raise exceptions.MethodNotAllowedException(method=operation.method)
                 result["response_code"] = response_code
                 if item:
                     result["content"] = item.dict()
-            finally:
-                results.append(models.StudyActivityScheduleBatchOutput(**result))
+                results.append(StudyActivityScheduleBatchOutput(**result))
+            except exceptions.MDRApiBaseException as error:
+                results.append(
+                    StudyActivityScheduleBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
         return results

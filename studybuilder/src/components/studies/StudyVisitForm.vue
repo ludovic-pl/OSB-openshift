@@ -181,6 +181,7 @@
                   item-value="term_uid"
                   :rules="[formRules.required]"
                   clearable
+                  :disabled="form.is_global_anchor_visit"
                   class="required"
                   @update:model-value="getVisitPreview"
                 />
@@ -348,6 +349,13 @@
               <div class="sub-title">
                 {{ $t('StudyVisitForm.visit_window') }}
               </div>
+              <v-alert
+                v-if="studyVisits.length === 0"
+                density="compact"
+                type="warning"
+                class="text-white"
+                :text="$t('StudyVisitForm.visit_window_alert')"
+              />
               <div class="d-flex align-center">
                 <div class="mr-2 flex-grow-1">
                   <v-row>
@@ -390,6 +398,7 @@
                         :rules="[formRules.required]"
                         clearable
                         class="required"
+                        :disabled="disableWindowUnit"
                         @update:model-value="getVisitPreview"
                       />
                     </v-col>
@@ -559,7 +568,6 @@ const steps = ref([
   {
     name: 'details',
     title: t('StudyVisitForm.details_step_label'),
-    belowDisplay: true,
   },
 ])
 const timeReferences = ref([])
@@ -698,6 +706,9 @@ const requiredIfManuallyDefinedVisit = computed(() => {
     ? [formRules.required]
     : []
 })
+const disableWindowUnit = computed(() => {
+  return props.studyVisit ? studyVisits.value.length > 1 : studyVisits.value.length > 0
+})
 
 watch(
   () => props.studyVisit,
@@ -771,6 +782,13 @@ watch(studyEpoch, (value) => {
     } else {
       setEpochAllocationRule(visitConstants.CURRENT_VISIT)
     }
+  }
+  if (form.value.visit_class === visitConstants.CLASS_SPECIAL_VISIT) {
+    epochs
+      .getAnchorVisitsForSpecialVisit(selectedStudy.value.uid, studyEpoch.value)
+      .then((resp) => {
+        anchorVisitsForSpecialVisit.value = resp.data
+      })
   }
 })
 watch(
@@ -1033,11 +1051,6 @@ function callbacks() {
     .then((resp) => {
       anchorVisitsInSubgroup.value = resp.data
     })
-  epochs
-    .getAnchorVisitsForSpecialVisit(selectedStudy.value.uid)
-    .then((resp) => {
-      anchorVisitsForSpecialVisit.value = resp.data
-    })
   terms.getByCodelist('epochs').then((resp) => {
     epochsData.value = resp.data.items
     epochs.getStudyEpochs(selectedStudy.value.uid).then((resp) => {
@@ -1062,14 +1075,6 @@ function callbacks() {
     frequencies.value = resp.data.items
   })
 
-  if (!props.studyVisit) {
-    const defaultUnit = epochsStore.studyTimeUnits.find(
-      (unit) => unit.name === 'days'
-    )
-    form.value.time_unit = defaultUnit
-    form.value.visit_window_unit_uid = defaultUnit.uid
-  }
-
   terms.getByCodelist('epochAllocations').then((resp) => {
     epochAllocations.value = resp.data.items
   })
@@ -1079,6 +1084,22 @@ function callbacks() {
   }
   epochs.getStudyVisits(selectedStudy.value.uid, params).then((resp) => {
     studyVisits.value = resp.data.items
+  
+    if (!props.studyVisit) {
+      if (studyVisits.value.length > 0) {
+        const lockedUnit = epochsStore.studyTimeUnits.find(
+          (unit) => unit.name === studyVisits.value[studyVisits.value.length - 1].visit_window_unit_name
+        )
+        form.value.time_unit = lockedUnit
+        form.value.visit_window_unit_uid = lockedUnit.uid
+      } else {
+        const defaultUnit = epochsStore.studyTimeUnits.find(
+          (unit) => unit.name === 'days'
+        )
+        form.value.time_unit = defaultUnit
+        form.value.visit_window_unit_uid = defaultUnit.uid
+      }
+    }
   })
 }
 function onTabChange(number) {

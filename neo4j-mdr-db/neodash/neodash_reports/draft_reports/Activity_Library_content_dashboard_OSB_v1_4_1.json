@@ -793,7 +793,7 @@
             [
               "HAS_TERM",
               "start_date",
-              "user_initials",
+              "author_id",
               "order"
             ],
             [
@@ -1322,7 +1322,7 @@
               "label",
               "source",
               "import_date",
-              "user_initials"
+              "author_id"
             ],
             [
               "DataModelIGValue",
@@ -1373,7 +1373,7 @@
             [
               "HAS_TERM",
               "start_date",
-              "user_initials",
+              "author_id",
               "order"
             ],
             [

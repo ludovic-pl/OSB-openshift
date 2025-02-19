@@ -28,7 +28,7 @@ class SponsorModelDatasetService(NeomodelExtGenericService):
         self, item_input: SponsorModelDatasetInput, library: LibraryVO
     ) -> SponsorModelDatasetAR:
         return SponsorModelDatasetAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             sponsor_model_dataset_vo=SponsorModelDatasetVO.from_repository_values(
                 sponsor_model_name=item_input.sponsor_model_name,
                 sponsor_model_version_number=item_input.sponsor_model_version_number,
@@ -59,7 +59,7 @@ class SponsorModelDatasetService(NeomodelExtGenericService):
         self, item: SponsorModelDatasetAR, item_edit_input: SponsorModelDatasetInput
     ) -> SponsorModelDatasetAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             sponsor_model_vo=SponsorModelDatasetVO.from_repository_values(
                 sponsor_model_name=item_edit_input.sponsor_model_name,
                 sponsor_model_version_number=item_edit_input.sponsor_model_version_number,

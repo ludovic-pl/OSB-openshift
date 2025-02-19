@@ -1,7 +1,6 @@
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.compounds import CompoundRoot
 from clinical_mdr_api.domain_repositories.models.concepts import (
     NumericValueWithUnitRoot,
@@ -34,6 +33,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
 )
 from clinical_mdr_api.models.concepts.medicinal_product import MedicinalProduct
+from common.utils import convert_to_datetime
 
 
 class MedicinalProductRepository(ConceptGenericRepository):
@@ -116,19 +116,21 @@ class MedicinalProductRepository(ConceptGenericRepository):
                 dose_value_uids=list(
                     map(lambda x: x.get("uid"), input_dict.get("dose_values"))
                 ),
-                dose_frequency_uid=input_dict.get("dose_frequency")._properties.get(
-                    "uid"
-                )
-                if input_dict.get("dose_frequency")
-                else None,
-                delivery_device_uid=input_dict.get("delivery_device")._properties.get(
-                    "uid"
-                )
-                if input_dict.get("delivery_device")
-                else None,
-                dispenser_uid=input_dict.get("dispenser")._properties.get("uid")
-                if input_dict.get("dispenser")
-                else None,
+                dose_frequency_uid=(
+                    input_dict.get("dose_frequency")._properties.get("uid")
+                    if input_dict.get("dose_frequency")
+                    else None
+                ),
+                delivery_device_uid=(
+                    input_dict.get("delivery_device")._properties.get("uid")
+                    if input_dict.get("delivery_device")
+                    else None
+                ),
+                dispenser_uid=(
+                    input_dict.get("dispenser")._properties.get("uid")
+                    if input_dict.get("dispenser")
+                    else None
+                ),
                 pharmaceutical_product_uids=list(
                     map(
                         lambda x: x.get("uid"),
@@ -146,7 +148,8 @@ class MedicinalProductRepository(ConceptGenericRepository):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),

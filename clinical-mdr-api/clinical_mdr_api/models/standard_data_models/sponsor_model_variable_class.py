@@ -1,162 +1,112 @@
+from typing import Annotated
+
 from pydantic import Field
 
 from clinical_mdr_api.domains.standard_data_models.sponsor_model_variable_class import (
     SponsorModelVariableClassAR,
 )
-from clinical_mdr_api.models import Library
+from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModelBase
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import InputModel
 
 
 class SponsorModelVariableClass(SponsorModelBase):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    library_name: str | None = Field(
-        None,
-        title="library_name",
-        description="",
-        source="has_library.name",
-        nullable=True,
-    )
-    is_basic_std: bool | None = Field(
-        None,
-        title="is_basic_std",
-        source="has_sponsor_model_instance.is_basic_std",
-        nullable=True,
-    )
-    label: str | None = Field(
-        None,
-        title="label",
-        source="has_sponsor_model_instance.label",
-        nullable=True,
-    )
-    order: int | None = Field(
-        None,
-        title="order",
-        source="has_sponsor_model_instance.has_variable_class|ordinal",
-        nullable=True,
-    )
-    variable_type: str | None = Field(
-        None,
-        title="variable_type",
-        source="has_sponsor_model_instance.variable_type",
-        nullable=True,
-    )
-    length: int | None = Field(
-        None,
-        title="length",
-        source="has_sponsor_model_instance.length",
-        nullable=True,
-    )
-    display_format: str | None = Field(
-        None,
-        title="display_format",
-        source="has_sponsor_model_instance.display_format",
-        nullable=True,
-    )
-    xml_datatype: str | None = Field(
-        None,
-        title="xml_datatype",
-        source="has_sponsor_model_instance.xml_datatype",
-        nullable=True,
-    )
-    xml_codelist: str | None = Field(
-        None,
-        title="xml_codelist",
-        source="has_sponsor_model_instance.xml_codelist",
-        nullable=True,
-    )
-    core: str | None = Field(
-        None,
-        title="core",
-        source="has_sponsor_model_instance.core",
-        nullable=True,
-    )
-    origin: str | None = Field(
-        None,
-        title="origin",
-        source="has_sponsor_model_instance.origin",
-        nullable=True,
-    )
-    role: str | None = Field(
-        None,
-        title="role",
-        source="has_sponsor_model_instance.role",
-        nullable=True,
-    )
-    term: str | None = Field(
-        None,
-        title="term",
-        source="has_sponsor_model_instance.term",
-        nullable=True,
-    )
-    algorithm: str | None = Field(
-        None,
-        title="algorithm",
-        source="has_sponsor_model_instance.algorithm",
-        nullable=True,
-    )
-    qualifiers: list[str] | None = Field(
-        None,
-        title="qualifiers",
-        source="has_sponsor_model_instance.qualifiers",
-        nullable=True,
-    )
-    comment: str | None = Field(
-        None,
-        title="comment",
-        source="has_sponsor_model_instance.comment",
-        nullable=True,
-    )
-    ig_comment: str | None = Field(
-        None,
-        title="ig_comment",
-        source="has_sponsor_model_instance.ig_comment",
-        nullable=True,
-    )
-    map_var_flag: bool | None = Field(
-        None,
-        title="map_var_flag",
-        source="has_sponsor_model_instance.map_var_flag",
-        nullable=True,
-    )
-    fixed_mapping: str | None = Field(
-        None,
-        title="fixed_mapping",
-        source="has_sponsor_model_instance.fixed_mapping",
-        nullable=True,
-    )
-    include_in_raw: bool | None = Field(
-        None,
-        title="include_in_raw",
-        source="has_sponsor_model_instance.include_in_raw",
-        nullable=True,
-    )
-    nn_internal: bool | None = Field(
-        None,
-        title="nn_internal",
-        source="has_sponsor_model_instance.nn_internal",
-        nullable=True,
-    )
-    incl_cre_domain: bool | None = Field(
-        None,
-        title="incl_cre_domain",
-        source="has_sponsor_model_instance.incl_cre_domain",
-        nullable=True,
-    )
-    xml_codelist_values: bool | None = Field(
-        None,
-        title="xml_codelist_values",
-        source="has_sponsor_model_instance.xml_codelist_values",
-        nullable=True,
-    )
+    uid: Annotated[str | None, Field(source="uid", nullable=True)] = None
+    library_name: Annotated[
+        str | None, Field(source="has_library.name", nullable=True)
+    ] = None
+    is_basic_std: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.is_basic_std", nullable=True),
+    ] = None
+    label: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.label", nullable=True),
+    ] = None
+    order: Annotated[
+        int | None,
+        Field(
+            source="has_sponsor_model_instance.has_variable_class|ordinal",
+            nullable=True,
+        ),
+    ] = None
+    variable_type: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.variable_type", nullable=True),
+    ] = None
+    length: Annotated[
+        int | None,
+        Field(source="has_sponsor_model_instance.length", nullable=True),
+    ] = None
+    display_format: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.display_format", nullable=True),
+    ] = None
+    xml_datatype: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.xml_datatype", nullable=True),
+    ] = None
+    xml_codelist: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.xml_codelist", nullable=True),
+    ] = None
+    core: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.core", nullable=True),
+    ] = None
+    origin: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.origin", nullable=True),
+    ] = None
+    role: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.role", nullable=True),
+    ] = None
+    term: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.term", nullable=True),
+    ] = None
+    algorithm: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.algorithm", nullable=True)
+    ] = None
+    qualifiers: Annotated[
+        list[str] | None,
+        Field(source="has_sponsor_model_instance.qualifiers", nullable=True),
+    ] = None
+    comment: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.comment", nullable=True),
+    ] = None
+    ig_comment: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.ig_comment", nullable=True)
+    ] = None
+    map_var_flag: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.map_var_flag", nullable=True),
+    ] = None
+    fixed_mapping: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.fixed_mapping", nullable=True),
+    ] = None
+    include_in_raw: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.include_in_raw", nullable=True),
+    ] = None
+    nn_internal: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.nn_internal", nullable=True),
+    ] = None
+    incl_cre_domain: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.incl_cre_domain", nullable=True),
+    ] = None
+    xml_codelist_values: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.xml_codelist_values", nullable=True),
+    ] = None
 
     @classmethod
     def from_sponsor_model_variable_class_ar(
@@ -193,47 +143,51 @@ class SponsorModelVariableClass(SponsorModelBase):
         )
 
 
-class SponsorModelVariableClassInput(BaseModel):
-    dataset_class_uid: str = Field(
-        ...,
-        title="dataset_class_uid",
-        description="Uid of the dataset class in which to create the variable. E.g Findings",
-    )
-    variable_class_uid: str = Field(
-        ..., title="uid", description="Unique identifier of the variable class"
-    )
-    sponsor_model_name: str = Field(
-        ...,
-        title="sponsor_model_name",
-        description="Name of the sponsor model in which to create the variable class. E.g sdtmig_sponsormodel...",
-    )
-    sponsor_model_version_number: str = Field(
-        ...,
-        title="sponsor_model_version_number",
-        description="Version number of the sponsor model in which to create the variable class",
-    )
-    is_basic_std: bool = Field(None, title="is_basic_std", description="")
-    label: str = Field(None, title="label", description="")
-    order: int = Field(None, title="order", description="")
-    variable_type: str = Field(None, title="variable_type", description="")
-    length: int = Field(None, title="length", description="")
-    display_format: str = Field(None, title="display_format", description="")
-    xml_datatype: str = Field(None, title="xml_datatype", description="")
-    xml_codelist: str = Field(None, title="xml_codelist", description="")
-    core: str = Field(None, title="core", description="")
-    origin: str = Field(None, title="origin", description="")
-    role: str = Field(None, title="role", description="")
-    term: str = Field(None, title="term", description="")
-    algorithm: str = Field(None, title="algorithm", description="")
-    qualifiers: list[str] = Field(None, title="qualifiers", description="")
-    comment: str = Field(None, title="comment", description="")
-    ig_comment: str = Field(None, title="ig_comment", description="")
-    map_var_flag: bool = Field(None, title="map_var_flag", description="")
-    fixed_mapping: str = Field(None, title="fixed_mapping", description="")
-    include_in_raw: bool = Field(None, title="include_in_raw", description="")
-    nn_internal: bool = Field(None, title="nn_internal", description="")
-    incl_cre_domain: bool = Field(None, title="incl_cre_domain", description="")
-    xml_codelist_values: bool = Field(None, title="xml_codelist_values", description="")
-    library_name: str | None = Field(
-        "CDISC", title="library_name", description="Defaults to CDISC"
-    )
+class SponsorModelVariableClassInput(InputModel):
+    dataset_class_uid: Annotated[
+        str,
+        Field(
+            description="Uid of the dataset class in which to create the variable. E.g Findings",
+            min_length=1,
+        ),
+    ]
+    variable_class_uid: Annotated[str, Field(min_length=1)]
+    sponsor_model_name: Annotated[
+        str,
+        Field(
+            description="Name of the sponsor model in which to create the variable class. E.g sdtmig_sponsormodel...",
+            min_length=1,
+        ),
+    ]
+    sponsor_model_version_number: Annotated[
+        str,
+        Field(
+            description="Version number of the sponsor model in which to create the variable class",
+            min_length=1,
+        ),
+    ]
+    is_basic_std: bool | None = None
+    label: str | None = None
+    order: int | None = None
+    variable_type: str | None = None
+    length: int | None = None
+    display_format: str | None = None
+    xml_datatype: str | None = None
+    xml_codelist: str | None = None
+    core: str | None = None
+    origin: str | None = None
+    role: str | None = None
+    term: str | None = None
+    algorithm: str | None = None
+    qualifiers: list[str] | None = None
+    comment: str | None = None
+    ig_comment: str | None = None
+    map_var_flag: bool | None = None
+    fixed_mapping: str | None = None
+    include_in_raw: bool | None = None
+    nn_internal: bool | None = None
+    incl_cre_domain: bool | None = None
+    xml_codelist_values: bool | None = None
+    library_name: Annotated[
+        str | None, Field(description="Defaults to CDISC", min_length=1)
+    ] = "CDISC"

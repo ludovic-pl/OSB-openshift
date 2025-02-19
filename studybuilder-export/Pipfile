@@ -4,12 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "~=2.31.0"
+requests = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.11"
+python_version = "3.13.0"
 
 [scripts]
 build-sbom = "pipelines/scripts/build-sbom.sh"

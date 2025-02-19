@@ -49,7 +49,6 @@ def pre_load_template_parameter_tree(tx: Transaction):
         
         // interventions
         MERGE (interventions:TemplateParameter {name: "Intervention"})
-        MERGE (interventions)-[:HAS_PARENT_PARAMETER]->(activity_instance)
         MERGE (compoundDosing:TemplateParameter {name: "CompoundDosing"})
         MERGE (compoundDosing)-[:HAS_PARENT_PARAMETER]->(interventions)
         MERGE (compound:TemplateParameter {name: "Compound"})
@@ -140,7 +139,7 @@ def create_special_template_parameters(tx: Transaction):
     WITH r
     MERGE (r)-[:LATEST]->(v:TemplateParameterValue{name: "NA"})
     MERGE (r)-[:LATEST_FINAL]->(v)
-    MERGE (r)-[:HAS_VERSION{change_description: "Initial version", start_date: datetime(), end_date: datetime(), status: "Final", user_initials: "Import-procedure", version: "1.0"}]->(v)
+    MERGE (r)-[:HAS_VERSION{change_description: "Initial version", start_date: datetime(), end_date: datetime(), status: "Final", author_id: "sb-import", version: "1.0"}]->(v)
     WITH r
     MATCH (n:TemplateParameter) 
     MERGE (n)-[:HAS_VALUE]->(r)

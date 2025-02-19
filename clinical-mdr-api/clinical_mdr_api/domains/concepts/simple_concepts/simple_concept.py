@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
@@ -11,6 +10,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
     ObjectAction,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -71,7 +71,7 @@ class SimpleConceptAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         simple_concept_vo: SimpleConceptVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -80,25 +80,27 @@ class SimpleConceptAR(LibraryItemAggregateRootBase):
         item_metadata = LibraryItemMetadataVO(
             _change_description="Initial version",
             _status=LibraryItemStatus.FINAL,
-            _author=author,
+            _author_id=author_id,
             _start_date=datetime.now(timezone.utc),
             _end_date=None,
             _major_version=1,
             _minor_version=0,
         )
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         # Check whether simple concept with the same name already exits. If yes, return its uid, otherwise None.
         simple_concept_uid = find_uid_by_name_callback(simple_concept_vo.name)
 
         simple_concept_ar = cls(
-            _uid=generate_uid_callback()
-            if simple_concept_uid is None
-            else simple_concept_uid,
+            _uid=(
+                generate_uid_callback()
+                if simple_concept_uid is None
+                else simple_concept_uid
+            ),
             _item_metadata=item_metadata,
             _library=library,
             _concept_vo=simple_concept_vo,

@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Sequence
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import CTPackage
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
 from clinical_mdr_api.models.concepts.activities.activity import (
@@ -34,6 +33,7 @@ from clinical_mdr_api.models.syntax_templates.endpoint_template import EndpointT
 from clinical_mdr_api.models.syntax_templates.objective_template import (
     ObjectiveTemplate,
 )
+from common import exceptions
 
 
 class StudySelectionMixin:
@@ -290,10 +290,12 @@ class StudySelectionMixin:
             for_update=False,
             codelist_name=codelist_name,
         )
-        if item is None:
-            raise exceptions.NotFoundException(
-                f"Term with uid {term_uid} does not exist, in final status."
-            )
+
+        exceptions.NotFoundException.raise_if(
+            item is None,
+            msg=f"Term with UID '{term_uid}' doesn't exist, in final status.",
+        )
+
         return CTTermName.from_ct_term_ar(item)
 
     def _find_terms_by_uids(
@@ -313,14 +315,14 @@ class StudySelectionMixin:
         self,
         study_uid: str,
         study_arm_uid: str,
-        user_initials: str,
+        author_id: str,
         study_value_version: str | None = None,
     ) -> list[StudySelectionBranchArmWithoutStudyArm]:
         branch_arms_vo = (
             self._repos.study_branch_arm_repository.find_by_arm_nested_info(
                 study_uid,
                 study_arm_uid,
-                user_initials,
+                author_id,
                 study_value_version=study_value_version,
             )
         )
@@ -399,10 +401,11 @@ class StudySelectionMixin:
             selection, _ = selection_aggregate.get_specific_criteria_selection(
                 study_selection_uid
             )
-            if selection is None:
-                raise exceptions.NotFoundException(
-                    f"Could not find criteria with uid {study_selection_uid}"
-                )
+
+            exceptions.NotFoundException.raise_if(
+                selection is None, "Criteria", study_selection_uid
+            )
+
             return selection_aggregate, selection
         finally:
             repos.close()
@@ -425,10 +428,11 @@ class StudySelectionMixin:
             selection, order = selection_aggregate.get_specific_object_selection(
                 study_selection_uid
             )
-            if selection is None:
-                raise exceptions.NotFoundException(
-                    f"Could not find activity with uid {study_selection_uid}"
-                )
+
+            exceptions.NotFoundException.raise_if(
+                selection is None, "Activity", study_selection_uid
+            )
+
             return selection_aggregate, selection, order
         finally:
             repos.close()
@@ -448,13 +452,14 @@ class StudySelectionMixin:
                 selection, order = selection_aggregate.get_specific_object_selection(
                     study_selection_uid
                 )
-                if selection is None:
-                    raise exceptions.NotFoundException(
-                        f"Could not find study activity subgroup with uid {study_selection_uid}"
-                    )
+
+                exceptions.NotFoundException.raise_if(
+                    selection is None, "Study Activity Subgroup", study_selection_uid
+                )
+
                 return selection_aggregate, selection, order
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
         finally:
             repos.close()
 
@@ -471,13 +476,14 @@ class StudySelectionMixin:
                 selection, order = selection_aggregate.get_specific_object_selection(
                     study_selection_uid
                 )
-                if selection is None:
-                    raise exceptions.NotFoundException(
-                        f"Could not find study activity group with uid {study_selection_uid}"
-                    )
+
+                exceptions.NotFoundException.raise_if(
+                    selection is None, "Study Activity Group", study_selection_uid
+                )
+
                 return selection_aggregate, selection, order
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
         finally:
             repos.close()
 
@@ -585,13 +591,14 @@ class StudySelectionMixin:
                 selection, order = selection_aggregate.get_specific_object_selection(
                     study_selection_uid
                 )
-                if selection is None:
-                    raise exceptions.NotFoundException(
-                        f"Could not find study soa group with uid {study_selection_uid}"
-                    )
+
+                exceptions.NotFoundException.raise_if(
+                    selection is None, "Study SoA Group", study_selection_uid
+                )
+
                 return selection_aggregate, selection, order
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
         finally:
             repos.close()
 
@@ -616,13 +623,14 @@ class StudySelectionMixin:
                 selection, order = selection_aggregate.get_specific_object_selection(
                     study_selection_uid
                 )
-                if selection is None:
-                    raise exceptions.NotFoundException(
-                        f"Could not find study activity instance with uid {study_selection_uid}"
-                    )
+
+                exceptions.NotFoundException.raise_if(
+                    selection is None, "Study Activity Instance", study_selection_uid
+                )
+
                 return selection_aggregate, selection, order
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
         finally:
             repos.close()
 
@@ -673,10 +681,10 @@ class StudySelectionMixin:
         - Sequence[Optional[datetime]]: List of effective dates corresponding to the start dates. If no match is found, None is returned for that date.
         """
         repos = self._repos
-        all_versions: Sequence[
-            StudyStandardVersionOGMVer
-        ] = repos.study_standard_version_repository.get_all_study_version_versions(
-            study_uid=study_uid
+        all_versions: Sequence[StudyStandardVersionOGMVer] = (
+            repos.study_standard_version_repository.get_all_study_version_versions(
+                study_uid=study_uid
+            )
         )
 
         # Filter out deleted versions

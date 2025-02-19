@@ -40,7 +40,7 @@
     "start_date": "2022-10-18T13:18:44.587035",
     "status": "Draft",
     "uid": "OdmItemGroup_000001",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -84,7 +84,7 @@
     "start_date": "2022-10-18T13:18:45.129403",
     "status": "Draft",
     "uid": "OdmItemGroup_000002",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -128,7 +128,7 @@
     "start_date": "2022-10-18T13:18:45.392687",
     "status": "Draft",
     "uid": "OdmItemGroup_000003",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -172,7 +172,7 @@
     "start_date": "2022-10-18T13:18:45.680232",
     "status": "Draft",
     "uid": "OdmItemGroup_000004",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -216,7 +216,7 @@
     "start_date": "2022-10-18T13:18:45.965721",
     "status": "Draft",
     "uid": "OdmItemGroup_000005",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -260,7 +260,7 @@
     "start_date": "2022-10-18T13:18:46.293710",
     "status": "Draft",
     "uid": "OdmItemGroup_000006",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -304,7 +304,7 @@
     "start_date": "2022-10-18T13:18:46.536508",
     "status": "Draft",
     "uid": "OdmItemGroup_000007",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   }
 ]

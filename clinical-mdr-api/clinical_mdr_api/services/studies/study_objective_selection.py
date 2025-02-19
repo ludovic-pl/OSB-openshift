@@ -2,7 +2,6 @@ from datetime import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.models.study_selections import StudyObjective
 from clinical_mdr_api.domain_repositories.models.syntax import (
     ObjectiveRoot,
@@ -17,29 +16,35 @@ from clinical_mdr_api.domains.study_selections.study_selection_objective import 
 )
 from clinical_mdr_api.domains.syntax_instances.objective import ObjectiveAR
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionObjective,
+    StudySelectionObjectiveCore,
     StudySelectionObjectiveCreateInput,
     StudySelectionObjectiveInput,
     StudySelectionObjectiveTemplateSelectInput,
 )
-from clinical_mdr_api.models.syntax_instances.objective import ObjectiveCreateInput
+from clinical_mdr_api.models.syntax_instances.objective import (
+    Objective,
+    ObjectiveCreateInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     build_simple_filters,
+    ensure_transaction,
     extract_filtering_values,
     fill_missing_values_in_base_model_from_reference_base_model,
     generic_item_filtering,
     generic_pagination,
     service_level_generic_filtering,
     service_level_generic_header_filtering,
+    validate_is_dict,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
 from clinical_mdr_api.services.syntax_instances.objectives import ObjectiveService
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyObjectiveSelectionService(StudySelectionMixin):
@@ -48,7 +53,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     _vo_to_ar_filter_map = {
         "order": "objective_level_order",
         "start_date": "start_date",
-        "user_initials": "user_initials",
+        "author_id": "author_id",
     }
 
     def __init__(self):
@@ -86,7 +91,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
 
         # save study endpoints
         self._repos.study_endpoint_repository.save(
-            study_selection=endpoint_selection_aggregate, author=self.author
+            study_selection=endpoint_selection_aggregate, author_id=self.author
         )
 
     def _transform_all_to_response_model(
@@ -94,7 +99,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         study_selection: StudySelectionObjectivesAR,
         no_brackets: bool,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionObjective]:
+    ) -> list[StudySelectionObjective]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -105,7 +110,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         ):
             if selection.is_instance:
                 result.append(
-                    models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+                    StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                         study_selection_objectives_ar=study_selection,
                         order=order,
                         accepted_version=selection.accepted_version,
@@ -121,7 +126,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 )
             else:
                 result.append(
-                    models.StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
+                    StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
                         study_selection_objective_ar=study_selection,
                         order=order,
                         accepted_version=selection.accepted_version,
@@ -147,7 +152,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             self._repos.objective_repository.save(objective_ar)
         elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
             raise exceptions.BusinessLogicException(
-                "Cannot add retired objective as selection. Please reactivate."
+                msg="Cannot add retired objective as selection. Please reactivate."
             )
         new_selection = selection.update_version(objective_ar.item_metadata.version)
         selection_ar.update_selection(
@@ -157,7 +162,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_uid
         )
-        return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+        return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
             study_selection_objectives_ar=selection_ar,
             order=order,
             get_objective_by_uid_callback=self._transform_latest_objective_model,
@@ -181,7 +186,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             self._repos.objective_repository.save(objective_ar)
         elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
             raise exceptions.BusinessLogicException(
-                "Cannot add retired objective as selection. Please reactivate."
+                msg="Cannot add retired objective as selection. Please reactivate."
             )
         new_selection = selection.accept_versions()
         selection_ar.update_selection(
@@ -191,7 +196,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_uid
         )
-        return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+        return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
             study_selection_objectives_ar=selection_ar,
             order=order,
             accepted_version=new_selection.accepted_version,
@@ -206,7 +211,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     @db.transaction
     def make_selection(
         self, study_uid: str, selection_create_input: StudySelectionObjectiveInput
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         repos = self._repos
         try:
             # Load aggregate
@@ -217,10 +222,10 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             selected_objective: ObjectiveAR = objective_repo.find_by_uid(
                 selection_create_input.objective_uid, status=LibraryItemStatus.FINAL
             )
-            if selected_objective is None:
-                raise exceptions.BusinessLogicException(
-                    f"There is no approved objective identified by provided uid ({selection_create_input.objective_uid})"
-                )
+            exceptions.NotFoundException.raise_if(
+                selected_objective is None,
+                msg=f"There is no approved Objective with UID '{selection_create_input.objective_uid}'.",
+            )
 
             # load the order of the Objective level CT term
             if selection_create_input.objective_level_uid is not None:
@@ -238,7 +243,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 objective_level_uid=selection_create_input.objective_level_uid,
                 objective_level_order=objective_level_order,
                 generate_uid_callback=repos.study_objective_repository.generate_uid,
-                user_initials=self.author,
+                author_id=self.author,
             )
 
             # Check the state of the objective, if latest version is in draft then we approve it, if retired then we throw a error
@@ -247,18 +252,18 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 objective_ar = objective_repo.find_by_uid(
                     new_selection.objective_uid, for_update=True
                 )
-                if objective_ar is None:
-                    raise exceptions.BusinessLogicException(
-                        f"There is no approved objective identified by provided uid ({new_selection.objective_uid})"
-                    )
+                exceptions.NotFoundException.raise_if(
+                    objective_ar is None,
+                    msg=f"There is no approved Objective with UID '{new_selection.objective_uid}'.",
+                )
                 # if in draft status - approve
                 if objective_ar.item_metadata.status == LibraryItemStatus.DRAFT:
                     objective_ar.approve(self.author)
                     objective_repo.save(objective_ar)
                 # if in retired then we return a error
                 elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-                    raise exceptions.BusinessLogicException(
-                        f"There is no approved objective identified by provided uid ({new_selection.objective_uid})"
+                    raise exceptions.NotFoundException(
+                        msg=f"There is no approved Objective with UID '{new_selection.objective_uid}'."
                     )
 
             # add VO to aggregate
@@ -282,7 +287,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 study_uid=study_uid
             )
             # add the objective and return
-            return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+            return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                 study_selection_objectives_ar=selection_aggregate,
                 order=order,
                 get_objective_by_uid_callback=self._transform_latest_objective_model,
@@ -297,7 +302,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
 
     def non_transactional_make_selection_create_objective(
         self, study_uid: str, selection_create_input: StudySelectionObjectiveCreateInput
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         repos = self._repos
         try:
             # Load aggregate
@@ -316,10 +321,11 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 objective_uid = objective_service.repository.find_uid_by_name(
                     name=objective_ar.name
                 )
-                if objective_uid is None:
-                    raise NotFoundException(
-                        f"Could not find node with label ObjectiveRoot and name {objective_ar.name}"
-                    )
+
+                exceptions.NotFoundException.raise_if(
+                    objective_uid is None, "Objective", objective_ar.name, "Name"
+                )
+
             objective_ar = objective_service.repository.find_by_uid(
                 objective_uid, for_update=True
             )
@@ -333,8 +339,8 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 objective_ar.approve(self.author)
                 objective_service.repository.save(objective_ar)
             elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-                raise exceptions.BusinessLogicException(
-                    f"There is no approved objective identified by provided uid ({objective_uid})"
+                raise exceptions.NotFoundException(
+                    msg=f"There is no approved Objective with UID '{objective_uid}'."
                 )
 
             # get order from the Objective level CT term
@@ -349,7 +355,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
 
             # create new VO to add
             new_selection = StudySelectionObjectiveVO.from_input_values(
-                user_initials=self.author,
+                author_id=self.author,
                 objective_uid=objective_uid,
                 objective_version=objective_ar.item_metadata.version,
                 objective_level_uid=selection_create_input.objective_level_uid,
@@ -380,7 +386,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 study_uid=study_uid
             )
             # add the objective and return
-            return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+            return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                 study_selection_objectives_ar=selection_aggregate,
                 order=order,
                 get_objective_by_uid_callback=self._transform_latest_objective_model,
@@ -396,11 +402,12 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     @db.transaction
     def make_selection_create_objective(
         self, study_uid: str, selection_create_input: StudySelectionObjectiveCreateInput
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         return self.non_transactional_make_selection_create_objective(
             study_uid, selection_create_input
         )
 
+    @ensure_transaction(db)
     def batch_select_objective_template(
         self,
         study_uid: str,
@@ -422,102 +429,102 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         """
         repos = self._repos
         try:
-            with db.transaction:
-                objective_template_repo = repos.objective_template_repository
-                selections = []
-                for template_input in selection_create_input:
-                    # Get objective template
-                    objective_template = objective_template_repo.find_by_uid(
-                        uid=template_input.objective_template_uid
+            objective_template_repo = repos.objective_template_repository
+            selections = []
+            for template_input in selection_create_input:
+                # Get objective template
+                objective_template = objective_template_repo.find_by_uid(
+                    uid=template_input.objective_template_uid
+                )
+                exceptions.NotFoundException.raise_if(
+                    objective_template is None,
+                    "Objective Template",
+                    template_input.objective_template_uid,
+                )
+
+                if (
+                    objective_template.template_value.parameter_names is not None
+                    and len(objective_template.template_value.parameter_names) > 0
+                    and (
+                        template_input.parameter_terms is None
+                        or len(template_input.parameter_terms) == 0
                     )
-                    if objective_template is None:
-                        raise exceptions.NotFoundException(
-                            f"Objective template with uid {template_input.objective_template_uid} does not exist"
+                ):
+                    # Get selection aggregate
+                    selection_aggregate = (
+                        repos.study_objective_repository.find_by_study(
+                            study_uid=study_uid, for_update=True
                         )
+                    )
+                    # Create new VO to add
+                    new_selection = StudySelectionObjectiveVO.from_input_values(
+                        author_id=self.author,
+                        is_instance=False,
+                        objective_uid=objective_template.uid,
+                        objective_version=objective_template.item_metadata.version,
+                        objective_level_uid=None,
+                        objective_level_order=None,
+                        generate_uid_callback=repos.study_objective_repository.generate_uid,
+                    )
 
-                    if (
-                        objective_template.template_value.parameter_names is not None
-                        and len(objective_template.template_value.parameter_names) > 0
-                        and (
-                            template_input.parameter_terms is None
-                            or len(template_input.parameter_terms) == 0
-                        )
-                    ):
-                        # Get selection aggregate
-                        selection_aggregate = (
-                            repos.study_objective_repository.find_by_study(
-                                study_uid=study_uid, for_update=True
-                            )
-                        )
-                        # Create new VO to add
-                        new_selection = StudySelectionObjectiveVO.from_input_values(
-                            user_initials=self.author,
-                            is_instance=False,
-                            objective_uid=objective_template.uid,
-                            objective_version=objective_template.item_metadata.version,
-                            objective_level_uid=None,
-                            objective_level_order=None,
-                            generate_uid_callback=repos.study_objective_repository.generate_uid,
-                        )
-
-                        # Add template to selection
-                        try:
-                            assert selection_aggregate is not None
-                            selection_aggregate.add_objective_selection(
-                                new_selection,
-                                objective_exist_callback=objective_template_repo.check_exists_final_version,
-                                ct_term_level_exist_callback=self._repos.ct_term_name_repository.term_specific_exists_by_uid,
-                            )
-                        except ValueError as value_error:
-                            raise exceptions.ValidationException(value_error.args[0])
-
-                        # Sync with DB and save the update
-                        repos.study_objective_repository.save(
-                            selection_aggregate, self.author
-                        )
-
-                        # Fetch the new selection which was just added
-                        (
+                    # Add template to selection
+                    try:
+                        assert selection_aggregate is not None
+                        selection_aggregate.add_objective_selection(
                             new_selection,
-                            order,
-                        ) = selection_aggregate.get_specific_objective_selection(
-                            study_selection_uid=new_selection.study_selection_uid
+                            objective_exist_callback=objective_template_repo.check_exists_final_version,
+                            ct_term_level_exist_callback=self._repos.ct_term_name_repository.term_specific_exists_by_uid,
                         )
+                    except ValueError as value_error:
+                        raise exceptions.ValidationException(msg=value_error.args[0])
 
-                        # add the objective and return
-                        selections.append(
-                            models.StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
-                                study_selection_objective_ar=selection_aggregate,
-                                order=order,
-                                get_objective_template_by_uid_callback=self._transform_latest_objective_template_model,
-                                get_objective_template_by_uid_version_callback=self._transform_objective_template_model,
-                                find_project_by_study_uid=self._repos.project_repository.find_by_study_uid,
+                    # Sync with DB and save the update
+                    repos.study_objective_repository.save(
+                        selection_aggregate, self.author
+                    )
+
+                    # Fetch the new selection which was just added
+                    (
+                        new_selection,
+                        order,
+                    ) = selection_aggregate.get_specific_objective_selection(
+                        study_selection_uid=new_selection.study_selection_uid
+                    )
+
+                    # add the objective and return
+                    selections.append(
+                        StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
+                            study_selection_objective_ar=selection_aggregate,
+                            order=order,
+                            get_objective_template_by_uid_callback=self._transform_latest_objective_template_model,
+                            get_objective_template_by_uid_version_callback=self._transform_objective_template_model,
+                            find_project_by_study_uid=self._repos.project_repository.find_by_study_uid,
+                        )
+                    )
+                else:
+                    parameter_terms = (
+                        template_input.parameter_terms
+                        if template_input.parameter_terms is not None
+                        else []
+                    )
+                    new_selection = self.non_transactional_make_selection_create_objective(
+                        study_uid=study_uid,
+                        selection_create_input=StudySelectionObjectiveCreateInput(
+                            objective_data=ObjectiveCreateInput(
+                                objective_template_uid=template_input.objective_template_uid,
+                                parameter_terms=parameter_terms,
+                                library_name=template_input.library_name,
                             )
-                        )
-                    else:
-                        parameter_terms = (
-                            template_input.parameter_terms
-                            if template_input.parameter_terms is not None
-                            else []
-                        )
-                        new_selection = self.non_transactional_make_selection_create_objective(
-                            study_uid=study_uid,
-                            selection_create_input=StudySelectionObjectiveCreateInput(
-                                objective_data=ObjectiveCreateInput(
-                                    objective_template_uid=template_input.objective_template_uid,
-                                    parameter_terms=parameter_terms,
-                                    library_name=template_input.library_name,
-                                )
-                            ),
-                        )
-                        selections.append(new_selection)
-                return selections
+                        ),
+                    )
+                    selections.append(new_selection)
+            return selections
         finally:
             repos.close()
 
     def make_selection_preview_objective(
         self, study_uid: str, selection_create_input: StudySelectionObjectiveCreateInput
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         repos = self._repos
         try:
             # Load aggregate
@@ -538,7 +545,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
 
                 # create new VO to add
                 new_selection = StudySelectionObjectiveVO.from_input_values(
-                    user_initials=self.author,
+                    author_id=self.author,
                     objective_uid=objective_uid,
                     objective_version=objective_ar.item_metadata.version,
                     objective_level_uid=selection_create_input.objective_level_uid,
@@ -563,14 +570,14 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                     self._extract_study_standards_effective_date(study_uid=study_uid)
                 )
                 # add the objective and return
-                return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+                return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                     study_selection_objectives_ar=selection_aggregate,
                     order=order,
                     get_objective_by_uid_callback=(
-                        lambda _: models.Objective.from_objective_ar(objective_ar)
+                        lambda _: Objective.from_objective_ar(objective_ar)
                     ),
                     get_objective_by_uid_version_callback=(
-                        lambda _: models.Objective.from_objective_ar(objective_ar)
+                        lambda _: Objective.from_objective_ar(objective_ar)
                     ),
                     get_ct_term_by_uid=self._find_by_uid_or_raise_not_found,
                     get_study_endpoint_count_callback=self._repos.study_endpoint_repository.quantity_of_study_endpoints_in_study_objective_uid,
@@ -592,7 +599,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.StudySelectionObjective]:
+    ) -> GenericFilteringReturn[StudySelectionObjective]:
         # Extract the study uids to use database level filtering for these
         # instead of service level filtering
         if filter_operator is None or filter_operator == FilterOperator.AND:
@@ -639,7 +646,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ):
         repos = self._repos
@@ -657,7 +664,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 search_string=search_string,
                 filter_by=filter_by,
                 filter_operator=filter_operator,
-                result_count=result_count,
+                page_size=page_size,
             )
 
             return header_values
@@ -692,7 +699,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         # Return values for field_name
         return header_values
@@ -709,7 +716,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         page_size: int = 0,
         total_count: bool = False,
         study_value_version: str | None = None,
-    ) -> GenericFilteringReturn[models.StudySelectionObjective]:
+    ) -> GenericFilteringReturn[StudySelectionObjective]:
         repos = self._repos
         try:
             objective_selection_ar = repos.study_objective_repository.find_by_study(
@@ -717,6 +724,10 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             )
             assert objective_selection_ar is not None
 
+            if filter_by is not None:
+                validate_is_dict("filter_by", filter_by)
+            if sort_by is not None:
+                validate_is_dict("sort_by", sort_by)
             simple_filters = build_simple_filters(
                 self._vo_to_ar_filter_map, filter_by, sort_by
             )
@@ -777,12 +788,12 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         study_selection_history: list[SelectionHistory],
         study_uid: str,
         effective_dates: datetime | None = None,
-    ) -> list[models.StudySelectionObjectiveCore]:
+    ) -> list[StudySelectionObjectiveCore]:
         # Transform each history to the response model
         result = []
         for history, effective_date in zip(study_selection_history, effective_dates):
             result.append(
-                models.StudySelectionObjectiveCore.from_study_selection_history(
+                StudySelectionObjectiveCore.from_study_selection_history(
                     study_selection_history=history,
                     study_uid=study_uid,
                     get_objective_by_uid_version_callback=self._transform_objective_model,
@@ -795,7 +806,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudySelectionObjectiveCore]:
+    ) -> list[StudySelectionObjectiveCore]:
         repos = self._repos
         try:
             try:
@@ -812,7 +823,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                     )
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             return self._transform_history_to_response_model(
                 selection_history,
@@ -825,7 +836,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
-    ) -> list[models.StudySelectionObjectiveCore]:
+    ) -> list[StudySelectionObjectiveCore]:
         repos = self._repos
         try:
             selection_history = repos.study_objective_repository.find_selection_history(
@@ -855,7 +866,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         study_uid: str,
         study_selection_uid: str,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         repos = self._repos
         (
             selection_aggregate,
@@ -869,7 +880,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             study_value_version=study_value_version,
         )
         if new_selection.is_instance:
-            return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+            return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                 study_selection_objectives_ar=selection_aggregate,
                 order=order,
                 accepted_version=new_selection.accepted_version,
@@ -881,7 +892,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 terms_at_specific_datetime=terms_at_specific_datetime,
             )
 
-        return models.StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
+        return StudySelectionObjective.from_study_selection_objective_template_ar_and_order(
             study_selection_objective_ar=selection_aggregate,
             order=order,
             accepted_version=new_selection.accepted_version,
@@ -916,7 +927,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
     @db.transaction
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
-    ) -> models.StudySelectionObjective:
+    ) -> StudySelectionObjective:
         repos = self._repos
         try:
             # Load aggregate
@@ -941,7 +952,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 study_uid=study_uid
             )
             # add the objective and return
-            return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+            return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                 study_selection_objectives_ar=selection_aggregate,
                 order=order,
                 get_objective_by_uid_callback=self._transform_latest_objective_model,
@@ -956,11 +967,11 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
 
     def _patch_prepare_new_study_objective(
         self,
-        request_study_objective: models.StudySelectionObjectiveInput,
+        request_study_objective: StudySelectionObjectiveInput,
         current_study_objective: StudySelectionObjectiveVO,
     ) -> StudySelectionObjectiveVO:
         # transform current to input model
-        transformed_current = models.StudySelectionObjectiveInput(
+        transformed_current = StudySelectionObjectiveInput(
             objective_uid=current_study_objective.objective_uid,
             objective_level_uid=current_study_objective.objective_level_uid,
         )
@@ -991,7 +1002,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
             objective_level_order=objective_level_order,
             objective_level_uid=request_study_objective.objective_level_uid,
             study_selection_uid=current_study_objective.study_selection_uid,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
     @db.transaction
@@ -999,8 +1010,8 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
         self,
         study_uid: str,
         study_selection_uid: str,
-        selection_update_input: models.StudySelectionObjectiveInput,
-    ) -> models.StudySelectionObjective:
+        selection_update_input: StudySelectionObjectiveInput,
+    ) -> StudySelectionObjective:
         def load_aggregate():
             selection_aggregate = repos.study_objective_repository.find_by_study(
                 study_uid=study_uid, for_update=True
@@ -1057,8 +1068,8 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                     )
                 # if in retired then we return a error
                 elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-                    raise exceptions.BusinessLogicException(
-                        f"There is no approved objective identified by provided uid ({updated_selection.objective_uid})"
+                    raise exceptions.NotFoundException(
+                        msg=f"There is no approved Objective with UID '{updated_selection.objective_uid}'."
                     )
 
             # let the aggregate update the value object
@@ -1108,7 +1119,7 @@ class StudyObjectiveSelectionService(StudySelectionMixin):
                 study_uid=study_uid
             )
             # add the objective and return
-            return models.StudySelectionObjective.from_study_selection_objectives_ar_and_order(
+            return StudySelectionObjective.from_study_selection_objectives_ar_and_order(
                 study_selection_objectives_ar=selection_aggregate,
                 order=order,
                 get_objective_by_uid_callback=self._transform_latest_objective_model,

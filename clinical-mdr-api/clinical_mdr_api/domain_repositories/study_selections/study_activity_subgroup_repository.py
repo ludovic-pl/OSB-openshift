@@ -3,11 +3,9 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api.domain_repositories._utils.helpers import unpack_list_of_lists
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivitySubGroupRoot,
     ActivitySubGroupValue,
@@ -25,6 +23,8 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_subgroup
     StudySelectionActivitySubGroupAR,
     StudySelectionActivitySubGroupVO,
 )
+from clinical_mdr_api.utils import unpack_list_of_lists
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -33,10 +33,11 @@ class SelectionHistory:
 
     study_selection_uid: str
     activity_subgroup_uid: str
+    activity_subgroup_name: str | None
     show_activity_subgroup_in_protocol_flowchart: bool
     study_activity_group_uid: str
     order: int | None
-    user_initials: str
+    author_id: str
     change_type: str
     start_date: datetime.datetime
     end_date: datetime.datetime | None
@@ -58,6 +59,7 @@ class StudySelectionActivitySubGroupRepository(
             study_selection_uid=selection["study_selection_uid"],
             study_uid=selection["study_uid"],
             activity_subgroup_uid=selection["activity_subgroup_uid"],
+            activity_subgroup_name=selection["activity_subgroup_name"],
             activity_subgroup_version=selection["activity_subgroup_version"],
             show_activity_subgroup_in_protocol_flowchart=selection[
                 "show_activity_subgroup_in_protocol_flowchart"
@@ -65,7 +67,7 @@ class StudySelectionActivitySubGroupRepository(
             study_activity_group_uid=selection["study_activity_group_uid"],
             order=selection["order"],
             start_date=convert_to_datetime(value=selection["start_date"]),
-            user_initials=selection["user_initials"],
+            author_id=selection["author_id"],
             accepted_version=acv,
         )
 
@@ -91,13 +93,14 @@ class StudySelectionActivitySubGroupRepository(
                 sr.uid AS study_uid,
                 sa.uid AS study_selection_uid,
                 sa.accepted_version AS accepted_version,
-                sa.show_activity_subgroup_in_protocol_flowchart AS show_activity_subgroup_in_protocol_flowchart,
+                coalesce(sa.show_activity_subgroup_in_protocol_flowchart, false) AS show_activity_subgroup_in_protocol_flowchart,
                 ar.uid AS activity_subgroup_uid,
+                av.name AS activity_subgroup_name,
                 head([(sa)<-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_SUBGROUP]-(:StudyActivity)-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_GROUP]->(study_activity_group:StudyActivityGroup) 
                     | study_activity_group.uid]) as study_activity_group_uid,
                 sa.order AS order,
                 sac.date AS start_date,
-                sac.user_initials AS user_initials,
+                sac.author_id AS author_id,
                 hv_ver.version AS activity_subgroup_version"""
 
     def get_selection_history(
@@ -106,13 +109,14 @@ class StudySelectionActivitySubGroupRepository(
         return SelectionHistory(
             study_selection_uid=selection["study_selection_uid"],
             activity_subgroup_uid=selection["activity_subgroup_uid"],
+            activity_subgroup_name=selection["activity_subgroup_name"],
             activity_subgroup_version=selection["activity_subgroup_version"],
             show_activity_subgroup_in_protocol_flowchart=selection[
                 "show_activity_subgroup_in_protocol_flowchart"
             ],
             study_activity_group_uid=selection["study_activity_group_uid"],
             order=selection["order"],
-            user_initials=selection["user_initials"],
+            author_id=selection["author_id"],
             change_type=change_type,
             start_date=convert_to_datetime(value=selection["start_date"]),
             end_date=end_date,
@@ -145,21 +149,22 @@ class StudySelectionActivitySubGroupRepository(
                       LIMIT 1
                     }
 
-                    WITH DISTINCT all_sa, ar, ver, study_activity
+                    WITH DISTINCT all_sa, ar, av, ver, study_activity
                     ORDER BY study_activity.order ASC
                     MATCH (all_sa)<-[:AFTER]-(asa:StudyAction)
                     OPTIONAL MATCH (all_sa)<-[:BEFORE]-(bsa:StudyAction)
-                    WITH all_sa, ar, asa, bsa, ver, fgr
+                    WITH all_sa, ar, av, asa, bsa, ver, fgr
                     ORDER BY all_sa.uid, asa.date DESC
                     RETURN
                         all_sa.uid AS study_selection_uid,
                         all_sa.show_activity_subgroup_in_protocol_flowchart AS show_activity_subgroup_in_protocol_flowchart,
                         ar.uid AS activity_subgroup_uid,
+                        av.name AS activity_subgroup_name,
                         head([(all_sa)<-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_SUBGROUP]-(:StudyActivity)-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_GROUP]->(study_activity_group:StudyActivityGroup) 
                             | study_activity_group.uid]) as study_activity_group_uid,
                         sa.order AS order,
                         asa.date AS start_date,
-                        asa.user_initials AS user_initials,
+                        asa.author_id AS author_id,
                         labels(asa) AS change_type,
                         bsa.date AS end_date,
                         ver.version AS activity_subgroup_version

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -7,7 +7,7 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_attributes im
     CTCodelistAttributesAR,
 )
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel
 
 
 class CTCodelistAttributes(BaseModel):
@@ -29,7 +29,7 @@ class CTCodelistAttributes(BaseModel):
             status=ct_codelist_ar.item_metadata.status.value,
             version=ct_codelist_ar.item_metadata.version,
             change_description=ct_codelist_ar.item_metadata.change_description,
-            user_initials=ct_codelist_ar.item_metadata.user_initials,
+            author_username=ct_codelist_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in ct_codelist_ar.get_possible_actions()]
             ),
@@ -50,76 +50,48 @@ class CTCodelistAttributes(BaseModel):
             status=ct_codelist_ar.item_metadata.status.value,
             version=ct_codelist_ar.item_metadata.version,
             change_description=ct_codelist_ar.item_metadata.change_description,
-            user_initials=ct_codelist_ar.item_metadata.user_initials,
+            author_username=ct_codelist_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in ct_codelist_ar.get_possible_actions()]
             ),
         )
 
-    catalogue_name: str | None = Field(
-        None, title="catalogue_name", description="", nullable=True
-    )
+    catalogue_name: Annotated[str | None, Field(nullable=True)] = None
 
-    codelist_uid: str | None = Field(
-        None, title="codelist_uid", description="", nullable=True
-    )
+    codelist_uid: Annotated[str | None, Field(nullable=True)] = None
 
-    parent_codelist_uid: str | None = Field(
-        None,
-        title="parent_codelist_uid",
-        description="",
-        remove_from_wildcard=True,
-        nullable=True,
-    )
+    parent_codelist_uid: Annotated[
+        str | None, Field(remove_from_wildcard=True, nullable=True)
+    ] = None
 
-    child_codelist_uids: list[str] = Field(
-        [], title="child_codelist_uids", description="", remove_from_wildcard=True
-    )
+    child_codelist_uids: Annotated[list[str], Field(remove_from_wildcard=True)] = []
 
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: Annotated[str, Field()]
 
-    submission_value: str = Field(
-        ...,
-        title="submission_value",
-        description="",
-    )
+    submission_value: Annotated[str, Field()]
 
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
+    nci_preferred_name: Annotated[str, Field()]
 
-    definition: str = Field(
-        ...,
-        title="definition",
-        description="",
-    )
+    definition: Annotated[str, Field()]
 
-    extensible: bool = Field(
-        ...,
-        title="extensible",
-        description="",
-    )
+    extensible: Annotated[bool, Field()]
 
-    library_name: str | None = Field(None, nullable=True)
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the CTCodelistAttributes. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    library_name: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the CTCodelistAttributes. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            ),
         ),
-    )
+    ] = []
 
 
 class CTCodelistAttributesSimpleModel(BaseModel):
@@ -152,10 +124,10 @@ class CTCodelistAttributesSimpleModel(BaseModel):
             simple_codelist_attribute_model = None
         return simple_codelist_attribute_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    submission_value: str | None = Field(None, title="submission_value", description="")
-    preferred_term: str | None = Field(None, title="preferred_term", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    submission_value: Annotated[str | None, Field(nullable=True)] = None
+    preferred_term: Annotated[str | None, Field(nullable=True)] = None
 
 
 class CTCodelistAttributesVersion(CTCodelistAttributes):
@@ -163,47 +135,22 @@ class CTCodelistAttributesVersion(CTCodelistAttributes):
     Class for storing CTCodelistAttributes and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class CTCodelistAttributesInput(BaseModel):
-    name: str | None = Field(
-        None,
-        title="name",
-        description="",
-    )
-
-    submission_value: str | None = Field(
-        None,
-        title="submission_value",
-        description="",
-    )
-
-    nci_preferred_name: str | None = Field(
-        None,
-        title="nci_preferred_name",
-        description="",
-    )
-
-    definition: str | None = Field(
-        None,
-        title="definition",
-        description="",
-    )
-
-    extensible: bool | None = Field(
-        None,
-        title="extensible",
-        description="",
-    )
-
-
-class CTCodelistAttributesEditInput(CTCodelistAttributesInput):
-    change_description: str = Field(None, title="change_description", description="")
+class CTCodelistAttributesEditInput(PatchInputModel):
+    name: Annotated[str | None, Field(min_length=1)] = None
+    submission_value: Annotated[str | None, Field(min_length=1)] = None
+    nci_preferred_name: Annotated[str | None, Field(min_length=1)] = None
+    definition: Annotated[str | None, Field(min_length=1)] = None
+    extensible: bool | None = None
+    change_description: Annotated[str | None, Field(min_length=1)] = None

@@ -12,7 +12,6 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_group im
     StudySelectionActivityGroupAR,
     StudySelectionActivityGroupVO,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudyActivityGroup,
     StudyActivityGroupEditInput,
@@ -23,6 +22,7 @@ from clinical_mdr_api.services.studies.study_activity_selection_base import (
     StudyActivitySelectionBaseService,
     _VOType,
 )
+from common.exceptions import ValidationException
 
 
 class StudyActivityGroupService(StudyActivitySelectionBaseService):
@@ -70,12 +70,16 @@ class StudyActivityGroupService(StudyActivitySelectionBaseService):
     ) -> list[BaseModel]:
         pass
 
-    def update_study_activities(self, study_uid: str, study_selection_uid: str):
+    def update_dependent_objects(
+        self,
+        study_selection: StudySelectionActivityGroupVO,
+        previous_study_selection: StudySelectionActivityGroupVO,
+    ):
         study_activities = self._repos.study_activity_repository.get_all_study_activities_for_study_activity_group(
-            study_activity_group_uid=study_selection_uid
+            study_activity_group_uid=study_selection.study_selection_uid
         )
         study_activity_aggregate = self._repos.study_activity_repository.find_by_study(
-            study_uid,
+            study_selection.study_uid,
             for_update=True,
         )
         assert study_activity_aggregate is not None
@@ -100,14 +104,12 @@ class StudyActivityGroupService(StudyActivitySelectionBaseService):
         request_object: StudyActivityGroupEditInput,
         current_object: StudySelectionActivityGroupVO,
     ) -> StudySelectionActivityGroupVO:
-        if (
+        ValidationException.raise_if(
             request_object.show_activity_group_in_protocol_flowchart
-            == current_object.show_activity_group_in_protocol_flowchart
-        ):
-            raise ValidationException(
-                f"The StudyActivityGroup is already set to be "
-                f"{'visible' if request_object.show_activity_group_in_protocol_flowchart else 'not visible'}' in the protocol flowchart"
-            )
+            == current_object.show_activity_group_in_protocol_flowchart,
+            msg=f"The StudyActivityGroup is already set to be "
+            f"{'visible' if request_object.show_activity_group_in_protocol_flowchart else 'not visible'}' in the protocol flowchart",
+        )
 
         return StudySelectionActivityGroupVO.from_input_values(
             study_uid=current_object.study_uid,
@@ -115,5 +117,5 @@ class StudyActivityGroupService(StudyActivitySelectionBaseService):
             activity_group_version=current_object.activity_group_version,
             study_selection_uid=current_object.study_selection_uid,
             show_activity_group_in_protocol_flowchart=request_object.show_activity_group_in_protocol_flowchart,
-            user_initials=self.author,
+            author_id=self.author,
         )

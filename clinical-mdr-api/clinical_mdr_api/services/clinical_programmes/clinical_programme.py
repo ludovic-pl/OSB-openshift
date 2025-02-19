@@ -1,22 +1,27 @@
 from neomodel import db  # type: ignore
 
-from clinical_mdr_api import models
 from clinical_mdr_api.domains.clinical_programmes.clinical_programme import (
     ClinicalProgrammeAR,
 )
-from clinical_mdr_api.models import ClinicalProgrammeInput
+from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
+    ClinicalProgramme,
+    ClinicalProgrammeInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
-from clinical_mdr_api.services._utils import service_level_generic_filtering
+from clinical_mdr_api.services._utils import (
+    service_level_generic_filtering,
+    service_level_generic_header_filtering,
+)
 
 
 class ClinicalProgrammeService:
     def _models_clinical_programme_from_clinical_programme_ar(
         self,
         clinical_programme_ar: ClinicalProgrammeAR,
-    ) -> models.ClinicalProgramme:
-        return models.ClinicalProgramme(
+    ) -> ClinicalProgramme:
+        return ClinicalProgramme(
             uid=clinical_programme_ar.uid, name=clinical_programme_ar.name
         )
 
@@ -28,7 +33,7 @@ class ClinicalProgrammeService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.ClinicalProgramme]:
+    ) -> GenericFilteringReturn[ClinicalProgramme]:
         repos = MetaRepository()
         try:
             all_clinical_programmes = repos.clinical_programme_repository.find_all()
@@ -58,7 +63,7 @@ class ClinicalProgrammeService:
     def create(
         self,
         clinical_programme_create_input: ClinicalProgrammeInput,
-    ) -> models.ClinicalProgramme:
+    ) -> ClinicalProgramme:
         repos = MetaRepository()
         try:
             clinical_programme_ar = ClinicalProgrammeAR.from_input_values(
@@ -72,18 +77,41 @@ class ClinicalProgrammeService:
         finally:
             repos.close()
 
-    def get_clinical_programme_by_uid(self, uid: str) -> models.ClinicalProgramme:
+    def get_clinical_programme_headers(
+        self,
+        field_name: str,
+        search_string: str | None = "",
+        filter_by: dict | None = None,
+        filter_operator: FilterOperator | None = FilterOperator.AND,
+        page_size: int = 10,
+    ):
+        repos = MetaRepository()
+        all_clinical_programmes = repos.clinical_programme_repository.find_all()
+        repos.clinical_programme_repository.close()
+        items = [
+            ClinicalProgramme.from_clinical_programme_ar(clinical_programme_ar)
+            for clinical_programme_ar in all_clinical_programmes
+        ]
+        filtered_items = service_level_generic_header_filtering(
+            items=items,
+            field_name=field_name,
+            search_string=search_string,
+            filter_by=filter_by,
+            filter_operator=filter_operator,
+            page_size=page_size,
+        )
+        return filtered_items
+
+    def get_clinical_programme_by_uid(self, uid: str) -> ClinicalProgramme:
         repos = MetaRepository()
         clinical_programme_ar = repos.clinical_programme_repository.find_by_uid(uid)
 
-        return models.ClinicalProgramme.from_clinical_programme_ar(
-            clinical_programme_ar
-        )
+        return ClinicalProgramme.from_clinical_programme_ar(clinical_programme_ar)
 
     @db.transaction
     def edit(
         self, uid: str, clinical_programme_edit_input: ClinicalProgrammeInput
-    ) -> models.ClinicalProgramme:
+    ) -> ClinicalProgramme:
         repos = MetaRepository()
         try:
             clinical_programme_ar = repos.clinical_programme_repository.find_by_uid(uid)
@@ -91,7 +119,7 @@ class ClinicalProgrammeService:
             clinical_programme_ar.name = clinical_programme_edit_input.name
 
             repos.clinical_programme_repository.save(clinical_programme_ar, update=True)
-            return models.ClinicalProgramme.from_uid(
+            return ClinicalProgramme.from_uid(
                 uid=clinical_programme_ar.uid,
                 find_by_uid=repos.clinical_programme_repository.find_by_uid,
             )

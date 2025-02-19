@@ -2,6 +2,7 @@
 
 import logging
 import time
+from typing import NamedTuple
 from urllib.parse import urljoin
 
 import neo4j.exceptions
@@ -9,11 +10,20 @@ import pytest
 from neomodel import config as neoconfig
 from neomodel.sync_.core import db
 
-from clinical_mdr_api import config
-
-__all__ = ["temp_database", "base_data"]
-
+from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
+    CTCatalogue,
+    Library,
+)
+from clinical_mdr_api.models.clinical_programmes.clinical_programme import (
+    ClinicalProgramme,
+)
+from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.tests.integration.utils.data_library import inject_base_data
+from clinical_mdr_api.tests.integration.utils.utils import LIBRARY_NAME, TestUtils
+from common import config
+
+__all__ = ["temp_database", "base_data", "temp_database_populated"]
+
 
 log = logging.getLogger(__name__)
 
@@ -37,13 +47,10 @@ def temp_database(request) -> str:
         request.fixturename,
         db_name,
     )
-    # The "neo4j" database should always exist, switch to it while creating a new database
-    if config.settings.neo4j_dsn.endswith("/neo4j"):
-        full_dsn = config.settings.neo4j_dsn
-    else:
-        full_dsn = f"{config.settings.neo4j_dsn}/neo4j"
-    neoconfig.DATABASE_URL = full_dsn
-    db.set_connection(full_dsn)
+
+    # Switch to "neo4j" database for creating a new database
+    neoconfig.DATABASE_URL = urljoin(config.settings.neo4j_dsn, "/neo4j")
+    db.set_connection(neoconfig.DATABASE_URL)
     db.cypher_query("CREATE OR REPLACE DATABASE $db", {"db": db_name})
 
     log.debug(
@@ -51,8 +58,7 @@ def temp_database(request) -> str:
         request.fixturename,
         db_name,
     )
-    full_dsn = urljoin(config.settings.neo4j_dsn, f"/{db_name}")
-    neoconfig.DATABASE_URL = full_dsn
+    neoconfig.DATABASE_URL = urljoin(config.settings.neo4j_dsn, f"/{db_name}")
 
     try_cnt = 1
     db_available = False
@@ -61,7 +67,7 @@ def temp_database(request) -> str:
             # Database creation can take a couple of seconds
             # db.set_connection will return a ClientError if the database isn't ready
             # This allows for retrying after a small pause
-            db.set_connection(full_dsn)
+            db.set_connection(neoconfig.DATABASE_URL)
 
             try_cnt = try_cnt + 1
             db.cypher_query(
@@ -92,6 +98,7 @@ def temp_database(request) -> str:
 
     # clear cached data after switching databases
     clear_caches()
+    TestUtils.create_dummy_user()
 
     yield db_name
 
@@ -123,3 +130,117 @@ def base_data(request, temp_database):
 
     log.info("%s: injecting base data: inject_base_data()", request.fixturename)
     inject_base_data()
+
+
+class TempDatabasePopulated(NamedTuple):
+    database_name: str
+    clinical_programme: ClinicalProgramme
+    project: Project
+
+
+@pytest.fixture(scope="module")
+def temp_database_populated(request, temp_database: str) -> TempDatabasePopulated:
+    """temporary database with generic base data
+
+    The data included as generic base data is the following
+    - names specified below
+    * Clinical Programme - ClinicalProgramme
+    * Project - Project
+    * Study - study_root
+    * Libraries :
+        * CDISC - non editable
+        * Sponsor - editable
+        * SNOMED - editable
+    * Catalogues :
+        * SDTM CT
+    # Codelists
+        * Those defined in CT_CODELIST_NAMES/CT_CODELIST_UIDS constants
+
+    Returns created database name, clinical programme, project
+    """
+
+    log.info("%s: injecting base data", request.fixturename)
+
+    ## Libraries
+    TestUtils.create_library(config.CDISC_LIBRARY_NAME, True)
+    TestUtils.create_library(LIBRARY_NAME, True)
+    TestUtils.create_library("SNOMED", True)
+    TestUtils.create_library(name=config.REQUESTED_LIBRARY_NAME, is_editable=True)
+
+    with db.write_transaction:
+        cdisc = Library.nodes.get(name=config.CDISC_LIBRARY_NAME)
+
+        CTCatalogue(
+            name=config.SDTM_CT_CATALOGUE_NAME
+        ).save().contains_catalogue.connect(cdisc)
+
+        CTCatalogue(
+            name=config.ADAM_CT_CATALOGUE_NAME
+        ).save().contains_catalogue.connect(cdisc)
+
+    unit_subsets = []
+    unit_subset_codelist = TestUtils.create_ct_codelist(
+        name="Unit Subset",
+        sponsor_preferred_name="unit subset",
+        extensible=True,
+        approve=True,
+    )
+    unit_subset_term = TestUtils.create_ct_term(
+        codelist_uid=unit_subset_codelist.codelist_uid,
+        sponsor_preferred_name_sentence_case="study time",
+        sponsor_preferred_name="Study Time",
+    )
+    unit_subsets.append(unit_subset_term.term_uid)
+
+    ## Unit Definitions
+    TestUtils.create_unit_definition(
+        name=config.DAY_UNIT_NAME,
+        convertible_unit=True,
+        display_unit=True,
+        master_unit=False,
+        si_unit=True,
+        us_conventional_unit=True,
+        conversion_factor_to_master=config.DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
+        unit_subsets=unit_subsets,
+    )
+    TestUtils.create_unit_definition(
+        name=config.DAYS_UNIT_NAME,
+        convertible_unit=True,
+        display_unit=True,
+        master_unit=False,
+        si_unit=True,
+        us_conventional_unit=True,
+        conversion_factor_to_master=config.DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
+        unit_subsets=unit_subsets,
+    )
+    TestUtils.create_unit_definition(
+        name=config.WEEK_UNIT_NAME,
+        convertible_unit=True,
+        display_unit=True,
+        master_unit=False,
+        si_unit=True,
+        us_conventional_unit=True,
+        conversion_factor_to_master=config.WEEK_UNIT_CONVERSION_FACTOR_TO_MASTER,
+        unit_subsets=unit_subsets,
+    )
+
+    ## Codelists
+    TestUtils.create_ct_codelists_using_cypher()
+
+    ## Study snapshot definition
+    ## It needs CDISC Library and SDTM CT catalogue
+    TestUtils.create_study_fields_configuration()
+
+    ## Clinical programme and project required for creating test studies
+    clinical_programme = TestUtils.create_clinical_programme(
+        name=TestUtils.random_str(6, "TSTCP-")
+    )
+
+    project = TestUtils.create_project(
+        name=TestUtils.random_str(6, "TST Project "),
+        project_number=TestUtils.random_str(6),
+        description="Test project for automated tests",
+        clinical_programme_uid=clinical_programme.uid,
+    )
+
+    return TempDatabasePopulated(temp_database, clinical_programme, project)

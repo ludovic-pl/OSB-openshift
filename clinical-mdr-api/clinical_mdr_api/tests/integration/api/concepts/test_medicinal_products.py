@@ -17,13 +17,23 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.active_substance import ActiveSubstance
+from clinical_mdr_api.models.concepts.compound import Compound
+from clinical_mdr_api.models.concepts.concept import LagTime, NumericValueWithUnit
+from clinical_mdr_api.models.concepts.medicinal_product import MedicinalProduct
+from clinical_mdr_api.models.concepts.pharmaceutical_product import (
+    PharmaceuticalProduct,
+)
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import CT_CODELIST_NAMES, TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -33,22 +43,22 @@ BASE_URL = "/concepts/medicinal-products"
 # Global variables shared between fixtures and tests
 rand: str
 CREATE_MEDICINAL_PRODUCT_PAYLOAD_OK: dict
-medicinal_products_all: list[models.MedicinalProduct]
-pharmaceutical_products_all: list[models.PharmaceuticalProduct]
-compound: models.Compound
-ct_term_roa: models.CTTerm
-ct_term_dose_form: models.CTTerm
-active_substances_all: list[models.ActiveSubstance]
-dictionary_term_unii: models.DictionaryTerm
-unii_codelist: models.DictionaryCodelist
-strength: models.NumericValueWithUnit
-lag_time: models.LagTime
-half_life: models.NumericValueWithUnit
+medicinal_products_all: list[MedicinalProduct]
+pharmaceutical_products_all: list[PharmaceuticalProduct]
+compound: Compound
+ct_term_roa: CTTerm
+ct_term_dose_form: CTTerm
+active_substances_all: list[ActiveSubstance]
+dictionary_term_unii: DictionaryTerm
+unii_codelist: DictionaryCodelist
+strength: NumericValueWithUnit
+lag_time: LagTime
+half_life: NumericValueWithUnit
 formulation_1: dict
-dose_value: models.NumericValueWithUnit
-ct_term_delivery_device: models.CTTerm
-ct_term_dose_frequency: models.CTTerm
-ct_term_dispenser: models.CTTerm
+dose_value: NumericValueWithUnit
+ct_term_delivery_device: CTTerm
+ct_term_dose_frequency: CTTerm
+ct_term_dispenser: CTTerm
 
 
 @pytest.fixture(scope="module")
@@ -308,7 +318,7 @@ MEDICINAL_PRODUCT_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "external_id",
     "name",
@@ -340,7 +350,7 @@ def test_get_medicinal_product(api_client):
     response = api_client.get(f"{BASE_URL}/{medicinal_products_all[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(MEDICINAL_PRODUCT_FIELDS_ALL)
@@ -401,7 +411,7 @@ def test_get_medicinal_products_versions(api_client):
     response = api_client.get("/concepts/medicinal-products/versions?total_count=true")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 10
     assert res["total"] >= len(medicinal_products_all)
 
@@ -443,7 +453,7 @@ def test_update_medicinal_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == medicinal_products_all[0].uid
     assert res["external_id"] == medicinal_products_all[0].external_id
     assert res["delivery_device"]["term_uid"] == ct_term_delivery_device.term_uid
@@ -470,7 +480,7 @@ def test_update_medicinal_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == medicinal_products_all[0].uid
     assert res["external_id"] == medicinal_products_all[0].external_id
     assert res["delivery_device"]["term_uid"] == ct_term_delivery_device.term_uid
@@ -502,7 +512,7 @@ def test_update_medicinal_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == medicinal_products_all[0].uid
     assert res["external_id"] == external_id_new
@@ -534,7 +544,7 @@ def test_update_medicinal_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == medicinal_products_all[0].uid
     assert res["external_id"] is None
@@ -573,7 +583,7 @@ def test_update_medicinal_product_delivery_device(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == medicinal_products_all[1].uid
     assert res["external_id"] == f"external_id_b-{rand}"
@@ -607,7 +617,7 @@ def test_update_medicinal_product_delivery_device(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == medicinal_products_all[1].uid
     assert res["delivery_device"] is None
@@ -624,7 +634,7 @@ def test_get_medicinal_product_versioning(api_client):
     response = api_client.get(f"{BASE_URL}/{uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res:
@@ -637,14 +647,14 @@ def test_get_medicinal_product_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"{BASE_URL}/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
 
     # Create new version
     response = api_client.post(f"{BASE_URL}/{uid}/versions")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.1"
     assert res["status"] == "Draft"
     assert res["possible_actions"] == ["approve", "edit"]
@@ -652,7 +662,7 @@ def test_get_medicinal_product_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"{BASE_URL}/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -660,7 +670,7 @@ def test_get_medicinal_product_versioning(api_client):
     # Inactivate final version
     response = api_client.delete(f"{BASE_URL}/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Retired"
     assert res["possible_actions"] == ["reactivate"]
@@ -668,7 +678,7 @@ def test_get_medicinal_product_versioning(api_client):
     # Reactivate retired version
     response = api_client.post(f"{BASE_URL}/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -676,7 +686,7 @@ def test_get_medicinal_product_versioning(api_client):
     # Get all versions, assert they are sorted by version number (newest on top)
     response = api_client.get(f"/concepts/medicinal-products/{uid}/versions")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 6
 
@@ -767,7 +777,7 @@ def test_get_medicinal_products(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -820,7 +830,9 @@ def test_get_medicinal_products_csv_xml_excel(api_client, export_format):
         pytest.param('{"*": {"v": ["aaa"]}}', "external_id", "external_id_AAA"),
         pytest.param('{"*": {"v": ["bBb"]}}', "external_id", "external_id_BBB"),
         pytest.param(
-            '{"*": {"v": ["wn-us"], "op": "co"}}', "user_initials", "unknown-user"
+            '{"*": {"v": ["unknown-user"], "op": "co"}}',
+            "author_username",
+            "unknown-user@example.com",
         ),
         pytest.param('{"*": {"v": ["Draft"]}}', "status", "Draft"),
         pytest.param('{"*": {"v": ["0.1"]}}', "version", "0.1"),
@@ -834,7 +846,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -868,7 +880,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -892,11 +904,11 @@ def test_filtering_exact(
 def test_get_medicinal_products_headers(
     api_client, field_name, expected_returned_values
 ):
-    url = f"{BASE_URL}/headers?field_name={field_name}&result_count=100"
+    url = f"{BASE_URL}/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) >= len(expected_returned_values)
     expected_returned_values = [
         x.replace("{rand}", rand) for x in expected_returned_values
@@ -922,7 +934,7 @@ def test_create_and_delete_medicinal_product(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["external_id"] == "external_id-NEW"
     assert res["delivery_device"]["term_uid"] == ct_term_delivery_device.term_uid
     assert (
@@ -942,11 +954,11 @@ def test_create_and_delete_medicinal_product(api_client):
 
     # Delete medicinal product
     response = api_client.delete(f"{BASE_URL}/{res['uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the medicinal product is deleted
     response = api_client.get(f"{BASE_URL}/{res['uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_create_and_delete_medicinal_product_with_missing_values(api_client):
@@ -961,7 +973,7 @@ def test_create_and_delete_medicinal_product_with_missing_values(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["external_id"] == f"external_id-NEW-{rand}"
     assert res["delivery_device"] is None
     assert res["dose_frequency"] is None
@@ -978,11 +990,11 @@ def test_create_and_delete_medicinal_product_with_missing_values(api_client):
 
     # Delete medicinal product
     response = api_client.delete(f"{BASE_URL}/{res['uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the medicinal product is deleted
     response = api_client.get(f"{BASE_URL}/{res['uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_negative_create_medicinal_product_wrong_links(api_client):
@@ -992,10 +1004,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent dose frequency identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Dose Frequency with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new medicinal product with non-existing dose value
@@ -1004,10 +1016,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent dose value identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Dose Value with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new medicinal product with non-existing dispenser
@@ -1016,10 +1028,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent dispenser identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Dispenser with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new medicinal product with non-existing delivery device
@@ -1028,10 +1040,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent delivery device identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Delivery Device with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new medicinal product with non-existing compound
@@ -1040,10 +1052,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent compound identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Compound with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new medicinal product with missing compound uid
@@ -1051,7 +1063,7 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     del payload["compound_uid"]
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert response.json() == {
         "detail": [
             {
@@ -1068,10 +1080,10 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "MedicinalProductVO tried to connect to non-existent pharmaceutical product identified by uid (NON_EXISTING_UID)"
+        == "MedicinalProductVO tried to connect to non-existent Pharmaceutical Product with UID 'NON_EXISTING_UID'."
     )
 
 
@@ -1080,9 +1092,9 @@ def test_negative_delete_approved_medicinal_product(api_client):
 
     # Try to delete approved medicinal product
     response = api_client.delete(f"{BASE_URL}/{item.uid}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert response.json()["message"] == "Object has been accepted"
 
     # Check that the medicinal product is not deleted
     response = api_client.get(f"{BASE_URL}/{item.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)

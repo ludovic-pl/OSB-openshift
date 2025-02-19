@@ -1,4 +1,4 @@
-from usdm_model import Study as USDMStudy
+from typing import Any
 
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyComponentEnum,
@@ -40,7 +40,7 @@ class USDMService:
             get_osb_activity_schedules=StudyActivityScheduleService().get_all_schedules,
         )
 
-    def get_by_uid(self, uid: str) -> USDMStudy:
+    def get_by_uid(self, uid: str) -> dict[str, Any]:
         osb_study = StudyService().get_by_uid(
             uid,
             include_sections=[
@@ -54,5 +54,5 @@ class USDMService:
             ],
         )
 
-        usdm_study = self._usdm_mapper.map(osb_study)
-        return usdm_study
+        usdm_wrapped_study = self._usdm_mapper.map(osb_study)
+        return usdm_wrapped_study

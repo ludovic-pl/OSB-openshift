@@ -21,7 +21,7 @@
       "start_date": "2022-12-08T15:08:04.917474+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000138",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000038",
@@ -36,7 +36,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -60,7 +60,7 @@
       "start_date": "2022-12-08T15:08:04.973277+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000139",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000040",
@@ -75,7 +75,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -99,7 +99,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000042",
@@ -114,7 +114,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -138,7 +138,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000044",
@@ -153,7 +153,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -177,7 +177,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000046",
@@ -192,7 +192,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -216,7 +216,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000048",
@@ -231,7 +231,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -255,7 +255,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000050",
@@ -270,7 +270,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -294,7 +294,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000052",
@@ -309,7 +309,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -333,7 +333,7 @@
       "start_date": "2022-12-08T15:08:05.125558+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000141",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000054",
@@ -348,7 +348,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -372,7 +372,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000056",
@@ -387,6 +387,6 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

@@ -7,11 +7,11 @@ from clinical_mdr_api.domain_repositories.projects.project_repository import (
     ProjectRepository,
 )
 from clinical_mdr_api.domains.projects.project import ProjectAR
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.tests.integration.domain_repositories._utils import (
     wipe_clinical_programme_repository,
     wipe_project_repository,
 )
+from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.unit.domain.clinical_programme_aggregate.test_clinical_programme import (
     create_random_clinical_programme,
 )
@@ -19,15 +19,19 @@ from clinical_mdr_api.tests.unit.domain.project_aggregate.test_project import (
     create_random_project,
 )
 from clinical_mdr_api.tests.unit.domain.utils import random_str
+from common.exceptions import NotFoundException
 
 
 class TestProjectRepository(unittest.TestCase):
+    TEST_DB_NAME = "projects.repo"
+
     @classmethod
     def setUp(cls) -> None:
         wipe_project_repository()
 
     @classmethod
     def setUpClass(cls) -> None:
+        inject_and_clear_db(cls.TEST_DB_NAME)
         clinical_programme_repo = ClinicalProgrammeRepository()
         cls.created_clinical_programme = create_random_clinical_programme(
             clinical_programme_repo.generate_uid

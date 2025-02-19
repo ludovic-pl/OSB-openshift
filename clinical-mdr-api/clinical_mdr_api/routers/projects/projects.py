@@ -1,15 +1,20 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.projects.project import (
+    Project,
+    ProjectCreateInput,
+    ProjectEditInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.projects.project import ProjectService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/projects"
 router = APIRouter()
@@ -23,7 +28,7 @@ ProjectUID = Path(description="The unique id of the project.")
     "",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all projects.",
-    response_model=GenericFilteringReturn[models.Project],
+    response_model=GenericFilteringReturn[Project],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -50,26 +55,34 @@ ProjectUID = Path(description="The unique id of the project.")
 # pylint: disable=unused-argument
 def get_projects(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> GenericFilteringReturn[models.Project]:
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> GenericFilteringReturn[Project]:
     service = ProjectService()
     return service.get_all_projects(
         sort_by=sort_by,
@@ -94,19 +107,26 @@ def get_projects(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_distinct_adam_listing_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+def get_distinct_values_for_header(
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ProjectService()
     return service.get_project_headers(
@@ -114,7 +134,7 @@ def get_distinct_adam_listing_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -122,14 +142,14 @@ def get_distinct_adam_listing_values_for_header(
     "/{project_uid}",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get a project.",
-    response_model=models.Project,
+    response_model=Project,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get(project_uid: str = ProjectUID) -> models.Project:
+def get(project_uid: Annotated[str, ProjectUID]) -> Project:
     service = ProjectService()
     return service.get_project_by_uid(project_uid)
 
@@ -138,7 +158,7 @@ def get(project_uid: str = ProjectUID) -> models.Project:
     "",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Creates a new project.",
-    response_model=models.Project,
+    response_model=Project,
     status_code=201,
     responses={
         201: {"description": "Created - The project was successfully created."},
@@ -147,14 +167,16 @@ def get(project_uid: str = ProjectUID) -> models.Project:
             "description": "Some application/business rules forbid to process the request. Expect more detailed"
             " information in response body.",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    project_create_input: models.ProjectCreateInput = Body(
-        description="Related parameters of the project that shall be created."
-    ),
-) -> models.Project:
+    project_create_input: Annotated[
+        ProjectCreateInput,
+        Body(description="Related parameters of the project that shall be created."),
+    ],
+) -> Project:
     service = ProjectService()
     return service.create(project_create_input)
 
@@ -163,7 +185,7 @@ def create(
     "/{project_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Edit a project.",
-    response_model=models.Project,
+    response_model=Project,
     status_code=200,
     responses={
         400: {
@@ -176,9 +198,9 @@ def create(
     },
 )
 def edit(
-    project_uid: str = ProjectUID,
-    project_edit_input: models.ProjectEditInput = Body(description=""),
-) -> models.Project:
+    project_uid: Annotated[str, ProjectUID],
+    project_edit_input: Annotated[ProjectEditInput, Body()],
+) -> Project:
     service = ProjectService()
     return service.edit(project_uid, project_edit_input)
 
@@ -197,6 +219,6 @@ def edit(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(project_uid: str = ProjectUID):
+def delete(project_uid: Annotated[str, ProjectUID]):
     service = ProjectService()
     return service.delete(project_uid)

@@ -25,7 +25,7 @@
         {
           "id": "44a90552-9e85-4a12-8347-4654006292b5",
           "title": "Guide",
-          "query": "#### This report support browsing Syntax Template related data from the StudyBuilder repository database\n\nThis report contains the following tabs:\n - **Select Template Parameter Value** tab enable browsing and selection of template paramaters and their values.\n - **Parent Templates** tab list all Parent Templates.\n \n   Note this include user defined templates, and list is filtered based on Template Parameter selection on first tab.\n - **Pre-instance Templates** tab list all Pre-instantiations of Parent Templates.\n \n   These are to support study search and selections, but will newer be related to a study.\n - **Template Instantiations** tab list all instantiations in latest version.\n - **Study Usage** tab list instantiations with reference to study usage.\n\n\n",
+          "query": "#### This report support browsing Syntax Template related data from the StudyBuilder repository database\n\nThis report contains the following tabs:\n - **Select Template Parameter Value** tab enable browsing and selection of template paramaters and their values (select template parameter **THEN** parameter values).\n - **Parent Templates** tab list all Parent Templates.\n \n   Note this include user defined templates, and list is filtered based on Template Parameter selection on first tab.\n - **Pre-instance Templates** tab list all Pre-instantiations of Parent Templates.\n \n   These are to support study search and selections, but will newer be related to a study.\n - **Template Instantiations** tab list all instantiations in latest version.\n - **Study Usage** tab list instantiations with reference to study usage.\n\n\n",
           "width": 24,
           "height": 4,
           "x": 0,
@@ -43,11 +43,11 @@
         {
           "id": "652b45bf-ca9c-42ab-88d7-1ae82d5d0e33",
           "title": "Template Parameters",
-          "query": "MATCH (p:TemplateParameter)-->(r:TemplateParameterTermRoot)-[:LATEST]->(t:TemplateParameterTermValue)\nWHERE ( p.name in $neodash_templateparameter_name or\n        $neodash_templateparameter_name[0] is null ) and\n      ( t.name in $neodash_templateparametertermvalue_name or\n       $neodash_templateparametertermvalue_name[0] is null )\nOPTIONAL MATCH (p2:TemplateParameter)\nWHERE ( $neodash_templateparameter_name[0] is null ) and\n      ( $neodash_templateparametertermvalue_name[0] is null ) and \n      (not exists {(p2)-->(r2:TemplateParameterTermRoot)-[:LATEST]->(t2:TemplateParameterTermValue)} )\nWITH collect(distinct p.name)+collect(distinct p2.name) as names\nUNWIND names AS unw_names\nRETURN unw_names AS TemplateParameter\nORDER BY TemplateParameter\n",
+          "query": "OPTIONAL MATCH (p:TemplateParameter)-->(r:TemplateParameterTermRoot)-[:LATEST]->(t:TemplateParameterTermValue)\nWHERE ( p.name in $neodash_templateparameter_name or\n        $neodash_templateparameter_name[0] is null ) \n      and\n      ( t.name in $neodash_templateparametertermvalue_name or\n       $neodash_templateparametertermvalue_name[0] is null )\nOPTIONAL MATCH (p2:TemplateParameter)\nWHERE ( p2.name in $neodash_templateparameter_name or\n        $neodash_templateparameter_name[0] is null ) and\n      ( $neodash_templateparametertermvalue_name[0] is null ) and \n      (not exists {(p2)-->(r2:TemplateParameterTermRoot)-[:LATEST]->(t2:TemplateParameterTermValue)} )\nWITH collect(distinct p.name)+collect(distinct p2.name) as names\nUNWIND names AS unw_names\nRETURN unw_names AS TemplateParameter\nORDER BY TemplateParameter\n\n",
           "width": 11,
           "height": 8,
           "x": 0,
-          "y": 2,
+          "y": 6,
           "type": "table",
           "selection": {},
           "settings": {
@@ -59,28 +59,31 @@
         {
           "id": "c5c00200-a95b-49d0-b6ef-e5f977325848",
           "title": "Select Template Parameter",
-          "query": "MATCH (n:TemplateParameter)-->(r:TemplateParameterTermRoot)-[:LATEST]->(t:TemplateParameterTermValue) \nWHERE toLower(toString(n.`name`)) CONTAINS toLower($input) \nRETURN DISTINCT n.`name` as value,  n.`name` as display ORDER BY size(toString(value)) ASC LIMIT 40",
+          "query": "MATCH (n:`TemplateParameter`) \nWHERE toLower(toString(n.`name`)) CONTAINS toLower($input) \nRETURN DISTINCT n.`name` as value,  n.`name` as display ORDER BY size(toString(value)) ASC LIMIT 25",
           "width": 11,
           "height": 2,
           "x": 0,
-          "y": 0,
+          "y": 1,
           "type": "select",
           "selection": {},
           "settings": {
-            "type": "Custom Query",
+            "type": "Node Property",
             "manualParameterSave": false,
             "multiSelector": true,
-            "entityType": "templateparameter_name",
-            "parameterName": "neodash_templateparameter_name",
             "multiline": false,
             "clearParameterOnFieldClear": false,
-            "defaultValue": "[]"
+            "defaultValue": "[]",
+            "entityType": "TemplateParameter",
+            "propertyType": "name",
+            "propertyTypeDisplay": "name",
+            "parameterName": "neodash_templateparameter_name",
+            "suggestionLimit": 25
           }
         },
         {
           "id": "b97399f2-c970-41df-ab66-0ec50b5c1475",
           "title": "Template Parameter Values",
-          "query": "MATCH (p:TemplateParameter)-->(r:TemplateParameterTermRoot)-[:LATEST]->(t:TemplateParameterTermValue)\nWHERE (p.name in $neodash_templateparameter_name or\n       $neodash_templateparameter_name[0] is null ) and\n      ( t.name in $neodash_templateparametertermvalue_name or\n       $neodash_templateparametertermvalue_name[0] is null )\nRETURN DISTINCT t.name as Name, t.name_sentence_case as SentenceCaseName\nORDER BY t.name\n\n\n\n",
+          "query": "MATCH (p:TemplateParameter)-->(r:TemplateParameterTermRoot)-[:LATEST]->(t:TemplateParameterTermValue)\nWHERE (p.name in $neodash_templateparameter_name or\n       $neodash_templateparameter_name[0] is null ) and\n      ( t.name in $neodash_templateparametertermvalue_name or\n       $neodash_templateparametertermvalue_name[0] is null )\nRETURN DISTINCT p.name as Parameter, t.name as Name, t.name_sentence_case as SentenceCaseName\nORDER BY p.name, t.name\n\n\n\n",
           "width": 13,
           "height": 8,
           "x": 11,
@@ -96,7 +99,7 @@
         {
           "id": "4255ade8-6693-4b67-b446-b763c8477129",
           "title": "Select Parameter Value",
-          "query": "MATCH (n:`TemplateParameterTermValue`) \nWHERE toLower(toString(n.`name`)) CONTAINS toLower($input) \nRETURN DISTINCT n.`name` as value,  n.`name` as display ORDER BY size(toString(value)) ASC LIMIT 25",
+          "query": "MATCH (p:TemplateParameter)-->(:TemplateParameterTermRoot)-[:LATEST]-(n:`TemplateParameterTermValue`) \nWHERE ( p.name in $neodash_templateparameter_name or\n        $neodash_templateparameter_name[0] is null ) and\n      toLower(toString(n.`name`)) CONTAINS toLower($input) \nRETURN DISTINCT n.`name` as value,  n.`name` as display ORDER BY size(display), display LIMIT 25",
           "width": 13,
           "height": 2,
           "x": 11,
@@ -104,15 +107,14 @@
           "type": "select",
           "selection": {},
           "settings": {
-            "type": "Node Property",
-            "entityType": "TemplateParameterTermValue",
-            "propertyType": "name",
-            "propertyTypeDisplay": "name",
-            "parameterName": "neodash_templateparametertermvalue_name",
+            "type": "Custom Query",
             "suggestionLimit": 25,
             "multiSelector": true,
             "clearParameterOnFieldClear": false,
-            "defaultValue": "[]"
+            "defaultValue": "[]",
+            "entityType": "templateparametertermvalue_name",
+            "parameterName": "neodash_templateparametertermvalue_name",
+            "refreshButtonEnabled": true
           }
         }
       ]

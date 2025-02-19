@@ -1,10 +1,16 @@
 # pylint: disable=invalid-name
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Path
 
-from clinical_mdr_api.models.notification import Notification, NotificationInput
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.models.notification import (
+    Notification,
+    NotificationPatchInput,
+    NotificationPostInput,
+)
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.notifications import NotificationService
+from common.auth import rbac
 
 # Prefixed with "/notifications"
 router = APIRouter()
@@ -41,7 +47,7 @@ def get_all_notifications() -> list[Notification]:
     },
 )
 @decorators.validate_serial_number_against_neo4j_max_and_min_int()
-def get_notification(serial_number: int = SN) -> Notification:
+def get_notification(serial_number: Annotated[int, SN]) -> Notification:
     return service.get_notification(serial_number)
 
 
@@ -57,7 +63,7 @@ def get_notification(serial_number: int = SN) -> Notification:
     },
 )
 def create_notification(
-    notification_input: NotificationInput = Body(),
+    notification_input: Annotated[NotificationPostInput, Body()],
 ) -> Notification:
     return service.create_notification(notification_input)
 
@@ -75,8 +81,8 @@ def create_notification(
 )
 @decorators.validate_serial_number_against_neo4j_max_and_min_int()
 def update_notification(
-    serial_number: int = SN,
-    notification_input: NotificationInput = Body(),
+    serial_number: Annotated[int, SN],
+    notification_input: Annotated[NotificationPatchInput, Body()],
 ) -> Notification:
     return service.update_notification(serial_number, notification_input)
 
@@ -92,5 +98,5 @@ def update_notification(
     },
 )
 @decorators.validate_serial_number_against_neo4j_max_and_min_int()
-def delete_notification(serial_number: int = SN) -> None:
+def delete_notification(serial_number: Annotated[int, SN]) -> None:
     return service.delete_notification(serial_number)

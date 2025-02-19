@@ -110,7 +110,7 @@
               :data-cy="$t('StudySelectionTable.copy_item')"
               icon="mdi-content-copy"
               :color="getCopyButtonColor(item)"
-              :disabled="isStudyFootnoteselected(item)"
+              :disabled="isStudyFootnoteSelected(item)"
               :title="$t('StudySelectionTable.copy_item')"
               variant="text"
               @click="selectStudyFootnote(item)"
@@ -347,7 +347,7 @@ export default {
         },
         {
           name: 'createTemplate',
-          title: this.$t('StudyFootnoteForm.create_template_title'),
+          title: this.$t('StudyFootnoteForm.create_footnote_title'),
         },
         {
           name: 'createFootnote',
@@ -599,19 +599,19 @@ export default {
         (item) => item.footnote.name !== studyFootnote.footnote.name
       )
     },
-    isStudyFootnoteselected(studyFootnote) {
+    isStudyFootnoteSelected(studyFootnote) {
       let selected = this.selectedStudyFootnotes.find(
         (item) => item.footnote.uid === studyFootnote.footnote.uid
       )
       if (!selected && this.currentStudyFootnotes.length) {
         selected = this.currentStudyFootnotes.find(
-          (item) => item.footnote.uid === studyFootnote.footnote.uid
+          (item) => item.footnote ? item.footnote.uid === studyFootnote.uid : item.template.uid === studyFootnote.uid
         )
       }
       return selected !== undefined
     },
     getCopyButtonColor(item) {
-      return !this.isStudyFootnoteselected(item) ? 'primary' : ''
+      return !this.isStudyFootnoteSelected(item) ? 'primary' : ''
     },
     async extraStepValidation(step) {
       if (this.creationMode === 'template' && step === 1) {

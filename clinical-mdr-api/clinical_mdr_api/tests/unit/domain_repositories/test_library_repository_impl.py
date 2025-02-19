@@ -4,11 +4,11 @@ import pytest
 from hypothesis import given
 from hypothesis.strategies import booleans, composite, text
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.libraries.library_repository import (
     LibraryRepository,
 )
 from clinical_mdr_api.domain_repositories.models.generic import Library
+from common import exceptions
 
 
 @composite

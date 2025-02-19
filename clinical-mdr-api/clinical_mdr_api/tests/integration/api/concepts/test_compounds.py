@@ -15,20 +15,22 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.compound import Compound
+from clinical_mdr_api.models.concepts.compound_alias import CompoundAlias
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 rand: str
-compounds_all: list[models.Compound]
-compound_aliases_all: list[models.CompoundAlias]
+compounds_all: list[Compound]
+compound_aliases_all: list[CompoundAlias]
 
 
 @pytest.fixture(scope="module")
@@ -111,7 +113,7 @@ COMPOUND_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "is_sponsor_compound",
     "external_id",
@@ -131,7 +133,7 @@ COMPOUND_ALIASES_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "compound",
     "is_preferred_synonym",
@@ -144,7 +146,7 @@ def test_get_compound(api_client):
     response = api_client.get(f"/concepts/compounds/{compounds_all[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(COMPOUND_FIELDS_ALL)
@@ -165,7 +167,7 @@ def test_get_compounds_versions(api_client):
     response = api_client.get("/concepts/compounds/versions?total_count=true")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 10
     assert res["total"] == len(compounds_all)
 
@@ -196,7 +198,7 @@ def test_get_compound_versions(api_client):
     response = api_client.get(f"/concepts/compounds/{compounds_all[0].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
 
     assert res[0]["version"] == "0.1"
@@ -255,7 +257,7 @@ def test_update_compound(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     TestUtils.assert_timestamp_is_in_utc_zone(res["start_date"])
     TestUtils.assert_timestamp_is_newer_than(res["start_date"], 60)
@@ -321,7 +323,7 @@ def test_get_compounds(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -371,7 +373,9 @@ def test_get_compounds_csv_xml_excel(api_client, export_format):
         pytest.param('{"*": {"v": ["aaa"]}}', "name", "name-AAA"),
         pytest.param('{"*": {"v": ["bBb"]}}', "name", "name-BBB"),
         pytest.param(
-            '{"*": {"v": ["wn-us"], "op": "co"}}', "user_initials", "unknown-user"
+            '{"*": {"v": ["unknown-user"], "op": "co"}}',
+            "author_username",
+            "unknown-user@example.com",
         ),
         pytest.param('{"*": {"v": ["Draft"]}}', "status", "Draft"),
         pytest.param('{"*": {"v": ["0.1"]}}', "version", "0.1"),
@@ -385,7 +389,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -418,7 +422,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -437,7 +441,7 @@ def test_get_compound_aliases_versions(api_client):
     response = api_client.get("/concepts/compound-aliases/versions?total_count=true")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 10
     assert res["total"] == len(compound_aliases_all)
 
@@ -470,7 +474,7 @@ def test_get_compound_alias_versions(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
 
     assert res[0]["version"] == "0.1"
@@ -584,7 +588,7 @@ def test_get_compound_aliases(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -627,7 +631,9 @@ def test_get_compound_aliases_csv_xml_excel(api_client, export_format):
         pytest.param('{"*": {"v": ["aaa"]}}', "name", "compAlias-AAA"),
         pytest.param('{"*": {"v": ["bBb"]}}', "name", "compAlias-BBB"),
         pytest.param(
-            '{"*": {"v": ["wn-us"], "op": "co"}}', "user_initials", "unknown-user"
+            '{"*": {"v": ["unknown-user"], "op": "co"}}',
+            "author_username",
+            "unknown-user@example.com",
         ),
         pytest.param('{"*": {"v": ["Draft"]}}', "status", "Draft"),
         pytest.param('{"*": {"v": ["0.1"]}}', "version", "0.1"),
@@ -641,7 +647,7 @@ def test_compound_aliases_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -686,7 +692,7 @@ def test_compound_aliases_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value

@@ -1,13 +1,11 @@
 import re
 from collections import abc
-from dataclasses import Field, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.study_definition_aggregates._utils import (
     call_default_init,
     dataclass_with_default_init,
@@ -15,7 +13,8 @@ from clinical_mdr_api.domains.study_definition_aggregates._utils import (
 from clinical_mdr_api.domains.study_definition_aggregates.registry_identifiers import (
     RegistryIdentifiersVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 class StudyStatus(Enum):
@@ -61,6 +60,13 @@ class StudyCompactComponentEnum(str, Enum):
 _STUDY_NUMBER_PATTERN = re.compile(r"\d{1,4}")
 
 
+FIX_SOME_VALUE_DEFAULT = """
+############################################
+##########_FIX_SOME_VALUE_DEFAULT_##########
+############################################
+"""
+
+
 @dataclass_with_default_init(frozen=True)
 class StudyIdentificationMetadataVO:
     project_number: str | None
@@ -81,7 +87,7 @@ class StudyIdentificationMetadataVO:
         description: str | None,
         registry_identifiers: RegistryIdentifiersVO,
         study_subpart_acronym: str | None = None,
-        _study_id_prefix: str | None = None
+        _study_id_prefix: str | None = None,
         # we denote this param with underscore, for "internal" use
         # (i.e.) use with caution and where You know what You are doing (setting an arbitrary value here)
     ):
@@ -145,60 +151,53 @@ class StudyIdentificationMetadataVO:
 
         """
 
-        if (
+        exceptions.BusinessLogicException.raise_if(
             previous_project_number
             and is_subpart
             and not updatable_subpart
-            and self.project_number != previous_project_number
-        ):
-            raise exceptions.BusinessLogicException(
-                "Project of Study Subparts cannot be changed independently from its Study Parent Part."
-            )
+            and self.project_number != previous_project_number,
+            msg="Project of Study Subparts cannot be changed independently from its Study Parent Part.",
+        )
 
         self.registry_identifiers.validate(
             null_value_exists_callback=null_value_exists_callback
         )
 
-        if (
+        exceptions.ValidationException.raise_if(
             not previous_is_subpart
             and not is_subpart
             and self.study_number is None
-            and self.study_acronym is None
-        ):
-            raise exceptions.ValidationException(
-                "Either study number or study acronym must be given in study metadata."
-            )
+            and self.study_acronym is None,
+            msg="Either study number or study acronym must be given in study metadata.",
+        )
 
-        if is_subpart and not self.study_subpart_acronym:
-            raise exceptions.ValidationException(
-                "Study Subpart Acronym must be provided for Study Subpart."
-            )
+        exceptions.ValidationException.raise_if(
+            is_subpart and not self.study_subpart_acronym,
+            msg="Study Subpart Acronym must be provided for Study Subpart.",
+        )
 
-        if (
+        exceptions.ValidationException.raise_if(
             not is_subpart
             and self.study_number is not None
-            and not _STUDY_NUMBER_PATTERN.fullmatch(self.study_number)
-        ):
-            raise exceptions.ValidationException(
-                f"Provided study number can only be up to 4 digits string ({self.study_number})."
-            )
+            and not _STUDY_NUMBER_PATTERN.fullmatch(self.study_number),
+            msg=f"Provided study number can only be up to 4 digits string '{self.study_number}'.",
+        )
 
-        if (
+        exceptions.BusinessLogicException.raise_if(
             self.project_number is not None
             and project_exists_callback is not None
-            and not project_exists_callback(self.project_number)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no project identified by provided project_number ({self.project_number})"
-            )
-        if (
+            and not project_exists_callback(self.project_number),
+            msg=f"Project with Project Number '{self.project_number}' doesn't exist.",
+        )
+
+        exceptions.AlreadyExistsException.raise_if(
             not is_subpart
             and self.study_number is not None
-            and study_number_exists_callback(self.study_number, uid)
-        ):
-            raise BusinessLogicException(
-                f"The following study number already exists in the database ({self.study_number})"
-            )
+            and study_number_exists_callback(self.study_number, uid),
+            "Study",
+            self.study_number,
+            "Study Number",
+        )
 
     def is_valid(
         self,
@@ -221,14 +220,14 @@ class StudyIdentificationMetadataVO:
     def fix_some_values(
         self,
         *,
-        project_number: str | None = field(),
-        study_number: str | None = field(),
-        subpart_id: str | None = field(),
-        study_acronym: str | None = field(),
-        study_subpart_acronym: str | None = field(),
-        study_id_prefix: str | None = field(),
-        description: str | None = field(),
-        registry_identifiers: RegistryIdentifiersVO | None = field(),
+        project_number: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_number: str | None = FIX_SOME_VALUE_DEFAULT,
+        subpart_id: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_acronym: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_subpart_acronym: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_id_prefix: str | None = FIX_SOME_VALUE_DEFAULT,
+        description: str | None = FIX_SOME_VALUE_DEFAULT,
+        registry_identifiers: RegistryIdentifiersVO | None = FIX_SOME_VALUE_DEFAULT,
     ) -> Self:
         """
         Helper function to produce a new object with some of values different from self.
@@ -238,7 +237,7 @@ class StudyIdentificationMetadataVO:
         """
 
         def helper(parameter: Any, def_value: Any):
-            return def_value if isinstance(parameter, Field) else parameter
+            return def_value if parameter == FIX_SOME_VALUE_DEFAULT else parameter
 
         return StudyIdentificationMetadataVO(
             project_number=helper(project_number, self.project_number),
@@ -259,6 +258,7 @@ class StudyIdentificationMetadataVO:
 @dataclass_with_default_init(frozen=True)
 class StudyVersionMetadataVO:
     study_status: StudyStatus = StudyStatus.DRAFT
+    # pylint: disable=invalid-field-call
     version_timestamp: datetime | None = field(default_factory=datetime.today)
     version_author: str | None = None
     version_description: str | None = None
@@ -267,12 +267,12 @@ class StudyVersionMetadataVO:
     def __init__(
         self,
         study_status: StudyStatus = StudyStatus.DRAFT,
-        version_timestamp: datetime | None = field(default_factory=datetime.today),
+        version_timestamp: datetime | None = FIX_SOME_VALUE_DEFAULT,
         version_author: str | None = None,
         version_description: str | None = None,
         version_number: Decimal | None = None,
     ):
-        if isinstance(version_timestamp, Field):
+        if version_timestamp == FIX_SOME_VALUE_DEFAULT:
             version_timestamp = datetime.now(timezone.utc)
         assert version_timestamp is None or isinstance(version_timestamp, datetime)
 
@@ -291,32 +291,31 @@ class StudyVersionMetadataVO:
         Only business rules relevant to content of this object are evaluated.
         """
 
-        if self.study_status == StudyStatus.LOCKED and self.version_number is None:
-            raise exceptions.ValidationException(
-                "LOCKED study must have locked version number."
-            )
+        exceptions.ValidationException.raise_if(
+            self.study_status == StudyStatus.LOCKED and self.version_number is None,
+            msg="LOCKED study must have locked version number.",
+        )
 
-        if self.study_status != StudyStatus.LOCKED and self.version_number is not None:
-            raise exceptions.ValidationException(
-                "Non-LOCKED study must not have locked version number."
-            )
+        exceptions.ValidationException.raise_if(
+            self.study_status != StudyStatus.LOCKED and self.version_number is not None,
+            msg="Non-LOCKED study must not have locked version number.",
+        )
 
-        if self.study_status != StudyStatus.LOCKED and self.version_number is not None:
-            raise exceptions.ValidationException(
-                "Non-LOCKED study must not have locked version number."
-            )
+        exceptions.ValidationException.raise_if(
+            self.study_status != StudyStatus.LOCKED and self.version_number is not None,
+            msg="Non-LOCKED study must not have locked version number.",
+        )
 
-        if self.version_timestamp is None:
-            raise exceptions.ValidationException(
-                "timestamp mandatory in VersionMetadataVO"
-            )
+        exceptions.ValidationException.raise_if(
+            self.version_timestamp is None,
+            msg="timestamp mandatory in VersionMetadataVO",
+        )
 
-        if self.study_status == StudyStatus.LOCKED and (
-            self.version_author is None or self.version_description is None
-        ):
-            raise exceptions.ValidationException(
-                "version_info and version_author mandatory for LOCKED version"
-            )
+        exceptions.ValidationException.raise_if(
+            self.study_status == StudyStatus.LOCKED
+            and (self.version_author is None or self.version_description is None),
+            msg="version_info and version_author mandatory for LOCKED version",
+        )
 
     def is_valid(self) -> bool:
         """
@@ -389,20 +388,20 @@ class HighLevelStudyDesignVO:
             associated_null_value_code: str | None,
             name_of_verified_value: str,
         ) -> None:
-            if associated_null_value_code is not None and not (
-                value is None or (isinstance(value, abc.Collection) and len(value) == 0)
-            ):
-                raise exceptions.ValidationException(
-                    f"{name_of_verified_value} and associated null value code cannot be both provided."
-                )
-
-            if (
+            exceptions.ValidationException.raise_if(
                 associated_null_value_code is not None
-                and not null_value_exists_callback(associated_null_value_code)
-            ):
-                raise exceptions.ValidationException(
-                    f"Unknown null value code (reason for missing) provided for {name_of_verified_value}"
-                )
+                and not (
+                    value is None
+                    or (isinstance(value, abc.Collection) and len(value) == 0)
+                ),
+                msg=f"{name_of_verified_value} and associated null value code cannot be both provided.",
+            )
+
+            exceptions.ValidationException.raise_if(
+                associated_null_value_code is not None
+                and not null_value_exists_callback(associated_null_value_code),
+                msg=f"Unknown null value code (reason for missing) provided for {name_of_verified_value}",
+            )
 
         validate_value_and_associated_null_value_valid(
             self.study_type_code, self.study_type_null_value_code, "study_type_code"
@@ -446,25 +445,23 @@ class HighLevelStudyDesignVO:
             "confirmed_response_minimum_duration",
         )
 
-        if self.trial_phase_code is not None and not trial_phase_exists_callback(
-            self.trial_phase_code
-        ):
-            raise exceptions.ValidationException(
-                f"Non-existent trial phase code provided ({self.trial_phase_code})"
-            )
+        exceptions.ValidationException.raise_if(
+            self.trial_phase_code is not None
+            and not trial_phase_exists_callback(self.trial_phase_code),
+            msg=f"Non-existent trial phase code provided '{self.trial_phase_code}'.",
+        )
 
-        if self.study_type_code is not None and not study_type_exists_callback(
-            self.study_type_code
-        ):
-            raise exceptions.ValidationException(
-                f"Non-existent study type code provided ({self.study_type_code})"
-            )
+        exceptions.ValidationException.raise_if(
+            self.study_type_code is not None
+            and not study_type_exists_callback(self.study_type_code),
+            msg=f"Non-existent study type code provided '{self.study_type_code}'.",
+        )
 
         for trial_type_code in self.trial_type_codes:
-            if not trial_type_exists_callback(trial_type_code):
-                raise exceptions.ValidationException(
-                    f"Non-existent trial type code provided ({trial_type_code})"
-                )
+            exceptions.ValidationException.raise_if_not(
+                trial_type_exists_callback(trial_type_code),
+                msg=f"Non-existent trial type code provided '{trial_type_code}'.",
+            )
 
     def is_valid(
         self,
@@ -490,22 +487,24 @@ class HighLevelStudyDesignVO:
 
     def fix_some_values(
         self,
-        study_type_code: str | None = field(),
-        study_type_null_value_code: str | None = field(),
-        trial_type_codes: Iterable[str] = field(),
-        trial_type_null_value_code: str | None = field(),
-        trial_phase_code: str | None = field(),
-        trial_phase_null_value_code: str | None = field(),
-        is_extension_trial: bool | None = field(),
-        is_extension_trial_null_value_code: str | None = field(),
-        is_adaptive_design: bool | None = field(),
-        is_adaptive_design_null_value_code: str | None = field(),
-        study_stop_rules: str | None = field(),
-        study_stop_rules_null_value_code: str | None = field(),
-        confirmed_response_minimum_duration: str | None = field(),
-        confirmed_response_minimum_duration_null_value_code: str | None = field(),
-        post_auth_indicator: bool | None = field(),
-        post_auth_indicator_null_value_code: str | None = field(),
+        study_type_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_type_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_type_codes: Iterable[str] = FIX_SOME_VALUE_DEFAULT,
+        trial_type_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_phase_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_phase_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        is_extension_trial: bool | None = FIX_SOME_VALUE_DEFAULT,
+        is_extension_trial_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        is_adaptive_design: bool | None = FIX_SOME_VALUE_DEFAULT,
+        is_adaptive_design_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_stop_rules: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_stop_rules_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        confirmed_response_minimum_duration: str | None = FIX_SOME_VALUE_DEFAULT,
+        confirmed_response_minimum_duration_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        post_auth_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        post_auth_indicator_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
     ) -> Self:
         """
         Helper function to produce a new HighLevelStudyDesignVO object with some of values different from self.
@@ -531,7 +530,7 @@ class HighLevelStudyDesignVO:
         """
 
         def helper(parameter: Any, def_value: Any):
-            return def_value if isinstance(parameter, Field) else parameter
+            return def_value if parameter == FIX_SOME_VALUE_DEFAULT else parameter
 
         return HighLevelStudyDesignVO(
             study_type_code=helper(study_type_code, self.study_type_code),
@@ -777,20 +776,20 @@ class StudyPopulationVO:
             associated_null_value_code: str | None,
             name_of_verified_value: str,
         ) -> None:
-            if associated_null_value_code is not None and not (
-                value is None or (isinstance(value, abc.Collection) and len(value) == 0)
-            ):
-                raise exceptions.ValidationException(
-                    f"{name_of_verified_value} and associated null value code cannot be both provided."
-                )
-
-            if (
+            exceptions.ValidationException.raise_if(
                 associated_null_value_code is not None
-                and not null_value_exists_callback(associated_null_value_code)
-            ):
-                raise exceptions.ValidationException(
-                    f"Unknown null value code (reason for missing) provided for {name_of_verified_value}"
-                )
+                and not (
+                    value is None
+                    or (isinstance(value, abc.Collection) and len(value) == 0)
+                ),
+                msg=f"{name_of_verified_value} and associated null value code cannot be both provided.",
+            )
+
+            exceptions.ValidationException.raise_if(
+                associated_null_value_code is not None
+                and not null_value_exists_callback(associated_null_value_code),
+                msg=f"Unknown null value code (reason for missing) provided for {name_of_verified_value}",
+            )
 
         validate_value_and_associated_null_value_valid(
             value=self.therapeutic_area_codes,
@@ -871,35 +870,32 @@ class StudyPopulationVO:
         )
 
         for therapeutic_area_code in self.therapeutic_area_codes:
-            if not therapeutic_area_exists_callback(therapeutic_area_code):
-                raise exceptions.ValidationException(
-                    f"Unknown therapeutic area code ({therapeutic_area_code})"
-                )
+            exceptions.ValidationException.raise_if_not(
+                therapeutic_area_exists_callback(therapeutic_area_code),
+                msg=f"Unknown therapeutic area code '{therapeutic_area_code}'.",
+            )
 
         for diagnosis_group_code in self.diagnosis_group_codes:
-            if not diagnosis_group_exists_callback(diagnosis_group_code):
-                raise exceptions.ValidationException(
-                    f"Unknown diagnosis group code ({diagnosis_group_code})"
-                )
+            exceptions.ValidationException.raise_if_not(
+                diagnosis_group_exists_callback(diagnosis_group_code),
+                msg=f"Unknown diagnosis group code '{diagnosis_group_code}'.",
+            )
 
         for (
             disease_condition_or_indication_code
         ) in self.disease_condition_or_indication_codes:
-            if not disease_condition_or_indication_exists_callback(
-                disease_condition_or_indication_code
-            ):
-                raise exceptions.ValidationException(
-                    f"Unknown disease_condition_or_indication_code "
-                    f"({disease_condition_or_indication_code})"
-                )
-
-        if (
-            self.sex_of_participants_code is not None
-            and not sex_of_participants_exists_callback(self.sex_of_participants_code)
-        ):
-            raise exceptions.ValidationException(
-                f"Unknown sex of participants code({self.sex_of_participants_code})"
+            exceptions.ValidationException.raise_if_not(
+                disease_condition_or_indication_exists_callback(
+                    disease_condition_or_indication_code
+                ),
+                msg=f"Unknown disease_condition_or_indication_code '{disease_condition_or_indication_code}'.",
             )
+
+        exceptions.ValidationException.raise_if(
+            self.sex_of_participants_code is not None
+            and not sex_of_participants_exists_callback(self.sex_of_participants_code),
+            msg=f"Unknown sex of participants code '{self.sex_of_participants_code}'.",
+        )
 
     def is_valid(
         self,
@@ -927,37 +923,51 @@ class StudyPopulationVO:
     def fix_some_values(
         self,
         *,
-        therapeutic_area_codes: Iterable[str] = field(),
-        therapeutic_area_null_value_code: str | None = field(),
-        disease_condition_or_indication_codes: Iterable[str] = field(),
-        disease_condition_or_indication_null_value_code: str | None = field(),
-        diagnosis_group_codes: Iterable[str] = field(),
-        diagnosis_group_null_value_code: str | None = field(),
-        sex_of_participants_code: str | None = field(),
-        sex_of_participants_null_value_code: str | None = field(),
-        rare_disease_indicator: bool | None = field(),
-        rare_disease_indicator_null_value_code: str | None = field(),
-        healthy_subject_indicator: bool | None = field(),
-        healthy_subject_indicator_null_value_code: str | None = field(),
-        planned_minimum_age_of_subjects: str | None = field(),
-        planned_minimum_age_of_subjects_null_value_code: str | None = field(),
-        planned_maximum_age_of_subjects: str | None = field(),
-        planned_maximum_age_of_subjects_null_value_code: str | None = field(),
-        stable_disease_minimum_duration: str | None = field(),
-        stable_disease_minimum_duration_null_value_code: str | None = field(),
-        pediatric_study_indicator: bool | None = field(),
-        pediatric_study_indicator_null_value_code: str | None = field(),
-        pediatric_postmarket_study_indicator: bool | None = field(),
-        pediatric_postmarket_study_indicator_null_value_code: str | None = field(),
-        pediatric_investigation_plan_indicator: bool | None = field(),
-        pediatric_investigation_plan_indicator_null_value_code: str | None = field(),
-        relapse_criteria: str | None = field(),
-        relapse_criteria_null_value_code: str | None = field(),
-        number_of_expected_subjects: int | None = field(),
-        number_of_expected_subjects_null_value_code: str | None = field(),
+        therapeutic_area_codes: Iterable[str] = FIX_SOME_VALUE_DEFAULT,
+        therapeutic_area_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        disease_condition_or_indication_codes: Iterable[str] = FIX_SOME_VALUE_DEFAULT,
+        disease_condition_or_indication_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        diagnosis_group_codes: Iterable[str] = FIX_SOME_VALUE_DEFAULT,
+        diagnosis_group_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        sex_of_participants_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        sex_of_participants_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        rare_disease_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        rare_disease_indicator_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        healthy_subject_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        healthy_subject_indicator_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        planned_minimum_age_of_subjects: str | None = FIX_SOME_VALUE_DEFAULT,
+        planned_minimum_age_of_subjects_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        planned_maximum_age_of_subjects: str | None = FIX_SOME_VALUE_DEFAULT,
+        planned_maximum_age_of_subjects_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        stable_disease_minimum_duration: str | None = FIX_SOME_VALUE_DEFAULT,
+        stable_disease_minimum_duration_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        pediatric_study_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        pediatric_study_indicator_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        pediatric_postmarket_study_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        pediatric_postmarket_study_indicator_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        pediatric_investigation_plan_indicator: bool | None = FIX_SOME_VALUE_DEFAULT,
+        pediatric_investigation_plan_indicator_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        relapse_criteria: str | None = FIX_SOME_VALUE_DEFAULT,
+        relapse_criteria_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        number_of_expected_subjects: int | None = FIX_SOME_VALUE_DEFAULT,
+        number_of_expected_subjects_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
     ) -> Self:
         def helper(parameter: Any, def_value: Any):
-            if isinstance(parameter, Field):
+            if parameter == FIX_SOME_VALUE_DEFAULT:
                 if isinstance(def_value, tuple):
                     return list(def_value)
                 return def_value
@@ -1165,20 +1175,20 @@ class StudyInterventionVO:
             associated_null_value_code: str | None,
             name_of_verified_value: str,
         ) -> None:
-            if associated_null_value_code is not None and not (
-                value is None or (isinstance(value, abc.Collection) and len(value) == 0)
-            ):
-                raise exceptions.ValidationException(
-                    f"{name_of_verified_value} and associated null value code cannot be both provided."
-                )
-
-            if (
+            exceptions.ValidationException.raise_if(
                 associated_null_value_code is not None
-                and not null_value_exists_callback(associated_null_value_code)
-            ):
-                raise exceptions.ValidationException(
-                    f"Unknown null value code (reason for missing) provided for {name_of_verified_value}"
-                )
+                and not (
+                    value is None
+                    or (isinstance(value, abc.Collection) and len(value) == 0)
+                ),
+                msg=f"{name_of_verified_value} and associated null value code cannot be both provided.",
+            )
+
+            exceptions.ValidationException.raise_if(
+                associated_null_value_code is not None
+                and not null_value_exists_callback(associated_null_value_code),
+                msg=f"Unknown null value code (reason for missing) provided for {name_of_verified_value}",
+            )
 
         validate_value_and_associated_null_value_valid(
             value=self.intervention_type_code,
@@ -1234,38 +1244,31 @@ class StudyInterventionVO:
             name_of_verified_value="planned_study_length",
         )
 
-        if (
+        exceptions.ValidationException.raise_if(
             self.intervention_type_code is not None
-            and not intervention_type_exists_callback(self.intervention_type_code)
-        ):
-            raise exceptions.ValidationException(
-                f"Unknown intervention type code ({self.intervention_type_code})"
-            )
+            and not intervention_type_exists_callback(self.intervention_type_code),
+            msg=f"Unknown intervention type code '{self.intervention_type_code}'.",
+        )
 
-        if self.control_type_code is not None and not control_type_exists_callback(
-            self.control_type_code
-        ):
-            raise exceptions.ValidationException(
-                f"Unknown control  type code ({self.control_type_code})"
-            )
+        exceptions.ValidationException.raise_if(
+            self.control_type_code is not None
+            and not control_type_exists_callback(self.control_type_code),
+            msg=f"Unknown control  type code '{self.control_type_code}'.",
+        )
 
-        if (
+        exceptions.ValidationException.raise_if(
             self.intervention_model_code is not None
-            and not intervention_model_exists_callback(self.intervention_model_code)
-        ):
-            raise exceptions.ValidationException(
-                f"Unknown intervention model code ({self.intervention_model_code})"
-            )
+            and not intervention_model_exists_callback(self.intervention_model_code),
+            msg=f"Unknown intervention model code '{self.intervention_model_code}'.",
+        )
 
-        if (
+        exceptions.ValidationException.raise_if(
             self.trial_blinding_schema_code is not None
             and not trial_blinding_schema_exists_callback(
                 self.trial_blinding_schema_code
-            )
-        ):
-            raise exceptions.ValidationException(
-                f"Unknown trial blinding schema code({self.trial_blinding_schema_code})"
-            )
+            ),
+            msg=f"Unknown trial blinding schema code '{self.trial_blinding_schema_code}'.",
+        )
 
     def is_valid(
         self,
@@ -1291,27 +1294,29 @@ class StudyInterventionVO:
     def fix_some_values(
         self,
         *,
-        intervention_type_code: str | None = field(),
-        intervention_type_null_value_code: str | None = field(),
-        add_on_to_existing_treatments: bool | None = field(),
-        add_on_to_existing_treatments_null_value_code: str | None = field(),
-        control_type_code: str | None = field(),
-        control_type_null_value_code: str | None = field(),
-        intervention_model_code: bool | None = field(),
-        intervention_model_null_value_code: str | None = field(),
-        is_trial_randomised: bool | None = field(),
-        is_trial_randomised_null_value_code: str | None = field(),
-        stratification_factor: str | None = field(),
-        stratification_factor_null_value_code: str | None = field(),
-        trial_blinding_schema_code: str | None = field(),
-        trial_blinding_schema_null_value_code: str | None = field(),
-        planned_study_length: str | None = field(),
-        planned_study_length_null_value_code: str | None = field(),
-        trial_intent_types_codes: list[str] = field(),
-        trial_itent_type_null_value_code: str | None = field(),
+        intervention_type_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        intervention_type_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        add_on_to_existing_treatments: bool | None = FIX_SOME_VALUE_DEFAULT,
+        add_on_to_existing_treatments_null_value_code: (
+            str | None
+        ) = FIX_SOME_VALUE_DEFAULT,
+        control_type_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        control_type_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        intervention_model_code: bool | None = FIX_SOME_VALUE_DEFAULT,
+        intervention_model_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        is_trial_randomised: bool | None = FIX_SOME_VALUE_DEFAULT,
+        is_trial_randomised_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        stratification_factor: str | None = FIX_SOME_VALUE_DEFAULT,
+        stratification_factor_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_blinding_schema_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_blinding_schema_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        planned_study_length: str | None = FIX_SOME_VALUE_DEFAULT,
+        planned_study_length_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
+        trial_intent_types_codes: list[str] = FIX_SOME_VALUE_DEFAULT,
+        trial_itent_type_null_value_code: str | None = FIX_SOME_VALUE_DEFAULT,
     ) -> Self:
         def helper(parameter: Any, def_value: Any):
-            return def_value if isinstance(parameter, Field) else parameter
+            return def_value if parameter == FIX_SOME_VALUE_DEFAULT else parameter
 
         return StudyInterventionVO.from_input_values(
             intervention_type_code=helper(
@@ -1399,14 +1404,14 @@ class StudyDescriptionVO:
             lambda _, study_number: True
         ),
     ) -> None:
-        if study_title_exists_callback(self.study_title, study_number):
-            raise exceptions.ValidationException(
-                f"Study title already exists ({self.study_title})"
-            )
-        if study_short_title_exists_callback(self.study_short_title, study_number):
-            raise exceptions.ValidationException(
-                f"Study short title already exists ({self.study_short_title})"
-            )
+        exceptions.AlreadyExistsException.raise_if(
+            study_title_exists_callback(self.study_title, study_number),
+            msg=f"Study Title '{self.study_title}' already exists.",
+        )
+        exceptions.AlreadyExistsException.raise_if(
+            study_short_title_exists_callback(self.study_short_title, study_number),
+            msg=f"Study Short Title '{self.study_short_title}' already exists.",
+        )
 
     def is_valid(
         self,
@@ -1430,11 +1435,11 @@ class StudyDescriptionVO:
     def fix_some_values(
         self,
         *,
-        study_title: str | None = field(),
-        study_short_title: str | None = field(),
+        study_title: str | None = FIX_SOME_VALUE_DEFAULT,
+        study_short_title: str | None = FIX_SOME_VALUE_DEFAULT,
     ) -> Self:
         def helper(parameter: Any, def_value: Any):
-            return def_value if isinstance(parameter, Field) else parameter
+            return def_value if parameter == FIX_SOME_VALUE_DEFAULT else parameter
 
         return StudyDescriptionVO.from_input_values(
             study_title=helper(study_title, self.study_title),
@@ -1480,20 +1485,23 @@ class StudyFieldAuditTrailEntryAR:
     """
 
     study_uid: str
-    user_initials: str
+    author_id: str
+    author_username: str
     date: str
     actions: list[StudyFieldAuditTrailActionVO]
 
     @staticmethod
     def from_input_values(
         study_uid: str | None,
-        user_initials: str | None,
+        author_id: str | None,
+        author_username: str | None,
         date: str | None,
         actions: list[StudyFieldAuditTrailActionVO],
     ) -> Self:
         return StudyFieldAuditTrailEntryAR(
             study_uid=normalize_string(study_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=normalize_string(author_username),
             date=normalize_string(date),
             actions=actions,
         )

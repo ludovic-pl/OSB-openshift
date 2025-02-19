@@ -79,17 +79,17 @@ class Units(BaseImporter):
             new_codelist_name = row[headers.index("new_codelist_name")]
             if legacy_codelist_id == "" or legacy_codelist_id == None:
                 if new_codelist_name == "Objective Level":
-                    self.sponsor_codelist_legacy_name_map[
-                        "ObjectiveLevel"
-                    ] = new_codelist_name
+                    self.sponsor_codelist_legacy_name_map["ObjectiveLevel"] = (
+                        new_codelist_name
+                    )
                 elif new_codelist_name == "Endpoint Level":
-                    self.sponsor_codelist_legacy_name_map[
-                        "EndpointLevel"
-                    ] = new_codelist_name
+                    self.sponsor_codelist_legacy_name_map["EndpointLevel"] = (
+                        new_codelist_name
+                    )
             else:
-                self.sponsor_codelist_legacy_name_map[
-                    legacy_codelist_id
-                ] = new_codelist_name
+                self.sponsor_codelist_legacy_name_map[legacy_codelist_id] = (
+                    new_codelist_name
+                )
 
     @open_file_async()
     async def handle_unit_dimension(self, file, code_lists_uids, session):
@@ -126,7 +126,7 @@ class Units(BaseImporter):
                     "catalogue_name": "SDTM CT",
                     "code_submission_value": row[headers.index("CD_VAL")],
                     "nci_preferred_name": "UNK",
-                    "definition": row[headers.index("description")],
+                    "definition": row[headers.index("description")] or None,
                     "sponsor_preferred_name": row[headers.index("CD_VAL_LB")],
                     "sponsor_preferred_name_sentence_case": row[
                         headers.index("CD_VAL_LB")
@@ -197,7 +197,7 @@ class Units(BaseImporter):
             value="uid",
         )
         ucum_codelists = self.api.get_all_from_api(
-            "/dictionaries/codelists", params={"library": "UCUM"}
+            "/dictionaries/codelists", params={"library_name": "UCUM"}
         )
         all_ucum_terms = {}
         for ucum_codelist in ucum_codelists:
@@ -331,17 +331,20 @@ class Units(BaseImporter):
                         row[headers.index("US_CONVENTIONAL_UNIT")]
                     ),
                     "legacy_code": row[headers.index("UNIT")],
-                    "molecular_weight_conv_expon": parse_float(
-                        row[headers.index("MOLECULAR_WEIGHT_CONV_EXPON")]
+                    "use_molecular_weight": map_boolean(
+                        row[headers.index("USE_MOLECULAR_WEIGHT")]
+                    ),
+                    "use_complex_unit_conversion": map_boolean(
+                        row[headers.index("USE_COMPLEX_UNIT_CONVERSION")]
                     ),
                     "conversion_factor_to_master": parse_float(
                         row[headers.index("CONVERTION_FACTOR_TO_MASTER")]
                     ),
                     "unit_dimension": unit_dimension_uid,
-                    "definition": row[headers.index("description")],
+                    "definition": row[headers.index("description")] or None,
                     "order": parse_to_int(row[headers.index("CD_VAL_SORT_SEQ")]),
                     "ucum": ucum_uid,
-                    "comment": row[headers.index("Comment")],
+                    "comment": row[headers.index("Comment")] or None,
                     "template_parameter": template_parameter,
                 },
             }
@@ -358,12 +361,12 @@ class Units(BaseImporter):
                 else:
                     self.log.info(f"Updating unit '{name}'")
                     data["body"]["change_description"] = "Migration modification"
-                    data[
-                        "patch_path"
-                    ] = f"/concepts/unit-definitions/{existing_rows.get(name)}"
-                    data[
-                        "new_path"
-                    ] = f"/concepts/unit-definitions/{existing_rows.get(name)}/versions"
+                    data["patch_path"] = (
+                        f"/concepts/unit-definitions/{existing_rows.get(name)}"
+                    )
+                    data["new_path"] = (
+                        f"/concepts/unit-definitions/{existing_rows.get(name)}/versions"
+                    )
                     api_tasks.append(
                         self.api.new_version_patch_then_approve(
                             data=data, session=session, approve=True
@@ -472,7 +475,7 @@ class Units(BaseImporter):
                     "catalogue_name": "SDTM CT",
                     "code_submission_value": row[headers.index("SPDEF_SUBMVAL")],
                     "nci_preferred_name": row[headers.index("NCI_PREFERRED_NAME")],
-                    "definition": row[headers.index("DEFINITION")],
+                    "definition": row[headers.index("DEFINITION")] or "TBD",
                     "sponsor_preferred_name": row[headers.index("SPDEF_SUBMVAL")],
                     "sponsor_preferred_name_sentence_case": row[
                         headers.index("SPDEF_SUBMVAL")

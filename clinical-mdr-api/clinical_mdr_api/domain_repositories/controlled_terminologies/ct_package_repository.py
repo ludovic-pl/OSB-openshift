@@ -4,13 +4,16 @@ from typing import Collection
 from neomodel import db
 from neomodel.exceptions import UniqueProperty
 
-from clinical_mdr_api import models
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTCatalogue,
     CTPackage,
 )
 from clinical_mdr_api.domains.controlled_terminologies.ct_package import CTPackageAR
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
+from clinical_mdr_api.models.controlled_terminologies.ct_package import (
+    CTPackage as CTPackageModel,
+)
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.exceptions import AlreadyExistsException, NotFoundException
 
 
 class CTPackageRepository:
@@ -41,7 +44,15 @@ class CTPackageRepository:
             MATCH (catalogue:CTCatalogue)-[:CONTAINS_PACKAGE]->(package:CTPackage)
             {where_clause}
             {"OPTIONAL" if not sponsor_only else ""} MATCH (package)-[:EXTENDS_PACKAGE]->(extends:CTPackage)
-            RETURN package, extends.uid AS extends_package
+            CALL {{
+                WITH package
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = package.author_id
+                RETURN coalesce(author.username, package.author_id) AS author_username
+            }}
+            RETURN  package,
+                    extends.uid AS extends_package,
+                    author_username
             ORDER BY catalogue.name, package.effective_date
             """
 
@@ -65,7 +76,8 @@ class CTPackageRepository:
                 extends_package=ct_package[1] if len(ct_package) > 1 else None,
                 import_date=ct_package[0].import_date,
                 effective_date=ct_package[0].effective_date,
-                user_initials=ct_package[0].user_initials,
+                author_id=ct_package[0].author_id,
+                author_username=ct_package[2],
             )
             for ct_package in result
         ]
@@ -73,21 +85,30 @@ class CTPackageRepository:
 
     def find_by_uid(
         self, uid: str | None, sponsor_only: bool = False
-    ) -> models.CTPackage:
+    ) -> CTPackageModel | None:
         query = f"""
             MATCH (catalogue:CTCatalogue)-[:CONTAINS_PACKAGE]->(package:CTPackage)
             WHERE package.uid = $uid
             {"OPTIONAL" if not sponsor_only else ""} MATCH (package)-[:EXTENDS_PACKAGE]->(extends:CTPackage)
-            RETURN package, extends.uid AS extends_package
+            CALL {{
+                WITH package
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = package.author_id
+                RETURN coalesce(author.username, package.author_id) AS author_username
+            }}
+            RETURN  package,
+                    extends.uid AS extends_package,
+                    author_username
             ORDER BY catalogue.name, package.effective_date
             """
 
-        ct_package = db.cypher_query(query, {"uid": uid}, resolve_objects=True)[0][0]
+        res = db.cypher_query(query, {"uid": uid}, resolve_objects=True)[0]
+        ct_package = res[0] if res else None
 
-        if len(ct_package) == 0:
-            return []
+        if not ct_package:
+            return None
         # projecting results to CTPackageAR instances
-        ct_package_ar: models.CTPackage = models.CTPackage.from_ct_package_ar(
+        ct_package_ar: CTPackageModel = CTPackageModel.from_ct_package_ar(
             CTPackageAR.from_repository_values(
                 uid=ct_package[0].uid,
                 catalogue_name=ct_package[0].contains_package.single().name,
@@ -100,7 +121,8 @@ class CTPackageRepository:
                 extends_package=ct_package[1] if len(ct_package) > 1 else None,
                 import_date=ct_package[0].import_date,
                 effective_date=ct_package[0].effective_date,
-                user_initials=ct_package[0].user_initials,
+                author_id=ct_package[0].author_id,
+                author_username=ct_package[2],
             )
         )
         return ct_package_ar
@@ -119,7 +141,15 @@ class CTPackageRepository:
         query = """
             MATCH (:CTCatalogue {name: $catalogue_name})-[:CONTAINS_PACKAGE]->
             (package:CTPackage {effective_date:date($date)})
-            RETURN package
+
+            CALL {
+                WITH package
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = package.author_id
+                RETURN coalesce(author.username, package.author_id) AS author_username 
+            }
+            RETURN  package, 
+                    author_username
             """
         result, _ = db.cypher_query(
             query,
@@ -128,6 +158,7 @@ class CTPackageRepository:
         )
         if len(result) > 0 and len(result[0]) > 0:
             ct_package = result[0][0]
+            author_username = result[0][1]
             return CTPackageAR.from_repository_values(
                 uid=ct_package.uid,
                 catalogue_name=ct_package.contains_package.single().name,
@@ -139,13 +170,14 @@ class CTPackageRepository:
                 source=ct_package.source,
                 import_date=ct_package.import_date,
                 effective_date=ct_package.effective_date,
-                user_initials=ct_package.user_initials,
+                author_id=ct_package.author_id,
+                author_username=author_username,
                 extends_package=None,
             )
         return None
 
     def create_sponsor_package(
-        self, extends_package: str, effective_date: date, user_initials: str
+        self, extends_package: str, effective_date: date, author_id: str
     ) -> CTPackageAR:
         # First, get parent_package node
         extends_package_node: CTPackage = CTPackage.nodes.get_or_none(
@@ -153,9 +185,9 @@ class CTPackageRepository:
         )
 
         # Throw a NotFoundError if it does not exist
-        if not extends_package_node:
-            raise NotFoundException(f"Parent package {extends_package} not found")
-
+        NotFoundException.raise_if_not(
+            extends_package_node, "Parent Package", extends_package
+        )
         catalogue_node: CTCatalogue = extends_package_node.contains_package.single()
 
         # Create the new package
@@ -168,13 +200,13 @@ class CTPackageRepository:
             description=f"Sponsor package for {extends_package}, as of {effective_date.strftime('%Y-%m-%d')}",
             import_date=datetime.now(),
             effective_date=effective_date,
-            user_initials=user_initials,
+            author_id=author_id,
         )
         try:
             sponsor_package.save()
         except UniqueProperty as exc:
-            raise BusinessLogicException(
-                "A sponsor CTPackage already exists for this date"
+            raise AlreadyExistsException(
+                msg="A sponsor CTPackage already exists for this date"
             ) from exc
         # Connect the new package to its parent and the catalogue node
         sponsor_package.extends_package.connect(extends_package_node)
@@ -191,7 +223,8 @@ class CTPackageRepository:
             source=sponsor_package.source,
             import_date=sponsor_package.import_date,
             effective_date=sponsor_package.effective_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             extends_package=extends_package,
         )
 

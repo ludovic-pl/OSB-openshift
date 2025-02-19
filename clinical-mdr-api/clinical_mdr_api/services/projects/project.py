@@ -1,23 +1,26 @@
 from neomodel import db  # type: ignore
 
-from clinical_mdr_api import models
 from clinical_mdr_api.domains.projects.project import ProjectAR
-from clinical_mdr_api.models import ProjectCreateInput, ProjectEditInput
+from clinical_mdr_api.models.projects.project import (
+    Project,
+    ProjectCreateInput,
+    ProjectEditInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
 from clinical_mdr_api.services._utils import (
     service_level_generic_filtering,
     service_level_generic_header_filtering,
 )
+from common.auth.user import user
 
 
 class ProjectService:
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
+        self.author_id = user().id()
 
     def get_all_projects(
         self,
@@ -27,13 +30,13 @@ class ProjectService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.Project]:
+    ) -> GenericFilteringReturn[Project]:
         repos = MetaRepository()
         try:
             all_projects = repos.project_repository.find_all()
             repos.project_repository.close()
             items = [
-                models.Project.from_project_ar(
+                Project.from_project_ar(
                     project_ar, repos.clinical_programme_repository.find_by_uid
                 )
                 for project_ar in all_projects
@@ -59,13 +62,13 @@ class ProjectService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         repos = MetaRepository()
         all_projects = repos.project_repository.find_all()
         repos.project_repository.close()
         items = [
-            models.Project.from_project_ar(
+            Project.from_project_ar(
                 project_ar, repos.clinical_programme_repository.find_by_uid
             )
             for project_ar in all_projects
@@ -76,27 +79,27 @@ class ProjectService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         return filtered_items
 
-    def get_by_study_uid(self, study_uid: str) -> models.Project:
+    def get_by_study_uid(self, study_uid: str) -> Project:
         repos = MetaRepository()
         project_ar = repos.project_repository.find_by_study_uid(study_uid)
-        return models.Project.from_project_ar(
+        return Project.from_project_ar(
             project_ar, repos.clinical_programme_repository.find_by_uid
         )
 
-    def get_project_by_uid(self, uid: str) -> models.Project:
+    def get_project_by_uid(self, uid: str) -> Project:
         repos = MetaRepository()
         project_ar = repos.project_repository.find_by_uid(uid)
 
-        return models.Project.from_project_ar(
+        return Project.from_project_ar(
             project_ar, repos.clinical_programme_repository.find_by_uid
         )
 
     @db.transaction
-    def create(self, project_create_input: ProjectCreateInput) -> models.Project:
+    def create(self, project_create_input: ProjectCreateInput) -> Project:
         repos = MetaRepository()
         try:
             project_ar = ProjectAR.from_input_values(
@@ -109,7 +112,7 @@ class ProjectService:
             )
 
             repos.project_repository.save(project_ar)
-            return models.Project.from_uid(
+            return Project.from_uid(
                 uid=project_ar.uid,
                 find_by_uid=repos.project_repository.find_by_uid,
                 find_clinical_programme_by_uid=repos.clinical_programme_repository.find_by_uid,
@@ -118,7 +121,7 @@ class ProjectService:
             repos.close()
 
     @db.transaction
-    def edit(self, uid: str, project_edit_input: ProjectEditInput) -> models.Project:
+    def edit(self, uid: str, project_edit_input: ProjectEditInput) -> Project:
         repos = MetaRepository()
         try:
             project_ar = repos.project_repository.find_by_uid(uid)
@@ -130,7 +133,7 @@ class ProjectService:
             )
 
             repos.project_repository.save(project_ar, update=True)
-            return models.Project.from_uid(
+            return Project.from_uid(
                 uid=project_ar.uid,
                 find_by_uid=repos.project_repository.find_by_uid,
                 find_clinical_programme_by_uid=repos.clinical_programme_repository.find_by_uid,

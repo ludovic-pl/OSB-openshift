@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -26,68 +26,70 @@ from clinical_mdr_api.models.concepts.concept import (
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermModel
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class Ingredient(BaseModel):
-    external_id: str | None = None
-    formulation_name: str | None = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
+    formulation_name: Annotated[str | None, Field(nullable=True)] = None
     active_substance: SimpleActiveSubstance
-    strength: SimpleNumericValueWithUnit | None = None
-    half_life: SimpleNumericValueWithUnit | None = None
+    strength: Annotated[SimpleNumericValueWithUnit | None, Field(nullable=True)] = None
+    half_life: Annotated[SimpleNumericValueWithUnit | None, Field(nullable=True)] = None
     lag_times: list[SimpleLagTime] = []
 
 
-class IngredientCreateInput(BaseModel):
-    active_substance_uid: str
-    formulation_name: str | None = None
-    external_id: str | None = None
-    strength_uid: str | None = None
-    half_life_uid: str | None = None
+class IngredientCreateInput(PostInputModel):
+    active_substance_uid: Annotated[str, Field(min_length=1)]
+    formulation_name: Annotated[str | None, Field(min_length=1)] = None
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    strength_uid: Annotated[str | None, Field(min_length=1)] = None
+    half_life_uid: Annotated[str | None, Field(min_length=1)] = None
     lag_time_uids: list[str] = []
 
 
-class IngredientEditInput(BaseModel):
-    active_substance_uid: str | None = None
-    formulation_name: str | None = None
-    external_id: str | None = None
-    strength_uid: str | None = None
-    half_life_uid: str | None = None
+class IngredientEditInput(PatchInputModel):
+    active_substance_uid: Annotated[str | None, Field(min_length=1)] = None
+    formulation_name: Annotated[str | None, Field(min_length=1)] = None
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    strength_uid: Annotated[str | None, Field(min_length=1)] = None
+    half_life_uid: Annotated[str | None, Field(min_length=1)] = None
     lag_time_uids: list[str] | None = None
 
 
 class Formulation(BaseModel):
-    external_id: str | None = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
     ingredients: list[Ingredient] = []
 
 
-class FormulationCreateInput(BaseModel):
-    external_id: str | None = None
+class FormulationCreateInput(PostInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
     ingredients: list[IngredientCreateInput] | None = None
 
 
-class FormulationEditInput(BaseModel):
-    external_id: str | None = None
+class FormulationEditInput(PatchInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
     ingredients: list[IngredientEditInput] = []
 
 
 class PharmaceuticalProduct(VersionProperties):
     uid: str
 
-    external_id: str | None = Field(None, nullable=True)
+    external_id: Annotated[str | None, Field(nullable=True)] = None
     library_name: str
 
     dosage_forms: list[SimpleTermModel] | None
     routes_of_administration: list[SimpleTermModel] | None
     formulations: list[Formulation]
 
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on PharmaceuticalProducts. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on PharmaceuticalProducts. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ]
 
     @classmethod
     def from_pharmaceutical_product_ar(
@@ -139,20 +141,24 @@ class PharmaceuticalProduct(VersionProperties):
                                         find_dictionary_term_by_uid=find_dictionary_term_by_uid,
                                         find_substance_term_by_uid=find_substance_term_by_uid,
                                     ),
-                                    strength=SimpleNumericValueWithUnit.from_concept_uid(
-                                        uid=ingredient.strength_uid,
-                                        find_unit_by_uid=find_unit_by_uid,
-                                        find_numeric_value_by_uid=find_numeric_value_by_uid,
-                                    )
-                                    if ingredient.strength_uid
-                                    else None,
-                                    half_life=SimpleNumericValueWithUnit.from_concept_uid(
-                                        uid=ingredient.half_life_uid,
-                                        find_unit_by_uid=find_unit_by_uid,
-                                        find_numeric_value_by_uid=find_numeric_value_by_uid,
-                                    )
-                                    if ingredient.half_life_uid
-                                    else None,
+                                    strength=(
+                                        SimpleNumericValueWithUnit.from_concept_uid(
+                                            uid=ingredient.strength_uid,
+                                            find_unit_by_uid=find_unit_by_uid,
+                                            find_numeric_value_by_uid=find_numeric_value_by_uid,
+                                        )
+                                        if ingredient.strength_uid
+                                        else None
+                                    ),
+                                    half_life=(
+                                        SimpleNumericValueWithUnit.from_concept_uid(
+                                            uid=ingredient.half_life_uid,
+                                            find_unit_by_uid=find_unit_by_uid,
+                                            find_numeric_value_by_uid=find_numeric_value_by_uid,
+                                        )
+                                        if ingredient.half_life_uid
+                                        else None
+                                    ),
                                     lag_times=sorted(
                                         [
                                             SimpleLagTime.from_concept_uid(
@@ -168,9 +174,11 @@ class PharmaceuticalProduct(VersionProperties):
                                 )
                                 for ingredient in formulation.ingredients
                             ],
-                            key=lambda item: item.active_substance.analyte_number
-                            if item.active_substance.analyte_number
-                            else item.active_substance.uid,
+                            key=lambda item: (
+                                item.active_substance.analyte_number
+                                if item.active_substance.analyte_number
+                                else item.active_substance.uid
+                            ),
                         ),
                     )
                     for formulation in pharmaceutical_product_ar.concept_vo.formulations
@@ -185,7 +193,7 @@ class PharmaceuticalProduct(VersionProperties):
             status=pharmaceutical_product_ar.item_metadata.status.value,
             version=pharmaceutical_product_ar.item_metadata.version,
             change_description=pharmaceutical_product_ar.item_metadata.change_description,
-            user_initials=pharmaceutical_product_ar.item_metadata.user_initials,
+            author_username=pharmaceutical_product_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in pharmaceutical_product_ar.get_possible_actions()]
             ),
@@ -205,8 +213,8 @@ class SimplePharmaceuticalProduct(BaseModel):
 
         return item
 
-    uid: str = Field(..., title="uid", description="")
-    external_id: str = Field(None, title="external_id", description="", nullable=True)
+    uid: Annotated[str, Field()]
+    external_id: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_item_ar(cls, item_ar: PharmaceuticalProductAR) -> Self:
@@ -216,29 +224,31 @@ class SimplePharmaceuticalProduct(BaseModel):
         )
 
 
-class PharmaceuticalProductCreateInput(BaseModel):
-    external_id: str | None = None
-    library_name: str
+class PharmaceuticalProductCreateInput(PostInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str, Field(min_length=1)]
     dosage_form_uids: list[str] = []
     route_of_administration_uids: list[str] = []
     formulations: list[FormulationCreateInput] = []
 
 
-class PharmaceuticalProductEditInput(BaseModel):
-    external_id: str | None = None
-    library_name: str | None = None
+class PharmaceuticalProductEditInput(PatchInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
     dosage_form_uids: list[str] = []
     route_of_administration_uids: list[str] = []
     formulations: list[FormulationEditInput] = []
-    change_description: str
+    change_description: Annotated[str, Field(min_length=1)]
 
 
 class PharmaceuticalProductVersion(PharmaceuticalProduct):
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

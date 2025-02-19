@@ -17,6 +17,8 @@ from clinical_mdr_api.domain_repositories.models.study_field import (
 )
 from clinical_mdr_api.domain_repositories.models.study_selections import (
     AuditTrailMixin,
+    HasProtocolSoACellRel,
+    HasProtocolSoAFootnoteRel,
     StudyActivity,
     StudyActivityGroup,
     StudyActivityInstance,
@@ -33,6 +35,7 @@ from clinical_mdr_api.domain_repositories.models.study_selections import (
     StudyElement,
     StudyEndpoint,
     StudyObjective,
+    StudySelection,
     StudySoAFootnote,
     StudySoAGroup,
 )
@@ -155,6 +158,19 @@ class StudyValue(ClinicalMdrNode, AuditTrailMixin):
         "HAS_STUDY_FOOTNOTE",
         model=ClinicalMdrRel,
     )
+    has_protocol_soa_cell = RelationshipTo(
+        StudySelection,
+        "HAS_PROTOCOL_SOA_CELL",
+        cardinality=ZeroOrMore,
+        model=HasProtocolSoACellRel,
+    )
+    has_protocol_soa_footnote = RelationshipTo(
+        StudySelection,
+        "HAS_PROTOCOL_SOA_FOOTNOTE",
+        cardinality=ZeroOrMore,
+        model=HasProtocolSoAFootnoteRel,
+    )
+
     latest_value = RelationshipFrom("StudyRoot", "LATEST", model=ClinicalMdrRel)
 
     has_version = RelationshipFrom(

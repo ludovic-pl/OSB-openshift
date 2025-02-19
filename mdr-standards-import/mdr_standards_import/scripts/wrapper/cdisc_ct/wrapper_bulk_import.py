@@ -15,7 +15,7 @@ from os import environ
 
 from mdr_standards_import.scripts.utils import (
     get_directory_name,
-    get_user_initials,
+    get_author_id,
 )
 
 from mdr_standards_import.scripts.import_scripts.bulk_import import bulk_import
@@ -24,14 +24,14 @@ CDISC_DIR = environ.get("CDISC_DATA_DIR", "cdisc_data/packages")
 
 
 def wrapper_bulk_import(
-    user_initials: str, json_data_directory: str = ""
+    author_id: str, json_data_directory: str = ""
 ):
     """
     Import CDISC CT packages into the intermediate DB and immediately after, without manual
     intervention, import the packages from the intermediate DB to the MDR DB.
     """
     bulk_import(
-        user_initials=user_initials, 
+        author_id=author_id, 
         json_data_directory=json_data_directory,
         import_ct=True,
         import_data_models=False,
@@ -39,4 +39,4 @@ def wrapper_bulk_import(
 
 
 if __name__ == "__main__":
-    wrapper_bulk_import(get_user_initials(1), get_directory_name(2))
+    wrapper_bulk_import(get_author_id(1), get_directory_name(2))

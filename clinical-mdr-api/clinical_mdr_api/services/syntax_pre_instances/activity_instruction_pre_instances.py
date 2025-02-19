@@ -6,8 +6,6 @@ from clinical_mdr_api.domain_repositories.syntax_pre_instances.activity_instruct
 from clinical_mdr_api.domains.syntax_pre_instances.activity_instruction_pre_instance import (
     ActivityInstructionPreInstanceAR,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.syntax_pre_instances.activity_instruction_pre_instance import (
     ActivityInstructionPreInstance,
     ActivityInstructionPreInstanceVersion,
@@ -68,10 +66,7 @@ class ActivityInstructionPreInstanceService(
 
     @db.transaction
     def create_new_version(self, uid: str) -> ActivityInstructionPreInstance:
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
-            item._create_new_version(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item = self.repository.find_by_uid(uid, for_update=True)
+        item._create_new_version(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)

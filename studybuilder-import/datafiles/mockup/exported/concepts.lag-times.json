@@ -13,7 +13,7 @@
     "template_parameter": false,
     "uid": "LagTime_000001",
     "unit_definition_uid": "UnitDefinition_000354",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 7.0,
     "version": null
   }

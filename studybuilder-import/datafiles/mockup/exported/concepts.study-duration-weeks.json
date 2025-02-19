@@ -11,7 +11,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000005",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": -3.0,
     "version": null
   },
@@ -27,7 +27,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000011",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 0.0,
     "version": null
   },
@@ -43,7 +43,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000017",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.0,
     "version": null
   },
@@ -59,7 +59,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000023",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 2.0,
     "version": null
   },
@@ -75,7 +75,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000029",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 3.0,
     "version": null
   },
@@ -91,7 +91,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000035",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 4.0,
     "version": null
   },
@@ -107,7 +107,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000041",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 5.0,
     "version": null
   },
@@ -123,7 +123,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000047",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 6.0,
     "version": null
   },
@@ -139,7 +139,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000053",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 8.0,
     "version": null
   },
@@ -155,7 +155,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000059",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 26.0,
     "version": null
   },
@@ -171,7 +171,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000065",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 30.0,
     "version": null
   }

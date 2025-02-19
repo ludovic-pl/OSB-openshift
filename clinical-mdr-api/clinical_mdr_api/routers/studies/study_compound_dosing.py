@@ -1,12 +1,13 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Body, Query, Request, Response, status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyCompoundDosing,
+    StudyCompoundDosingInput,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
@@ -15,6 +16,9 @@ from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_compound_dosing_selection import (
     StudyCompoundDosingSelectionService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 
 @router.get(
@@ -22,7 +26,7 @@ from clinical_mdr_api.services.studies.study_compound_dosing_selection import (
     dependencies=[rbac.STUDY_READ],
     summary="List all study compound dosings currently defined for the study",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudyCompoundDosing],
+    response_model=CustomPage[StudyCompoundDosing],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -58,27 +62,35 @@ from clinical_mdr_api.services.studies.study_compound_dosing_selection import (
 # pylint: disable=unused-argument
 def get_all_selected_compound_dosings(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = utils.studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudyCompoundDosing]:
+    study_uid: Annotated[str, utils.studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudyCompoundDosing]:
     service = StudyCompoundDosingSelectionService()
     all_items = service.get_all_compound_dosings(
         study_uid=study_uid,
@@ -115,19 +127,26 @@ def get_all_selected_compound_dosings(
     },
 )
 def get_distinct_values_for_header(
-    study_uid: str = utils.studyUID,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    study_uid: Annotated[str, utils.studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyCompoundDosingSelectionService()
     return service.get_distinct_values_for_header(
@@ -136,7 +155,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -157,18 +176,25 @@ def get_distinct_values_for_header(
     },
 )
 def get_distinct_compound_dosings_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyCompoundDosingSelectionService()
     return service.get_distinct_values_for_header(
@@ -176,7 +202,7 @@ def get_distinct_compound_dosings_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -206,7 +232,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to study compounds.
     """,
-    response_model=list[models.StudyCompoundDosing],
+    response_model=list[StudyCompoundDosing],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -215,8 +241,8 @@ Returned data:
     },
 )
 def get_all_compound_dosings_audit_trail(
-    study_uid: str = utils.studyUID,
-) -> list[models.StudyCompoundDosing]:
+    study_uid: Annotated[str, utils.studyUID],
+) -> list[StudyCompoundDosing]:
     service = StudyCompoundDosingSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -248,7 +274,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to the specified study compound dosing.
     """,
-    response_model=list[models.StudyCompoundDosing],
+    response_model=list[StudyCompoundDosing],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -260,9 +286,9 @@ Returned data:
     },
 )
 def get_compound_dosing_audit_trail(
-    study_uid: str = utils.studyUID,
-    study_compound_dosing_uid: str = utils.study_compound_dosing_uid,
-) -> models.StudyCompoundDosing:
+    study_uid: Annotated[str, utils.studyUID],
+    study_compound_dosing_uid: Annotated[str, utils.study_compound_dosing_uid],
+) -> StudyCompoundDosing:
     service = StudyCompoundDosingSelectionService()
     return service.get_compound_dosing_audit_trail(
         study_uid=study_uid, compound_dosing_uid=study_compound_dosing_uid
@@ -273,7 +299,7 @@ def get_compound_dosing_audit_trail(
     "/studies/{study_uid}/study-compound-dosings",
     dependencies=[rbac.STUDY_WRITE],
     summary="Add a study compound dosing to a study",
-    response_model=models.StudyCompoundDosing,
+    response_model=StudyCompoundDosing,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -290,11 +316,14 @@ def get_compound_dosing_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def create_study_compound_dosing(
-    study_uid: str = utils.studyUID,
-    selection: models.StudyCompoundDosingInput = Body(
-        description="Related parameters of the compound dosing that shall be created.",
-    ),
-) -> models.StudyCompoundDosing:
+    study_uid: Annotated[str, utils.studyUID],
+    selection: Annotated[
+        StudyCompoundDosingInput,
+        Body(
+            description="Related parameters of the compound dosing that shall be created.",
+        ),
+    ],
+) -> StudyCompoundDosing:
     service = StudyCompoundDosingSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -316,8 +345,8 @@ def create_study_compound_dosing(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_compound_dosing(
-    study_uid: str = utils.studyUID,
-    study_compound_dosing_uid: str = utils.study_compound_dosing_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_compound_dosing_uid: Annotated[str, utils.study_compound_dosing_uid],
 ):
     StudyService().check_if_study_exists(study_uid)
     service = StudyCompoundDosingSelectionService()
@@ -344,7 +373,7 @@ Business logic:
 State after:
  - related parameters are updated for the study compound dosing.
  - Added new entry in the audit trail for the update of the study-compound-dosing.""",
-    response_model=models.StudyCompoundDosing,
+    response_model=StudyCompoundDosing,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -357,12 +386,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def update_compound_dosing(
-    study_uid: str = utils.studyUID,
-    study_compound_dosing_uid: str = utils.study_compound_dosing_uid,
-    selection: models.StudyCompoundDosingInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudyCompoundDosing:
+    study_uid: Annotated[str, utils.studyUID],
+    study_compound_dosing_uid: Annotated[str, utils.study_compound_dosing_uid],
+    selection: Annotated[
+        StudyCompoundDosingInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudyCompoundDosing:
     service = StudyCompoundDosingSelectionService()
     return service.patch_selection(
         study_uid=study_uid,

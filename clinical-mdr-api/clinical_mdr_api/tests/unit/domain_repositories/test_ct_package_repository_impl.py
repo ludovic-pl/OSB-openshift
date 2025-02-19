@@ -34,7 +34,7 @@ def create_random_ct_package_node(catalogue_name: str) -> CTPackage:
         source=random_str(),
         import_date=datetime.datetime.now(datetime.timezone.utc),
         effective_date=datetime.date(year=2020, month=6, day=26),
-        user_initials=random_str(),
+        author_id=random_str(),
         contains_package=mock,
     )
     return random_ct_package
@@ -46,7 +46,8 @@ class TestCTPackageRepositoryImpl(unittest.TestCase):
         # given
         repo = CTPackageRepository()
         ct_packages: list[list[CTPackage]] = [
-            [create_random_ct_package_node(random_str())] for _ in range(10)
+            [create_random_ct_package_node(random_str()), "some-id", "some-author"]
+            for _ in range(10)
         ]
         ct_package_mock.cypher_query.return_value = ct_packages, ()
         # when
@@ -72,9 +73,7 @@ class TestCTPackageRepositoryImpl(unittest.TestCase):
                 self.assertEqual(
                     ct_package[0].effective_date, ct_package_ar.effective_date
                 )
-                self.assertEqual(
-                    ct_package[0].user_initials, ct_package_ar.user_initials
-                )
+                self.assertEqual(ct_package[0].author_id, ct_package_ar.author_id)
 
     @patch(CTPackageRepository.__module__ + ".db")
     def test__find_all_mocked_ct_package_not_exist(self, ct_package_mock):
@@ -98,10 +97,20 @@ class TestCTPackageRepositoryImpl(unittest.TestCase):
         valid_catalogue_name: str = random_str()
         invalid_catalogue_name: str = random_str()
         ct_packages_valid_catalogue = [
-            [create_random_ct_package_node(valid_catalogue_name)] for _ in range(6)
+            [
+                create_random_ct_package_node(valid_catalogue_name),
+                "some-id",
+                "some-author",
+            ]
+            for _ in range(6)
         ]
         ct_packages_invalid_catalogue = [
-            [create_random_ct_package_node(invalid_catalogue_name)] for _ in range(4)
+            [
+                create_random_ct_package_node(invalid_catalogue_name),
+                "some-id",
+                "some-author",
+            ]
+            for _ in range(4)
         ]
         ct_package_mock.cypher_query.return_value = ct_packages_valid_catalogue, ()
 
@@ -135,9 +144,7 @@ class TestCTPackageRepositoryImpl(unittest.TestCase):
                 self.assertEqual(
                     ct_package[0].effective_date, ct_package_ar.effective_date
                 )
-                self.assertEqual(
-                    ct_package[0].user_initials, ct_package_ar.user_initials
-                )
+                self.assertEqual(ct_package[0].author_id, ct_package_ar.author_id)
 
         # check if CTPackages with not specified catalogue name were not fetched
         invalid_catalogue_ct_package_uids = [

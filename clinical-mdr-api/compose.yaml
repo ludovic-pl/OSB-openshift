@@ -2,7 +2,7 @@ services:
 
   # Database service for building and tests in pipeline
   database:
-    image: ${NEO4J_IMAGE:-neo4j:5.9.0-enterprise}
+    image: ${NEO4J_IMAGE:-neo4j:5.19.0-enterprise}
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${NEO4J_BOLT_PORT:-5087}:7687"
       - "${BIND_ADDRESS:-127.0.0.1}:${NEO4J_HTTP_PORT:-5074}:7474"
@@ -20,6 +20,10 @@ services:
       NEO4J_metrics_jmx_enabled: "true"
       NEO4J_dbms_max__databases: 1000
       NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - type: bind
+        source: ${DB_BACKUP_PATH:-.}
+        target: /db_backup
     healthcheck:
       test: wget --quiet --spider --timeout 2 --tries 1 "http://localhost:7474/" || exit 1
       interval: 10s
@@ -33,21 +37,16 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.3-slim}
         TARGET: ${BUILD_TARGET:-prod}
     image: ${API_IMAGE:-clinical-mdr-api}
     environment:
-      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687}/neo4j"
+      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687/neo4j}"
       ALLOW_ORIGIN_REGEX: "${ALLOW_ORIGIN_REGEX:-.*}"
       OAUTH_ENABLED: "${OAUTH_ENABLED:-False}"
       OAUTH_RBAC_ENABLED: "${OAUTH_RBAC_ENABLED:-False}"
-      OIDC_METADATA_DOCUMENT: "${OIDC_METADATA_DOCUMENT:-}"
       OAUTH_METADATA_URL: "${OAUTH_METADATA_URL:-}"
-      OAUTH_APP_ID: "${OAUTH_APP_ID:-}"
       OAUTH_API_APP_ID: "${OAUTH_API_APP_ID:-}"
-      OAUTH_APP_SECRET: "${OAUTH_APP_SECRET:-}"
       OAUTH_API_APP_SECRET: "${OAUTH_API_APP_SECRET:-}"
-      OAUTH_CLIENT_ID: "${OAUTH_CLIENT_ID:-}"
       OAUTH_SWAGGER_APP_ID: "${OAUTH_SWAGGER_APP_ID:-}"
       MS_GRAPH_INTEGRATION_ENABLED: "${MS_GRAPH_INTEGRATION_ENABLED:-}"
       MS_GRAPH_GROUPS_QUERY: "${MS_GRAPH_GROUPS_QUERY:-}"
@@ -60,7 +59,7 @@ services:
   consumer-api:
     image: ${API_IMAGE:-clinical-mdr-api}
     environment:
-      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687}/neo4j"
+      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687/neo4j}"
       ALLOW_ORIGIN_REGEX: "${ALLOW_ORIGIN_REGEX:-.*}"
       OAUTH_ENABLED: "${OAUTH_ENABLED:-False}"
       OAUTH_RBAC_ENABLED: "${OAUTH_RBAC_ENABLED:-False}"
@@ -85,6 +84,7 @@ services:
     environment:
       EXPIRED_ACCESS_TOKEN: "${EXPIRED_ACCESS_TOKEN:-}"
     image: ${DEV_IMAGE:-}
+    profiles: ["dev"]
     user: ${UID:-1000}
     volumes:
       - type: bind
@@ -99,3 +99,15 @@ services:
       - type: bind
         source: ./consumer_api/apiVersion
         target: /app/consumer_api/apiVersion
+
+  allure:
+    working_dir: /app
+    command: allure generate --clean --output /app/reports/allure-report /app/reports/allure-results
+    image: "${ALLURE_IMAGE:-novo-allure}"
+    profiles:
+      - allure
+    user: "${UID-:1000}"
+    volumes:
+      - type: bind
+        source: ./reports
+        target: /app/reports

@@ -78,7 +78,7 @@ class ActivityInstructionTemplateAR(TemplateAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         template: TemplateVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -91,7 +91,7 @@ class ActivityInstructionTemplateAR(TemplateAggregateRootBase):
         activity_subgroups: list[SimpleNameModel] | None = None,
     ) -> Self:
         ar: Self = super().from_input_values(
-            author=author,
+            author_id=author_id,
             template=template,
             library=library,
             generate_uid_callback=generate_uid_callback,

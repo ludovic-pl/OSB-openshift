@@ -1,7 +1,6 @@
 import unittest
 from datetime import datetime, timezone
 
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
 from clinical_mdr_api.models import study_selections
 from clinical_mdr_api.models.listings.listings_study import (
     RegistryIdentifiersListingModel,
@@ -46,6 +45,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     study_population_json_model_to_vo,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common.config import STUDY_ENDPOINT_TP_NAME
 
 
 class TestStudyListing(unittest.TestCase):

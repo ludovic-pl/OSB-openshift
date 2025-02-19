@@ -11,6 +11,7 @@
         <title><xsl:value-of select="/ODM/Study/@OID"/></title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" />
         <style>
           em {
           font-weight: bold;
@@ -52,6 +53,8 @@
           .badge {
           font-weight: 550;
           font-size: 85%;
+          border-radius: 0.25rem;
+          transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
           }
           .badge-ig {
           display: inline-block;
@@ -108,13 +111,17 @@
         </style>
       </head>
       <body>
-        <div class="container">
+        <div class="container-fluid">
           <div class="row">
-            <div class="col-sm-8 text-start">
+            <div class="col-sm-6 text-left">
               <h1><xsl:value-of select="/ODM/Study/GlobalVariables/StudyName"/></h1>
             </div>
-            <div class="col-sm-4 text-end">
+            <div class="col-sm-6 text-right">
               <h2>Annotated CRF</h2>
+              <button type="button" class="btn btn-primary btn-sm" data-toggle="collapse" data-target=".help">Show help</button>&#160;
+              <button type="button" class="btn btn-primary btn-sm" data-toggle="collapse" data-target=".sponsor">Show instruction</button>&#160;
+              <button type="button" class="btn btn-primary btn-sm" data-toggle="collapse" data-target=".sdtm">Show sdtm</button>&#160;
+              <button type="button" class="btn btn-primary btn-sm" data-toggle="collapse" data-target=".oid">Show keys</button>
             </div>
           </div>
           <div class="row">
@@ -140,6 +147,8 @@
       </body>
       <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     </html>
   </xsl:template>
 
@@ -157,8 +166,8 @@
     <div class="row">
       <xsl:choose>
         <xsl:when test="./@DataType = 'comment'"> <!-- Title -->         
-          <div class="col-sm-4 border text-end" /> <!-- Item lable column -->
-          <div class="col-sm-8 border text-start">
+          <div class="col-sm-1 border text-left" /> <!-- Item lable column -->
+          <div class="col-sm-11 border text-center">
             <xsl:choose>
               <xsl:when test="./Question">
                 <xsl:choose>
@@ -208,14 +217,18 @@
           </div>         
         </xsl:when>
         <xsl:otherwise> <!-- Not a title -->
-          <div class="col-sm-1 border text-star">
+          <div class="col-sm-1 border text-start">
             <xsl:if test="//ItemGroupDef/ItemRef[@ItemOID = current()/@OID]/@Mandatory = 'Yes'">
               <em> * </em>
             </xsl:if>
-            <span class="material-symbols-outlined">lock</span>
-            <span class="material-symbols-outlined">account_tree</span>
+            <xsl:if test="./@osb:locked = 'Yes'">
+              <span class="material-symbols-outlined">lock</span>
+            </xsl:if>
+            <xsl:if test="./@osb:sdv = 'Yes'">
+              <span class="material-symbols-outlined">account_tree</span>
+            </xsl:if>
           </div>
-          <div class="col-sm-3 border text-end"> <!-- Item lable column -->
+          <div class="col-sm-3 border text-end"> <!-- Item label column -->
             <i aria-hidden="true" class="v-icon notranslate mr-1 mdi mdi-alpha-i-circle theme--light crfItem--text"></i>
             <xsl:choose>
               <xsl:when test="./Question">
@@ -241,11 +254,10 @@
                 <xsl:value-of select="@Name" />
               </xsl:otherwise>
             </xsl:choose>
-            <br />
-            <span class="oidinfo">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</span>
+            <div class="oidinfo oid collapse">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</div>
             <xsl:choose>
               <xsl:when test="./@osb:instruction != 'None'">
-                <div class="alert alert-secondary text-left" role="alert">
+                <div class="alert alert-secondary text-left help collapse" role="alert">
                   <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
                 </div>
               </xsl:when>
@@ -288,44 +300,43 @@
                 </xsl:choose>
                 <xsl:choose>
                   <xsl:when test="./@osb:sponsorInstruction != 'None'">
-                    <div class="alert alert-danger" role="alert">
+                    <div class="alert alert-danger sponsor collapse" role="alert">
                       <span class="material-symbols-outlined">emergency_home</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:sponsorInstruction" />
                     </div>
                   </xsl:when>
                 </xsl:choose>
               </div>
               <div class="col-sm-1 border text-center">
-                <label for="DisabledTextInput" class="form-label">
                 Unit
-                </label>
               </div>
               <div class="col-sm-3 border text-left">
                 <xsl:for-each select="MeasurementUnitRef">
                   <input class="form-check-input" type="radio" id="{@MeasurementUnitOID}" name="{../@OID}" value="{@MeasurementUnitOID}" />
-                  <label for="contactChoice1">&#160;
-                    <xsl:apply-templates select="//BasicDefinitions/MeasurementUnit[@OID = current()/@MeasurementUnitOID]/Symbol" />
-                  </label>&#160;<span class="oidinfo"> [OID=<xsl:value-of select="@MeasurementUnitOID" />, Version=<xsl:value-of select="//BasicDefinitions/MeasurementUnit[@OID = current()/@MeasurementUnitOID]/@osb:version" />]</span>
+                  &#160;
+                  <xsl:apply-templates select="//BasicDefinitions/MeasurementUnit[@OID = current()/@MeasurementUnitOID]/Symbol" />
+                  &#160;
+                  <span class="oidinfo oid collapse"> [OID=<xsl:value-of select="@MeasurementUnitOID" />, Version=<xsl:value-of select="//BasicDefinitions/MeasurementUnit[@OID = current()/@MeasurementUnitOID]/@osb:version" />]</span>
                   <br />
                 </xsl:for-each>
               </div>
             </xsl:when>
             <xsl:otherwise> <!-- Not a MeasurementUnitRef -->
-              <div class="col-sm-8 border text-star">
+              <div class="col-sm-8 border text-start">
                 <xsl:choose>
                   <xsl:when test="CodeListRef">
                     <xsl:for-each select="CodeListRef">
                       <div class="form-check">
                         <xsl:for-each select="//CodeList[@OID = current()/@CodeListOID]/CodeListItem">
                           <input class="form-check-input" type="{$displayType}" id="{@CodedValue}" name="{../@OID}" value="{@CodedValue}" />
-                          <label class="form-check-label" for="{@CodedValue}">&#160;<xsl:apply-templates select="Decode"/>&#160;[<xsl:value-of select="@CodedValue" />]</label><br />
-                          <span class="oidinfo">[OID=<xsl:value-of select="@osb:OID" />, Version=<xsl:value-of select="@osb:version" />]</span><br />
+                          &#160;<xsl:apply-templates select="Decode"/>&#160;[<xsl:value-of select="@CodedValue" />]&#160;<br />
+                          <span class="oidinfo oid collapse">[OID=<xsl:value-of select="@osb:OID" />, Version=<xsl:value-of select="@osb:version" />]</span>
                         </xsl:for-each>
                         <xsl:for-each select="//CodeList[@OID = current()/@CodeListOID]/EnumeratedItem">
                           <input class="form-check-input" type="{$displayType}" id="{@CodedValue}" name="{../@OID}" value="{@CodedValue}" />
-                          <label class="form-check-label" for="{@CodedValue}">&#160;<xsl:value-of select="@CodedValue" /></label><br />
-                          <span class="oidinfo">[OID=<xsl:value-of select="@osb:OID" />]</span><br />
+                          &#160;<xsl:value-of select="@CodedValue" />&#160;<br />
+                          <span class="oidinfo oid collapse">[OID=<xsl:value-of select="@osb:OID" />]</span>
                         </xsl:for-each>
-                        <span class="oidinfo">[OID=<xsl:value-of select="@CodeListOID" />, Version=<xsl:value-of select="//CodeList[@OID = current()/@CodeListOID]/@osb:version" />]</span>
+                        <span class="oidinfo oid collapse">[OID=<xsl:value-of select="@CodeListOID" />, Version=<xsl:value-of select="//CodeList[@OID = current()/@CodeListOID]/@osb:version" />]</span>
                       </div>
                       <xsl:choose>
                         <xsl:when test="../Alias/@Context = 'CDASH/SDTM'">
@@ -350,7 +361,7 @@
                     </xsl:for-each>
                     <xsl:choose>
                       <xsl:when test="./@osb:sponsorInstruction != 'None'">
-                        <div class="alert alert-danger" role="alert">
+                        <div class="alert alert-danger sponsor collapse" role="alert">
                           <span class="material-symbols-outlined">emergency_home</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:sponsorInstruction" />
                         </div>
                       </xsl:when>
@@ -404,7 +415,7 @@
                     </xsl:choose>
                     <xsl:choose>
                       <xsl:when test="./@osb:sponsorInstruction != 'None'">
-                        <div class="alert alert-danger" role="alert">
+                        <div class="alert alert-danger sponsor collapse" role="alert">
                           <span class="material-symbols-outlined">emergency_home</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:sponsorInstruction" />
                         </div>
                       </xsl:when>
@@ -433,41 +444,51 @@
             <xsl:choose>
               <xsl:when test="contains(./@Name, 'Note')">
                 <xsl:value-of select="substring-after('Note:',@Name)" />
-                <xsl:value-of select="':#ffffff;'" />
+                <xsl:value-of select="':#ffffff !important;'" />
               </xsl:when>
               <xsl:when test="position() = 4">
                 <xsl:value-of select="substring(@Name,1,2)" />
-                <xsl:value-of select="':#ffbf9c;'" />
+                <xsl:value-of select="':#ffbf9c !important;'" />
               </xsl:when>
               <xsl:when test="position() = 3">
                 <xsl:value-of select="substring(@Name,1,2)" />
-                <xsl:value-of select="':#96ff96;'" />
+                <xsl:value-of select="':#96ff96 !important;'" />
               </xsl:when>
               <xsl:when test="position() = 2">
                 <xsl:value-of select="substring(@Name,1,2)" />
-                <xsl:value-of select="':#ffff96;'" />
+                <xsl:value-of select="':#ffff96 !important;'" />
               </xsl:when>
               <xsl:when test="position() = 1">
                 <xsl:value-of select="substring(@Name,1,2)" />
-                <xsl:value-of select="':#bfffff;'" />
+                <xsl:value-of select="':#bfffff !important;'" />
               </xsl:when>
               <xsl:otherwise>
                 <xsl:value-of select="substring(@Name,1,2)" />
-                <xsl:value-of select="':#96ff96;'" />
+                <xsl:value-of select="':#96ff96 !important;'" />
               </xsl:otherwise>
             </xsl:choose>
           </xsl:for-each>
         </xsl:when>
       </xsl:choose>
     </xsl:variable>
-    <div class="row border">
+    <div class="row">
       <div class="col-sm-8">
-        <h3><xsl:value-of disable-output-escaping="yes" select="./Description/TranslatedText" />&#160;[ItemGroup]
+        <h3>
+          <span class="material-symbols-outlined">subdirectory_arrow_right</span>&#160;
+          <xsl:choose>
+            <xsl:when test="./Description/TranslatedText != ''">
+              <xsl:value-of disable-output-escaping="yes" select="./Description/TranslatedText" />
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of disable-output-escaping="yes" select="@Name" />
+            </xsl:otherwise>
+          </xsl:choose>
+            &#160;[ItemGroup]
         <xsl:if test="//FormDef/ItemGroupRef[@ItemGroupOID = current()/@OID]/@Mandatory = 'Yes'">
           <em>&#160;*&#160;</em>
         </xsl:if>
         </h3>
-        <div class="oidinfo d-flex">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</div>
+        <div class="oidinfo oid collapse">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</div>
       </div>
       <div class="col-sm-4 text-end">
         <xsl:choose>
@@ -499,18 +520,18 @@
         </xsl:choose>
       </div>
     </div>
-    <div class="row border">
+    <div class="row">
       <div class="col-sm-12">
         <xsl:choose>
           <xsl:when test="./@osb:instruction != 'None'">
-            <div class="alert alert-secondary d-flex" role="alert">
+            <div class="alert alert-secondary text-left help collapse" role="alert">
               <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
             </div>
           </xsl:when>
         </xsl:choose>
         <xsl:choose>
           <xsl:when test="./@osb:sponsorInstruction != 'None'">
-            <div class="alert alert-danger d-flex" role="alert">
+            <div class="alert alert-danger sponsor collapse" role="alert">
               <span class="material-symbols-outlined">emergency_home</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:sponsorInstruction" />
             </div>
           </xsl:when>
@@ -528,7 +549,7 @@
     </div>
 
     <xsl:for-each select="ItemRef">
-      <xsl:sort select="@OrderNumber"/>
+      <xsl:sort select="@OrderNumber" data-type="number"/>
       <xsl:apply-templates select="//ItemDef[@OID = current()/@ItemOID]">
         <xsl:with-param name="domainNiv" select="$domainLevel"/>
         <xsl:with-param name="domainBckg" select="$domainBg"/>
@@ -542,17 +563,17 @@
     <div class="row border">
       <div class="col-sm-12">
         <h2><xsl:value-of select="@Name" />&#160;[Form]</h2>
-        <span class="oidinfo">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</span>
+        <span class="oidinfo oid collapse">[OID=<xsl:value-of select="@OID" />, Version=<xsl:value-of select="@osb:version" />]</span>
         <xsl:choose>
           <xsl:when test="./@osb:instruction != 'None'">
-            <div class="alert alert-secondary d-flex" role="alert">
+            <div class="alert alert-secondary text-left help collapse" role="alert">
               <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
             </div>
           </xsl:when>
         </xsl:choose>
         <xsl:choose>
           <xsl:when test="./@osb:sponsorInstruction != 'None'">
-            <div class="alert alert-danger d-flex" role="alert">
+            <div class="alert alert-danger sponsor collapse" role="alert">
               <span class="material-symbols-outlined">emergency_home</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:sponsorInstruction" />
             </div>
           </xsl:when>
@@ -560,7 +581,7 @@
       </div>
     </div>
     <xsl:for-each select="ItemGroupRef">
-      <xsl:sort select="current()/@OrderNumber"/>
+      <xsl:sort select="current()/@OrderNumber" data-type="number"/>
       <xsl:apply-templates select="//ItemGroupDef[@OID = current()/@ItemGroupOID]"/>
     </xsl:for-each>
   </xsl:template>
@@ -610,16 +631,17 @@
           <xsl:value-of select="substring-after($domainbgcolor,substring($remaining-string,1,3))" />
         </xsl:when>
         <xsl:otherwise>
-          <xsl:value-of select="'#bfffff;'" />
+          <xsl:value-of select="'#bfffff !important;'" />
         </xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
+    <div class="sdtm collapse" >
     <xsl:choose>
       <xsl:when test="contains($remaining-string,$pattern)">
         <split-item>
           <xsl:choose>
             <xsl:when test="contains($remaining-string,'Note:')">
-              <span class="badge-ig" style="background-color:#ffffff; border: 1px dotted #000; color:black;">
+              <span class="badge-ig" style="background-color:#ffffff !important; border: 1px dotted #000; color:black;">
                 <xsl:value-of select = "normalize-space($remaining-string,$pattern)"/>
               </span><br />
             </xsl:when>
@@ -640,12 +662,12 @@
         <split-item>
           <xsl:choose>
             <xsl:when test="contains($remaining-string,'Note:')">
-              <span class="badge-ig" style="background-color:#ffffff; border: 1px dotted #000; color:black;">
+              <span class="badge-ig" style="background-color:#ffffff !important; border: 1px dotted #000; color:black;">
                 <xsl:value-of select = "normalize-space($remaining-string)"/>
               </span><br />
             </xsl:when>
             <xsl:when test="contains($remaining-string,'NOT SUBMITTED')">
-              <span class="badge-ig" style="background-color:#ffffff; border: 1px dotted #000; color:black;">
+              <span class="badge-ig" style="background-color:#ffffff !important; border: 1px dotted #000; color:black;">
                 <xsl:value-of select = "normalize-space($remaining-string)"/>
               </span><br />
             </xsl:when>
@@ -660,6 +682,7 @@
         </split-item>
       </xsl:otherwise>
     </xsl:choose>
+    </div>
   </xsl:template>
 
   <xsl:template name="splitter">
@@ -669,13 +692,13 @@
     <xsl:variable name="itemBg">
       <xsl:choose>
         <xsl:when test="contains($remaining-string,'Note')">
-          <xsl:value-of select="'#ffffff;'" />
+          <xsl:value-of select="'#ffffff !important;'" />
         </xsl:when>
         <xsl:when test="contains($domainbgcolor, substring($remaining-string,1,2))">
           <xsl:value-of select="substring(substring-after($domainbgcolor,substring($remaining-string,1,2)),2,8)" />
         </xsl:when>
         <xsl:otherwise>
-          <xsl:value-of select="'#bfffff;'" />
+          <xsl:value-of select="'#bfffff !important;'" />
         </xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
@@ -689,6 +712,7 @@
         </xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
+    <div class="sdtm collapse" >
     <xsl:choose>
       <xsl:when test="contains($remainingstrg,$pattern)">
         <split-item>
@@ -720,7 +744,7 @@
               </span>&#160;
             </xsl:when>
             <xsl:when test="contains($remaining-string,'NOT SUBMITTED')">
-              <span class="badge" style="background-color:#ffffff; border: 1px dotted #000; color:black;">
+              <span class="badge" style="background-color:#ffffff !important; border: 1px dotted #000; color:black;">
                 <xsl:value-of select = "normalize-space($remainingstrg)"/>
               </span>&#160;
             </xsl:when>
@@ -733,6 +757,7 @@
         </split-item>
       </xsl:otherwise>
     </xsl:choose>
+  </div>
   </xsl:template>
 
   <xsl:template name="replace-string">

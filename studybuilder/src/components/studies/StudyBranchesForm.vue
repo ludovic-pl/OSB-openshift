@@ -346,6 +346,7 @@ export default {
             this.close()
           })
       }
+      this.$refs.form.working = false
     },
     close() {
       this.form = {}

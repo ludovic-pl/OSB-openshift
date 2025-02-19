@@ -2,7 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import models
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.domain_repositories.models.syntax import (
     EndpointRoot,
@@ -10,9 +9,18 @@ from clinical_mdr_api.domain_repositories.models.syntax import (
     ObjectiveRoot,
     ObjectiveValue,
 )
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivityInstructionCreateInput,
+    StudySelectionActivityCreateInput,
+    StudySelectionCriteriaCreateInput,
+)
 from clinical_mdr_api.models.study_selections.study_soa_footnote import (
     StudySoAFootnoteCreateInput,
 )
+from clinical_mdr_api.models.syntax_instances.activity_instruction import (
+    ActivityInstructionCreateInput,
+)
+from clinical_mdr_api.models.syntax_instances.criteria import CriteriaCreateInput
 from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_activity_instruction import (
     StudyActivityInstructionService,
@@ -91,7 +99,7 @@ class TestListStudies(unittest.TestCase):
         # Create a study activity
         StudyActivitySelectionService().make_selection(
             "study_root",
-            models.StudySelectionActivityCreateInput(
+            StudySelectionActivityCreateInput(
                 soa_group_term_uid="term_root_final",
                 activity_uid="activity_root1",
                 activity_subgroup_uid="activity_subgroup_root1",
@@ -112,7 +120,7 @@ class TestListStudies(unittest.TestCase):
             set hv.change_description="Approved version"
             set hv.start_date= datetime()
             set hv.status = "Final"
-            set hv.user_initials = "TODO Initials"
+            set hv.author_id = "unknown-user"
             set hv.version = "1.0"
             MERGE (library)-[:CONTAINS_SYNTAX_TEMPLATE]->(ctr1)
             """
@@ -121,8 +129,8 @@ class TestListStudies(unittest.TestCase):
         # Create a study criteria
         StudyCriteriaSelectionService().make_selection_create_criteria(
             "study_root",
-            models.study_selections.study_selection.StudySelectionCriteriaCreateInput(
-                criteria_data=models.syntax_instances.criteria.CriteriaCreateInput(
+            StudySelectionCriteriaCreateInput(
+                criteria_data=CriteriaCreateInput(
                     criteria_template_uid="incl_criteria_1",
                     library_name="Sponsor",
                     parameter_terms=[],
@@ -143,7 +151,7 @@ class TestListStudies(unittest.TestCase):
             set hv.change_description="Approved version"
             set hv.start_date= datetime()
             set hv.status = "Final"
-            set hv.user_initials = "TODO Initials"
+            set hv.author_id = "unknown-user"
             set hv.version = "1.0"
             """
         )
@@ -151,8 +159,8 @@ class TestListStudies(unittest.TestCase):
         # Create a study activity instruction
         StudyActivityInstructionService().create(
             "study_root",
-            models.StudyActivityInstructionCreateInput(
-                activity_instruction_data=models.ActivityInstructionCreateInput(
+            StudyActivityInstructionCreateInput(
+                activity_instruction_data=ActivityInstructionCreateInput(
                     activity_instruction_template_uid="ActivityInstructionTemplate_000001",
                     parameter_terms=[],
                     library_name="Sponsor",
@@ -169,10 +177,10 @@ class TestListStudies(unittest.TestCase):
             MERGE (sr)-[ld:LATEST_DRAFT]->(sv)
             set hv.status = "DRAFT"
             set hv.start_date = datetime()
-            set hv.user_initials = "AZNG"
+            set hv.author_id = "AZNG"
             set ld.status = "DRAFT"
             set ld.start_date = datetime()
-            set ld.user_initials = "AZNG"
+            set ld.author_id = "AZNG"
             WITH sv
             MATCH (p:Project {uid: "Project_000001"})
             MERGE (p)-[:HAS_FIELD]->(sf:StudyField:StudyProjectField)<-[:HAS_PROJECT]-(sv)

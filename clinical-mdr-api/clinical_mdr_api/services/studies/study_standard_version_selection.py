@@ -3,8 +3,6 @@ from typing import Callable
 
 from neomodel import db
 
-from clinical_mdr_api import config as settings
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
@@ -12,13 +10,13 @@ from clinical_mdr_api.domains.study_selections.study_selection_standard_version 
     StudyStandardVersionHistoryVO,
     StudyStandardVersionVO,
 )
+from clinical_mdr_api.models.controlled_terminologies.ct_package import CTPackage
 from clinical_mdr_api.models.study_selections.study_standard_version import (
     StudyStandardVersion,
     StudyStandardVersionEditInput,
     StudyStandardVersionInput,
     StudyStandardVersionVersion,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -26,6 +24,9 @@ from clinical_mdr_api.services._utils import (
     calculate_diffs_history,
     fill_missing_values_in_base_model_from_reference_base_model,
 )
+from common import config as settings
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyStandardVersionService:
@@ -42,7 +43,7 @@ class StudyStandardVersionService:
     def _transform_all_to_response_model(
         self,
         standard_version: StudyStandardVersionVO,
-        find_footnote_by_uid: Callable[[str], models.CTPackage | None] | None = None,
+        find_footnote_by_uid: Callable[[str], CTPackage | None] | None = None,
         study_value_version: str | None = None,
     ) -> StudyStandardVersion:
         return StudyStandardVersion.from_study_standard_version_vo(
@@ -121,7 +122,7 @@ class StudyStandardVersionService:
             )
             return self._transform_all_to_response_model(study_standard_version)
         except ValueError as e:
-            raise exceptions.ValidationException(e.args[0])
+            raise exceptions.ValidationException(msg=e.args[0])
         finally:
             repos.close()
 
@@ -135,7 +136,7 @@ class StudyStandardVersionService:
             start_date=datetime.datetime.now(datetime.timezone.utc),
             study_status=StudyStatus.DRAFT,
             description=study_standard_version_create_input.description,
-            author=self.author,
+            author_id=self.author,
             ct_package_uid=study_standard_version_create_input.ct_package_uid,
         )
 
@@ -151,12 +152,16 @@ class StudyStandardVersionService:
             != study_standard_version_edit_input.description
         ):
             study_standard_version_to_edit.edit_core_properties(
-                ct_package_uid=study_standard_version_edit_input.ct_package_uid
-                if study_standard_version_edit_input.ct_package_uid
-                else study_standard_version_to_edit.ct_package_uid,
-                description=study_standard_version_edit_input.description
-                if study_standard_version_edit_input.description
-                else study_standard_version_to_edit.description,
+                ct_package_uid=(
+                    study_standard_version_edit_input.ct_package_uid
+                    if study_standard_version_edit_input.ct_package_uid
+                    else study_standard_version_to_edit.ct_package_uid
+                ),
+                description=(
+                    study_standard_version_edit_input.description
+                    if study_standard_version_edit_input.description
+                    else study_standard_version_to_edit.description
+                ),
             )
 
     @db.transaction
@@ -168,10 +173,9 @@ class StudyStandardVersionService:
         ct_package = self._repos.ct_package_repository.find_by_uid(
             uid=study_standard_version_input.ct_package_uid,
         )
-        if not ct_package:
-            raise exceptions.NotFoundException(
-                f"Could not find CTPackage with uid {study_standard_version_input.ct_package_uid}"
-            )
+        exceptions.NotFoundException.raise_if_not(
+            ct_package, "CT Package", study_standard_version_input.ct_package_uid
+        )
         study_standard_versions = self.repo.find_standard_versions_in_study(study_uid)
         is_catalogue_used = [
             (study_standard_version.uid, study_standard_version.ct_package_uid)
@@ -180,10 +184,9 @@ class StudyStandardVersionService:
         ]
         # CHECK IF IT EXISTS FOR THE SPECIFIC CATALOGUE that is requesting
         if is_catalogue_used:
-            raise exceptions.ValidationException(
-                f"Already exists a Standard Version {is_catalogue_used[0]} for the catalogue: {ct_package.catalogue_name}"
+            raise exceptions.AlreadyExistsException(
+                msg=f"Standard Version {is_catalogue_used[0]} already exists for Catalogue with Name '{ct_package.catalogue_name}'."
             )
-
         created_study_standard_version = self._from_input_values(
             study_uid,
             study_standard_version_create_input=study_standard_version_input,
@@ -216,10 +219,11 @@ class StudyStandardVersionService:
                 ct_package = self._repos.ct_package_repository.find_by_uid(
                     uid=study_standard_version_input.ct_package_uid,
                 )
-                if not ct_package:
-                    raise exceptions.NotFoundException(
-                        f"Could not find CTPackage with uid {study_standard_version_input.ct_package_uid}"
-                    )
+                exceptions.NotFoundException.raise_if_not(
+                    ct_package,
+                    "CT Package",
+                    study_standard_version_input.ct_package_uid,
+                )
                 study_standard_versions = self.repo.find_standard_versions_in_study(
                     study_uid
                 )
@@ -232,8 +236,8 @@ class StudyStandardVersionService:
                 ]
                 # CHECK IF IT EXISTS FOR THE SPECIFIC CATALOGUE that is requesting
                 if is_catalogue_used:
-                    raise exceptions.ValidationException(
-                        f"Already exists a Standard Version {is_catalogue_used[0]} for the catalogue: {ct_package.catalogue_name}"
+                    raise exceptions.AlreadyExistsException(
+                        msg=f"Standard Version {is_catalogue_used[0]} already exists for the Catalogue with Name '{ct_package.catalogue_name}'"
                     )
 
             fill_missing_values_in_base_model_from_reference_base_model(
@@ -250,7 +254,7 @@ class StudyStandardVersionService:
             updated_item = self.repo.save(study_standard_version)
 
             return self._transform_all_to_response_model(updated_item)
-        raise exceptions.BusinessLogicException("There's nothing to change")
+        raise exceptions.BusinessLogicException(msg="There's nothing to change")
 
     @db.transaction
     def delete(self, study_uid: str, study_standard_version_uid: str):

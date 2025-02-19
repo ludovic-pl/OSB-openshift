@@ -1,6 +1,7 @@
 """
 Tests for /concepts/activities/activity-groups endpoints
 """
+
 import logging
 from operator import itemgetter
 
@@ -14,6 +15,7 @@ from clinical_mdr_api.tests.integration.utils.api import (
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -73,7 +75,7 @@ ACTIVITY_GROUP_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
 ]
 
@@ -86,7 +88,7 @@ def test_get_activity_group(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVITY_GROUP_FIELDS_ALL)
@@ -109,7 +111,7 @@ def test_get_activity_group_version(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
 
@@ -143,7 +145,7 @@ def test_get_activity_groups_versions(api_client):
     response = api_client.post(
         f"/concepts/activities/activity-groups/{activity_groups_all[0].uid}/versions"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get all versions of all activities
     response = api_client.get(
@@ -151,7 +153,7 @@ def test_get_activity_groups_versions(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(["items", "total", "page", "size"])
@@ -184,7 +186,7 @@ def test_filtering_versions_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -237,7 +239,7 @@ def test_filtering_versions_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 

@@ -27,7 +27,7 @@ class CommentTopic(ClinicalMdrNodeWithUID):
 
 class CommentThread(ClinicalMdrNodeWithUID):
     text = StringProperty()
-    author = StringProperty()
+    author_id = StringProperty()
     author_display_name = StringProperty()
     status = StringProperty()
     created_at = ZonedDateTimeProperty()
@@ -77,7 +77,7 @@ class CommentThreadVersion(ClinicalMdrNodeWithUID):
 
 class CommentReply(ClinicalMdrNodeWithUID):
     text = StringProperty()
-    author = StringProperty()
+    author_id = StringProperty()
     author_display_name = StringProperty()
     created_at = ZonedDateTimeProperty()
     modified_at = ZonedDateTimeProperty()

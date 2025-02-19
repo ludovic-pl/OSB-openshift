@@ -1,29 +1,29 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models import (
+from clinical_mdr_api.models.concepts.odms.odm_alias import (
     OdmAlias,
     OdmAliasBatchInput,
     OdmAliasBatchOutput,
     OdmAliasPatchInput,
     OdmAliasPostInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.odms.odm_aliases import OdmAliasService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts/odms/aliases"
 router = APIRouter()
 
 # Argument definitions
-OdmAliasUID = Path(None, description="The unique id of the ODM Alias.")
+OdmAliasUID = Path(description="The unique id of the ODM Alias.")
 
 
 @router.get(
@@ -61,30 +61,38 @@ OdmAliasUID = Path(None, description="The unique id of the ODM Alias.")
 # pylint: disable=unused-argument
 def get_all_odm_aliases(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     odm_alias_service = OdmAliasService()
     results = odm_alias_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -114,19 +122,26 @@ def get_all_odm_aliases(
     },
 )
 def get_distinct_values_for_header(
-    library_name: str | None = Query(None),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.get_distinct_values_for_header(
@@ -135,7 +150,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -143,7 +158,6 @@ def get_distinct_values_for_header(
     "/{odm_alias_uid}/relationships",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get UIDs of a specific ODM Alias' relationships",
-    description="",
     response_model=dict,
     status_code=200,
     responses={
@@ -151,7 +165,7 @@ def get_distinct_values_for_header(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_active_relationships(odm_alias_uid: str = OdmAliasUID):
+def get_active_relationships(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.get_active_relationships(uid=odm_alias_uid)
 
@@ -184,7 +198,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_odm_alias_versions(odm_alias_uid: str = OdmAliasUID):
+def get_odm_alias_versions(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.get_version_history(uid=odm_alias_uid)
 
@@ -193,7 +207,6 @@ def get_odm_alias_versions(odm_alias_uid: str = OdmAliasUID):
     "",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Create a new ODM Alias",
-    description="",
     response_model=OdmAlias,
     status_code=201,
     responses={
@@ -201,13 +214,14 @@ def get_odm_alias_versions(odm_alias_uid: str = OdmAliasUID):
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_odm_alias(odm_alias_create_input: OdmAliasPostInput = Body(description="")):
+def create_odm_alias(odm_alias_create_input: Annotated[OdmAliasPostInput, Body()]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.create(concept_input=odm_alias_create_input)
 
@@ -216,7 +230,6 @@ def create_odm_alias(odm_alias_create_input: OdmAliasPostInput = Body(descriptio
     "/batch",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Batch operations (create, edit) for ODM Aliases",
-    description="",
     response_model=list[OdmAliasBatchOutput],
     status_code=207,
     responses={
@@ -225,9 +238,9 @@ def create_odm_alias(odm_alias_create_input: OdmAliasPostInput = Body(descriptio
     },
 )
 def odm_alias_batch_operations(
-    operations: list[OdmAliasBatchInput] = Body(
-        description="List of operation to perform"
-    ),
+    operations: Annotated[
+        list[OdmAliasBatchInput], Body(description="List of operation to perform")
+    ]
 ):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.handle_batch_operations(operations)
@@ -237,7 +250,6 @@ def odm_alias_batch_operations(
     "/{odm_alias_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Update an ODM Alias",
-    description="",
     response_model=OdmAlias,
     status_code=200,
     responses={
@@ -247,7 +259,7 @@ def odm_alias_batch_operations(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Alias is not in draft status.\n"
             "- The ODM Alias had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -257,8 +269,8 @@ def odm_alias_batch_operations(
     },
 )
 def edit_odm_alias(
-    odm_alias_uid: str = OdmAliasUID,
-    odm_alias_edit_input: OdmAliasPatchInput = Body(description=""),
+    odm_alias_uid: Annotated[str, OdmAliasUID],
+    odm_alias_edit_input: Annotated[OdmAliasPatchInput, Body()],
 ):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.edit_draft(
@@ -291,7 +303,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create ODM Aliases.\n",
+            "- The library doesn't allow to create ODM Aliases.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -302,7 +314,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_odm_alias_version(odm_alias_uid: str = OdmAliasUID):
+def create_odm_alias_version(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.create_new_version(uid=odm_alias_uid)
 
@@ -311,7 +323,6 @@ def create_odm_alias_version(odm_alias_uid: str = OdmAliasUID):
     "/{odm_alias_uid}/approvals",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Approve an ODM Alias",
-    description="",
     response_model=OdmAlias,
     status_code=201,
     responses={
@@ -320,7 +331,7 @@ def create_odm_alias_version(odm_alias_uid: str = OdmAliasUID):
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Alias is not in draft status.\n"
-            "- The library does not allow to approve ODM Alias.\n",
+            "- The library doesn't allow to approve ODM Alias.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -329,7 +340,7 @@ def create_odm_alias_version(odm_alias_uid: str = OdmAliasUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve_odm_alias(odm_alias_uid: str = OdmAliasUID):
+def approve_odm_alias(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.approve(uid=odm_alias_uid)
 
@@ -338,7 +349,6 @@ def approve_odm_alias(odm_alias_uid: str = OdmAliasUID):
     "/{odm_alias_uid}/activations",
     dependencies=[rbac.LIBRARY_WRITE],
     summary=" Inactivate an ODM Alias",
-    description="",
     response_model=OdmAlias,
     status_code=200,
     responses={
@@ -355,7 +365,7 @@ def approve_odm_alias(odm_alias_uid: str = OdmAliasUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
+def inactivate_odm_alias(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.inactivate_final(uid=odm_alias_uid)
 
@@ -364,7 +374,6 @@ def inactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
     "/{odm_alias_uid}/activations",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Reactivate an ODM Alias",
-    description="",
     response_model=OdmAlias,
     status_code=200,
     responses={
@@ -381,7 +390,7 @@ def inactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
+def reactivate_odm_alias(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     return odm_alias_service.reactivate_retired(uid=odm_alias_uid)
 
@@ -390,7 +399,6 @@ def reactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
     "/{odm_alias_uid}",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Delete draft version of ODM Alias",
-    description="",
     response_model=None,
     status_code=204,
     responses={
@@ -400,7 +408,7 @@ def reactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The ODM Alias is not in draft status.\n"
             "- The ODM Alias was already in final state or is in use.\n"
-            "- The library does not allow to delete ODM Alias.",
+            "- The library doesn't allow to delete ODM Alias.",
         },
         404: {
             "model": ErrorResponse,
@@ -409,6 +417,6 @@ def reactivate_odm_alias(odm_alias_uid: str = OdmAliasUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_odm_alias(odm_alias_uid: str = OdmAliasUID):
+def delete_odm_alias(odm_alias_uid: Annotated[str, OdmAliasUID]):
     odm_alias_service = OdmAliasService()
     odm_alias_service.soft_delete(uid=odm_alias_uid)

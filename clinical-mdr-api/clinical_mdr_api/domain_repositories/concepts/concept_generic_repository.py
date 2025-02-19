@@ -1,6 +1,8 @@
+import copy
 from abc import ABC, abstractmethod
 from typing import Any
 
+from neo4j.graph import Node
 from neomodel import db
 
 from clinical_mdr_api.domain_repositories._generic_repository_interface import (
@@ -27,12 +29,13 @@ from clinical_mdr_api.domain_repositories.models.template_parameter import (
 from clinical_mdr_api.domains._utils import ObjectStatus
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
     sb_clear_cache,
+    validate_filters_and_add_search_string,
 )
+from common.exceptions import ValidationException
 
 
 class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType], ABC):
@@ -74,6 +77,7 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
     def _create_new_value_node(self, ar: _AggregateRootType) -> VersionValue:
         return self.value_class(
             nci_concept_id=getattr(ar.concept_vo, "nci_concept_id", None),
+            nci_concept_name=getattr(ar.concept_vo, "nci_concept_name", None),
             name=ar.concept_vo.name,
             name_sentence_case=ar.concept_vo.name_sentence_case,
             definition=ar.concept_vo.definition,
@@ -86,6 +90,8 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
             ar.concept_vo.name != value.name
             or getattr(ar.concept_vo, "nci_concept_id", None)
             != getattr(value, "nci_concept_id", None)
+            or getattr(ar.concept_vo, "nci_concept_name", None)
+            != getattr(value, "nci_concept_name", None)
             or ar.concept_vo.name_sentence_case != value.name_sentence_case
             or ar.concept_vo.definition != value.definition
             or ar.concept_vo.abbreviation != value.abbreviation
@@ -126,10 +132,17 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
                 library.name AS library_name,
                 library.is_editable AS is_library_editable,
                 version_rel
+                CALL {
+                    WITH version_rel
+                    OPTIONAL MATCH (author: User)
+                    WHERE author.user_id = version_rel.author_id
+                    RETURN author
+                }    
             WITH
                 uid,
                 concept_root,
                 concept_value.nci_concept_id AS nci_concept_id,
+                concept_value.nci_concept_name AS nci_concept_name,
                 concept_value.name AS name,
                 concept_value.name_sentence_case AS name_sentence_case,
                 concept_value.external_id AS external_id,
@@ -143,7 +156,8 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
                 version_rel.status AS status,
                 version_rel.version AS version,
                 version_rel.change_description AS change_description,
-                version_rel.user_initials AS user_initials,
+                version_rel.author_id AS author_id,
+                coalesce(author.username, version_rel.author_id) AS author_username,
                 concept_value
         """
 
@@ -169,10 +183,17 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
                 library.name AS library_name,
                 library.is_editable AS is_library_editable,
                 version_rel
+                CALL {
+                    WITH version_rel
+                    OPTIONAL MATCH (author: User)
+                    WHERE author.user_id = version_rel.author_id
+                    RETURN author
+                }    
             WITH
                 uid,
                 concept_root,
                 concept_value.nci_concept_id AS nci_concept_id,
+                concept_value.nci_concept_name AS nci_concept_name,
                 concept_value.name AS name,
                 concept_value.name_sentence_case AS name_sentence_case,
                 concept_value.external_id AS external_id,
@@ -186,7 +207,8 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
                 version_rel.status AS status,
                 version_rel.version AS version,
                 version_rel.change_description AS change_description,
-                version_rel.user_initials AS user_initials,
+                version_rel.author_id AS author_id,
+                coalesce(author.username, version_rel.author_id) AS author_username,
                 concept_value
         """
 
@@ -209,6 +231,17 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
             "WHERE " + filter_statements if len(filter_statements) > 0 else ""
         )
         return filter_statements, filter_query_parameters
+
+    @classmethod
+    # pylint: disable=unused-argument
+    def format_filter_sort_keys(cls, key: str):
+        """
+        Maps a fieldname as provided by the API query (equal to output model) to the same fieldname as defined in the database and/or Cypher query
+
+        :param key: Fieldname to map
+        :return str:
+        """
+        return key
 
     def find_all(
         self,
@@ -266,6 +299,7 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
             filter_operator=filter_operator,
             total_count=total_count,
             return_model=self.return_model,
+            format_filter_sort_keys=self.format_filter_sort_keys,
         )
 
         query.parameters.update(filter_query_parameters)
@@ -314,12 +348,12 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
         library: str | None = None,
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         **kwargs,
     ) -> list[Any]:
         # pylint: disable=unused-argument
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
@@ -327,9 +361,14 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
         :param library:
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
+
+        ValidationException.raise_if(
+            filter_by is not None and not isinstance(filter_by, dict),
+            msg=f"Invalid filter provided: '{filter_by}', it must be a dict",
+        )
         # Match clause
         match_clause = self.generic_match_clause()
         if self.specific_header_match_clause():
@@ -344,13 +383,9 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
         alias_clause = self.generic_alias_clause() + self.specific_alias_clause()
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -367,7 +402,7 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
         query.parameters.update(filter_query_parameters)
 
         query.full_query = query.build_header_query(
-            header_alias=field_name, result_count=result_count
+            header_alias=field_name, page_size=page_size
         )
         result_array, _ = query.execute()
 
@@ -386,6 +421,21 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
         elif item.is_deleted:
             assert item.uid is not None
             self._soft_delete(item.uid)
+        if item.repository_closure_data is not None:
+            (
+                root,
+                _,
+                library,
+                _,
+            ) = item.repository_closure_data
+            value = root.has_latest_value.single()
+
+            item.repository_closure_data = (
+                root,
+                value,
+                library,
+                copy.deepcopy(item),
+            )
 
     def _soft_delete(self, uid: str) -> None:
         label = self.root_class.__label__
@@ -411,6 +461,16 @@ class ConceptGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType]
             """
         result, _ = db.cypher_query(query, {"uid": uid})
         return len(result) > 0 and len(result[0]) > 0
+
+    def final_concept_value(self, uid: str) -> Node | None:
+        query = f"""
+            MATCH (concept_root:{self.root_class.__label__} {{uid: $uid}})-[:LATEST_FINAL]->(concept_value)
+            RETURN concept_value
+            """
+        result, _ = db.cypher_query(query, {"uid": uid})
+        if len(result) > 0 and len(result[0]) > 0:
+            return result[0][0]
+        return None
 
     def latest_concept_in_library_exists_by_name(
         self, library_name: str, concept_name: str

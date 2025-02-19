@@ -9,6 +9,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
 
 
 class TestTimeframeTemplateDomain(unittest.TestCase):
@@ -31,7 +32,7 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
 
@@ -55,12 +56,12 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
 
         # when
-        ar.approve(author="TODO")
+        ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(ar.item_metadata._end_date)
@@ -82,17 +83,19 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
-        ar.approve(author="TODO")
+        ar.approve(author_id=AUTHOR_ID)
 
         # when
         ntv = TemplateVO.from_repository_values(
             template_name=self.changed_template_name,
             template_name_plain=self.changed_template_name,
         )
-        ar.create_new_version(author="TODO", template=ntv, change_description="Test")
+        ar.create_new_version(
+            author_id=AUTHOR_ID, template=ntv, change_description="Test"
+        )
 
         # then
         self.assertIsNone(ar.item_metadata._end_date)
@@ -114,15 +117,17 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
-        ar.approve(author="Test")
+        ar.approve(author_id="Test")
         ntv = TemplateVO.from_repository_values(
             template_name=self.changed_template_name,
             template_name_plain=self.changed_template_name,
         )
-        ar.create_new_version(author="TODO", template=ntv, change_description="Test")
+        ar.create_new_version(
+            author_id=AUTHOR_ID, template=ntv, change_description="Test"
+        )
 
         # when
         changed_name_once_more = f"{self.changed_template_name} again"
@@ -130,14 +135,14 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             template_name=changed_name_once_more,
             template_name_plain=changed_name_once_more,
         )
-        ar.edit_draft(author="TODO", change_description="Test", template=ntv)
+        ar.edit_draft(author_id=AUTHOR_ID, change_description="Test", template=ntv)
 
         # then
         self.assertIsNone(ar.item_metadata.end_date)
         self.assertIsNotNone(ar.item_metadata.start_date)
         self.assertEqual(ar.item_metadata.version, "1.2")
         self.assertEqual(ar.item_metadata.status, LibraryItemStatus.DRAFT)
-        self.assertEqual(ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(ar.item_metadata.change_description, "Test")
         self.assertEqual(ar.template_value.name, changed_name_once_more)
 
@@ -155,20 +160,20 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
-        ar.approve(author="test")
+        ar.approve(author_id="test")
 
         # when
-        ar.inactivate(author="Test")
+        ar.inactivate(author_id="Test")
 
         # then
         self.assertIsNone(ar.item_metadata._end_date)
         self.assertIsNotNone(ar.item_metadata._start_date)
         self.assertEqual(ar.item_metadata.version, "1.0")
         self.assertEqual(ar.item_metadata.status, LibraryItemStatus.RETIRED)
-        self.assertEqual(ar.item_metadata._author, "Test")
+        self.assertEqual(ar.item_metadata._author_id, "Test")
         self.assertEqual(ar.template_value.name, self.default_template_name)
 
     def test__reactivate__version_created(self):
@@ -185,19 +190,19 @@ class TestTimeframeTemplateDomain(unittest.TestCase):
             sequence_id="some-sequence_id",
             library=lib,
             item_metadata=LibraryItemMetadataVO.get_initial_item_metadata(
-                author="who ever"
+                author_id="who ever"
             ),
         )
-        ar.approve(author="test")
-        ar.inactivate(author="test")
+        ar.approve(author_id="test")
+        ar.inactivate(author_id="test")
 
         # when
-        ar.reactivate(author="Test")
+        ar.reactivate(author_id="Test")
 
         # then
         self.assertIsNone(ar.item_metadata.end_date)
         self.assertIsNotNone(ar.item_metadata.start_date)
         self.assertEqual(ar.item_metadata.version, "1.0")
         self.assertEqual(ar.item_metadata.status, LibraryItemStatus.FINAL)
-        self.assertEqual(ar.item_metadata.user_initials, "Test")
+        self.assertEqual(ar.item_metadata.author_id, "Test")
         self.assertEqual(ar.template_value.name, self.default_template_name)

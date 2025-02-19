@@ -2,8 +2,13 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCellBatchInput,
+    StudyDesignCellCreateInput,
+    StudyDesignCellDeleteInput,
+    StudyDesignCellEditInput,
+)
 from clinical_mdr_api.services.studies.study_design_cell import StudyDesignCellService
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
@@ -20,6 +25,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     create_study_epoch_codelists_ret_cat_and_lib,
     get_catalogue_name_library_name,
 )
+from common import exceptions
 
 
 class StudyDesignCellTestCase(unittest.TestCase):
@@ -200,7 +206,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
             # Create a design cell -- Arm Specified
             design_cell = service.create(
                 self.study.uid,
-                models.StudyDesignCellCreateInput(
+                StudyDesignCellCreateInput(
                     study_arm_uid=self.study_arms[0].arm_uid,
                     study_epoch_uid=self.study_epoch.uid,
                     study_element_uid=self.study_elements[0].element_uid,
@@ -211,7 +217,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         # Create a design cell -- Arm Specified
         design_cell = service.create(
             self.study.uid,
-            models.StudyDesignCellCreateInput(
+            StudyDesignCellCreateInput(
                 study_arm_uid=self.study_arms[2].arm_uid,
                 study_epoch_uid=self.study_epoch.uid,
                 study_element_uid=self.study_elements[0].element_uid,
@@ -227,7 +233,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_arm_uid=self.study_arms[2].arm_uid,
                 study_element_uid=self.study_elements[1].element_uid,
@@ -244,7 +250,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_branch_arm_uid=self.study_branch_arms[0].branch_arm_uid,
             ),
@@ -262,7 +268,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_branch_arm_uid=self.study_branch_arms[1].branch_arm_uid,
             ),
@@ -278,7 +284,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         # Create a design cell -- Branch Specified
         design_cell = service.create(
             self.study.uid,
-            models.StudyDesignCellCreateInput(
+            StudyDesignCellCreateInput(
                 study_branch_arm_uid=self.study_branch_arms[0].branch_arm_uid,
                 study_epoch_uid=self.study_epoch.uid,
                 study_element_uid=self.study_elements[0].element_uid,
@@ -293,7 +299,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_branch_arm_uid=self.study_branch_arms[1].branch_arm_uid,
                 study_element_uid=self.study_elements[1].element_uid,
@@ -312,7 +318,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_arm_uid=self.study_arms[2].arm_uid,
                 study_branch_arm_uid=None,
@@ -330,7 +336,7 @@ class StudyDesignCellTestCase(unittest.TestCase):
         design_cell_uid = design_cells[0].design_cell_uid
         service.patch(
             self.study.uid,
-            models.StudyDesignCellEditInput(
+            StudyDesignCellEditInput(
                 study_design_cell_uid=design_cell_uid,
                 study_arm_uid=self.study_arms[2].arm_uid,
             ),
@@ -353,36 +359,36 @@ class StudyDesignCellTestCase(unittest.TestCase):
         service.handle_batch_operations(
             self.study.uid,
             [
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="POST",
-                    content=models.StudyDesignCellCreateInput(
+                    content=StudyDesignCellCreateInput(
                         study_arm_uid=self.study_arms[2].arm_uid,
                         study_epoch_uid=self.study_epoch.uid,
                         study_element_uid=self.study_elements[0].element_uid,
                         transition_rule="Transition_Rule_1",
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="POST",
-                    content=models.StudyDesignCellCreateInput(
+                    content=StudyDesignCellCreateInput(
                         study_arm_uid=self.study_arms[3].arm_uid,
                         study_epoch_uid=self.study_epoch.uid,
                         study_element_uid=self.study_elements[1].element_uid,
                         transition_rule="Transition_Rule_2",
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="POST",
-                    content=models.StudyDesignCellCreateInput(
+                    content=StudyDesignCellCreateInput(
                         study_branch_arm_uid=self.study_branch_arms[0].branch_arm_uid,
                         study_epoch_uid=self.study_epoch.uid,
                         study_element_uid=self.study_elements[0].element_uid,
                         transition_rule="Transition_Rule_3",
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="POST",
-                    content=models.StudyDesignCellCreateInput(
+                    content=StudyDesignCellCreateInput(
                         study_branch_arm_uid=self.study_branch_arms[1].branch_arm_uid,
                         study_epoch_uid=self.study_epoch.uid,
                         study_element_uid=self.study_elements[1].element_uid,
@@ -399,33 +405,33 @@ class StudyDesignCellTestCase(unittest.TestCase):
         service.handle_batch_operations(
             self.study.uid,
             [
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="PATCH",
-                    content=models.StudyDesignCellEditInput(
+                    content=StudyDesignCellEditInput(
                         study_design_cell_uid=design_cells[0].design_cell_uid,
                         study_element_uid=self.study_elements[1].element_uid,
                         study_arm_uid=self.study_arms[2].arm_uid,
                         study_branch_arm_uid=None,
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="PATCH",
-                    content=models.StudyDesignCellEditInput(
+                    content=StudyDesignCellEditInput(
                         study_design_cell_uid=design_cells[1].design_cell_uid,
                         study_element_uid=self.study_elements[0].element_uid,
                         study_branch_arm_uid=self.study_branch_arms[2].branch_arm_uid,
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="PATCH",
-                    content=models.StudyDesignCellEditInput(
+                    content=StudyDesignCellEditInput(
                         study_design_cell_uid=design_cells[2].design_cell_uid,
                         study_branch_arm_uid=self.study_branch_arms[3].branch_arm_uid,
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="PATCH",
-                    content=models.StudyDesignCellEditInput(
+                    content=StudyDesignCellEditInput(
                         study_design_cell_uid=design_cells[3].design_cell_uid,
                         study_branch_arm_uid=self.study_branch_arms[4].branch_arm_uid,
                     ),
@@ -466,27 +472,27 @@ class StudyDesignCellTestCase(unittest.TestCase):
         service.handle_batch_operations(
             self.study.uid,
             [
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="DELETE",
-                    content=models.StudyDesignCellDeleteInput(
+                    content=StudyDesignCellDeleteInput(
                         uid=design_cells[0].design_cell_uid
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="DELETE",
-                    content=models.StudyDesignCellDeleteInput(
+                    content=StudyDesignCellDeleteInput(
                         uid=design_cells[1].design_cell_uid
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="DELETE",
-                    content=models.StudyDesignCellDeleteInput(
+                    content=StudyDesignCellDeleteInput(
                         uid=design_cells[2].design_cell_uid
                     ),
                 ),
-                models.StudyDesignCellBatchInput(
+                StudyDesignCellBatchInput(
                     method="DELETE",
-                    content=models.StudyDesignCellDeleteInput(
+                    content=StudyDesignCellDeleteInput(
                         uid=design_cells[3].design_cell_uid
                     ),
                 ),

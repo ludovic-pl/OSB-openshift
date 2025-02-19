@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -10,50 +10,58 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermM
 from clinical_mdr_api.models.generic_models import SimpleNameModel
 from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.syntax_pre_instances.generic_pre_instance import (
-    PreInstanceInput,
+    PreInstancePatchInput,
+    PreInstancePostInput,
 )
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel
 
 
 class ActivityInstructionPreInstance(BaseModel):
     uid: str
-    sequence_id: str | None = Field(None, nullable=True)
+    sequence_id: Annotated[str | None, Field(nullable=True)] = None
     template_uid: str
     template_name: str
-    name: str | None = Field(None, nullable=True)
-    name_plain: str | None = Field(None, nullable=True)
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-    parameter_terms: list[MultiTemplateParameterTerm] = Field(
-        [],
-        description=(
-            """Holds the parameter terms that are used within the activity instruction.
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_plain: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    parameter_terms: Annotated[
+        list[MultiTemplateParameterTerm],
+        Field(
+            description=(
+                """Holds the parameter terms that are used within the activity instruction.
             The terms are ordered as they occur in the activity instruction name."""
+            ),
         ),
-    )
-    indications: list[SimpleTermModel] = Field(
-        [],
-        description="The study indications, conditions, diseases or disorders in scope for the pre-instance.",
-    )
-    activities: list[SimpleNameModel] = Field(
-        [], description="The activities in scope for the pre-instance"
-    )
-    activity_groups: list[SimpleNameModel] = Field(
-        [], description="The activity groups in scope for the pre-instance"
-    )
-    activity_subgroups: list[SimpleNameModel] = Field(
-        [], description="The activity sub groups in scope for the pre-instance"
-    )
+    ] = []
+    indications: Annotated[
+        list[SimpleTermModel],
+        Field(
+            description="The study indications, conditions, diseases or disorders in scope for the pre-instance.",
+        ),
+    ] = []
+    activities: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activities in scope for the pre-instance"),
+    ] = []
+    activity_groups: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activity groups in scope for the pre-instance"),
+    ] = []
+    activity_subgroups: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activity sub groups in scope for the pre-instance"),
+    ] = []
     library: Library | None = None
-    possible_actions: list[str] = Field([])
+    possible_actions: Annotated[list[str], Field()] = []
 
     @classmethod
     def from_activity_instruction_pre_instance_ar(
@@ -91,7 +99,7 @@ class ActivityInstructionPreInstance(BaseModel):
             status=activity_instruction_pre_instance_ar.item_metadata.status.value,
             version=activity_instruction_pre_instance_ar.item_metadata.version,
             change_description=activity_instruction_pre_instance_ar.item_metadata.change_description,
-            user_initials=activity_instruction_pre_instance_ar.item_metadata.user_initials,
+            author_username=activity_instruction_pre_instance_ar.item_metadata.author_username,
             library=Library.from_library_vo(
                 activity_instruction_pre_instance_ar.library
             ),
@@ -109,37 +117,48 @@ class ActivityInstructionPreInstance(BaseModel):
         )
 
 
-class ActivityInstructionPreInstanceCreateInput(PreInstanceInput):
+class ActivityInstructionPreInstanceCreateInput(PreInstancePostInput):
     indication_uids: list[str]
     activity_uids: list[str]
     activity_group_uids: list[str]
     activity_subgroup_uids: list[str]
 
 
-class ActivityInstructionPreInstanceEditInput(PreInstanceInput):
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
+class ActivityInstructionPreInstanceEditInput(PreInstancePatchInput):
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
-class ActivityInstructionPreInstanceIndexingsInput(BaseModel):
-    indication_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the study indications, conditions, diseases or disorders to attach the pre-instance to.",
-    )
-    activity_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the activities to attach the pre-instance to.",
-    )
-    activity_group_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the activity groups to attach the pre-instance to.",
-    )
-    activity_subgroup_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the activity subgroups to attach the pre-instance to.",
-    )
+class ActivityInstructionPreInstanceIndexingsInput(PatchInputModel):
+    indication_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the study indications, conditions, diseases or disorders to attach the pre-instance to.",
+        ),
+    ] = None
+    activity_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the activities to attach the pre-instance to.",
+        ),
+    ] = None
+    activity_group_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the activity groups to attach the pre-instance to.",
+        ),
+    ] = None
+    activity_subgroup_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the activity subgroups to attach the pre-instance to.",
+        ),
+    ] = None
 
 
 class ActivityInstructionPreInstanceVersion(ActivityInstructionPreInstance):
@@ -147,11 +166,13 @@ class ActivityInstructionPreInstanceVersion(ActivityInstructionPreInstance):
     Class for storing ActivityInstruction Pre-Instances and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the activity instruction (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the activity instruction (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

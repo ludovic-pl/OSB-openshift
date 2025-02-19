@@ -19,7 +19,7 @@
             "start_date": "2022-10-18T12:53:21.759357",
             "status": "Final",
             "term_uid": "CTTerm_000081",
-            "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "arm_uid": "StudyArm_000005",
@@ -35,7 +35,7 @@
         "start_date": "2022-10-19T07:37:36.068454",
         "status": null,
         "study_uid": "Study_999999",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "accepted_version": false,
@@ -57,7 +57,7 @@
             "start_date": "2022-10-18T12:53:21.759357",
             "status": "Final",
             "term_uid": "CTTerm_000081",
-            "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "arm_uid": "StudyArm_000006",
@@ -73,6 +73,6 @@
         "start_date": "2022-10-19T07:37:36.068454",
         "status": null,
         "study_uid": "Study_999999",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     }
 ]

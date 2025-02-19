@@ -3,8 +3,7 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot, StudyValue
 from clinical_mdr_api.domain_repositories.models.study_audit_trail import (
     Create,
@@ -21,7 +20,8 @@ from clinical_mdr_api.domains.study_selections.study_selection_cohort import (
     StudySelectionCohortAR,
     StudySelectionCohortVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -40,7 +40,7 @@ class SelectionHistoryCohort:
     arm_roots: list[str] | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
     change_type: str
     end_date: datetime.datetime | None
     order: int
@@ -129,19 +129,19 @@ class StudySelectionCohortRepository:
                 COLLECT (DISTINCT ars.uid) AS arm_root_uids,
                 sar.text AS text,
                 sa.date AS start_date,
-                sa.user_initials AS user_initials
+                sa.author_id AS author_id
                 ORDER BY order
             """
 
         all_cohort_selections = db.cypher_query(query, query_parameters)
         all_selections = []
 
-        for selection in helpers.db_result_to_list(all_cohort_selections):
+        for selection in utils.db_result_to_list(all_cohort_selections):
             acv = selection.get("accepted_version", False)
             if acv is None:
                 acv = False
             selection_vo = StudySelectionCohortVO.from_input_values(
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
                 study_uid=selection["study_uid"],
                 name=selection["cohort_name"],
                 short_name=selection["cohort_short_name"],
@@ -224,11 +224,11 @@ class StudySelectionCohortRepository:
         )
         return cohort_node
 
-    def save(self, study_selection: StudySelectionCohortAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionCohortAR, author_id: str) -> None:
         """
         Persist the set of selected study cohorts from the aggregate to the database
         :param study_selection:
-        :param author:
+        :param author_id:
         """
         assert study_selection.repository_closure_data is not None
 
@@ -240,10 +240,10 @@ class StudySelectionCohortRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -288,7 +288,7 @@ class StudySelectionCohortRepository:
                 audit_node=audit_node,
                 study_selection_node=last_study_selection_node,
                 study_root_node=study_root_node,
-                author=author,
+                author_id=author_id,
             )
             self._remove_old_selection_if_exists(study_selection.study_uid, selection)
             # storage of the removed node audit trail to after put the "after" relationship to the new one
@@ -312,7 +312,7 @@ class StudySelectionCohortRepository:
                 audit_node = audit_trail_nodes[selection.study_selection_uid]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -357,9 +357,9 @@ class StudySelectionCohortRepository:
         audit_node: StudyAction,
         study_selection_node: StudyCohort,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -470,14 +470,15 @@ class StudySelectionCohortRepository:
                 COLLECT (ats.uid) AS arm_root_uids,
                 all_sc.text AS text,
                 asa.date AS start_date,
-                asa.user_initials AS user_initials,
+                asa.author_id AS author_id,
                 labels(asa) AS change_type,
                 bsa.date AS end_date
             """,
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_cohort_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_cohort_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -497,7 +498,7 @@ class StudySelectionCohortRepository:
                     branch_arm_roots=res["branch_arm_root_uids"],
                     arm_roots=res["arm_root_uids"],
                     start_date=convert_to_datetime(value=res["start_date"]),
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     end_date=end_date,
                     accepted_version=res["accepted_version"],

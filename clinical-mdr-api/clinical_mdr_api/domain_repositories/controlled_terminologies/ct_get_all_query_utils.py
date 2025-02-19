@@ -2,7 +2,6 @@
 Utility module to store the common parts of terms get all and specific term get all requests.
 """
 
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_attributes import (
     CTCodelistAttributesAR,
     CTCodelistAttributesVO,
@@ -36,6 +35,8 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term_attributes import 
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term_name import CTTermName
 from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.utils import convert_to_datetime
 
 # Properties always on root level, even in aggregated mode (names + attributes)
 term_root_level_properties = [
@@ -160,7 +161,10 @@ def create_term_name_aggregate_instances_from_cypher_result(
         item_metadata=LibraryItemMetadataVO.from_repository_values(
             change_description=rel_data.get("change_description"),
             status=LibraryItemStatus(rel_data.get("status")),
-            author=rel_data.get("user_initials"),
+            author_id=rel_data.get("author_id"),
+            author_username=UserInfoService.get_author_username_from_id(
+                rel_data.get("author_id")
+            ),
             start_date=convert_to_datetime(value=rel_data.get("start_date")),
             end_date=None,
             major_version=int(major),
@@ -231,7 +235,10 @@ def create_term_attributes_aggregate_instances_from_cypher_result(
         item_metadata=LibraryItemMetadataVO.from_repository_values(
             change_description=rel_data.get("change_description"),
             status=LibraryItemStatus(rel_data.get("status")),
-            author=rel_data.get("user_initials"),
+            author_id=rel_data.get("author_id"),
+            author_username=UserInfoService.get_author_username_from_id(
+                rel_data.get("author_id")
+            ),
             start_date=convert_to_datetime(value=rel_data.get("start_date")),
             end_date=None,
             major_version=int(major),
@@ -283,7 +290,8 @@ def format_term_filter_sort_keys(key: str, prefix: str | None = None) -> str:
         "status",
         "version",
         "change_description",
-        "user_initials",
+        "author_id",
+        "author_username",
     ]:
         return f"rel_data_{prefix}.{key}" if prefix else f"rel_data.{key}"
     # Nested field names -> recursive call with prefix
@@ -410,7 +418,10 @@ def create_codelist_name_aggregate_instances_from_cypher_result(
         item_metadata=LibraryItemMetadataVO.from_repository_values(
             change_description=rel_data.get("change_description"),
             status=LibraryItemStatus(rel_data.get("status")),
-            author=rel_data.get("user_initials"),
+            author_id=rel_data.get("author_id"),
+            author_username=UserInfoService.get_author_username_from_id(
+                rel_data.get("author_id")
+            ),
             start_date=convert_to_datetime(value=rel_data.get("start_date")),
             end_date=None,
             major_version=int(major),
@@ -468,7 +479,10 @@ def create_codelist_attributes_aggregate_instances_from_cypher_result(
         item_metadata=LibraryItemMetadataVO.from_repository_values(
             change_description=rel_data.get("change_description"),
             status=LibraryItemStatus(rel_data.get("status")),
-            author=rel_data.get("user_initials"),
+            author_id=rel_data.get("author_id"),
+            author_username=UserInfoService.get_author_username_from_id(
+                rel_data.get("author_id")
+            ),
             start_date=convert_to_datetime(value=rel_data.get("start_date")),
             end_date=None,
             major_version=int(major),
@@ -509,7 +523,8 @@ def format_codelist_filter_sort_keys(key: str, prefix: str | None = None) -> str
         "status",
         "version",
         "change_description",
-        "user_initials",
+        "author_id",
+        "author_username",
     ]:
         return f"rel_data_{prefix}.{key}" if prefix else f"rel_data.{key}"
     # Nested field names -> recursive call with prefix

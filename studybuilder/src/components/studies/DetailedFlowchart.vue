@@ -29,6 +29,7 @@
     <ProtocolFlowchart
       v-if="['operational', 'protocol'].indexOf(layout) > -1"
       :layout="layout"
+      :style="`max-height: ${tableHeight + 70}px;`"
     />
     <div v-else>
       <div class="d-flex align-center mb-4">
@@ -88,21 +89,42 @@
             :loading="soaContentLoadingStore.loading"
             @click="toggleActivitySelectionDisplay(true)"
           />
-          <v-btn
-            class="ml-2"
-            size="small"
-            variant="outlined"
-            color="nnBaseBlue"
-            :title="$t('DetailedFlowchart.edit_activity_selection')"
+          <v-menu 
             :disabled="
             footnoteMode ||
             !checkPermission($roles.STUDY_WRITE) ||
             selectedStudyVersion !== null
             "
-            icon="mdi-pencil-box-multiple-outline"
-            :loading="soaContentLoadingStore.loading"
-            @click="openBatchEditForm"
-          />
+            rounded
+            location="bottom">
+            <template #activator="{ props }">
+              <v-btn
+                :disabled="
+                footnoteMode ||
+                !checkPermission($roles.STUDY_WRITE) ||
+                selectedStudyVersion !== null
+                "
+                class="ml-2"
+                size="small"
+                variant="outlined"
+                color="nnBaseBlue"
+                v-bind="props"
+                title="Bulk actions"
+                icon="mdi-folder-multiple-outline"
+                :loading="soaContentLoadingStore.loading"
+              >
+              </v-btn>
+            </template>
+
+            <v-list density="compact" rounded="xl">
+              <v-list-item prepend-icon="mdi-pencil-outline" @click="openBatchEditForm">
+                <v-list-item-title>{{ $t('DetailedFlowchart.bulk_edit') }}</v-list-item-title>
+              </v-list-item>
+              <v-list-item prepend-icon="mdi-delete-outline" link @click="batchRemoveStudyActivities">
+                <v-list-item-title>{{ $t('DetailedFlowchart.bulk_remove') }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
           <v-menu rounded location="bottom">
             <template #activator="{ props }">
               <v-btn
@@ -142,7 +164,7 @@
       <div
         ref="tableContainer"
         class="sticky-header"
-        :style="`max-height: ${tableHeight}px; border-radius: 15px;`"
+        :style="`max-height: ${tableHeight}px; min-height: 500px; border-radius: 15px;`"
       >
         <table :aria-label="$t('DetailedFlowchart.table_caption')">
           <thead>
@@ -361,19 +383,15 @@
               </template>
             </tr>
             <tr>
-              <th
-                :style="`top: ${fourthHeaderRowTop}px`"
-                scope="col"
-                class="header zindex25 pl-6"
-              >
-                {{ $t('DetailedFlowchart.visit_window') }}
-              </th>
               <template v-if="soaContent">
                 <th
                   v-for="(cell, index) in soaWindowRow"
                   :key="`window-${index}`"
                   :style="`top: ${fourthHeaderRowTop}px`"
                   scope="col"
+                  :class="
+                  cell.text.includes('Visit window') ? 'header zindex25 pl-6' : ''
+                  "
                 >
                   {{ cell.text }}
                 </th>
@@ -383,7 +401,8 @@
                   colspan="2"
                   :style="`top: ${fourthHeaderRowTop}px`"
                   scope="col"
-                />
+                >
+                </th>
               </template>
             </tr>
           </thead>
@@ -449,7 +468,7 @@
                       !checkPermission($roles.STUDY_WRITE) ||
                       selectedStudyVersion !== null
                       "
-                      class="flex-grow-0"
+                      class="flex-grow-0 mr-2"
                       @update:model-value="
                              (value) => toggleSubgroupActivitiesSelection(row, value)
                              "
@@ -464,9 +483,18 @@
                       : ''
                       "
                     >
-                      <span class="text-uppercase">
-                        {{ row.cells[0].text }}
-                      </span>
+                      <v-tooltip bottom>
+                        <template #activator="{ props }">
+                          <div v-bind="props">
+                            <span class="text-uppercase">
+                              {{ row.cells[0].text.substring(0, 40) }}
+                            </span>
+                          </div>
+                        </template>
+                        <span class="text-uppercase">
+                          {{ row.cells[0].text }}
+                        </span>
+                      </v-tooltip>
                     </v-badge>
                     <v-btn
                       v-if="
@@ -674,7 +702,7 @@
         />
       </div>
     </div>
-    <v-card v-if="footnoteMode" elevation="24" class="bottomCard" id="bottomCard">
+    <v-card v-if="footnoteMode" id="bottomCard" elevation="24" class="bottomCard">
       <v-row>
         <v-col cols="8">
           <v-card
@@ -727,6 +755,20 @@
         </v-col>
       </v-row>
     </v-card>
+    <v-dialog v-model="showActivityEditForm" max-width="600px">
+      <StudyActivityEditForm
+        :study-activity="selectedStudyActivity"
+        @close="closeEditForm"
+        @updated="loadSoaContent(true)"
+      />
+    </v-dialog>
+    <v-dialog v-model="showDraftedActivityEditForm" max-width="600px">
+      <StudyDraftedActivityEditForm
+        :study-activity="selectedStudyActivity"
+        @close="closeEditForm"
+        @updated="loadSoaContent(true)"
+      />
+    </v-dialog>
     <RemoveFootnoteForm
       :open="showRemoveFootnoteForm"
       :item-uid="removeItemUid"
@@ -738,6 +780,7 @@
       :current-selection-matrix="currentSelectionMatrix"
       @updated="() => loadSoaContent(true)"
       @close="showBatchEditForm = false"
+      @remove="unselectItem"
     />
     <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
     <v-dialog v-model="showCollapsibleGroupForm" persistent max-width="1000px">
@@ -778,6 +821,20 @@
         @refresh="(options) => getHistoryData(options)"
       />
     </v-dialog>
+    <v-dialog
+      v-model="showActivityForm"
+      persistent
+      fullscreen
+      content-class="fullscreen-dialog"
+    >
+      <StudyActivityForm
+        :exchange-mode="activityExchangeMode"
+        :exchange-activity-uid="selectedStudyActivity"
+        :order="flowchartActivityOrder"
+        @close="closeActivityForm"
+        @added="onActivityExchanged"
+      />
+    </v-dialog>
   </div>
   <v-skeleton-loader
     v-else
@@ -807,6 +864,10 @@ import soaDownloads from '@/utils/soaDownloads'
 import ProtocolFlowchart from './ProtocolFlowchart.vue'
 import RemoveFootnoteForm from './RemoveFootnoteForm.vue'
 import ActionsMenu from '@/components/tools/ActionsMenu.vue'
+import StudyActivityEditForm from './StudyActivityEditForm.vue'
+import StudyDraftedActivityEditForm from './StudyDraftedActivityEditForm.vue'
+import StudyActivityForm from './StudyActivityForm.vue'
+import libraries from '@/constants/libraries.js'
 
 export default {
   components: {
@@ -818,7 +879,10 @@ export default {
     ProtocolFlowchart,
     StudyFootnoteForm,
     RemoveFootnoteForm,
-    ActionsMenu
+    ActionsMenu,
+    StudyActivityEditForm,
+    StudyDraftedActivityEditForm,
+    StudyActivityForm
   },
   inject: ['eventBusEmit'],
   props: {
@@ -886,7 +950,7 @@ export default {
           key: 'object_type',
         },
         { title: this.$t('_global.description'), key: 'description' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
       ],
       historyItems: [],
       historyItemsTotal: 0,
@@ -896,12 +960,40 @@ export default {
       removeItemUid: '',
       actions: [
         {
-          label: this.$t('DetailedFlowchart.remove_activity'),
-          icon: 'mdi-delete-outline',
+          label: this.$t('DetailedFlowchart.edit_activity'),
+          icon: 'mdi-pencil-outline',
+          condition: () => !this.selectedStudyVersion,
+          click: this.editStudyActivity,
           accessRole: this.$roles.STUDY_WRITE,
-          click: this.removeActivity,
         },
-      ]
+        {
+          label: this.$t('DetailedFlowchart.add_activity'),
+          icon: 'mdi-plus-circle-outline',
+          condition: () => !this.selectedStudyVersion,
+          click: this.addStudyActivity,
+          accessRole: this.$roles.STUDY_WRITE,
+        },
+        {
+          label: this.$t('DetailedFlowchart.exchange_activity'),
+          icon: 'mdi-autorenew',
+          condition: () => !this.selectedStudyVersion,
+          click: this.exchangeStudyActivity,
+          accessRole: this.$roles.STUDY_WRITE,
+        },
+        {
+          label: this.$t('DetailedFlowchart.remove_activity'),
+          icon: 'mdi-minus-circle-outline',
+          condition: () => !this.selectedStudyVersion,
+          click: this.removeActivity,
+          accessRole: this.$roles.STUDY_WRITE,
+        },
+      ],
+      showActivityEditForm: false,
+      showDraftedActivityEditForm: false,
+      selectedStudyActivity: null,
+      activityExchangeMode: false,
+      showActivityForm: false,
+      flowchartActivityOrder: null
     }
   },
   computed: {
@@ -938,7 +1030,7 @@ export default {
       if (this.soaContent) {
         return this.soaContent.rows[
           this.soaContent.num_header_rows - 1
-        ].cells.slice(1)
+        ].cells
       }
       return []
     },
@@ -1018,7 +1110,7 @@ export default {
   methods: {
     observeWidth() {
       const resizeObserver = new ResizeObserver(function(el) {
-        if (el[0].target.offsetWidth && document.getElementById('bottomCard').style) {
+        if (el[0].target.offsetWidth && document.getElementById('bottomCard') && document.getElementById('bottomCard').style) {
           document.getElementById('bottomCard').style.left = el[0].target.offsetWidth + 'px'
         }
       })
@@ -1039,6 +1131,54 @@ export default {
           })
           this.loadSoaContent(true)
         })
+    },
+    addStudyActivity(item) {
+      study
+        .getStudyActivity(
+          this.selectedStudy.uid,
+          item.uid
+        )
+        .then((resp) => {
+        this.flowchartActivityOrder = resp.data.order
+        this.showActivityForm = true
+        })
+    },
+    exchangeStudyActivity(item) {
+      this.selectedStudyActivity = item.uid
+      this.activityExchangeMode = true
+      this.showActivityForm = true
+    },
+    closeActivityForm() {
+      this.selectedStudyActivity = null
+      this.activityExchangeMode = false
+      this.flowchartActivityOrder = null
+      this.showActivityForm = false
+      this.loadSoaContent(true)
+    },
+    onActivityExchanged() {
+      this.showActivityForm = false
+      this.activityExchangeMode = false
+      this.loadSoaContent(true)
+    },
+    editStudyActivity(item) {
+      study
+        .getStudyActivity(
+          this.selectedStudy.uid,
+          item.uid
+        )
+        .then((resp) => {
+          this.selectedStudyActivity = resp.data
+          if (resp.data.activity.library_name === libraries.LIBRARY_REQUESTED && !resp.data.activity.is_request_final) {
+            this.showDraftedActivityEditForm = true
+          } else {
+            this.showActivityEditForm = true
+          }
+        })
+    },
+    closeEditForm() {
+      this.showActivityEditForm = false
+      this.showDraftedActivityEditForm = false
+      this.selectedStudyActivity = null
     },
     openRemoveFootnoteForm(ele) {
       this.removeItemUid = ele.refs[0].uid
@@ -1231,6 +1371,9 @@ export default {
       this.fetchFootnotes()
     },
     addElementForFootnote(uid, type, name) {
+      if (!name) {
+        name = type
+      }
       if (typeof uid !== 'string') {
         uid.forEach((u) => {
           this.elementsForFootnote.referenced_items.push({
@@ -1473,12 +1616,43 @@ export default {
         })
         return
       }
-      const message = this.$t('DetailedFlowchart.batch_edit_warning')
-      const options = { type: 'warning' }
-      if (!(await this.$refs.confirm.open(message, options))) {
+      this.showBatchEditForm = true
+    },
+    unselectItem(item) {
+      this.studyActivitySelection = this.studyActivitySelection.filter(
+        (sa) => sa.refs[0].uid !== item.study_activity_uid
+      )
+    },
+    async batchRemoveStudyActivities() {
+      if (!this.studyActivitySelection.length) {
+        this.eventBusEmit('notification', {
+          type: 'warning',
+          msg: this.$t('DetailedFlowchart.batch_remove_no_selection'),
+        })
         return
       }
-      this.showBatchEditForm = true
+      const data = []
+      for (const cell of this.studyActivitySelection) {
+        data.push({
+          method: 'DELETE',
+          content: {
+            study_activity_uid: cell.refs[0].uid,
+          },
+        })
+      }
+      const options = { type: 'warning' }
+      if (!(await this.$refs.confirm.open(this.$t('DetailedFlowchart.remove_multiple_activities_msg', {activities: this.studyActivitySelection.length}), options))) {
+        return
+      }
+      this.loadingSoaContent = true
+      study
+        .studyActivityBatchOperations(this.selectedStudy.uid, data).then(() => {
+          this.eventBusEmit('notification', {
+            msg: this.$t('DetailedFlowchart.remove_success', {activities: this.studyActivitySelection.length}),
+          })
+          this.studyActivitySelection = []
+          this.loadSoaContent(true)
+        })
     },
     toggleActivitySelectionDisplay(value) {
       if (!this.studyActivitySelection.length) {
@@ -1529,6 +1703,7 @@ export default {
     async loadSoaContent(keepDisplayState) {
       this.loadingSoaContent = true
       this.soaContentLoadingStore.changeLoadingState()
+      this.studyActivitySelection = []
       try {
         const resp = await study.getStudyProtocolFlowchart(
           this.selectedStudy.uid,

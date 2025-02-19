@@ -126,7 +126,7 @@ export default {
       this.choosenItems.forEach((el, index) => {
         payload.push({
           uid: el.uid ? el.uid : el,
-          order_number: index,
+          order_number: index + 1,
           mandatory: el.mandatory ? el.mandatory : false,
           data_entry_required: el.data_entry_required
             ? el.data_entry_required

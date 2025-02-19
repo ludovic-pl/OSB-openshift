@@ -1,4 +1,5 @@
 """Utility functions"""
+
 import copy
 import logging
 

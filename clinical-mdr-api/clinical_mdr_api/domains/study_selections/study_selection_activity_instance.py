@@ -3,9 +3,10 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Callable
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.study_selections import study_selection_base
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import AlreadyExistsException, ValidationException
 
 
 class StudyActivityInstanceState(Enum):
@@ -35,7 +36,8 @@ class StudySelectionActivityInstanceVO(study_selection_base.StudySelectionBaseVO
     show_activity_instance_in_protocol_flowchart: bool
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
     study_activity_subgroup_uid: str | None = None
     activity_subgroup_uid: str | None = None
@@ -51,7 +53,7 @@ class StudySelectionActivityInstanceVO(study_selection_base.StudySelectionBaseVO
     def from_input_values(
         cls,
         study_uid: str,
-        user_initials: str,
+        author_id: str,
         study_activity_uid: str,
         activity_uid: str | None = None,
         activity_name: str | None = None,
@@ -92,7 +94,8 @@ class StudySelectionActivityInstanceVO(study_selection_base.StudySelectionBaseVO
             show_activity_instance_in_protocol_flowchart=show_activity_instance_in_protocol_flowchart,
             start_date=start_date,
             study_selection_uid=normalize_string(study_selection_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
             study_activity_subgroup_uid=study_activity_subgroup_uid,
             activity_subgroup_uid=activity_subgroup_uid,
@@ -111,12 +114,11 @@ class StudySelectionActivityInstanceVO(study_selection_base.StudySelectionBaseVO
         ct_term_level_exist_callback: Callable[[str], bool] = (lambda _: True),
     ) -> None:
         # Checks if there exists an activity which is approved with activity_uid
-        if self.activity_instance_uid and not object_exist_callback(
-            normalize_string(self.activity_instance_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved activity instance identified by provided uid ({self.activity_instance_uid})"
-            )
+        ValidationException.raise_if(
+            self.activity_instance_uid
+            and not object_exist_callback(normalize_string(self.activity_instance_uid)),
+            msg=f"There is no approved Activity Instance with UID '{self.activity_instance_uid}'.",
+        )
 
     def update_version(self, activity_instance_version: str):
         return replace(self, activity_instance_version=activity_instance_version)
@@ -147,15 +149,16 @@ class StudySelectionActivityInstanceAR(study_selection_base.StudySelectionBaseAR
             activity_uid = selection.activity_uid
             activity_subgroup_uid = selection.activity_subgroup_uid
             activity_group_uid = selection.activity_group_uid
-            if (
-                object_uid,
-                activity_uid,
-                activity_subgroup_uid,
-                activity_group_uid,
-            ) in objects:
-                raise exceptions.ValidationException(
-                    f"There is already a StudyActivityInstance ({object_uid}) linked to the same Activity ({activity_uid})"
+            AlreadyExistsException.raise_if(
+                (
+                    object_uid,
+                    activity_uid,
+                    activity_subgroup_uid,
+                    activity_group_uid,
                 )
+                in objects,
+                msg=f"There is already a Study Activity Instance with UID '{object_uid}' linked to the Activity with UID '{activity_uid}'.",
+            )
             objects.append(
                 (object_uid, activity_uid, activity_subgroup_uid, activity_group_uid)
             )

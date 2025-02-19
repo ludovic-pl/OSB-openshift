@@ -150,7 +150,7 @@ export default {
   props: {
     initialData: {
       type: Object,
-      default: () => {},
+      default: null,
     },
     open: Boolean,
   },

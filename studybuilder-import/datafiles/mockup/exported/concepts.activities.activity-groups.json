@@ -14,7 +14,7 @@
     "start_date": "2022-10-18T12:56:27.926393",
     "status": "Final",
     "uid": "ActivityGroup_000003",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -32,7 +32,7 @@
     "start_date": "2022-10-18T12:56:28.048042",
     "status": "Final",
     "uid": "ActivityGroup_000004",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

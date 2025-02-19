@@ -33,6 +33,8 @@ def migrate_ct_config_values(db_connection, logger):
     )
     with open(filename, encoding="utf-8", errors="ignore") as csv_file:
         for line in csv.DictReader(csv_file):
+            # Replace empty strings with None
+            line = {k: v if v != "" else None for k, v in line.items()}
             logger.info(
                 "Adding CTConfigRoot/Value for study field '%s'",
                 line["study_field_name"],

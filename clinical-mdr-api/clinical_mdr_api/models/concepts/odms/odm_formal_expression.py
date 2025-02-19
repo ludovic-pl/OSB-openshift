@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -7,7 +7,12 @@ from clinical_mdr_api.domains.concepts.odms.formal_expression import (
     OdmFormalExpressionAR,
 )
 from clinical_mdr_api.models.concepts.concept import NoLibraryConceptModelNoName
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import (
+    BaseModel,
+    InputModel,
+    PatchInputModel,
+    PostInputModel,
+)
 
 
 class OdmFormalExpression(NoLibraryConceptModelNoName):
@@ -31,7 +36,7 @@ class OdmFormalExpression(NoLibraryConceptModelNoName):
             status=odm_formal_expression_ar.item_metadata.status.value,
             version=odm_formal_expression_ar.item_metadata.version,
             change_description=odm_formal_expression_ar.item_metadata.change_description,
-            user_initials=odm_formal_expression_ar.item_metadata.user_initials,
+            author_username=odm_formal_expression_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in odm_formal_expression_ar.get_possible_actions()]
             ),
@@ -66,26 +71,29 @@ class OdmFormalExpressionSimpleModel(BaseModel):
             simple_odm_formal_expression_model = None
         return simple_odm_formal_expression_model
 
-    uid: str = Field(..., title="uid", description="")
-    context: str | None = Field(None, title="context", description="")
-    expression: str | None = Field(None, title="expression", description="")
-    version: str | None = Field(None, title="version", description="")
+    uid: Annotated[str, Field()]
+    context: Annotated[str | None, Field(nullable=True)] = None
+    expression: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
 
 
-class OdmFormalExpressionPostInput(BaseModel):
-    library_name: str = "Sponsor"
-    context: str
-    expression: str
+class OdmFormalExpressionPostInput(PostInputModel):
+    library_name: Annotated[str, Field(min_length=1)] = "Sponsor"
+    context: Annotated[str, Field(min_length=1)]
+    expression: Annotated[str, Field(min_length=1)]
 
 
-class OdmFormalExpressionPatchInput(BaseModel):
-    change_description: str
-    context: str | None
-    expression: str | None
+class OdmFormalExpressionPatchInput(PatchInputModel):
+    change_description: Annotated[str, Field(min_length=1)]
+    context: Annotated[str | None, Field(min_length=1)]
+    expression: Annotated[str | None, Field(min_length=1)]
 
 
-class OdmFormalExpressionBatchPatchInput(OdmFormalExpressionPatchInput):
-    uid: str
+class OdmFormalExpressionBatchPatchInput(InputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    change_description: Annotated[str, Field(min_length=1)]
+    context: Annotated[str | None, Field(min_length=1)]
+    expression: Annotated[str | None, Field(min_length=1)]
 
 
 class OdmFormalExpressionVersion(OdmFormalExpression):
@@ -93,11 +101,13 @@ class OdmFormalExpressionVersion(OdmFormalExpression):
     Class for storing OdmFormalExpression and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

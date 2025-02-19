@@ -4,7 +4,7 @@
       <span class="dialog-title">{{ title }}</span>
       <v-spacer />
     </v-card-title>
-    <v-card-text>
+    <v-card-text style="margin-bottom: 70px;">
       <v-data-table-server
         :headers="cleanedHeaders"
         :items="items"
@@ -152,7 +152,7 @@ const emit = defineEmits(['close', 'refresh'])
 
 const cleanedHeaders = computed(() => {
   let result = []
-  const excludedHeaders = ['actions', 'user_initials', 'start_date']
+  const excludedHeaders = ['actions', 'author_username', 'start_date']
   if (props.excludedHeaders) {
     for (const header of props.excludedHeaders) {
       excludedHeaders.push(header)
@@ -174,7 +174,7 @@ const cleanedHeaders = computed(() => {
   })
   result.push({
     title: t('_global.user'),
-    key: 'user_initials',
+    key: 'author_username',
   })
   result.push({
     title: t('HistoryTable.start_date'),

@@ -48,8 +48,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemStatus,
 )
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.repositories._utils import FilterOperator, sb_clear_cache
+from common.exceptions import NotFoundException
 
 _AggregateRootType = TypeVar("_AggregateRootType", bound=LibraryItemAggregateRootBase)
 
@@ -57,6 +57,7 @@ _AggregateRootType = TypeVar("_AggregateRootType", bound=LibraryItemAggregateRoo
 class GenericSyntaxRepository(
     LibraryItemRepositoryImplBase[_AggregateRootType], abc.ABC
 ):
+
     def find_by_uid_2(
         self,
         uid: str,
@@ -158,7 +159,7 @@ class GenericSyntaxRepository(
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         return self.get_headers_optimized(
             field_name=field_name,
@@ -166,7 +167,7 @@ class GenericSyntaxRepository(
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
     def _maintain_complex_parameter(self, parameter_config: ComplexParameterTerm):
@@ -379,11 +380,12 @@ class GenericSyntaxRepository(
             str: The UID of the type associated with the given Syntax Template.
 
         Raises:
-            NotFoundException: If a Syntax Template does not exist.
+            NotFoundException: If a Syntax Template doesn't exist.
         """
 
-        if not syntax_node:
-            raise NotFoundException("The requested Syntax Template does not exist.")
+        NotFoundException.raise_if_not(
+            syntax_node, msg="The requested Syntax Template doesn't exist."
+        )
 
         ct_term = syntax_node.has_type.get_or_none()
 
@@ -483,3 +485,13 @@ class GenericSyntaxRepository(
             self._db_save_node(root)
 
         return root, item
+
+    def _are_changes_possible(
+        self,
+        versioned_object: _AggregateRootType,
+        previous_versioned_object: _AggregateRootType,
+    ) -> bool:
+        new_status = versioned_object.item_metadata.status
+        prev_status = previous_versioned_object.item_metadata.status
+        possible_states = (LibraryItemStatus.DRAFT, LibraryItemStatus.FINAL)
+        return prev_status in possible_states and new_status in possible_states

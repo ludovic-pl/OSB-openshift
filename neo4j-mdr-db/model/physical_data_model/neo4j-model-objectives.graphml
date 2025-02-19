@@ -123,7 +123,7 @@ end_date*: DateTime
 status: String
 version: String
 change_description: String
-user_initials: String
+author_id: String
 
 * only on -[:HAS_VERSION]-&gt;<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:LabelModel><y:ModelParameter><y:SmartNodeLabelModelParameter labelRatioX="0.0" labelRatioY="0.0" nodeRatioX="0.01243781094527363" nodeRatioY="0.0" offsetX="0.0" offsetY="0.0" upX="0.0" upY="-1.0"/></y:ModelParameter></y:NodeLabel>
         </y:GenericNode>
@@ -175,7 +175,7 @@ end_date*: DateTime
 status: String
 version: String
 change_description: String
-user_initials: String
+author_id: String
 
 * only on -[:HAS_VERSION]-&gt;<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:LabelModel><y:ModelParameter><y:SmartNodeLabelModelParameter labelRatioX="0.0" labelRatioY="0.0" nodeRatioX="0.01243781094527363" nodeRatioY="0.0" offsetX="0.0" offsetY="0.0" upX="0.0" upY="-1.0"/></y:ModelParameter></y:NodeLabel>
         </y:GenericNode>
@@ -227,7 +227,7 @@ end_date*: DateTime
 status: String
 version: String
 change_description: String
-user_initials: String
+author_id: String
 
 * only on -[:HAS_VERSION]-&gt;<y:LabelModel><y:SmartNodeLabelModel distance="4.0"/></y:LabelModel><y:ModelParameter><y:SmartNodeLabelModelParameter labelRatioX="0.0" labelRatioY="0.0" nodeRatioX="0.01243781094527363" nodeRatioY="0.0" offsetX="0.0" offsetY="0.0" upX="0.0" upY="-1.0"/></y:ModelParameter></y:NodeLabel>
         </y:GenericNode>

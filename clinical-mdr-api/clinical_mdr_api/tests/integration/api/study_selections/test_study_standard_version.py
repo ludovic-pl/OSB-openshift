@@ -16,14 +16,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import CTTerm
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -74,8 +74,6 @@ def test_data():
     )
     yield
 
-    drop_db(db_name)
-
 
 def test_study_standard_version_crud_operations(api_client):
     # get all standard versions
@@ -83,7 +81,7 @@ def test_study_standard_version_crud_operations(api_client):
         "/ct/packages",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert ct_package_uid == res[2]["uid"]
     assert ct_package_uid_2 == res[3]["uid"]
     assert ct_package_uid_3 == res[0]["uid"]
@@ -97,7 +95,7 @@ def test_study_standard_version_crud_operations(api_client):
         json={"ct_package_uid": ct_package_uid, "description": description},
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["ct_package"]["uid"] == ct_package_uid
     assert res["description"] == description
     standard_version_uid = res["uid"]
@@ -108,10 +106,10 @@ def test_study_standard_version_crud_operations(api_client):
         json={"ct_package_uid": ct_package_uid_2, "description": description2},
     )
     res = response.json()
-    assert response.status_code == 400
+    assert_response_status_code(response, 409)
     assert (
         res["message"]
-        == "Already exists a Standard Version ('StudyStandardVersion_000002', 'SDTM CT 2020-03-27') for the catalogue: SDTM CT"
+        == "Standard Version ('StudyStandardVersion_000002', 'SDTM CT 2020-03-27') already exists for Catalogue with Name 'SDTM CT'."
     )
 
     response = api_client.post(
@@ -119,7 +117,7 @@ def test_study_standard_version_crud_operations(api_client):
         json={"ct_package_uid": ct_package_uid_3, "description": description3},
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["ct_package"]["uid"] == ct_package_uid_3
     assert res["description"] == description3
 
@@ -128,7 +126,7 @@ def test_study_standard_version_crud_operations(api_client):
         f"/studies/{study.uid}/study-standard-versions/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 2
     assert res[0]["uid"] == standard_version_uid
     assert res[0]["description"] == description
@@ -138,7 +136,7 @@ def test_study_standard_version_crud_operations(api_client):
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Test patch ct package uid
     # And description not removed - patch and not put
@@ -149,7 +147,7 @@ def test_study_standard_version_crud_operations(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["ct_package"]["uid"] == ct_package_uid_2
     assert res["description"] == description
 
@@ -162,7 +160,7 @@ def test_study_standard_version_crud_operations(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["ct_package"]["uid"] == ct_package_uid_2
     assert res["description"] == description2
 
@@ -170,17 +168,17 @@ def test_study_standard_version_crud_operations(api_client):
     response = api_client.delete(
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}"
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # get all standard versions
     response = api_client.get(
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}",
     )
     res = response.json()
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert (
         res["message"]
-        == f"The StudyStandardVersion with uid='{standard_version_uid}' could not be found."
+        == f"The StudyStandardVersion with UID '{standard_version_uid}' doesn't exist."
     )
 
 
@@ -193,7 +191,7 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     standard_version_uid = res["uid"]
 
     # get all standard versions
@@ -201,7 +199,7 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-standard-versions/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # # get all standard versions
@@ -209,7 +207,7 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-standard-versions/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # update study title to be able to lock it
@@ -217,14 +215,14 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-standard-versions",
@@ -232,9 +230,9 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
             "ct_package_uid": ct_package_uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     response = api_client.patch(
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}",
@@ -242,16 +240,16 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
             "ct_package_uid": ct_package_uid_2,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-standard-versions/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     for i, _ in enumerate(old_res):
         old_res[i]["study_version"] = mock.ANY
     assert old_res == res
@@ -260,34 +258,31 @@ def test_standard_version_modify_actions_on_locked_study(api_client):
     response = api_client.delete(
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # test delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-standard-versions/{standard_version_uid}"
     )
-    # assert response.status_code == 400
+    # assert_response_status_code(response, 400)
 
     # Lock and check automatically creation
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all the study standard_versions, check the SDTM automatically created
     response = api_client.get(
         f"/studies/{study.uid}/study-standard-versions",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_old = response.json()
     assert res_old[1]["automatically_created"] is True
     assert "SDTM CT" in res_old[1]["ct_package"]["uid"]
@@ -298,12 +293,12 @@ def test_get_standard_version_data_for_specific_study_version(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-standard-versions",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_old = response.json()
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.patch(
         f"/studies/{study.uid}/study-standard-versions/{res_old[0]['uid']}",
@@ -311,7 +306,7 @@ def test_get_standard_version_data_for_specific_study_version(api_client):
             "ct_package_uid": ct_package_uid_2,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # check the study standard_version for version 1 is same as first locked
     res_new = api_client.get(
@@ -328,7 +323,7 @@ def test_get_standard_version_data_for_specific_study_version(api_client):
         f"/studies/{study.uid}/study-standard-versions?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res[0]["ct_package"]["uid"] == res_v1[0]["ct_package"]["uid"]
 
 

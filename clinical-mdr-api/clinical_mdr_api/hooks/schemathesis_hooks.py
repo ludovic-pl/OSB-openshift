@@ -1,8 +1,17 @@
 import os
 
+import hypothesis
+import hypothesis.strategies
 import schemathesis
+import schemathesis.schemas
 
-STUDY_UID = os.getenv("SCHEMATHESIS_STUDY_UID", "0")
+STUDY_UID = os.getenv("SCHEMATHESIS_STUDY_UID", "Study_000001")
+EXCLUDED_PATHS = [
+    "/ct/catalogues/changes",
+    "/listings/libraries/all/gcmd/cdisc-ct-val/headers",
+    "/listings/libraries/all/gcmd/topic-cd-def",
+    "/epochs/allowed-configs",
+]
 
 
 def is_in_range(val):
@@ -31,7 +40,7 @@ def is_desired_header(headers: dict) -> bool:
 @schemathesis.hooks.register
 def before_generate_headers(
     _context: schemathesis.hooks.HookContext,
-    strategy: schemathesis.hooks.st.SearchStrategy,
+    strategy: hypothesis.strategies.SearchStrategy,
 ):
     return strategy.filter(is_desired_header)
 
@@ -39,27 +48,38 @@ def before_generate_headers(
 @schemathesis.hooks.register
 def before_generate_case(
     context: schemathesis.hooks.HookContext,
-    strategy: schemathesis.hooks.st.SearchStrategy,
+    strategy: hypothesis.strategies.SearchStrategy,
 ):
     op = context.operation
 
     def tune_case(case: schemathesis.models.Case):
-        # Replace study uid path param with value supplied inside STUDY_UID env variable
-        if (
-            str(op.method).upper() == "GET"
-            and str(op.path).startswith("/studies/{uid}/")
-            and case.path_parameters["uid"] == "0"
-        ):
-            case.path_parameters["uid"] = STUDY_UID
+        # Replace study_uid/uid path param for all paths starting with "/studies/study_uid}/" or "/studies/{uid}/"
+        # with the value supplied as STUDY_UID env variable
 
-        # If any character inside a query parameter needs more than 2 bytes to be UTF-8 encoded,
-        # replace it with dummy string
-        if case.query:
-            for key, value in case.query.items():
-                if not is_in_range(value):
-                    print(f"\nQuery param: {key}: {value} is not a 2-byte utf-8!")
-                    case.query[key] = "blabla"
+        for path_param in ["uid", "study_uid"]:
+            if (
+                "/studies/{" + path_param + "}" in str(op.path)
+                and path_param in case.path_parameters
+            ):
+                case.path_parameters[path_param] = STUDY_UID
+
+        # Set page_size to 10 if it is 0
+        if case.query and "page_size" in case.query and case.query["page_size"] == 0:
+            print(f"Setting page_size to 10 for {case.method} {case.full_path}")
+            case.query["page_size"] = 10
 
         return case
 
     return strategy.map(tune_case)
+
+
+@schemathesis.hook
+def after_load_schema(
+    _context: schemathesis.hooks.HookContext, schema: schemathesis.schemas.BaseSchema
+) -> None:
+    # Remove excluded paths from the schema
+    print("Excluding paths from tests:")
+    for path in EXCLUDED_PATHS:
+        if path in schema.raw_schema["paths"]:
+            del schema.raw_schema["paths"][path]
+            print(f" - {path}")

@@ -61,7 +61,7 @@
     fullscreen
     content-class="fullscreen-dialog"
   >
-    <StudySubpartForm :edited-subpart="selectedSubpart" @close="closeForms()" />
+    <StudySubpartForm @close="closeForms()" />
   </v-dialog>
   <StudySubpartEditForm
     :open="editForm"
@@ -153,7 +153,7 @@ const historyHeaders = [
   { title: t('StudySubparts.study_id'), key: 'subpart_uid' },
   { title: t('StudySubparts.study_acronym'), key: 'study_acronym' },
   { title: t('StudySubparts.subpart_id'), key: 'subpart_id' },
-  { title: t('_global.modified_by'), key: 'user_initials' },
+  { title: t('_global.modified_by'), key: 'author_username' },
 ]
 const actions = [
   {

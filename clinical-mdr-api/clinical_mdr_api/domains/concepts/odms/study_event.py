@@ -8,7 +8,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import AlreadyExistsException
 
 
 @dataclass(frozen=True)
@@ -46,25 +46,27 @@ class OdmStudyEventVO(ConceptVO):
         )
 
     def validate(
-        self,
-        odm_object_exists_callback: Callable,
+        self, odm_object_exists_callback: Callable, odm_uid: str | None = None
     ) -> None:
         data = {
             "name": self.name,
             "oid": self.oid,
-            "effective_date": self.effective_date.strftime("%Y-%m-%d")
-            if self.effective_date
-            else None,
-            "retired_date": self.retired_date.strftime("%Y-%m-%d")
-            if self.retired_date
-            else None,
+            "effective_date": (
+                self.effective_date.strftime("%Y-%m-%d")
+                if self.effective_date
+                else None
+            ),
+            "retired_date": (
+                self.retired_date.strftime("%Y-%m-%d") if self.retired_date else None
+            ),
             "description": self.description,
             "display_in_tree": self.display_in_tree,
         }
         if uids := odm_object_exists_callback(**data):
-            raise BusinessLogicException(
-                f"ODM Study Event already exists with UID ({uids[0]}) and data {data}"
-            )
+            if uids[0] != odm_uid:
+                raise AlreadyExistsException(
+                    msg=f"ODM Study Event already exists with UID ({uids[0]}) and data {data}"
+                )
 
 
 @dataclass
@@ -97,13 +99,15 @@ class OdmStudyEventAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmStudyEventVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         odm_object_exists_callback: Callable = lambda _: True,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(odm_object_exists_callback=odm_object_exists_callback)
 
@@ -116,7 +120,7 @@ class OdmStudyEventAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmStudyEventVO,
         concept_exists_by_callback: Callable[
@@ -127,8 +131,12 @@ class OdmStudyEventAR(OdmARBase):
         """
         Creates a new draft version for the object.
         """
-        concept_vo.validate(odm_object_exists_callback=odm_object_exists_callback)
+        concept_vo.validate(
+            odm_object_exists_callback=odm_object_exists_callback, odm_uid=self.uid
+        )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

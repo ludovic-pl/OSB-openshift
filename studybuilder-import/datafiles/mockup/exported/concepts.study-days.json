@@ -11,7 +11,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000002",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": -14.0,
     "version": null
   },
@@ -27,7 +27,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000008",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.0,
     "version": null
   },
@@ -43,7 +43,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000014",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 8.0,
     "version": null
   },
@@ -59,7 +59,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000020",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 15.0,
     "version": null
   },
@@ -75,7 +75,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000026",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 22.0,
     "version": null
   },
@@ -91,7 +91,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000032",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 29.0,
     "version": null
   },
@@ -107,7 +107,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000038",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 36.0,
     "version": null
   },
@@ -123,7 +123,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000044",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 43.0,
     "version": null
   },
@@ -139,7 +139,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000050",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 57.0,
     "version": null
   },
@@ -155,7 +155,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000056",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 183.0,
     "version": null
   },
@@ -171,7 +171,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000062",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 213.0,
     "version": null
   },
@@ -187,7 +187,7 @@
     "status": null,
     "template_parameter": false,
     "uid": "StudyDay_000001",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 0.0,
     "version": null
   },
@@ -203,7 +203,7 @@
     "status": null,
     "template_parameter": false,
     "uid": "StudyDay_000002",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 7.0,
     "version": null
   }

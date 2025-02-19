@@ -417,12 +417,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFItemGroups.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFItemGroups.alias_details') },
       ],
@@ -431,12 +429,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFItemGroups.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFItemGroups.alias_details') },
         { name: 'change_description', title: this.$t('CRFForms.change_desc') },
@@ -730,10 +726,10 @@ export default {
       let elements = []
       let attributes = []
       let eleAttributes = []
-      this.selectedExtensions = this.selectedExtensions.filter(ex => {
+      this.selectedExtensions = this.selectedExtensions.filter((ex) => {
         return ex.library_name
       })
-      this.selectedExtensions.forEach(ex => {
+      this.selectedExtensions.forEach((ex) => {
         if (ex.type) {
           attributes.push(ex)
         } else {
@@ -767,6 +763,7 @@ export default {
       const descArray = []
       this.desc.forEach((e) => {
         if (e.uid) {
+          e.change_description = this.$t('CRFItemGroups.description_change_description')
           descArray.push(e)
         } else {
           e.library_name = libraries.LIBRARY_SPONSOR
@@ -776,6 +773,7 @@ export default {
       if (!this.engDescription.name) {
         this.engDescription.name = this.form.name
       }
+      this.engDescription.change_description = this.$t('CRFItemGroups.description_change_description')
       descArray.push(this.engDescription)
       this.form.descriptions = descArray
     },
@@ -792,8 +790,12 @@ export default {
       this.desc = item.descriptions.filter(
         (el) => el.language !== parameters.ENG
       )
-      item.vendor_attributes.forEach(attr => attr.type = 'attr')
-      this.selectedExtensions = [...item.vendor_attributes, ...item.vendor_element_attributes, ...item.vendor_elements]
+      item.vendor_attributes.forEach((attr) => (attr.type = 'attr'))
+      this.selectedExtensions = [
+        ...item.vendor_attributes,
+        ...item.vendor_element_attributes,
+        ...item.vendor_elements,
+      ]
     },
     getAliasDisplay(item) {
       return `${item.context} - ${item.name}`

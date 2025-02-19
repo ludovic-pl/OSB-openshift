@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "~=2.27"
+requests = "*"
 neo4j = "~=4.4"
 
 [dev-packages]
@@ -12,7 +12,7 @@ pylint = "*"
 black = "*"
 
 [requires]
-python_version = "3.11"
+python_version = "3.13.0"
 
 [scripts]
 init_neo4j = "python init_neo4j.py"

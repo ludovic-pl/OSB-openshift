@@ -24,10 +24,11 @@ class StudyDiseaseMilestoneVO:
     order: int
     status: StudyStatus
     start_date: datetime.datetime
-    author: str
+    author_id: str
+    author_username: str
     disease_milestone_type: str
     disease_milestone_type_definition: str
-    disease_milestone_type_named: str
+    disease_milestone_type_name: str
     accepted_version: bool = False
     uid: str | None = None
 

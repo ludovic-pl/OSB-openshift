@@ -16,11 +16,14 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.domain_repositories.template_parameters.complex_parameter import (
     ComplexTemplateParameterRepository,
 )
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionEndpointInput,
 )
@@ -34,28 +37,28 @@ from clinical_mdr_api.services.studies.study_endpoint_selection import (
     StudyEndpointSelectionService,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 endpoints: list[Endpoint]
 endpoint_template: EndpointTemplate
-ct_term_inclusion: models.CTTerm
-dictionary_term_indication: models.DictionaryTerm
-ct_term_category: models.CTTerm
-ct_term_subcategory: models.CTTerm
-indications_codelist: models.DictionaryCodelist
+ct_term_inclusion: CTTerm
+dictionary_term_indication: DictionaryTerm
+ct_term_category: CTTerm
+ct_term_subcategory: CTTerm
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-text_value_1: models.TextValue
-text_value_2: models.TextValue
+text_value_1: TextValue
+text_value_2: TextValue
 endpoint_template_operator: EndpointTemplate
 endpoints_with_operator: list[Endpoint]
-operator_parameter_terms: models.TextValue
+operator_parameter_terms: TextValue
 
 URL = "endpoints"
 
@@ -293,8 +296,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 ENDPOINT_FIELDS_ALL = [
     "name",
@@ -305,7 +306,7 @@ ENDPOINT_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameter_terms",
     "library",
@@ -325,7 +326,7 @@ def test_operator_parameter(api_client):
         f"endpoint-templates/{endpoint_template_operator.uid}/parameters"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res[0]["terms"]) == 2
     assert res[0]["terms"][0]["name"] == "<"
     assert res[0]["terms"][1]["name"] == ">"
@@ -333,7 +334,7 @@ def test_operator_parameter(api_client):
     response = api_client.get(f"{URL}/{endpoints_with_operator[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == endpoints_with_operator[0].uid
     assert res["name"] == f"Default name with [{operator_parameter_terms[0]['name']}]"
@@ -357,7 +358,7 @@ def test_operator_parameter(api_client):
     response = api_client.get(f"{URL}/{endpoints_with_operator[1].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == endpoints_with_operator[1].uid
     assert res["name"] == f"Default name with [{operator_parameter_terms[1]['name']}]"
@@ -383,7 +384,7 @@ def test_get_endpoint(api_client):
     response = api_client.get(f"{URL}/{endpoints[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(ENDPOINT_FIELDS_ALL)
@@ -467,7 +468,7 @@ def test_get_endpoints(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -503,7 +504,7 @@ def test_get_all_parameters_of_endpoint(api_client):
     response = api_client.get(f"{URL}/{endpoints[0].uid}/parameters")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["name"] == "TextValue"
     assert len(res[0]["terms"]) == 26
@@ -513,7 +514,7 @@ def test_get_versions_of_endpoint(api_client):
     response = api_client.get(f"{URL}/{endpoints[1].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == endpoints[1].uid
@@ -542,7 +543,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -565,7 +566,7 @@ def test_filtering_exact(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -587,10 +588,10 @@ def test_filtering_exact(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for endpoint in endpoints:
         value = getattr(endpoint, field_name)
@@ -610,7 +611,7 @@ def test_get_studies_of_endpoint(api_client):
     response = api_client.get(f"{URL}/{endpoints[0].uid}/studies")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["uid"] == "Study_000001"
 
@@ -639,7 +640,7 @@ def test_create_endpoint(api_client):
     res = response.json()
     log.info("Created Endpoint: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value.name_sentence_case}]"
     assert res["template"]["uid"] == endpoint_template.uid
@@ -694,7 +695,7 @@ def test_keep_original_case_of_unit_definition_parameter_if_it_is_in_the_start_o
     res = response.json()
     log.info("Created Endpoint: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["name"] == f"[{_unit.name}] test ignore case"
 
 
@@ -720,7 +721,7 @@ def test_update_endpoint(api_client):
     res = response.json()
     log.info("Updated Endpoint: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value_2.name_sentence_case}]"
     assert res["template"]["uid"] == endpoint_template.uid
@@ -741,14 +742,14 @@ def test_delete_endpoint(api_client):
     response = api_client.delete(f"{URL}/{endpoints[2].uid}")
     log.info("Deleted Endpoint: %s", endpoints[2].uid)
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_endpoint(api_client):
     response = api_client.post(f"{URL}/{endpoints[3].uid}/approvals")
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == endpoints[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
@@ -758,7 +759,7 @@ def test_inactivate_endpoint(api_client):
     response = api_client.delete(f"{URL}/{endpoints[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == endpoints[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Retired"
@@ -768,7 +769,7 @@ def test_reactivate_endpoint(api_client):
     response = api_client.post(f"{URL}/{endpoints[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == endpoints[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
@@ -798,7 +799,7 @@ def test_preview_endpoint(api_client):
     res = response.json()
     log.info("Previewed Endpoint: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value.name_sentence_case}]"
     assert res["template"]["uid"] == endpoint_template.uid
@@ -820,7 +821,7 @@ def test_endpoint_audit_trail(api_client):
     res = response.json()
     log.info("Endpoint Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 44
     expected_uids = [
         "Endpoint_000025",
@@ -891,7 +892,7 @@ def test_change_parameter_numbers_of_endpoint_after_approval(
     res = response.json()
     log.info("Changed Endpoint parameter numbers: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res["parameter_terms"][0]["terms"]
 
 
@@ -915,7 +916,7 @@ def test_cannot_update_endpoint_without_change_description(api_client):
     res = response.json()
     log.info("Didn't Update Endpoint: %s", res)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert res["detail"] == [
         {
             "loc": ["body", "change_description"],
@@ -941,8 +942,8 @@ def test_cannot_update_endpoint_in_final_status(api_client):
     res = response.json()
     log.info("Didn't Update Endpoint: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == "The object is not in draft status."
+    assert_response_status_code(response, 400)
+    assert res["message"] == "The object isn't in draft status."
 
 
 def test_cannot_add_wrong_parameters(
@@ -970,7 +971,7 @@ def test_cannot_add_wrong_parameters(
     res = response.json()
     log.info("Didn't change Endpoint parameters: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert (
         res["message"]
         == "One or more of the specified template parameters can not be found."

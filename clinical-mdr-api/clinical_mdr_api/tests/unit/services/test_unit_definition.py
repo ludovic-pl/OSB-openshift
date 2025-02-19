@@ -20,9 +20,6 @@ from clinical_mdr_api.domain_repositories.concepts.unit_definitions.unit_definit
 from clinical_mdr_api.domain_repositories.libraries.library_repository import (
     LibraryRepository,
 )
-
-# noinspection PyProtectedMember
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
     CONCENTRATION_UNIT_DIMENSION_VALUE,
     UnitDefinitionAR,
@@ -30,7 +27,6 @@ from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
 )
 from clinical_mdr_api.domains.libraries.library_ar import LibraryAR
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionModel,
     UnitDefinitionPatchInput,
@@ -54,6 +50,14 @@ from clinical_mdr_api.tests.unit.domain.unit_definition.test_unit_definition imp
 from clinical_mdr_api.tests.utils.common_strategies import (
     strings_with_at_least_one_non_space_char,
     stripped_non_empty_strings,
+)
+
+# noinspection PyProtectedMember
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    NotFoundException,
 )
 
 
@@ -120,7 +124,7 @@ class UnitDefinitionRepositoryFakeBase(UnitDefinitionRepository):
         self.saved_item = item
 
     @property
-    def user_initials(self) -> str | None:
+    def author_id(self) -> str | None:
         raise AssertionError("Call not expected")
 
     def generate_uid_callback(self) -> str | None:
@@ -404,9 +408,10 @@ def unit_definition_post_inputs(draw):
         master_unit=unit_definition_value.master_unit,
         si_unit=unit_definition_value.si_unit,
         us_conventional_unit=unit_definition_value.us_conventional_unit,
+        use_complex_unit_conversion=unit_definition_value.use_complex_unit_conversion,
         unit_dimension=unit_definition_value.unit_dimension_uid,
         legacy_code=unit_definition_value.legacy_code,
-        molecular_weight_conv_expon=unit_definition_value.molecular_weight_conv_expon,
+        use_molecular_weight=unit_definition_value.use_molecular_weight,
         library_name=draw(stripped_non_empty_strings()),
         conversion_factor_to_master=unit_definition_value.conversion_factor_to_master,
         ucum=unit_definition_value.ucum_uid,
@@ -487,9 +492,10 @@ def test__unit_definition_service__post__result(
         master_unit=unit_definition_post_input.master_unit,
         si_unit=unit_definition_post_input.si_unit,
         us_conventional_unit=unit_definition_post_input.us_conventional_unit,
+        use_complex_unit_conversion=unit_definition_post_input.use_complex_unit_conversion,
         unit_dimension_uid=unit_definition_post_input.unit_dimension,
         legacy_code=unit_definition_post_input.legacy_code,
-        molecular_weight_conv_expon=unit_definition_post_input.molecular_weight_conv_expon,
+        use_molecular_weight=unit_definition_post_input.use_molecular_weight,
         conversion_factor_to_master=unit_definition_post_input.conversion_factor_to_master,
         unit_ct_uid_exists_callback=lambda _: True,
         ucum_uid_exists_callback=lambda _: True,
@@ -587,7 +593,7 @@ def test__unit_definition_service__post_with_non_unique_name__result(
     service = UnitDefinitionService(meta_repository=MetaRepository())
 
     # when
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         service.post(unit_definition_post_input)
 
     # then
@@ -655,7 +661,7 @@ def test__unit_definition_service__post_with_non_unique_legacy_code__result(
     service = UnitDefinitionService(meta_repository=MetaRepository())
 
     # when
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         service.post(unit_definition_post_input)
 
     # then
@@ -1006,9 +1012,10 @@ def unit_definition_patch_inputs(draw):
     use_master_unit = draw(booleans())
     use_si_unit = draw(booleans())
     use_us_conventional_unit = draw(booleans())
+    use_needs_complex_unit_conversion_to_master = draw(booleans())
     use_unit_dimension = draw(booleans())
     use_legacy_code = draw(booleans())
-    use_molecular_weight_conv_expon = draw(booleans())
+    use_use_molecular_weight = draw(booleans())
     use_conversion_factor_to_master = draw(booleans())
     use_name = draw(booleans())
 
@@ -1022,11 +1029,12 @@ def unit_definition_patch_inputs(draw):
     master_unit: bool = unit_definition_value.master_unit
     si_unit: bool = unit_definition_value.si_unit
     us_conventional_unit: bool = unit_definition_value.us_conventional_unit
+    use_complex_unit_conversion: bool = (
+        unit_definition_value.use_complex_unit_conversion
+    )
     unit_dimension: str | None = unit_definition_value.unit_dimension_uid
     legacy_code: str | None = unit_definition_value.legacy_code
-    molecular_weight_conv_expon: int | None = (
-        unit_definition_value.molecular_weight_conv_expon
-    )
+    use_molecular_weight: bool | None = unit_definition_value.use_molecular_weight
     conversion_factor_to_master: float | None = (
         unit_definition_value.conversion_factor_to_master
     )
@@ -1050,16 +1058,18 @@ def unit_definition_patch_inputs(draw):
         result["si_unit"] = si_unit
     if use_us_conventional_unit:
         result["us_conventional_unit"] = us_conventional_unit
+    if use_needs_complex_unit_conversion_to_master:
+        result["use_complex_unit_conversion"] = use_complex_unit_conversion
     if use_unit_dimension or (
-        use_molecular_weight_conv_expon and molecular_weight_conv_expon is None
+        use_use_molecular_weight and use_molecular_weight is None
     ):
         result["unit_dimension"] = unit_dimension
     if use_legacy_code:
         result["legacy_code"] = legacy_code
-    if use_molecular_weight_conv_expon or (
+    if use_use_molecular_weight or (
         use_unit_dimension and unit_dimension == CONCENTRATION_UNIT_DIMENSION_VALUE
     ):
-        result["molecular_weight_conv_expon"] = molecular_weight_conv_expon
+        result["use_molecular_weight"] = use_molecular_weight
     if use_conversion_factor_to_master or use_master_unit:
         result["conversion_factor_to_master"] = conversion_factor_to_master
     if use_name:
@@ -1235,7 +1245,7 @@ def test__unit_definition_service__patch_to_non_unique_name__result(
     service = UnitDefinitionService(meta_repository=MetaRepository())
 
     # then
-    with pytest.raises(BusinessLogicException):
+    with pytest.raises(AlreadyExistsException):
         # when
         service.patch(
             uid=unit_definition_ar.uid, patch_input=unit_definition_patch_input

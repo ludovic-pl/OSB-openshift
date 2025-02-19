@@ -39,7 +39,7 @@ The high-level entry point to one specific import of an effective date.
 - Properties:
     - `effective_date: Date` - The CDISC effective date. 
     - `import_date_time: DateTime` - The date and time when the import was executed.
-    - `user_initials: String` - The initials of the user that triggered the import.
+    - `author_id: String` - The ID of the user that triggered the import.
     - `automatic_resolution_done: Boolean` - Denotes whether or not the automatic resolution of inconsistencies was run for that import.
 
 
@@ -88,7 +88,7 @@ The two labels `Inconsistency` and `ResolvedInconsistency` are mutual exclusive.
     - `message: String` - The log message itself with an explanation of why we think
   there is an unexpected value or even an inconsistency. See the section [Inconsistencies](#inconsistencies) for details.
     - `comment: String` - Either the standard message from the automatic resolution step or a user comment provided e.g. via the Admin UI.
-    - `user_initials: String` - The standard initials from the automatic resolution step or the initials of the user that resolved the inconsistency.
+    - `author_id: String` - The standard user ID from the automatic resolution step or the ID of the user that resolved the inconsistency.
 - Relationships:
     - `HAS (Incoming, 1)`: An `Inconsistency` node is always connected to the corresponding `Import` node **and** one of the following nodes (depending on which level the inconsistency was introduced): `Package` node **or** `Codelist` node **or** `Term` node.
     Although an inconsistency may affect multiple levels (e.g. a codelist and multiple packages), the connection to the higher concept is not explicitly stored on the `Inconsistency` nodes.

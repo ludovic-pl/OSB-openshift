@@ -1,6 +1,6 @@
 from neomodel import db
 
-from clinical_mdr_api.exceptions import NotFoundException
+from common.exceptions import NotFoundException
 
 
 class MetadataRepository:
@@ -146,10 +146,7 @@ class MetadataRepository:
         )
         result, _ = db.cypher_query(query, {"target_uid": target_uid})
 
-        if result[0][1] == 0:
-            raise NotFoundException(
-                f"ODM Study Event with uid {target_uid} does not exist."
-            )
+        NotFoundException.raise_if(result[0][1] == 0, "ODM Study Event", target_uid)
 
         return result[0][0]
 
@@ -195,8 +192,7 @@ class MetadataRepository:
         )
         result, _ = db.cypher_query(query, {"target_uid": target_uid})
 
-        if result[0][1] == 0:
-            raise NotFoundException(f"ODM Form with uid {target_uid} does not exist.")
+        NotFoundException.raise_if(result[0][1] == 0, "ODM Form", target_uid)
 
         return result[0][0]
 
@@ -239,10 +235,7 @@ class MetadataRepository:
         )
         result, _ = db.cypher_query(query, {"target_uid": target_uid})
 
-        if result[0][1] == 0:
-            raise NotFoundException(
-                f"ODM Item Group with uid {target_uid} does not exist."
-            )
+        NotFoundException.raise_if(result[0][1] == 0, "ODM Item Group", target_uid)
 
         return result[0][0]
 
@@ -281,7 +274,6 @@ class MetadataRepository:
         )
         result, _ = db.cypher_query(query, {"target_uid": target_uid})
 
-        if result[0][1] == 0:
-            raise NotFoundException(f"ODM Item with uid {target_uid} does not exist.")
+        NotFoundException.raise_if(result[0][1] == 0, "ODM Item", target_uid)
 
         return result[0][0]

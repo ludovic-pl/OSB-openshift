@@ -2,14 +2,13 @@ from typing import Any
 
 from fastapi import UploadFile
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.models import (
-    OdmFormPostInput,
-    OdmItemGroupPostInput,
+from clinical_mdr_api.models.concepts.odms.odm_form import OdmFormPostInput
+from clinical_mdr_api.models.concepts.odms.odm_item import (
     OdmItemPostInput,
     OdmItemTermRelationshipInput,
     OdmItemUnitDefinitionRelationshipInput,
 )
+from clinical_mdr_api.models.concepts.odms.odm_item_group import OdmItemGroupPostInput
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionModel,
 )
@@ -36,6 +35,7 @@ from clinical_mdr_api.services.controlled_terminologies.ct_term import CTTermSer
 from clinical_mdr_api.services.controlled_terminologies.ct_term_name import (
     CTTermNameService,
 )
+from common import exceptions
 
 
 class OdmClinicalXmlImporterService(OdmXmlImporterService):
@@ -82,10 +82,10 @@ class OdmClinicalXmlImporterService(OdmXmlImporterService):
 
         non_existent_measurement_unit_names = measurement_unit_names - rs_names
 
-        if non_existent_measurement_unit_names:
-            raise exceptions.BusinessLogicException(
-                f"MeasurementUnits identified by following names {non_existent_measurement_unit_names} don't match any Unit Definition."
-            )
+        exceptions.BusinessLogicException.raise_if(
+            non_existent_measurement_unit_names,
+            msg=f"MeasurementUnits with Names '{non_existent_measurement_unit_names}' don't match any Unit Definition.",
+        )
 
         self.db_unit_definitions = [
             UnitDefinitionModel.from_unit_definition_ar(
@@ -266,8 +266,8 @@ class OdmClinicalXmlImporterService(OdmXmlImporterService):
                     == db_ct_codelist_attribute.submission_value
                 )
             except StopIteration as exc:
-                raise exceptions.BusinessLogicException(
-                    f"Codelist identified by ({codelist.getAttribute('OID')}) not found."
+                raise exceptions.NotFoundException(
+                    "Codelist", codelist.getAttribute("OID"), "OID"
                 ) from exc
 
             for idx, codelist_item in enumerate(
@@ -296,7 +296,7 @@ class OdmClinicalXmlImporterService(OdmXmlImporterService):
             )
         except Exception as exc:
             raise exceptions.BusinessLogicException(
-                f"Code Submission Value not provided for codelist identified by OID ({codelist.getAttribute('OID')})"
+                msg=f"Code Submission Value not provided for Codelist with OID '{codelist.getAttribute('OID')}'."
             ) from exc
 
     def _get_item_unit_definition_inputs(self, item_def):
@@ -315,7 +315,7 @@ class OdmClinicalXmlImporterService(OdmXmlImporterService):
             ]
         except KeyError as exc:
             raise exceptions.BusinessLogicException(
-                f"MeasurementUnit with OID ({exc}) was not provided."
+                msg=f"MeasurementUnit with OID '{exc}' was not provided."
             )
 
     def _get_odm_item_post_input(self, item_def):
@@ -376,9 +376,11 @@ class OdmClinicalXmlImporterService(OdmXmlImporterService):
                 ),
                 prompt=item_def.getAttribute("Prompt"),
                 datatype=item_def.getAttribute("DataType"),
-                length=int(item_def.getAttribute("Length"))
-                if item_def.getAttribute("Length")
-                else None,
+                length=(
+                    int(item_def.getAttribute("Length"))
+                    if item_def.getAttribute("Length")
+                    else None
+                ),
                 significant_digits=None,
                 sas_field_name=item_def.getAttribute("SASFieldName"),
                 sds_var_name=item_def.getAttribute("SDSVarName"),

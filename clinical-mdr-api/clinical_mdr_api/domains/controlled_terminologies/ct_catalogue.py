@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.utils import normalize_string
 
 
 @dataclass

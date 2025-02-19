@@ -2,11 +2,8 @@ import logging
 
 import pytest
 
-from clinical_mdr_api.oauth.config import OAUTH_ENABLED
-from clinical_mdr_api.oauth.dependencies import (
-    dummy_access_token_claims,
-    dummy_auth_object,
-)
+from common.auth.config import OAUTH_ENABLED
+from common.auth.dependencies import dummy_access_token_claims, dummy_auth_object
 
 __all__ = ["mock_auth_context"]
 

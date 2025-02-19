@@ -18,7 +18,7 @@
             "start_date": "2022-05-23T11:47:27.782259",
             "status": "Final",
             "term_uid": null,
-            "user_initials": "unknown-user",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "catalogue_name": "SDTM CT",
@@ -40,7 +40,7 @@
             "start_date": "2022-05-23T11:47:27.560583",
             "status": "Final",
             "term_uid": null,
-            "user_initials": "unknown-user",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "term_uid": "CTTerm_000031"
@@ -72,7 +72,7 @@
         "start_date": "2022-05-23T11:41:26.331204",
         "status": "Final",
         "term_uid": "DictionaryTerm_000037",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
     }],
     "library": {
@@ -107,7 +107,7 @@
             "start_date": "2014-09-26T00:00:00",
             "status": "Final",
             "term_uid": null,
-            "user_initials": "TEST",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "catalogue_name": "SDTM CT",
@@ -129,12 +129,12 @@
             "start_date": "2022-03-28T07:20:35.791000",
             "status": "Final",
             "term_uid": null,
-            "user_initials": "TEST",
+            "author_username": "unknown-user@example.com",
             "version": "1.0"
         },
         "term_uid": "C25532_INCLUSION"
     },
     "uid": "CriteriaTemplate_000001",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
 }]

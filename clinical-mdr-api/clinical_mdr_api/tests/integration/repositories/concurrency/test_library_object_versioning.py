@@ -2,7 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api.domains._utils import strip_html
 from clinical_mdr_api.domains.libraries.object import (
     ParameterTermEntryVO,
     ParametrizedTemplateVO,
@@ -12,15 +11,14 @@ from clinical_mdr_api.domains.syntax_templates.objective_template import (
     ObjectiveTemplateAR,
 )
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryVO,
-    VersioningException,
-)
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.tests.integration.repositories.concurrency.tools.optimistic_locking_validator import (
     OptimisticLockingValidator,
 )
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
+from clinical_mdr_api.utils import strip_html
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
@@ -35,7 +33,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
     _repos = MetaRepository()
 
     library_name = "Sponsor"
-    user_initials = "TEST"
+    author_id = "TEST"
     template_name = "Example Template"
     parameter_terms: list[ParameterTermEntryVO] = []
 
@@ -72,7 +70,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         objective_template_ar = ObjectiveTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(lambda: self.template_uid),
@@ -85,7 +83,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             objective_template_ar = self.template_repository.find_by_uid(
                 self.template_uid, for_update=True
             )
-            objective_template_ar.approve(author=self.user_initials)
+            objective_template_ar.approve(author_id=self.author_id)
             self.template_repository.save(objective_template_ar)
         parameterized_template_vo = (
             ParametrizedTemplateVO.from_name_and_parameter_terms(
@@ -107,7 +105,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         self.object_ar = ObjectiveAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=parameterized_template_vo,
             library=library_vo,
         )
@@ -115,73 +113,73 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
 
     def test_soft_delete_objective_aborted_on_approval(self):
         self.set_up_base_graph_for_objectives()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.approve_object_without_save,
                 concurrent_operation=self.soft_delete_object_with_save,
                 main_operation_after=self.save_object,
             )
-        self.assertEqual("Object has been accepted", str(message.exception))
+        self.assertEqual("Object has been accepted", message.exception.msg)
 
     def test_approve_objective_aborted_on_soft_delete(self):
         self.set_up_base_graph_for_objectives()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(NotFoundException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.soft_delete_object_with_save,
                 concurrent_operation=self.approve_object_with_save,
                 main_operation_after=self.save_object,
             )
         self.assertEqual(
-            "Object labels were changed - likely the object was deleted in a concurrent transaction.",
-            str(message.exception),
+            "Resource doesn't exist - it was likely deleted in a concurrent transaction.",
+            message.exception.msg,
         )
 
     def test_edit_objective_aborted_on_approval(self):
         self.set_up_base_graph_for_objectives()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.approve_object_without_save,
                 concurrent_operation=self.edit_object_with_save,
                 main_operation_after=self.save_object,
             )
-        self.assertEqual("The object is not in draft status.", str(message.exception))
+        self.assertEqual("The object isn't in draft status.", message.exception.msg)
 
     def test_edit_objective_aborted_on_soft_delete(self):
         self.set_up_base_graph_for_objectives()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(NotFoundException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.soft_delete_object_with_save,
                 concurrent_operation=self.edit_object_with_save,
                 main_operation_after=self.save_object,
             )
         self.assertEqual(
-            "Object labels were changed - likely the object was deleted in a concurrent transaction.",
-            str(message.exception),
+            "Resource doesn't exist - it was likely deleted in a concurrent transaction.",
+            message.exception.msg,
         )
 
     def test_inactivate_aborted_on_new_version(self):
         self.set_up_base_graph_for_objectives()
         with db.transaction:
             self.approve_object_with_save()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.new_version_without_save,
                 concurrent_operation=self.inactivate_object_with_save,
                 main_operation_after=self.save_object,
             )
-        self.assertEqual("Cannot retire draft version.", str(message.exception))
+        self.assertEqual("Cannot retire draft version.", message.exception.msg)
 
     def test_new_version_aborted_on_inactivate(self):
         self.set_up_base_graph_for_objectives()
         with db.transaction:
             self.approve_object_with_save()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.inactivate_object_without_save,
                 concurrent_operation=self.new_version_with_save,
                 main_operation_after=self.save_object,
             )
-        self.assertEqual("Cannot create new Draft version", str(message.exception))
+        self.assertEqual("Cannot create new Draft version", message.exception.msg)
 
     def test_new_version_aborted_on_reactivate(self):
         self.set_up_base_graph_for_objectives()
@@ -189,14 +187,14 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             self.approve_object_with_save()
         with db.transaction:
             self.inactivate_object_with_save()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.reactivate_object_without_save,
                 concurrent_operation=self.new_version_with_save,
                 main_operation_after=self.save_object,
             )
         self.assertEqual(
-            "Only RETIRED version can be reactivated.", str(message.exception)
+            "Only RETIRED version can be reactivated.", message.exception.msg
         )
 
     def test_reactivate_aborted_on_new_version(self):
@@ -205,26 +203,26 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             self.approve_object_with_save()
         with db.transaction:
             self.inactivate_object_with_save()
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.new_version_without_save,
                 concurrent_operation=self.reactivate_object_with_save,
                 main_operation_after=self.save_object,
             )
         self.assertEqual(
-            "Only RETIRED version can be reactivated.", str(message.exception)
+            "Only RETIRED version can be reactivated.", message.exception.msg
         )
 
     # Helper functions to be used by the locking validator:
 
     def approve_object_without_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.approve(author=self.user_initials, change_description="APPROVED!")
+        object_ar.approve(author_id=self.author_id, change_description="APPROVED!")
         self.object_ar = object_ar
 
     def approve_object_with_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.approve(author=self.user_initials, change_description="APPROVED!")
+        object_ar.approve(author_id=self.author_id, change_description="APPROVED!")
         self.object_repository.save(object_ar)
 
     def soft_delete_object_with_save(self):
@@ -235,7 +233,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
     def edit_object_with_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
         object_ar.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description="Edited",
             template=self.parameterized_template_vo_to_edit,
         )
@@ -243,44 +241,36 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
 
     def inactivate_object_without_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.inactivate(
-            author=self.user_initials, change_description="Inactivated"
-        )
+        object_ar.inactivate(author_id=self.author_id, change_description="Inactivated")
         self.object_ar = object_ar
 
     def inactivate_object_with_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.inactivate(
-            author=self.user_initials, change_description="Inactivated"
-        )
+        object_ar.inactivate(author_id=self.author_id, change_description="Inactivated")
         self.object_repository.save(self.object_ar)
 
     def new_version_without_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
         object_ar._create_new_version(
-            author=self.user_initials, change_description="New Draft"
+            author_id=self.author_id, change_description="New Draft"
         )
         self.object_ar = object_ar
 
     def new_version_with_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
         object_ar._create_new_version(
-            author=self.user_initials, change_description="New Draft"
+            author_id=self.author_id, change_description="New Draft"
         )
         self.object_repository.save(self.object_ar)
 
     def reactivate_object_without_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.reactivate(
-            author=self.user_initials, change_description="Reactivated"
-        )
+        object_ar.reactivate(author_id=self.author_id, change_description="Reactivated")
         self.object_ar = object_ar
 
     def reactivate_object_with_save(self):
         object_ar = self.object_repository.find_by_uid(self.object_uid, for_update=True)
-        object_ar.reactivate(
-            author=self.user_initials, change_description="Reactivated"
-        )
+        object_ar.reactivate(author_id=self.author_id, change_description="Reactivated")
         self.object_repository.save(self.object_ar)
 
     def save_object(self):

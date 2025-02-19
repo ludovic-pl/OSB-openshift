@@ -1,6 +1,6 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field, validator
 
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
 from clinical_mdr_api.domains.concepts.odms.description import OdmDescriptionAR
@@ -10,13 +10,15 @@ from clinical_mdr_api.models.concepts.concept import (
     ConceptPostInput,
 )
 from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.utils import BaseModel, BatchInputModel
+from clinical_mdr_api.models.validators import is_language_supported
 
 
 class OdmDescription(ConceptModel):
     language: str
-    description: str | None = Field(None, nullable=True)
-    instruction: str | None = Field(None, nullable=True)
-    sponsor_instruction: str | None = Field(None, nullable=True)
+    description: Annotated[str | None, Field(nullable=True)] = None
+    instruction: Annotated[str | None, Field(nullable=True)] = None
+    sponsor_instruction: Annotated[str | None, Field(nullable=True)] = None
     possible_actions: list[str]
 
     @classmethod
@@ -34,7 +36,7 @@ class OdmDescription(ConceptModel):
             status=odm_description_ar.item_metadata.status.value,
             version=odm_description_ar.item_metadata.version,
             change_description=odm_description_ar.item_metadata.change_description,
-            user_initials=odm_description_ar.item_metadata.user_initials,
+            author_username=odm_description_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in odm_description_ar.get_possible_actions()]
             ),
@@ -75,52 +77,53 @@ class OdmDescriptionSimpleModel(BaseModel):
             simple_odm_description_model = None
         return simple_odm_description_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="", nullable=True)
-    language: str | None = Field(None, title="language", description="", nullable=True)
-    description: str | None = Field(
-        None, title="description", description="", nullable=True
-    )
-    instruction: str | None = Field(
-        None, title="instruction", description="", nullable=True
-    )
-    sponsor_instruction: str | None = Field(
-        None, title="sponsor_instruction", description="", nullable=True
-    )
-    version: str | None = Field(None, title="version", description="", nullable=True)
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    language: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    instruction: Annotated[str | None, Field(nullable=True)] = None
+    sponsor_instruction: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmDescriptionPostInput(ConceptPostInput):
-    language: str
-    description: str | None
-    instruction: str | None
-    sponsor_instruction: str | None
+    language: Annotated[str, Field(min_length=1)]
+    description: Annotated[str | None, Field(min_length=1)]
+    instruction: Annotated[str | None, Field(min_length=1)]
+    sponsor_instruction: Annotated[str | None, Field(min_length=1)]
+
+    _date_validator = validator("language", allow_reuse=True)(is_language_supported)
 
 
 class OdmDescriptionPatchInput(ConceptPatchInput):
-    language: str | None
-    description: str | None
-    instruction: str | None
-    sponsor_instruction: str | None
+    language: Annotated[str | None, Field(min_length=1)]
+    description: Annotated[str | None, Field(min_length=1)]
+    instruction: Annotated[str | None, Field(min_length=1)]
+    sponsor_instruction: Annotated[str | None, Field(min_length=1)]
+
+    _date_validator = validator("language", allow_reuse=True)(is_language_supported)
 
 
-class OdmDescriptionBatchPatchInput(OdmDescriptionPatchInput):
-    uid: str
+class OdmDescriptionBatchPatchInput(ConceptPatchInput):
+    uid: Annotated[str, Field(min_length=1)]
+    language: Annotated[str | None, Field(min_length=1)]
+    description: Annotated[str | None, Field(min_length=1)]
+    instruction: Annotated[str | None, Field(min_length=1)]
+    sponsor_instruction: Annotated[str | None, Field(min_length=1)]
 
 
-class OdmDescriptionBatchInput(BaseModel):
-    method: str = Field(
-        ..., title="method", description="HTTP method corresponding to operation type"
-    )
+class OdmDescriptionBatchInput(BatchInputModel):
+    method: Annotated[
+        str,
+        Field(description="HTTP method corresponding to operation type", min_length=1),
+    ]
     content: OdmDescriptionBatchPatchInput | OdmDescriptionPostInput
 
 
 class OdmDescriptionBatchOutput(BaseModel):
-    response_code: int = Field(
-        ...,
-        title="response_code",
-        description="The HTTP response code related to input operation",
-    )
+    response_code: Annotated[
+        int, Field(description="The HTTP response code related to input operation")
+    ]
     content: OdmDescription | None | BatchErrorResponse
 
 
@@ -129,11 +132,13 @@ class OdmDescriptionVersion(OdmDescription):
     Class for storing OdmDescription and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

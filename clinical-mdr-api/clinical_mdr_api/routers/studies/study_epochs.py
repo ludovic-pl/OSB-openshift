@@ -1,29 +1,25 @@
 from datetime import date
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Body, Path, Query, Request, Response, status
 from pydantic.types import Json
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections import study_epoch
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.services.studies.study_epoch import StudyEpochService
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
-studyUID = Path(None, description="The unique id of the study.")
+studyUID = Path(description="The unique id of the study.")
 
-study_epoch_uid_description = Path(
-    None, description="The unique id of the study epoch."
-)
+study_epoch_uid_description = Path(description="The unique id of the study epoch.")
 
-study_visit_uid_description = Path(
-    None, description="The unique id of the study visit."
-)
+study_visit_uid_description = Path(description="The unique id of the study visit.")
 
 
 """
@@ -90,27 +86,37 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> CustomPage[study_epoch.StudyEpoch]:
     service = StudyEpochService(
         study_uid=study_uid, study_value_version=study_value_version
@@ -152,20 +158,29 @@ def get_all(
     },
 )
 def get_distinct_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyEpochService(
         study_uid=study_uid, study_value_version=study_value_version
@@ -176,7 +191,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -217,9 +232,11 @@ Possible errors:
 )
 # pylint: disable=unused-argument
 def get_study_epoch(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = study_epoch_uid_description,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[str, study_epoch_uid_description],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> study_epoch.StudyEpoch:
     service = StudyEpochService(
         study_uid=study_uid, study_value_version=study_value_version
@@ -261,8 +278,8 @@ Possible errors:
     },
 )
 def get_study_epoch_audit_trail(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = study_epoch_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[str, study_epoch_uid_description],
 ) -> list[study_epoch.StudyEpochVersion]:
     service = StudyEpochService(study_uid=study_uid)
     return service.audit_trail(study_uid=study_uid, epoch_uid=study_epoch_uid)
@@ -298,7 +315,7 @@ Possible errors:
     },
 )
 def get_study_epochs_all_audit_trail(
-    study_uid: str = studyUID,
+    study_uid: Annotated[str, studyUID],
 ) -> list[study_epoch.StudyEpochVersion]:
     service = StudyEpochService(study_uid=study_uid)
     return service.audit_trail_all_epochs(study_uid)
@@ -340,10 +357,11 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_epoch_create(
-    study_uid: str = studyUID,
-    selection: study_epoch.StudyEpochCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        study_epoch.StudyEpochCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_epoch.StudyEpoch:
     service = StudyEpochService(study_uid=study_uid)
     return service.create(study_uid=study_uid, study_epoch_input=selection)
@@ -366,10 +384,11 @@ def post_new_epoch_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_preview_epoch(
-    study_uid: str = studyUID,
-    selection: study_epoch.StudyEpochCreateInput = Body(
-        description="Related parameters of the epoch that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        study_epoch.StudyEpochCreateInput,
+        Body(description="Related parameters of the epoch that shall be created."),
+    ],
 ) -> study_epoch.StudyEpoch:
     service = StudyEpochService(study_uid=study_uid)
     return service.preview(study_uid=study_uid, study_epoch_input=selection)
@@ -402,15 +421,15 @@ Possible errors:
         204: {"description": "No Content - The selection was successfully deleted."},
         404: {
             "model": ErrorResponse,
-            "description": "Not Found - the study or epoch does not exist.",
+            "description": "Not Found - the study or epoch doesn't exist.",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_study_epoch(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = study_epoch_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[str, study_epoch_uid_description],
 ):
     service = StudyEpochService(study_uid=study_uid)
 
@@ -462,8 +481,8 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def patch_reorder(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = study_epoch_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[str, study_epoch_uid_description],
     new_order: int = 0,
 ) -> study_epoch.StudyEpoch:
     service = StudyEpochService(study_uid=study_uid)
@@ -507,11 +526,12 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def patch_update_epoch(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = study_epoch_uid_description,
-    selection: study_epoch.StudyEpochEditInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[str, study_epoch_uid_description],
+    selection: Annotated[
+        study_epoch.StudyEpochEditInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_epoch.StudyEpoch:
     service = StudyEpochService(study_uid=study_uid)
     return service.edit(
@@ -534,12 +554,14 @@ def patch_update_epoch(
     },
 )
 def get_all_configs(
-    terms_at_specific_date: date = Query(
-        None,
-        description="""If specified, allowed configurations with specified date is returned.
+    terms_at_specific_date: Annotated[
+        date,
+        Query(
+            description="""If specified, allowed configurations with specified date is returned.
 
         This should be in date format YYYY-MM-DD""",
-    ),
+        ),
+    ] = None,
 ) -> list[study_epoch.StudyEpoch]:
     service = StudyEpochService(terms_at_specific_date=terms_at_specific_date)
     return service.get_allowed_configs()
@@ -561,8 +583,10 @@ def get_all_configs(
     },
 )
 def get_all_consecutive_groups(
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> set[str]:
     service = StudyVisitService(
         study_uid=study_uid, study_value_version=study_value_version

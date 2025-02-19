@@ -1,10 +1,9 @@
 import re
 from datetime import datetime
-from typing import Callable, Iterable, Self
+from typing import Annotated, Callable, Iterable, NamedTuple, Self
 
 from pydantic import Field, root_validator
 
-from clinical_mdr_api import config as settings
 from clinical_mdr_api.domain_repositories.study_selections.study_activity_instance_repository import (
     SelectionHistory as StudyActivityInstanceSelectionHistory,
 )
@@ -69,6 +68,7 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_subgroup
 from clinical_mdr_api.domains.study_selections.study_selection_arm import (
     StudySelectionArmVO,
 )
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
 from clinical_mdr_api.domains.study_selections.study_selection_branch_arm import (
     StudySelectionBranchArmVO,
 )
@@ -98,7 +98,6 @@ from clinical_mdr_api.domains.study_selections.study_selection_objective import 
 from clinical_mdr_api.domains.study_selections.study_soa_group_selection import (
     StudySoAGroupVO,
 )
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.concepts.activities.activity import (
     Activity,
     ActivityForStudyActivity,
@@ -138,7 +137,17 @@ from clinical_mdr_api.models.syntax_templates.objective_template import (
 from clinical_mdr_api.models.syntax_templates.template_parameter_multi_select_input import (
     TemplateParameterMultiSelectInput,
 )
-from clinical_mdr_api.models.utils import BaseModel, get_latest_on_datetime_str
+from clinical_mdr_api.models.utils import (
+    BaseModel,
+    BatchInputModel,
+    InputModel,
+    PatchInputModel,
+    PostInputModel,
+    get_latest_on_datetime_str,
+)
+from clinical_mdr_api.services.user_info import UserInfoService
+from common import config as settings
+from common.exceptions import BusinessLogicException
 
 STUDY_UID_DESC = "The uid of the study"
 STUDY_ACTIVITY_UID_DESC = "uid for the study activity"
@@ -157,92 +166,70 @@ START_DATE_DESC = (
     "The most recent point in time when the study selection was edited. "
     "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone."
 )
-USER_INITIALS_DESC = "User initials for the version"
+AUTHOR_FIELD_DESC = "Version author"
 
 AFTER_DATE_QUALIFIER = "has_after.date"
-AFTER_USER_QUALIFIER = "has_after.user_initials"
+AFTER_USER_QUALIFIER = "has_after.author_id"
 
-STUDY_UID_FIELD = Field(
-    ...,
-    title="study_uid",
-    description=STUDY_UID_DESC,
-    source="has_after.audit_trail.uid",
-)
+STUDY_UID_FIELD = Field(description=STUDY_UID_DESC, source="has_after.audit_trail.uid")
 STUDY_OBJECTIVE_UID_FIELD = Field(
-    None,
-    title="study_objective_uid",
-    description="uid for a study objective to connect with",
+    description="uid for a study objective to connect with"
 )
-END_DATE_FIELD = Field(
-    None, title="end_date", description="End date for the version", nullable=True
-)
-STATUS_FIELD = Field(None, title="status", description="Change status", nullable=True)
+END_DATE_FIELD = Field(description="End date for the version", nullable=True)
+STATUS_FIELD = Field(description="Change status", nullable=True)
 RESPONSE_CODE_FIELD = Field(
-    ...,
-    title="response_code",
     description="The HTTP response code related to input operation",
 )
 METHOD_FIELD = Field(
-    ..., title="method", description="HTTP method corresponding to operation type"
+    description="HTTP method corresponding to operation type",
+    regex="^(PATCH|POST|DELETE)$",
 )
 CHANGE_TYPE_FIELD = Field(
-    None,
-    title="change_type",
-    description="Type of last change for the version",
-    nullable=True,
+    description="Type of last change for the version", nullable=True
 )
 SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD = Field(
-    None,
-    title="show_activity_subgroup_in_protocol_flowchart",
-    description="show activity subgroup in protocol flow chart",
+    description="show activity subgroup in protocol flow chart", nullable=True
 )
 SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD = Field(
-    None,
-    title="show_activity_group_in_protocol_flowchart",
-    description="show activity group in protocol flow chart",
+    description="show activity group in protocol flow chart", nullable=True
 )
 SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD = Field(
-    False,
-    title="show_soa_group_in_protocol_flowchart",
     description="show soa group in protocol flow chart",
 )
 SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD = Field(
-    False,
-    title="show_activity_instance_in_protocol_flowchart",
     description="show activity instance in operational flow chart",
 )
 
 
 class StudySelection(BaseModel):
-    study_uid: str | None = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
-    )
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
 
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None.",
-    )
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None.",
+            nullable=True,
+        ),
+    ] = None
 
-    order: int = Field(
-        ...,
-        title="order",
-        description=ORDER_DESC,
-    )
+    order: Annotated[int, Field(description=ORDER_DESC)]
 
-    project_number: str | None = Field(
-        None,
-        title="project_number",
-        description="Number property of the project that the study belongs to",
-    )
+    project_number: Annotated[
+        str | None,
+        Field(
+            description="Number property of the project that the study belongs to",
+            nullable=True,
+        ),
+    ] = None
 
-    project_name: str | None = Field(
-        None,
-        title="project_name",
-        description="Name property of the project that the study belongs to",
-    )
+    project_name: Annotated[
+        str | None,
+        Field(
+            description="Name property of the project that the study belongs to",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def remove_brackets_from_name_property(cls, object_to_clear):
@@ -272,50 +259,40 @@ class StudySelection(BaseModel):
 
 
 class StudySelectionObjectiveCore(StudySelection):
-    study_objective_uid: str | None = Field(
-        ...,
-        title="study_objective_uid",
-        description="uid for the study objective",
-    )
+    study_objective_uid: Annotated[
+        str | None, Field(description="uid for the study objective", nullable=True)
+    ]
 
-    objective_level: CTTermName | None = Field(
-        None,
-        title="objective_level",
-        description=OBJECTIVE_LEVEL_DESC,
-        nullable=True,
-    )
+    objective_level: Annotated[
+        CTTermName | None,
+        Field(description=OBJECTIVE_LEVEL_DESC, nullable=True),
+    ] = None
 
-    objective: Objective | None = Field(
-        None,
-        title="objective",
-        description="the objective selected for the study",
-        nullable=True,
-    )
+    objective: Annotated[
+        Objective | None,
+        Field(description="the objective selected for the study", nullable=True),
+    ] = None
 
-    template: ObjectiveTemplate | None = Field(
-        None,
-        title="template",
-        description="the objective template selected for the study",
-        nullable=True,
-    )
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    template: Annotated[
+        ObjectiveTemplate | None,
+        Field(
+            description="the objective template selected for the study", nullable=True
+        ),
+    ] = None
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    status: str | None = STATUS_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
     @classmethod
     def from_study_selection_history(
@@ -348,30 +325,33 @@ class StudySelectionObjectiveCore(StudySelection):
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=study_selection_history.author_username,
         )
 
 
 class StudySelectionObjective(StudySelectionObjectiveCore):
-    endpoint_count: int | None = Field(
-        None,
-        title="endpoint_count",
-        description="Number of study endpoints related to given study objective.",
-        nullable=True,
-    )
+    endpoint_count: Annotated[
+        int | None,
+        Field(
+            description="Number of study endpoints related to given study objective.",
+            nullable=True,
+        ),
+    ] = None
 
-    latest_objective: Objective | None = Field(
-        None,
-        title="latest_objective",
-        description="Latest version of objective selected for study.",
-        nullable=True,
-    )
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete objective versions",
-        nullable=True,
-    )
+    latest_objective: Annotated[
+        Objective | None,
+        Field(
+            description="Latest version of objective selected for study.", nullable=True
+        ),
+    ] = None
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete objective versions",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_objective_template_ar_and_order(
@@ -426,7 +406,7 @@ class StudySelectionObjective(StudySelectionObjectiveCore):
             ),
             start_date=single_study_selection.start_date,
             template=selected_objective_template,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
         )
@@ -505,177 +485,177 @@ class StudySelectionObjective(StudySelectionObjectiveCore):
             latest_objective=latest_objective,
             objective=selected_objective,
             endpoint_count=endpoint_count,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
         )
 
 
-class StudySelectionObjectiveCreateInput(BaseModel):
-    objective_level_uid: str | None = Field(
-        None,
-        title="objective_level",
-        description=OBJECTIVE_LEVEL_DESC,
-    )
-    objective_data: ObjectiveCreateInput = Field(
-        ...,
-        title="objective_data",
-        description="Objective data to create new objective",
-    )
+class StudySelectionObjectiveCreateInput(PostInputModel):
+    objective_level_uid: Annotated[
+        str | None, Field(description=OBJECTIVE_LEVEL_DESC)
+    ] = None
+    objective_data: Annotated[
+        ObjectiveCreateInput,
+        Field(description="Objective data to create new objective"),
+    ]
 
 
-class StudySelectionObjectiveInput(BaseModel):
-    objective_uid: str = Field(
-        None,
-        title="objective_uid",
-        description="Uid of the selected objective",
-    )
+class StudySelectionObjectiveInput(InputModel):
+    objective_uid: Annotated[
+        str | None, Field(description="Uid of the selected objective")
+    ] = None
 
-    objective_level_uid: str | None = Field(
-        None,
-        title="objective_level",
-        description=OBJECTIVE_LEVEL_DESC,
-    )
+    objective_level_uid: Annotated[
+        str | None, Field(description=OBJECTIVE_LEVEL_DESC)
+    ] = None
 
 
-class StudySelectionObjectiveTemplateSelectInput(BaseModel):
-    objective_template_uid: str = Field(
-        ...,
-        title="objective_template_uid",
-        description="The unique id of the objective template that is to be selected.",
-    )
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        [],
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the objective template.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the objective will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* objective can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the objective template will be used.",
-    )
+class StudySelectionObjectiveTemplateSelectInput(PostInputModel):
+    objective_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the objective template that is to be selected.",
+        ),
+    ]
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the objective template.",
+        ),
+    ] = []
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the objective will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* objective can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the objective template will be used.",
+        ),
+    ] = None
 
 
-class StudySelectionObjectiveNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="Uid of the selected objective",
-    )
+class StudySelectionObjectiveNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="Uid of the selected objective",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 # Study endpoints
 
 
-class EndpointUnitsInput(BaseModel):
-    units: list[str] | None = Field(
-        ...,
-        title="units",
-        description="list of uids of the endpoint units selected for the study endpoint",
-    )
+class EndpointUnitsInput(InputModel):
+    units: Annotated[
+        list[str] | None,
+        Field(
+            description="list of uids of the endpoint units selected for the study endpoint",
+        ),
+    ]
 
-    separator: str | None = Field(
-        None,
-        title="separator",
-        description="separator if more than one endpoint units selected for the study endpoint",
-    )
+    separator: Annotated[
+        str | None,
+        Field(
+            description="separator if more than one endpoint units selected for the study endpoint",
+            nullable=True,
+        ),
+    ] = None
 
 
 class StudySelectionEndpoint(StudySelection):
-    study_endpoint_uid: str | None = Field(
-        ...,
-        title="study_endpoint_uid",
-        description="uid for the study endpoint",
-    )
+    study_endpoint_uid: Annotated[
+        str | None,
+        Field(description="uid for the study endpoint"),
+    ]
 
-    study_objective: StudySelectionObjective | None = Field(
-        None,
-        title="study_objective_uid",
-        description="uid for the study objective which the study endpoints connects to",
-        nullable=True,
-    )
+    study_objective: Annotated[
+        StudySelectionObjective | None,
+        Field(
+            description="uid for the study objective which the study endpoints connects to",
+            nullable=True,
+        ),
+    ] = None
 
-    endpoint_level: CTTermName | None = Field(
-        None,
-        title="endpoint_level",
-        description="level defining the endpoint",
-        nullable=True,
-    )
+    endpoint_level: Annotated[
+        CTTermName | None,
+        Field(description="level defining the endpoint", nullable=True),
+    ] = None
 
-    endpoint_sublevel: CTTermName | None = Field(
-        None,
-        title="endpoint_sublevel",
-        description="sub level defining the endpoint",
-        nullable=True,
-    )
-    endpoint_units: EndpointUnits | None = Field(
-        None,
-        title="endpoint_units",
-        description="the endpoint units selected for the study endpoint",
-        nullable=True,
-    )
+    endpoint_sublevel: Annotated[
+        CTTermName | None,
+        Field(description="sub level defining the endpoint", nullable=True),
+    ] = None
+    endpoint_units: Annotated[
+        EndpointUnits | None,
+        Field(
+            description="the endpoint units selected for the study endpoint",
+            nullable=True,
+        ),
+    ] = None
 
-    endpoint: Endpoint | None = Field(
-        None,
-        title="endpoint",
-        description="the endpoint selected for the study",
-        nullable=True,
-    )
+    endpoint: Annotated[
+        Endpoint | None,
+        Field(description="the endpoint selected for the study", nullable=True),
+    ] = None
 
-    timeframe: Timeframe | None = Field(
-        None,
-        title="timeframe",
-        description="the timeframe selected for the study",
-        nullable=True,
-    )
+    timeframe: Annotated[
+        Timeframe | None,
+        Field(description="the timeframe selected for the study", nullable=True),
+    ] = None
 
-    latest_endpoint: Endpoint | None = Field(
-        None,
-        title="latest_endpoint",
-        description="Latest version of the endpoint selected for the study (if available else none)",
-        nullable=True,
-    )
+    latest_endpoint: Annotated[
+        Endpoint | None,
+        Field(
+            description="Latest version of the endpoint selected for the study (if available else none)",
+            nullable=True,
+        ),
+    ] = None
 
-    latest_timeframe: Timeframe | None = Field(
-        None,
-        title="latest_timeframe",
-        description="Latest version of the timeframe selected for the study (if available else none)",
-        nullable=True,
-    )
-    template: EndpointTemplate | None = Field(
-        None,
-        title="template",
-        description="the endpoint template selected for the study",
-        nullable=True,
-    )
+    latest_timeframe: Annotated[
+        Timeframe | None,
+        Field(
+            description="Latest version of the timeframe selected for the study (if available else none)",
+            nullable=True,
+        ),
+    ] = None
+    template: Annotated[
+        EndpointTemplate | None,
+        Field(
+            description="the endpoint template selected for the study", nullable=True
+        ),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    status: str | None = STATUS_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete endpoint versions",
-        nullable=True,
-    )
+    status: Annotated[str | None, STATUS_FIELD] = None
+
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete endpoint versions",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_endpoint_template_ar_and_order(
@@ -732,7 +712,7 @@ class StudySelectionEndpoint(StudySelection):
             study_objective=study_obj_model,
             start_date=single_study_selection.start_date,
             template=selected_endpoint_template,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
         )
@@ -850,7 +830,7 @@ class StudySelectionEndpoint(StudySelection):
             latest_endpoint=latest_end_model,
             timeframe=time_model,
             latest_timeframe=latest_time_model,
-            user_initials=study_selection.user_initials,
+            author_username=study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
             **model,
@@ -930,7 +910,9 @@ class StudySelectionEndpoint(StudySelection):
             endpoint=endpoint,
             timeframe=timeframe,
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -938,93 +920,89 @@ class StudySelectionEndpoint(StudySelection):
         )
 
 
-class StudySelectionEndpointCreateInput(BaseModel):
-    study_objective_uid: str | None = STUDY_OBJECTIVE_UID_FIELD
-    endpoint_level_uid: str | None = Field(
-        None,
-        title="endpoint level",
-        description="level defining the endpoint",
-    )
-    endpoint_sublevel_uid: str | None = Field(
-        None,
-        title="endpoint sub level",
-        description="sub level defining the endpoint",
-    )
-    endpoint_data: EndpointCreateInput = Field(
-        ..., title="endpoint_data", description="endpoint data to create new endpoint"
-    )
-    endpoint_units: EndpointUnitsInput | None = Field(
-        None,
-        title="endpoint_units",
-        description="endpoint units used in the study endpoint",
-    )
-    timeframe_uid: str | None = Field(
-        None,
-        title="timeframe_uid",
-        description="uid for a timeframe",
+class StudySelectionEndpointCreateInput(PostInputModel):
+    study_objective_uid: Annotated[str | None, STUDY_OBJECTIVE_UID_FIELD] = None
+    endpoint_level_uid: Annotated[
+        str | None, Field(description="level defining the endpoint")
+    ] = None
+    endpoint_sublevel_uid: Annotated[
+        str | None, Field(description="sub level defining the endpoint")
+    ] = None
+    endpoint_data: Annotated[
+        EndpointCreateInput, Field(description="endpoint data to create new endpoint")
+    ]
+    endpoint_units: Annotated[
+        EndpointUnitsInput | None,
+        Field(description="endpoint units used in the study endpoint"),
+    ] = None
+    timeframe_uid: Annotated[str | None, Field(description="uid for a timeframe")] = (
+        None
     )
 
 
-class StudySelectionEndpointInput(BaseModel):
-    study_objective_uid: str | None = STUDY_OBJECTIVE_UID_FIELD
+class StudySelectionEndpointInput(PatchInputModel):
+    study_objective_uid: Annotated[str | None, STUDY_OBJECTIVE_UID_FIELD] = None
 
-    endpoint_uid: str | None = Field(
-        None,
-        title="endpoint_uid",
-        description="uid for a library endpoint to connect with",
-    )
+    endpoint_uid: Annotated[
+        str | None,
+        Field(
+            description="uid for a library endpoint to connect with",
+        ),
+    ] = None
 
-    endpoint_level_uid: str | None = Field(
-        None,
-        title="endpoint level",
-        description="level for the endpoint",
-    )
-    endpoint_sublevel_uid: str | None = Field(
-        None,
-        title="endpoint sub level",
-        description="sub level for the endpoint",
-    )
-    timeframe_uid: str | None = Field(
-        None,
-        title="timeframe_uid",
-        description="uid for a timeframe",
+    endpoint_level_uid: Annotated[
+        str | None, Field(description="level for the endpoint")
+    ] = None
+    endpoint_sublevel_uid: Annotated[
+        str | None,
+        Field(description="sub level for the endpoint"),
+    ] = None
+    timeframe_uid: Annotated[str | None, Field(description="uid for a timeframe")] = (
+        None
     )
 
-    endpoint_units: EndpointUnitsInput | None = Field(
-        None,
-        title="endpoint_units",
-        description="hold the units used in the study endpoint",
-    )
+    endpoint_units: Annotated[
+        EndpointUnitsInput | None,
+        Field(
+            description="hold the units used in the study endpoint",
+        ),
+    ] = None
 
 
-class StudySelectionEndpointTemplateSelectInput(BaseModel):
-    endpoint_template_uid: str = Field(
-        ...,
-        title="endpoint_template_uid",
-        description="The unique id of the endpoint template that is to be selected.",
-    )
-    study_objective_uid: str | None = STUDY_OBJECTIVE_UID_FIELD
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        [],
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the endpoint template.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the endpoint will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the endpoint template will be used.",
-    )
+class StudySelectionEndpointTemplateSelectInput(PostInputModel):
+    endpoint_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the endpoint template that is to be selected.",
+        ),
+    ]
+    study_objective_uid: Annotated[str | None, STUDY_OBJECTIVE_UID_FIELD] = None
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the endpoint template.",
+        ),
+    ] = []
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the endpoint will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the endpoint template will be used.",
+        ),
+    ] = None
 
 
-class StudySelectionEndpointNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="Uid of the selected endpoint",
-    )
+class StudySelectionEndpointNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="Uid of the selected endpoint",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 # Study compounds
@@ -1080,109 +1058,103 @@ class StudySelectionCompound(StudySelection):
                 at_specific_date=terms_at_specific_datetime,
             ),
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
             study_compound_dosing_count=selection.study_compound_dosing_count,
         )
 
-    study_compound_uid: str = Field(
-        ...,
-        title="study_compound_uid",
-        description="uid for the study compound",
-        source="uid",
-    )
+    study_compound_uid: Annotated[str, Field(source="uid")]
 
-    compound: Compound | None = Field(
-        None,
-        title="compound",
-        description="the connected compound model",
-        nullable=True,
-    )
+    compound: Annotated[
+        Compound | None,
+        Field(description="the connected compound model", nullable=True),
+    ] = None
 
-    compound_alias: CompoundAlias | None = Field(
-        None,
-        title="compound_alias",
-        description="the connected compound alias",
-        nullable=True,
-    )
-    medicinal_product: MedicinalProduct | None = Field(
-        ...,
-        title="medicinal_product",
-        description="the connected medicinal product",
-        nullable=True,
-    )
+    compound_alias: Annotated[
+        CompoundAlias | None,
+        Field(description="the connected compound alias", nullable=True),
+    ] = None
+    medicinal_product: Annotated[
+        MedicinalProduct | None,
+        Field(description="the connected medicinal product", nullable=True),
+    ]
 
-    type_of_treatment: SimpleTermModel | None = Field(
-        None,
-        title="type_of_treatment",
-        description="type of treatment uid defined for the selection",
-        nullable=True,
-    )
+    type_of_treatment: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="type of treatment uid defined for the selection", nullable=True
+        ),
+    ] = None
 
-    dispenser: SimpleTermModel | None = Field(
-        None,
-        title="dispenser",
-        description="route of administration defined for the study selection",
-        nullable=True,
-    )
+    dispenser: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="route of administration defined for the study selection",
+            nullable=True,
+        ),
+    ] = None
 
-    dose_frequency: SimpleTermModel | None = Field(
-        None,
-        title="dose_frequency",
-        description="dose frequency defined for the study selection",
-        nullable=True,
-    )
+    dose_frequency: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="dose frequency defined for the study selection", nullable=True
+        ),
+    ] = None
 
-    dispensed_in: SimpleTermModel | None = Field(
-        None,
-        title="dispensed_in",
-        description="dispense method defined for the study selection",
-        nullable=True,
-    )
+    dispensed_in: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="dispense method defined for the study selection", nullable=True
+        ),
+    ] = None
 
-    delivery_device: SimpleTermModel | None = Field(
-        None,
-        title="delivery device",
-        description="delivery device used for the compound in the study selection",
-        nullable=True,
-    )
+    delivery_device: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="delivery device used for the compound in the study selection",
+            nullable=True,
+        ),
+    ] = None
 
-    other_info: str | None = Field(
-        None,
-        title="other_info",
-        description="any other information logged regarding the study compound",
-        nullable=True,
-    )
+    other_info: Annotated[
+        str | None,
+        Field(
+            description="any other information logged regarding the study compound",
+            nullable=True,
+        ),
+    ] = None
 
-    reason_for_missing_null_value: SimpleTermModel | None = Field(
-        None,
-        title="reason_for_missing_null_value",
-        description="Reason why no compound is used in the study selection, e.g. exploratory study",
-        nullable=True,
-    )
+    reason_for_missing_null_value: Annotated[
+        SimpleTermModel | None,
+        Field(
+            description="Reason why no compound is used in the study selection, e.g. exploratory study",
+            nullable=True,
+        ),
+    ] = None
 
-    study_compound_dosing_count: int | None = Field(
-        None,
-        description="Number of compound dosing linked to Study Compound",
-        nullable=True,
-    )
+    study_compound_dosing_count: Annotated[
+        int | None,
+        Field(
+            description="Number of compound dosing linked to Study Compound",
+            nullable=True,
+        ),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        ..., title="user_initials", description=USER_INITIALS_DESC
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    status: str | None = STATUS_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
     @classmethod
     def from_study_selection_history(
@@ -1240,131 +1212,131 @@ class StudySelectionCompound(StudySelection):
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
         )
 
 
-class StudySelectionCompoundCreateInput(BaseModel):
-    compound_alias_uid: str = Field(
-        ...,
-        title="compound_alias_uid",
-        description="uid for the library compound alias",
-    )
+class StudySelectionCompoundCreateInput(PostInputModel):
+    compound_alias_uid: Annotated[
+        str,
+        Field(description="uid for the library compound alias"),
+    ]
 
-    medicinal_product_uid: str = Field(
-        ...,
-        title="medicinal_product_uid",
-        description="uid for the medicinal product",
-    )
+    medicinal_product_uid: Annotated[
+        str,
+        Field(description="uid for the medicinal product"),
+    ]
 
-    type_of_treatment_uid: str | None = Field(
-        None,
-        title="type_of_treatment_uid",
-        description="type of treatment defined for the selection",
-    )
+    type_of_treatment_uid: Annotated[
+        str | None,
+        Field(
+            description="type of treatment defined for the selection",
+        ),
+    ] = None
 
-    other_info: str | None = Field(
-        None,
-        title="other_info",
-        description="any other information logged regarding the study compound",
-    )
+    other_info: Annotated[
+        str | None,
+        Field(
+            description="any other information logged regarding the study compound",
+        ),
+    ] = None
 
-    reason_for_missing_null_value_uid: str | None = Field(
-        None,
-        title="reason_for_missing_null_value_uid",
-        description="Reason why no compound is used in the study selection, e.g. exploratory study",
-    )
-
-
-class StudySelectionCompoundEditInput(BaseModel):
-    compound_alias_uid: str = Field(
-        None,
-        title="compound_alias_uid",
-        description="uid for the library compound alias",
-    )
-
-    medicinal_product_uid: str = Field(
-        None,
-        title="medicinal_product_uid",
-        description="uid for the medicinal product",
-    )
-
-    type_of_treatment_uid: str | None = Field(
-        None,
-        title="type_of_treatment_uid",
-        description="type of treatment defined for the selection",
-    )
-
-    other_info: str | None = Field(
-        None,
-        title="other_info",
-        description="any other information logged regarding the study compound",
-    )
-
-    reason_for_missing_null_value_uid: str | None = Field(
-        None,
-        title="reason_for_missing_null_value_uid",
-        description="Reason why no compound is used in the study selection, e.g. exploratory study",
-    )
+    reason_for_missing_null_value_uid: Annotated[
+        str | None,
+        Field(
+            description="Reason why no compound is used in the study selection, e.g. exploratory study",
+        ),
+    ] = None
 
 
-class StudySelectionCompoundNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order selected for the study compound",
-    )
+class StudySelectionCompoundEditInput(PatchInputModel):
+    compound_alias_uid: Annotated[
+        str | None,
+        Field(description="uid for the library compound alias"),
+    ] = None
+
+    medicinal_product_uid: Annotated[
+        str | None,
+        Field(description="uid for the medicinal product"),
+    ] = None
+
+    type_of_treatment_uid: Annotated[
+        str | None,
+        Field(
+            description="type of treatment defined for the selection",
+        ),
+    ] = None
+
+    other_info: Annotated[
+        str | None,
+        Field(
+            description="any other information logged regarding the study compound",
+        ),
+    ] = None
+
+    reason_for_missing_null_value_uid: Annotated[
+        str | None,
+        Field(
+            description="Reason why no compound is used in the study selection, e.g. exploratory study",
+        ),
+    ] = None
+
+
+class StudySelectionCompoundNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order selected for the study compound",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 # Study criteria
 
 
 class StudySelectionCriteriaCore(StudySelection):
-    study_criteria_uid: str | None = Field(
-        ...,
-        title="study_criteria_uid",
-        description="uid for the study criteria",
-    )
+    study_criteria_uid: Annotated[
+        str | None, Field(description="uid for the study criteria", nullable=True)
+    ]
 
-    criteria_type: CTTermName | None = Field(
-        None, title="criteria_type", description="Type of criteria", nullable=True
-    )
+    criteria_type: Annotated[CTTermName | None, Field(nullable=True)] = None
 
-    criteria: Criteria | None = Field(
-        None,
-        title="criteria",
-        description="the criteria selected for the study",
-        nullable=True,
-    )
+    criteria: Annotated[
+        Criteria | None,
+        Field(description="the criteria selected for the study", nullable=True),
+    ] = None
 
-    template: CriteriaTemplate | None = Field(
-        None,
-        title="template",
-        description="the criteria template selected for the study",
-        nullable=True,
-    )
+    template: Annotated[
+        CriteriaTemplate | None,
+        Field(
+            description="the criteria template selected for the study", nullable=True
+        ),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    status: str | None = STATUS_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
-    key_criteria: bool | None = Field(
-        False, title="key_criteria", description="", nullable=True
-    )
+    status: Annotated[str | None, STATUS_FIELD] = None
+
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
+    key_criteria: Annotated[bool | None, Field(nullable=True)] = False
 
     @classmethod
     def from_study_selection_template_history(
@@ -1387,7 +1359,9 @@ class StudySelectionCriteriaCore(StudySelection):
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             key_criteria=study_selection_history.key_criteria,
         )
 
@@ -1410,27 +1384,36 @@ class StudySelectionCriteriaCore(StudySelection):
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             key_criteria=study_selection_history.key_criteria,
         )
 
 
 class StudySelectionCriteria(StudySelectionCriteriaCore):
-    latest_criteria: Criteria | None = Field(
-        None,
-        title="latest_criteria",
-        description="Latest version of criteria selected for study.",
-    )
-    latest_template: CriteriaTemplate | None = Field(
-        None,
-        title="latest_template",
-        description="Latest version of criteria template selected for study.",
-    )
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete criteria versions",
-    )
+    latest_criteria: Annotated[
+        Criteria | None,
+        Field(
+            nullable=True,
+            description="Latest version of criteria selected for study.",
+        ),
+    ] = None
+    latest_template: Annotated[
+        CriteriaTemplate | None,
+        Field(
+            nullable=True,
+            description="Latest version of criteria template selected for study.",
+        ),
+    ] = None
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            nullable=True,
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete criteria versions",
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_criteria_template_ar_and_order(
@@ -1499,7 +1482,7 @@ class StudySelectionCriteria(StudySelectionCriteriaCore):
             ),
             start_date=single_study_selection.start_date,
             template=selected_criteria_template,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
             key_criteria=single_study_selection.key_criteria,
@@ -1573,7 +1556,7 @@ class StudySelectionCriteria(StudySelectionCriteriaCore):
             start_date=single_study_selection.start_date,
             latest_criteria=latest_criteria,
             criteria=selected_criteria,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             project_name=project.name,
             project_number=project.project_number,
             key_criteria=single_study_selection.key_criteria,
@@ -1636,7 +1619,7 @@ class StudySelectionCriteria(StudySelectionCriteriaCore):
             ),
             start_date=study_selection_criteria_vo.start_date,
             template=selected_criteria_template,
-            user_initials=study_selection_criteria_vo.user_initials,
+            author_username=study_selection_criteria_vo.author_username,
             project_name=project.name,
             project_number=project.project_number,
             key_criteria=study_selection_criteria_vo.key_criteria,
@@ -1701,78 +1684,87 @@ class StudySelectionCriteria(StudySelectionCriteriaCore):
             start_date=study_selection_criteria_vo.start_date,
             latest_criteria=latest_criteria,
             criteria=selected_criteria,
-            user_initials=study_selection_criteria_vo.user_initials,
+            author_username=study_selection_criteria_vo.author_username,
             project_name=project.name,
             project_number=project.project_number,
             key_criteria=study_selection_criteria_vo.key_criteria,
         )
 
 
-class StudySelectionCriteriaCreateInput(BaseModel):
-    criteria_data: CriteriaCreateInput = Field(
-        ..., title="criteria_data", description="Criteria data to create new criteria"
-    )
+class StudySelectionCriteriaCreateInput(PostInputModel):
+    criteria_data: Annotated[
+        CriteriaCreateInput,
+        Field(description="Criteria data to create new criteria"),
+    ]
 
 
-class StudySelectionCriteriaInput(BaseModel):
-    criteria_uid: str = Field(
-        None,
-        title="criteria_uid",
-        description="Uid of the selected criteria",
-    )
+class StudySelectionCriteriaInput(PostInputModel):
+    criteria_uid: Annotated[str, Field()]
 
 
-class StudySelectionCriteriaTemplateSelectInput(BaseModel):
-    criteria_template_uid: str = Field(
-        ...,
-        title="criteria_template_uid",
-        description="The unique id of the criteria template that is to be selected.",
-    )
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        [],
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the criteria template.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the criteria will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* criteria can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the criteria template will be used.",
-    )
+class StudySelectionCriteriaTemplateSelectInput(PostInputModel):
+    criteria_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the criteria template that is to be selected.",
+        ),
+    ]
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the criteria template.",
+        ),
+    ] = []
+    library_name: Annotated[
+        str,
+        Field(
+            description="If specified: The name of the library to which the criteria will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* criteria can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the criteria template will be used.",
+        ),
+    ]
 
 
-class StudySelectionCriteriaNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="New value to set for the order property of the selection",
-    )
+class StudySelectionCriteriaNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="New value to set for the order property of the selection",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
-class StudySelectionCriteriaKeyCriteria(BaseModel):
-    key_criteria: bool = Field(
-        ...,
-        title="key_criteria",
-        description="New value to set for the key_criteria property of the selection",
-    )
+class StudySelectionCriteriaKeyCriteria(PatchInputModel):
+    key_criteria: Annotated[
+        bool,
+        Field(
+            description="New value to set for the key_criteria property of the selection",
+        ),
+    ]
 
 
 #
 # Study Activity
 #
 class DetailedSoAHistory(BaseModel):
-    object_type: str = Field(
-        ...,
-    )
-    description: str = Field(
-        ...,
-    )
+    object_type: Annotated[str, Field()]
+    description: Annotated[str, Field()]
     action: str = CHANGE_TYPE_FIELD
-    user_initials: str = USER_INITIALS_DESC
-    start_date: datetime = START_DATE_DESC
-    end_date: datetime | None = END_DATE_FIELD
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
+    start_date: Annotated[
+        datetime,
+        Field(
+            title="start_date",
+            description=START_DATE_DESC,
+        ),
+    ]
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
     @classmethod
     def from_history(cls, detailed_soa_history_item: dict):
@@ -1780,95 +1772,74 @@ class DetailedSoAHistory(BaseModel):
             object_type=detailed_soa_history_item.get("object_type"),
             description=detailed_soa_history_item.get("description"),
             action=detailed_soa_history_item.get("change_type"),
-            user_initials=detailed_soa_history_item.get("user_initials"),
+            author_username=detailed_soa_history_item.get("author_username"),
             start_date=detailed_soa_history_item.get("start_date"),
             end_date=detailed_soa_history_item.get("end_date"),
         )
 
 
 class SimpleStudyActivitySubGroup(BaseModel):
-    study_activity_subgroup_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
-    activity_subgroup_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
-    activity_subgroup_name: str | None = Field(
-        None,
-        nullable=True,
-    )
-    order: int | None = Field(None)
+    study_activity_subgroup_uid: Annotated[str | None, Field(nullable=True)] = None
+    activity_subgroup_uid: Annotated[str | None, Field(nullable=True)] = None
+    activity_subgroup_name: Annotated[str | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)]
 
 
 class SimpleStudyActivityGroup(BaseModel):
-    study_activity_group_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
-    activity_group_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
-    activity_group_name: str | None = Field(
-        None,
-        nullable=True,
-    )
-    order: int | None = Field(None)
+    study_activity_group_uid: Annotated[str | None, Field(nullable=True)] = None
+    activity_group_uid: Annotated[str | None, Field(nullable=True)] = None
+    activity_group_name: Annotated[str | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
 
 
 class SimpleStudySoAGroup(BaseModel):
-    study_soa_group_uid: str = Field(...)
-    soa_group_term_uid: str = Field(...)
-    soa_group_name: str = Field(...)
-    order: int | None = Field(None)
+    study_soa_group_uid: Annotated[str, Field()]
+    soa_group_term_uid: Annotated[str, Field()]
+    soa_group_term_name: Annotated[str, Field()]
+    order: Annotated[int | None, Field(nullable=True)] = None
 
 
 class StudySelectionActivityCore(StudySelection):
-    show_activity_in_protocol_flowchart: bool | None = Field(
-        None,
-        title="show_activity_in_protocol_flowchart",
-        description="show activity in protocol flow chart",
-    )
-    show_activity_subgroup_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    show_activity_group_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    show_soa_group_in_protocol_flowchart: bool = (
-        SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    study_activity_uid: str | None = Field(
-        ...,
-        title="study_activity_uid",
-        description=STUDY_ACTIVITY_UID_DESC,
-        source="uid",
-    )
+    show_activity_in_protocol_flowchart: Annotated[
+        bool | None,
+        Field(description="show activity in protocol flow chart", nullable=True),
+    ] = None
+    show_activity_subgroup_in_protocol_flowchart: Annotated[
+        bool | None, SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = None
+    show_activity_group_in_protocol_flowchart: Annotated[
+        bool | None, SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = None
+    show_soa_group_in_protocol_flowchart: Annotated[
+        bool, SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = False
+    study_activity_uid: Annotated[
+        str | None,
+        Field(description=STUDY_ACTIVITY_UID_DESC, source="uid", nullable=True),
+    ]
     study_activity_subgroup: SimpleStudyActivitySubGroup | None
     study_activity_group: SimpleStudyActivityGroup | None
     study_soa_group: SimpleStudySoAGroup
-    activity: ActivityForStudyActivity | None = Field(
-        ...,
-        title="activity",
-        description="the activity selected for the study",
-    )
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-        source=AFTER_DATE_QUALIFIER,
-    )
-    user_initials: str | None = Field(
-        ...,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        source=AFTER_USER_QUALIFIER,
-    )
-    end_date: datetime | None = END_DATE_FIELD
-    status: str | None = STATUS_FIELD
-    change_type: str | None = CHANGE_TYPE_FIELD
+    activity: Annotated[
+        ActivityForStudyActivity | None,
+        Field(description="the activity selected for the study", nullable=True),
+    ]
+    start_date: Annotated[
+        datetime | None,
+        Field(description=START_DATE_DESC, source=AFTER_DATE_QUALIFIER, nullable=True),
+    ]
+    author_username: Annotated[
+        str | None,
+        Field(
+            title="author_username",
+            description=AUTHOR_FIELD_DESC,
+            source=AFTER_USER_QUALIFIER,
+            nullable=True,
+        ),
+    ] = None
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
+    status: Annotated[str | None, STATUS_FIELD] = None
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
     @classmethod
     def from_study_selection_history(
@@ -1923,7 +1894,7 @@ class StudySelectionActivityCore(StudySelection):
             study_soa_group=SimpleStudySoAGroup(
                 study_soa_group_uid=study_selection_history.study_soa_group_uid,
                 soa_group_term_uid=flowchart_group.term_uid,
-                soa_group_name=flowchart_group.sponsor_preferred_name,
+                soa_group_term_name=flowchart_group.sponsor_preferred_name,
                 order=study_selection_history.study_soa_group_order,
             ),
             order=study_selection_history.activity_order,
@@ -1935,7 +1906,9 @@ class StudySelectionActivityCore(StudySelection):
             activity=activity,
             end_date=study_selection_history.end_date,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
         )
 
 
@@ -1943,18 +1916,20 @@ class StudySelectionActivity(StudySelectionActivityCore):
     class Config:
         orm_mode = True
 
-    latest_activity: ActivityForStudyActivity | None = Field(
-        None,
-        title="latest_activity",
-        description="Latest version of activity selected for study.",
-        nullable=True,
-    )
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete activity versions",
-        nullable=True,
-    )
+    latest_activity: Annotated[
+        ActivityForStudyActivity | None,
+        Field(
+            description="Latest version of activity selected for study.", nullable=True
+        ),
+    ] = None
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete activity versions",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_activity_vo_and_order(
@@ -1990,8 +1965,11 @@ class StudySelectionActivity(StudySelectionActivityCore):
                 None,
             )
         )
-        if soa_groups and not flowchart_group:
-            raise NotFoundException("All Preloaded SoA Groups should exists")
+
+        BusinessLogicException.raise_if(
+            soa_groups and not flowchart_group,
+            msg="All Preloaded SoA Groups should exist.",
+        )
 
         assert activity_uid is not None
         latest_activity = None
@@ -2010,10 +1988,10 @@ class StudySelectionActivity(StudySelectionActivityCore):
                 ),
                 None,
             )
-            if not latest_activity:
-                raise NotFoundException(
-                    "All Preloaded Activities Versions should exists"
-                )
+            BusinessLogicException.raise_if_not(
+                latest_activity,
+                msg="All Preloaded Activities Versions should exist.",
+            )
         else:
             latest_activity = get_activity_by_uid_callback(
                 single_study_selection.activity_uid
@@ -2041,10 +2019,10 @@ class StudySelectionActivity(StudySelectionActivityCore):
                     None,
                 )
             )
-            if not selected_activity and activity_for_study_activities:
-                raise NotFoundException(
-                    "All Preloaded Activities Versions should exists"
-                )
+            BusinessLogicException.raise_if(
+                not selected_activity and activity_for_study_activities,
+                msg="All Preloaded Activities Versions should exist.",
+            )
 
         activity_subgroup_name = single_study_selection.activity_subgroup_name
         activity_group_name = single_study_selection.activity_group_name
@@ -2065,7 +2043,7 @@ class StudySelectionActivity(StudySelectionActivityCore):
             study_soa_group=SimpleStudySoAGroup(
                 study_soa_group_uid=single_study_selection.study_soa_group_uid,
                 soa_group_term_uid=flowchart_group.term_uid,
-                soa_group_name=flowchart_group.sponsor_preferred_name,
+                soa_group_term_name=flowchart_group.sponsor_preferred_name,
                 order=single_study_selection.study_soa_group_order,
             ),
             activity=selected_activity,
@@ -2083,45 +2061,46 @@ class StudySelectionActivity(StudySelectionActivityCore):
                 else get_latest_on_datetime_str()
             ),
             start_date=single_study_selection.start_date,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
         )
 
 
-class StudySelectionActivityCreateInput(BaseModel):
-    soa_group_term_uid: str = Field(
-        title="soa_group_term_uid",
-        description="flowchart CT term uid",
-    )
-    activity_uid: str = Field(title="activity_uid", description="activity uid")
-    activity_subgroup_uid: str | None = Field(None, title="activity_subgroup_uid")
-    activity_group_uid: str | None = Field(None, title="activity_group_uid")
-    activity_instance_uid: str | None = Field(
-        None, title="activity_instance_uid", description="activity instance uid"
-    )
+class StudySelectionActivityCreateInput(PostInputModel):
+    soa_group_term_uid: Annotated[str, Field(description="flowchart CT term uid")]
+    activity_uid: Annotated[str, Field()]
+    activity_subgroup_uid: Annotated[str | None, Field()] = None
+    activity_group_uid: Annotated[str | None, Field()] = None
+    activity_instance_uid: Annotated[str | None, Field()] = None
 
 
-class StudyActivitySubGroupEditInput(BaseModel):
-    show_activity_subgroup_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
+class StudySelectionActivityInSoACreateInput(PatchInputModel):
+    soa_group_term_uid: Annotated[str, Field(description="flowchart CT term uid")]
+    activity_uid: str
+    activity_subgroup_uid: str | None = None
+    activity_group_uid: str | None = None
+    activity_instance_uid: str | None = None
+    order: Annotated[int, Field(nullable=True, gt=0, lt=settings.MAX_INT_NEO4J)]
+
+
+class StudyActivitySubGroupEditInput(PatchInputModel):
+    show_activity_subgroup_in_protocol_flowchart: Annotated[
+        bool | None, SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = None
 
 
 class StudyActivitySubGroup(BaseModel):
     show_activity_subgroup_in_protocol_flowchart: bool | None = (
         SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
     )
-    study_uid: str | None = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
-    )
-    study_activity_subgroup_uid: str = Field(
-        ...,
-        title="study_activity_subgroup_uid",
-        source="uid",
-    )
-    study_activity_group_uid: str | None = Field(None)
-    order: int | None = Field(None)
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
+    study_activity_subgroup_uid: Annotated[
+        str,
+        Field(source="uid"),
+    ]
+    activity_subgroup_uid: Annotated[str, Field()]
+    activity_subgroup_name: Annotated[str | None, Field(nullable=True)] = None
+    study_activity_group_uid: Annotated[str | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_selection_activity_vo(
@@ -2134,6 +2113,8 @@ class StudyActivitySubGroup(BaseModel):
 
         return cls(
             study_activity_subgroup_uid=study_activity_subgroup_uid,
+            activity_subgroup_uid=single_study_selection.activity_subgroup_uid,
+            activity_subgroup_name=single_study_selection.activity_subgroup_name,
             show_activity_subgroup_in_protocol_flowchart=single_study_selection.show_activity_subgroup_in_protocol_flowchart,
             study_activity_group_uid=single_study_selection.study_activity_group_uid,
             study_uid=study_uid,
@@ -2141,29 +2122,36 @@ class StudyActivitySubGroup(BaseModel):
         )
 
 
-class StudyActivityGroupEditInput(BaseModel):
-    show_activity_group_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
+class StudyActivityGroupEditInput(PatchInputModel):
+    show_activity_group_in_protocol_flowchart: Annotated[
+        bool | None, SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = None
 
 
 class StudyActivityGroup(BaseModel):
-    show_activity_group_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    show_activity_group_in_protocol_flowchart: Annotated[
+        bool | None, SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = None
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
+    study_soa_group_uid: Annotated[str | None, Field(nullable=True)] = None
+    study_activity_subgroup_uids: Annotated[list[str] | None, Field(nullable=True)] = (
+        None
     )
-    study_uid: str | None = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
+    study_activity_group_uid: Annotated[str, Field(source="uid")]
+    activity_group_uid: Annotated[str, Field()]
+    activity_group_name: Annotated[str | None, Field(nullable=True)] = None
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
+    study_soa_group_uid: Annotated[str | None, Field(nullable=True)] = None
+    study_activity_subgroup_uids: Annotated[list[str] | None, Field(nullable=True)] = (
+        None
     )
-    study_soa_group_uid: str | None = Field(None)
-    study_activity_subgroup_uids: list[str] | None = Field(None)
-    study_activity_group_uid: str = Field(
-        ...,
-        title="study_activity_group_uid",
-        source="uid",
-    )
-    order: int | None = Field(None)
+    study_activity_group_uid: Annotated[
+        str,
+        Field(source="uid"),
+    ]
+    activity_group_uid: Annotated[str, Field()]
+    activity_group_name: Annotated[str | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_selection_activity_vo(
@@ -2176,6 +2164,8 @@ class StudyActivityGroup(BaseModel):
 
         return cls(
             study_activity_group_uid=study_activity_group_uid,
+            activity_group_uid=single_study_selection.activity_group_uid,
+            activity_group_name=single_study_selection.activity_group_name,
             show_activity_group_in_protocol_flowchart=single_study_selection.show_activity_group_in_protocol_flowchart,
             study_soa_group_uid=single_study_selection.study_soa_group_uid,
             study_activity_subgroup_uids=single_study_selection.study_activity_subgroup_uids,
@@ -2184,28 +2174,30 @@ class StudyActivityGroup(BaseModel):
         )
 
 
-class StudySoAGroupEditInput(BaseModel):
-    show_soa_group_in_protocol_flowchart: bool = (
-        SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
+class StudySoAGroupEditInput(PatchInputModel):
+    show_soa_group_in_protocol_flowchart: Annotated[
+        bool, SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = False
 
 
 class StudySoAGroup(BaseModel):
-    show_soa_group_in_protocol_flowchart: bool = (
-        SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    show_soa_group_in_protocol_flowchart: Annotated[
+        bool, SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = False
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
+    study_soa_group_uid: Annotated[str, Field(source="uid")]
+    soa_group_term_uid: Annotated[str, Field()]
+    soa_group_term_name: Annotated[str | None, Field(nullable=True)] = None
+    study_uid: Annotated[
+        str | None, Field(description=STUDY_UID_DESC, nullable=True)
+    ] = None
+    study_soa_group_uid: Annotated[str | None, Field(source="uid", nullable=True)] = (
+        None
     )
-    study_uid: str | None = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
-    )
-    study_soa_group_uid: str = Field(
-        ...,
-        title="study_soa_group_uid",
-        source="uid",
-    )
-    study_activity_group_uids: list[str] | None = Field(None)
-    order: int | None = Field(None)
+    soa_group_term_uid: Annotated[str, Field()]
+    soa_group_term_name: Annotated[str | None, Field(nullable=True)] = None
+    study_activity_group_uids: Annotated[list[str] | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_selection_activity_vo(
@@ -2218,6 +2210,8 @@ class StudySoAGroup(BaseModel):
 
         return cls(
             study_soa_group_uid=study_soa_group_uid,
+            soa_group_term_uid=single_study_selection.soa_group_term_uid,
+            soa_group_term_name=single_study_selection.soa_group_term_name,
             show_soa_group_in_protocol_flowchart=single_study_selection.show_soa_group_in_protocol_flowchart,
             study_uid=study_uid,
             study_activity_group_uids=single_study_selection.study_activity_group_uids,
@@ -2225,85 +2219,64 @@ class StudySoAGroup(BaseModel):
         )
 
 
-class StudySelectionActivityInput(BaseModel):
-    show_activity_in_protocol_flowchart: bool | None = Field(
-        None,
-        title="show_activity_in_protocol_flowchart",
-        description="show activity in protocol flow chart",
-    )
-    show_activity_subgroup_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_SUBGROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    show_activity_group_in_protocol_flowchart: bool | None = (
-        SHOW_ACTIVITY_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    show_soa_group_in_protocol_flowchart: bool = (
-        SHOW_SOA_GROUP_IN_PROTOCOL_FLOWCHART_FIELD
-    )
-    soa_group_term_uid: str | None = Field(
-        title="soa_group_term_uid",
-        description="flowchart CT term uid",
-    )
-    activity_group_uid: str | None = Field(
-        title="activity_group_uid",
-    )
-    activity_subgroup_uid: str | None = Field(
-        title="activity_subgroup_uid",
-    )
+class StudySelectionActivityInput(PatchInputModel):
+    show_activity_in_protocol_flowchart: Annotated[bool | None, Field()] = None
+    soa_group_term_uid: Annotated[
+        str | None, Field(description="flowchart CT term uid")
+    ]
+    activity_group_uid: Annotated[str | None, Field()]
+    activity_subgroup_uid: Annotated[str | None, Field()]
+
+
+class StudyActivityReplaceActivityInput(StudySelectionActivityInput):
+    activity_uid: str
 
 
 class StudySelectionActivityRequestEditInput(StudySelectionActivityInput):
-    soa_group_term_uid: str | None = Field(
-        None,
-        title="soa_group_term_uid",
-        description="flowchart CT term uid",
-    )
-    activity_group_uid: str | None = Field(None, title="activity_group_uid")
-    activity_subgroup_uid: str | None = Field(None, title="activity_subgroup_uid")
-    activity_uid: str | None = Field(
-        None, title="activity_uid", description="activity uid"
-    )
-    activity_name: str | None = Field(
-        None, title="activity_name", description="activity_name uid"
-    )
+    soa_group_term_uid: Annotated[
+        str | None, Field(description="flowchart CT term uid")
+    ] = None
+    activity_group_uid: Annotated[str | None, Field()] = None
+    activity_subgroup_uid: Annotated[str | None, Field()] = None
+    activity_uid: Annotated[str | None, Field()] = None
+    activity_name: Annotated[str | None, Field()] = None
     request_rationale: str | None = None
     is_data_collected: bool | None = None
     is_request_final: bool | None = None
 
 
 class UpdateActivityPlaceholderToSponsorActivity(StudySelectionActivityInput):
-    activity_group_uid: str = Field(..., title="activity_group_uid")
-    activity_subgroup_uid: str = Field(..., title="activity_subgroup_uid")
-    activity_uid: str = Field(..., title="activity_uid", description="activity uid")
+    activity_group_uid: Annotated[str, Field()]
+    activity_subgroup_uid: Annotated[str, Field()]
+    activity_uid: Annotated[str, Field()]
 
 
-class StudySelectionActivityNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order selected for the study activity",
-    )
+class StudySelectionActivityNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order selected for the study activity",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
-class StudySelectionActivityBatchUpdateInput(BaseModel):
-    study_activity_uid: str = Field(
-        ...,
-        title="study_activity_uid",
-        description="UID of the Study Activity to update",
-    )
+class StudySelectionActivityBatchUpdateInput(InputModel):
+    study_activity_uid: Annotated[
+        str, Field(description="UID of the Study Activity to update")
+    ]
     content: StudySelectionActivityInput
 
 
-class StudySelectionActivityBatchDeleteInput(BaseModel):
-    study_activity_uid: str = Field(
-        ...,
-        title="study_activity_uid",
-        description="UID of the study activity to delete",
-    )
+class StudySelectionActivityBatchDeleteInput(InputModel):
+    study_activity_uid: Annotated[
+        str, Field(description="UID of the study activity to delete")
+    ]
 
 
-class StudySelectionActivityBatchInput(BaseModel):
-    method: str = METHOD_FIELD
+class StudySelectionActivityBatchInput(BatchInputModel):
+    method: Annotated[str, METHOD_FIELD]
     content: (
         StudySelectionActivityBatchUpdateInput
         | StudySelectionActivityCreateInput
@@ -2312,7 +2285,7 @@ class StudySelectionActivityBatchInput(BaseModel):
 
 
 class StudySelectionActivityBatchOutput(BaseModel):
-    response_code: int = RESPONSE_CODE_FIELD
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
     content: StudySelectionActivity | None | BatchErrorResponse
 
 
@@ -2320,57 +2293,51 @@ class StudySelectionActivityBatchOutput(BaseModel):
 # Study Activity Instance
 #
 class StudySelectionActivityInstance(BaseModel):
-    study_uid: str | None = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
-    )
+    study_uid: Annotated[str | None, Field(description=STUDY_UID_DESC, nullable=True)]
 
     show_activity_instance_in_protocol_flowchart: bool = (
         SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD
     )
-    study_activity_instance_uid: str | None = Field(
-        ...,
-        title="study_activity_instance_uid",
-        description=STUDY_ACTIVITY_INSTANCE_UID_DESC,
-    )
-    study_activity_uid: str | None = Field(
-        ...,
-        title="study_activity_uid",
-        description=STUDY_ACTIVITY_UID_DESC,
-    )
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None.",
-    )
+    study_activity_instance_uid: Annotated[
+        str | None, Field(description=STUDY_ACTIVITY_INSTANCE_UID_DESC, nullable=True)
+    ]
+    study_activity_uid: Annotated[
+        str | None, Field(description=STUDY_ACTIVITY_UID_DESC, nullable=True)
+    ]
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None.",
+            nullable=True,
+        ),
+    ] = None
     activity: Activity
-    activity_instance: ActivityInstance | None
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
-    user_initials: str | None = Field(
-        ...,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-    )
-    end_date: datetime | None = END_DATE_FIELD
-    status: str | None = STATUS_FIELD
-    change_type: str | None = CHANGE_TYPE_FIELD
-    latest_activity: Activity | None = Field(
-        None,
-        title="latest_activity",
-        description="Latest version of activity selected for study.",
-        nullable=True,
-    )
-    latest_activity_instance: ActivityInstance | None = Field(
-        None,
-        title="latest_activity_instance",
-        description="Latest version of activity instace selected for study.",
-        nullable=True,
-    )
+    activity_instance: Annotated[ActivityInstance | None, Field(nullable=True)] = None
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
+
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
+    status: Annotated[str | None, STATUS_FIELD] = None
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
+    latest_activity: Annotated[
+        Activity | None,
+        Field(
+            description="Latest version of activity selected for study.", nullable=True
+        ),
+    ] = None
+    latest_activity_instance: Annotated[
+        ActivityInstance | None,
+        Field(
+            description="Latest version of activity instace selected for study.",
+            nullable=True,
+        ),
+    ] = None
     state: StudyActivityInstanceState
     study_activity_subgroup: SimpleStudyActivitySubGroup | None
     study_activity_group: SimpleStudyActivityGroup | None
@@ -2420,7 +2387,9 @@ class StudySelectionActivityInstance(BaseModel):
             activity_instance=activity_instance,
             end_date=study_selection_history.end_date,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             state=cls._get_state_out_of_activity_and_activity_instance(
                 activity=activity, activity_instance=activity_instance
             ),
@@ -2437,10 +2406,12 @@ class StudySelectionActivityInstance(BaseModel):
         get_activity_instance_by_uid_version_callback: Callable[
             [str, str], ActivityInstance
         ],
-        activity_for_study_activity_instances: list[ActivityForStudyActivity]
-        | None = None,
-        activity_instances_for_study_activity_instances: list[ActivityInstance]
-        | None = None,
+        activity_for_study_activity_instances: (
+            list[ActivityForStudyActivity] | None
+        ) = None,
+        activity_instances_for_study_activity_instances: (
+            list[ActivityInstance] | None
+        ) = None,
     ) -> Self:
         single_study_selection = specific_selection
         study_activity_instance_uid = single_study_selection.study_selection_uid
@@ -2463,10 +2434,10 @@ class StudySelectionActivityInstance(BaseModel):
                 ),
                 None,
             )
-            if not latest_activity:
-                raise NotFoundException(
-                    "All Preloaded Activities Versions should exists"
-                )
+            BusinessLogicException.raise_if_not(
+                latest_activity,
+                msg="All Preloaded Activities Versions should exist.",
+            )
         else:
             latest_activity = get_activity_by_uid_callback(
                 single_study_selection.activity_uid
@@ -2494,10 +2465,10 @@ class StudySelectionActivityInstance(BaseModel):
                     None,
                 )
             )
-            if not selected_activity and activity_for_study_activity_instances:
-                raise NotFoundException(
-                    "All Preloaded Activities Versions should exists"
-                )
+            BusinessLogicException.raise_if(
+                not selected_activity and activity_for_study_activity_instances,
+                msg="All Preloaded Activities Versions should exist.",
+            )
 
         if activity_instance_uid:
             if activity_instances_for_study_activity_instances:
@@ -2515,10 +2486,10 @@ class StudySelectionActivityInstance(BaseModel):
                     ),
                     None,
                 )
-                if not latest_activity_instance:
-                    raise NotFoundException(
-                        "All Preloaded Activities Versions should exists"
-                    )
+                BusinessLogicException.raise_if_not(
+                    latest_activity_instance,
+                    msg="All Preloaded Activities Versions should exist.",
+                )
             else:
                 latest_activity_instance = get_activity_instance_by_uid_callback(
                     activity_instance_uid
@@ -2549,13 +2520,11 @@ class StudySelectionActivityInstance(BaseModel):
                         None,
                     )
                 )
-            if (
+            BusinessLogicException.raise_if(
                 not selected_activity_instance
-                and activity_instances_for_study_activity_instances
-            ):
-                raise NotFoundException(
-                    "All Preloaded Activities Instance Versions should exists"
-                )
+                and activity_instances_for_study_activity_instances,
+                msg="All Preloaded Activities Instance Versions should exist.",
+            )
 
         else:
             selected_activity_instance = None
@@ -2570,7 +2539,7 @@ class StudySelectionActivityInstance(BaseModel):
             show_activity_instance_in_protocol_flowchart=single_study_selection.show_activity_instance_in_protocol_flowchart,
             study_uid=study_uid,
             start_date=single_study_selection.start_date,
-            user_initials=single_study_selection.user_initials,
+            author_username=single_study_selection.author_username,
             state=cls._get_state_out_of_activity_and_activity_instance(
                 activity=selected_activity, activity_instance=selected_activity_instance
             ),
@@ -2596,7 +2565,7 @@ class StudySelectionActivityInstance(BaseModel):
                 SimpleStudySoAGroup(
                     study_soa_group_uid=single_study_selection.study_soa_group_uid,
                     soa_group_term_uid=single_study_selection.soa_group_term_uid,
-                    soa_group_name=single_study_selection.soa_group_term_name,
+                    soa_group_term_name=single_study_selection.soa_group_term_name,
                 )
                 if single_study_selection.study_soa_group_uid
                 else None
@@ -2604,32 +2573,33 @@ class StudySelectionActivityInstance(BaseModel):
         )
 
 
-class StudySelectionActivityInstanceCreateInput(BaseModel):
-    activity_instance_uid: str | None = Field(
-        None,
-        title="activity_instance_uid",
-        description="uid of the activity instance",
-    )
-    study_activity_uid: str = Field(
-        ..., title="study_activity_uid", description="study_activity uid"
-    )
-    show_activity_instance_in_protocol_flowchart: bool = (
-        SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD
-    )
+class StudySelectionActivityInstanceCreateInput(PostInputModel):
+    activity_instance_uid: Annotated[str | None, Field()] = None
+    study_activity_uid: Annotated[str, Field()]
+    show_activity_instance_in_protocol_flowchart: Annotated[
+        bool, SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = False
 
 
-class StudySelectionActivityInstanceEditInput(BaseModel):
-    activity_instance_uid: str | None = Field(
-        None,
-        title="activity_instance_uid",
-        description="uid of the activity instance",
-    )
-    study_activity_uid: str | None = Field(
-        None, title="study_activity_uid", description="study_activity uid"
-    )
-    show_activity_instance_in_protocol_flowchart: bool = (
-        SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD
-    )
+class StudySelectionActivityInstanceEditInput(PatchInputModel):
+    activity_instance_uid: Annotated[str | None, Field()] = None
+    study_activity_uid: Annotated[str | None, Field()]
+    show_activity_instance_in_protocol_flowchart: Annotated[
+        bool, SHOW_ACTIVITY_INSTANCE_IN_PROTOCOL_FLOWCHART_FIELD
+    ] = False
+
+
+class StudySelectionActivityInstanceBatchCreate(InputModel):
+    activity_instance_uids: Annotated[
+        list[str],
+        Field(),
+    ] = []
+    study_activity_uid: Annotated[str | None, Field()] = None
+
+
+class StudySelectionActivityInstanceBatchOutput(BaseModel):
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
+    content: StudySelectionActivityInstance | None | BatchErrorResponse
 
 
 #
@@ -2639,54 +2609,64 @@ class StudyActivitySchedule(BaseModel):
     class Config:
         orm_mode = True
 
-    study_uid: str = STUDY_UID_FIELD
+    study_uid: Annotated[str, STUDY_UID_FIELD]
 
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None",
-    )
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None",
+            nullable=True,
+        ),
+    ]
 
-    study_activity_schedule_uid: str | None = Field(
-        ...,
-        title="study_activity_schedule_uid",
-        description="uid for the study activity schedule",
-        source="uid",
-    )
+    study_activity_schedule_uid: Annotated[
+        str | None,
+        Field(
+            description="uid for the study activity schedule",
+            source="uid",
+            nullable=True,
+        ),
+    ]
 
-    study_activity_uid: str = Field(
-        ...,
-        title="study_activity_uid",
-        description="The related study activity UID",
-        source="study_activity.uid",
-    )
-    study_activity_instance_uid: str | None = Field(
-        None,
-        title="study_activity_instance_uid",
-        description="The related study activity instance UID",
-        source="study_activity.study_activity_has_study_activity_instance.uid",
-    )
-    study_visit_uid: str = Field(
-        title="study_visit_uid",
-        description="The related study visit UID",
-        source="study_visit.uid",
-    )
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-        source=AFTER_DATE_QUALIFIER,
-    )
+    study_activity_uid: Annotated[
+        str,
+        Field(
+            description="The related study activity UID",
+            source="study_activity.uid",
+        ),
+    ]
+    study_activity_instance_uid: Annotated[
+        str | None,
+        Field(
+            description="The related study activity instance UID",
+            source="study_activity.study_activity_has_study_activity_instance.uid",
+            nullable=True,
+        ),
+    ] = None
+    study_visit_uid: Annotated[
+        str,
+        Field(
+            description="The related study visit UID",
+            source="study_visit.uid",
+        ),
+    ]
+    start_date: Annotated[
+        datetime | None,
+        Field(description=START_DATE_DESC, source=AFTER_DATE_QUALIFIER, nullable=True),
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        source=AFTER_USER_QUALIFIER,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(
+            title="author_username",
+            description=AUTHOR_FIELD_DESC,
+            source=AFTER_USER_QUALIFIER,
+            nullable=True,
+        ),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
     @classmethod
     def from_vo(
@@ -2706,66 +2686,73 @@ class StudyActivitySchedule(BaseModel):
             study_activity_instance_uid=schedule_vo.study_activity_instance_uid,
             study_visit_uid=schedule_vo.study_visit_uid,
             start_date=schedule_vo.start_date,
-            user_initials=schedule_vo.user_initials,
+            author_username=schedule_vo.author_username,
         )
 
 
 class StudyActivityScheduleHistory(BaseModel):
-    study_uid: str = Field(
-        ...,
-        title="study_uid",
-        description=STUDY_UID_DESC,
-    )
+    study_uid: Annotated[str, Field(description=STUDY_UID_DESC)]
 
-    study_activity_schedule_uid: str = Field(
-        ...,
-        title="study_activity_schedule_uid",
-        description="uid for the study activity schedule",
-    )
-    study_activity_uid: str = Field(
-        ...,
-        title="study_activity_uid",
-        description=STUDY_ACTIVITY_UID_DESC,
-    )
-    study_activity_instance_uid: str | None = Field(
-        None,
-        title="study_activity_instance_uid",
-        description=STUDY_ACTIVITY_INSTANCE_UID_DESC,
-    )
-    study_visit_uid: str = Field(
-        ...,
-        title="study_visit_uid",
-        description="uid for the study visit",
-    )
+    study_activity_schedule_uid: Annotated[
+        str, Field(description="uid for the study activity schedule")
+    ]
+    study_activity_uid: Annotated[str, Field(description=STUDY_ACTIVITY_UID_DESC)]
+    study_activity_instance_uid: Annotated[
+        str | None, Field(description=STUDY_ACTIVITY_INSTANCE_UID_DESC, nullable=True)
+    ] = None
+    study_visit_uid: Annotated[str, Field(description="uid for the study visit")]
 
-    modified: datetime | None = Field(
-        None, title="modified", description="Date of last modification", nullable=True
-    )
+    modified: Annotated[
+        datetime | None, Field(description="Date of last modification", nullable=True)
+    ] = None
 
 
-class StudyActivityScheduleCreateInput(BaseModel):
-    study_activity_uid: str = Field(
-        ..., title="study_activity_uid", description="The related study activity uid"
-    )
-    study_visit_uid: str = Field(
-        ..., title="study_visit_uid", description="The related study visit uid"
-    )
+class StudyActivityScheduleCreateInput(PostInputModel):
+    study_activity_uid: Annotated[
+        str,
+        Field(description="The related study activity uid"),
+    ]
+    study_visit_uid: Annotated[str, Field(description="The related study visit uid")]
 
 
-class StudyActivityScheduleDeleteInput(BaseModel):
-    uid: str = Field(
-        ..., title="uid", description="UID of the study activity schedule to delete"
-    )
+class StudyActivityScheduleDeleteInput(InputModel):
+    uid: Annotated[
+        str,
+        Field(description="UID of the study activity schedule to delete"),
+    ]
 
 
-class StudyActivityScheduleBatchInput(BaseModel):
-    method: str = METHOD_FIELD
+class StudyActivityScheduleBatchInput(BatchInputModel):
+    method: Annotated[str, METHOD_FIELD]
     content: StudyActivityScheduleCreateInput | StudyActivityScheduleDeleteInput
 
 
 class StudyActivityScheduleBatchOutput(BaseModel):
-    response_code: int = RESPONSE_CODE_FIELD
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
     content: StudyActivitySchedule | None | BatchErrorResponse
+
+
+class StudySoAEditBatchInput(BatchInputModel):
+    method: Annotated[str, METHOD_FIELD]
+    object: Annotated[
+        str,
+        Field(
+            description="Type of the object to edit, it can be either StudyActivity or StudyActivitySchedule",
+            regex="^(StudyActivity|StudyActivitySchedule)$",
+        ),
+    ]
+    content: (
+        StudyActivityScheduleCreateInput
+        | StudySelectionActivityBatchUpdateInput
+        | StudySelectionActivityCreateInput
+        | StudySelectionActivityBatchDeleteInput
+        | StudyActivityScheduleDeleteInput
+    )
+
+
+class StudySoAEditBatchOutput(BaseModel):
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
+    content: StudySelectionActivity | StudyActivitySchedule | None | BatchErrorResponse
 
 
 # Study design cells
@@ -2775,109 +2762,109 @@ class StudyDesignCell(BaseModel):
     class Config:
         orm_mode = True
 
-    study_uid: str = STUDY_UID_FIELD
+    study_uid: Annotated[str, STUDY_UID_FIELD]
 
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None",
-    )
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None",
+            nullable=True,
+        ),
+    ] = None
 
-    design_cell_uid: str | None = Field(
-        None,
-        title="design_cell_uid",
-        description="uid for the study cell",
-        source="uid",
-        nullable=True,
-    )
+    design_cell_uid: Annotated[
+        str | None,
+        Field(description="uid for the study cell", source="uid", nullable=True),
+    ] = None
 
-    study_arm_uid: str | None = Field(
-        None,
-        title="study_arm_uid",
-        description=STUDY_ARM_UID_DESC,
-        source="study_arm.uid",
-        nullable=True,
-    )
+    study_arm_uid: Annotated[
+        str | None,
+        Field(description=STUDY_ARM_UID_DESC, source="study_arm.uid", nullable=True),
+    ] = None
 
-    study_arm_name: str | None = Field(
-        None,
-        title="study_arm_name",
-        description="the name of the related study arm",
-        source="study_arm.name",
-        nullable=True,
-    )
+    study_arm_name: Annotated[
+        str | None,
+        Field(
+            description="the name of the related study arm",
+            source="study_arm.name",
+            nullable=True,
+        ),
+    ] = None
 
-    study_branch_arm_uid: str | None = Field(
-        None,
-        title="study_branch_arm_uid",
-        description=STUDY_BRANCH_ARM_UID_DESC,
-        source="study_branch_arm.uid",
-        nullable=True,
-    )
+    study_branch_arm_uid: Annotated[
+        str | None,
+        Field(
+            description=STUDY_BRANCH_ARM_UID_DESC,
+            source="study_branch_arm.uid",
+            nullable=True,
+        ),
+    ] = None
 
-    study_branch_arm_name: str | None = Field(
-        None,
-        title="study_branch_arm_name",
-        description="the name of the related study branch arm",
-        source="study_branch_arm.name",
-        nullable=True,
-    )
+    study_branch_arm_name: Annotated[
+        str | None,
+        Field(
+            description="the name of the related study branch arm",
+            source="study_branch_arm.name",
+            nullable=True,
+        ),
+    ] = None
 
-    study_epoch_uid: str = Field(
-        ...,
-        title="study_epoch_uid",
-        description=STUDY_EPOCH_UID_DESC,
-        source="study_epoch.uid",
-    )
+    study_epoch_uid: Annotated[
+        str,
+        Field(
+            description=STUDY_EPOCH_UID_DESC,
+            source="study_epoch.uid",
+        ),
+    ]
 
-    study_epoch_name: str = Field(
-        ...,
-        title="study_epoch_name",
-        description="the name of the related study epoch",
-        source="study_epoch.has_epoch.has_name_root.has_latest_value.name",
-    )
+    study_epoch_name: Annotated[
+        str,
+        Field(
+            description="the name of the related study epoch",
+            source="study_epoch.has_epoch.has_name_root.has_latest_value.name",
+        ),
+    ]
 
-    study_element_uid: str = Field(
-        ...,
-        title="study_element_uid",
-        description=STUDY_ELEMENT_UID_DESC,
-        source="study_element.uid",
-    )
+    study_element_uid: Annotated[
+        str,
+        Field(
+            description=STUDY_ELEMENT_UID_DESC,
+            source="study_element.uid",
+        ),
+    ]
 
-    study_element_name: str = Field(
-        ...,
-        title="study_element_name",
-        description="the name of the related study element",
-        source="study_element.name",
-    )
+    study_element_name: Annotated[
+        str,
+        Field(
+            description="the name of the related study element",
+            source="study_element.name",
+        ),
+    ]
 
-    transition_rule: str | None = Field(
-        None,
-        title="transition_rule",
-        description=TRANSITION_RULE_DESC,
-        nullable=True,
-    )
+    transition_rule: Annotated[
+        str | None,
+        Field(description=TRANSITION_RULE_DESC, nullable=True),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-        source=AFTER_DATE_QUALIFIER,
-    )
+    start_date: Annotated[
+        datetime | None,
+        Field(description=START_DATE_DESC, source=AFTER_DATE_QUALIFIER, nullable=True),
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        source=AFTER_USER_QUALIFIER,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(
+            title="author_username",
+            description=AUTHOR_FIELD_DESC,
+            source=AFTER_USER_QUALIFIER,
+            nullable=True,
+        ),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    order: int | None = Field(
-        None, title="order", description=ORDER_DESC, nullable=True
-    )
+    order: Annotated[int | None, Field(description=ORDER_DESC, nullable=True)]
 
     @classmethod
     def from_vo(
@@ -2903,130 +2890,112 @@ class StudyDesignCell(BaseModel):
             study_element_name=design_cell_vo.study_element_name,
             transition_rule=design_cell_vo.transition_rule,
             start_date=design_cell_vo.start_date,
-            user_initials=design_cell_vo.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                design_cell_vo.author_id
+            ),
             order=design_cell_vo.order,
         )
 
 
 class StudyDesignCellHistory(BaseModel):
-    study_uid: str = Field(..., title="study_uid", description=STUDY_UID_DESC)
+    study_uid: Annotated[str, Field(description=STUDY_UID_DESC)]
 
-    study_design_cell_uid: str = Field(
-        ..., title="study_design_cell_uid", description="uid for the study design cell"
-    )
+    study_design_cell_uid: Annotated[
+        str,
+        Field(description="uid for the study design cell"),
+    ]
 
-    study_arm_uid: str | None = Field(
-        None, title="study_arm_uid", description=STUDY_ARM_UID_DESC
-    )
+    study_arm_uid: Annotated[
+        str | None, Field(description=STUDY_ARM_UID_DESC, nullable=True)
+    ] = None
 
-    study_branch_arm_uid: str | None = Field(
-        None,
-        title="study_branch_arm_uid",
-        description=STUDY_BRANCH_ARM_UID_DESC,
-    )
+    study_branch_arm_uid: Annotated[
+        str | None, Field(description=STUDY_BRANCH_ARM_UID_DESC, nullable=True)
+    ] = None
 
-    study_epoch_uid: str = Field(
-        ..., title="study_epoch_uid", description=STUDY_EPOCH_UID_DESC
-    )
+    study_epoch_uid: Annotated[str, Field(description=STUDY_EPOCH_UID_DESC)]
 
-    study_element_uid: str = Field(
-        None,
-        title="study_element_uid",
-        description=STUDY_ELEMENT_UID_DESC,
-    )
+    study_element_uid: Annotated[
+        str | None, Field(description=STUDY_ELEMENT_UID_DESC, nullable=True)
+    ] = None
 
-    transition_rule: str = Field(
-        None, title="transition_rule", description=TRANSITION_RULE_DESC
-    )
+    transition_rule: Annotated[
+        str | None, Field(description=TRANSITION_RULE_DESC, nullable=True)
+    ] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
-    modified: datetime | None = Field(
-        None, title="modified", description="Date of last modification"
-    )
+    modified: Annotated[
+        datetime | None, Field(description="Date of last modification", nullable=True)
+    ] = None
 
-    order: int | None = Field(
-        None,
-        title="order",
-        description=ORDER_DESC,
-    )
+    order: Annotated[int | None, Field(nullable=True, description=ORDER_DESC)] = None
 
 
 class StudyDesignCellVersion(StudyDesignCellHistory):
     changes: dict
 
 
-class StudyDesignCellCreateInput(BaseModel):
-    study_arm_uid: str | None = Field(
-        None, title="study_arm_uid", description=STUDY_ARM_UID_DESC
-    )
+class StudyDesignCellCreateInput(PostInputModel):
+    study_arm_uid: Annotated[str | None, Field(description=STUDY_ARM_UID_DESC)] = None
 
-    study_branch_arm_uid: str | None = Field(
-        None,
-        title="study_branch_arm_uid",
-        description=STUDY_BRANCH_ARM_UID_DESC,
-    )
+    study_branch_arm_uid: Annotated[
+        str | None, Field(description=STUDY_BRANCH_ARM_UID_DESC)
+    ] = None
 
-    study_epoch_uid: str = Field(
-        ..., title="study_epoch_uid", description=STUDY_EPOCH_UID_DESC
-    )
+    study_epoch_uid: Annotated[str, Field(description=STUDY_EPOCH_UID_DESC)]
 
-    study_element_uid: str = Field(
-        ...,
-        title="study_element_uid",
-        description=STUDY_ELEMENT_UID_DESC,
-    )
+    study_element_uid: Annotated[str, Field(description=STUDY_ELEMENT_UID_DESC)]
 
-    transition_rule: str | None = Field(
-        None,
-        title="transition_rule",
-        description="Optionally, a transition rule for the cell",
-    )
+    transition_rule: Annotated[
+        str | None, Field(description="Optionally, a transition rule for the cell")
+    ] = None
 
-    order: int | None = Field(
-        None,
-        title="order",
-        description=ORDER_DESC,
-    )
+    order: Annotated[
+        int | None, Field(description=ORDER_DESC, gt=0, lt=settings.MAX_INT_NEO4J)
+    ] = None
 
 
-class StudyDesignCellEditInput(BaseModel):
-    study_design_cell_uid: str = Field(
-        ..., title="study_design_cell_uid", description="uid for the study design cell"
-    )
-    study_arm_uid: str | None = Field(
-        None, title="study_arm_uid", description=STUDY_ARM_UID_DESC
-    )
-    study_branch_arm_uid: str | None = Field(
-        None,
-        title="study_branch_arm_uid",
-        description=STUDY_BRANCH_ARM_UID_DESC,
-    )
-    study_element_uid: str | None = Field(
-        None,
-        title="study_element_uid",
-        description=STUDY_ELEMENT_UID_DESC,
-    )
-    order: int | None = Field(
-        None,
-        title="order",
-        description=ORDER_DESC,
-    )
-    transition_rule: str | None = Field(
-        None,
-        title="transition_rule",
-        description=TRANSITION_RULE_DESC,
-    )
+class StudyDesignCellEditInput(PatchInputModel):
+    study_design_cell_uid: Annotated[
+        str,
+        Field(description="uid for the study design cell"),
+    ]
+    study_arm_uid: Annotated[str | None, Field(description=STUDY_ARM_UID_DESC)] = None
+    study_branch_arm_uid: Annotated[
+        str | None,
+        Field(
+            description=STUDY_BRANCH_ARM_UID_DESC,
+        ),
+    ] = None
+    study_element_uid: Annotated[
+        str | None,
+        Field(
+            description=STUDY_ELEMENT_UID_DESC,
+        ),
+    ] = None
+    order: Annotated[
+        int | None,
+        Field(
+            nullable=True,
+            description=ORDER_DESC,
+        ),
+    ] = None
+    transition_rule: Annotated[
+        str | None,
+        Field(
+            nullable=True,
+            description=TRANSITION_RULE_DESC,
+        ),
+    ] = None
 
 
-class StudyDesignCellDeleteInput(BaseModel):
-    uid: str = Field(
-        ..., title="uid", description="UID of the study design cell to delete"
-    )
+class StudyDesignCellDeleteInput(InputModel):
+    uid: Annotated[str, Field(description="UID of the study design cell to delete")]
 
 
-class StudyDesignCellBatchInput(BaseModel):
-    method: str = METHOD_FIELD
+class StudyDesignCellBatchInput(BatchInputModel):
+    method: Annotated[str, METHOD_FIELD]
     content: (
         StudyDesignCellCreateInput
         | StudyDesignCellDeleteInput
@@ -3035,7 +3004,7 @@ class StudyDesignCellBatchInput(BaseModel):
 
 
 class StudyDesignCellBatchOutput(BaseModel):
-    response_code: int = RESPONSE_CODE_FIELD
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
     content: StudyDesignCell | None | BatchErrorResponse
 
 
@@ -3043,83 +3012,67 @@ class StudyDesignCellBatchOutput(BaseModel):
 
 
 class StudySelectionBranchArmWithoutStudyArm(StudySelection):
-    branch_arm_uid: str | None = Field(
-        ...,
-        title="study_branch_arm_uid",
-        description="uid for the study BranchArm",
-    )
+    branch_arm_uid: Annotated[
+        str | None,
+        Field(description="uid for the study BranchArm", nullable=True),
+    ]
 
-    name: str = Field(
-        ...,
-        title="study_branch_arm_name",
-        description="name for the study Brancharm",
-    )
+    name: Annotated[str, Field(description="name for the study Brancharm")]
 
-    short_name: str = Field(
-        ...,
-        title="study_branch_arm_short_name",
-        description="short name for the study Brancharm",
-    )
+    short_name: Annotated[str, Field(description="short name for the study Brancharm")]
 
-    code: str | None = Field(
-        None,
-        title="study_branch_arm_code",
-        description="code for the study Brancharm",
-        nullable=True,
-    )
+    code: Annotated[
+        str | None, Field(description="code for the study Brancharm", nullable=True)
+    ] = None
 
-    description: str | None = Field(
-        None,
-        title="study_branch_arm_description",
-        description="description for the study Brancharm",
-        nullable=True,
-    )
+    description: Annotated[
+        str | None,
+        Field(description="description for the study Brancharm", nullable=True),
+    ] = None
 
-    colour_code: str | None = Field(
-        None,
-        title="study_branch_armcolour_code",
-        description="colour_code for the study Brancharm",
-        nullable=True,
-    )
+    colour_code: Annotated[
+        str | None,
+        Field(description="colour_code for the study Brancharm", nullable=True),
+    ] = None
 
-    randomization_group: str | None = Field(
-        None,
-        title="study_branch_arm_randomization_group",
-        description="randomization group for the study Brancharm",
-        nullable=True,
-    )
+    randomization_group: Annotated[
+        str | None,
+        Field(description="randomization group for the study Brancharm", nullable=True),
+    ] = None
 
-    number_of_subjects: int | None = Field(
-        None,
-        title="study_branch_arm_number_of_subjects",
-        description="number of subjects for the study Brancharm",
-    )
+    number_of_subjects: Annotated[
+        int | None,
+        Field(description="number of subjects for the study Brancharm", nullable=True),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    status: str | None = STATUS_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete branch arm versions",
-        nullable=True,
-    )
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
+
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete branch arm versions",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_branch_arm_ar_and_order(
@@ -3140,7 +3093,7 @@ class StudySelectionBranchArmWithoutStudyArm(StudySelection):
             randomization_group=selection.randomization_group,
             number_of_subjects=selection.number_of_subjects,
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=selection.author_username,
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -3152,91 +3105,71 @@ class StudySelectionBranchArmWithoutStudyArm(StudySelection):
 
 
 class StudySelectionArm(StudySelection):
-    arm_uid: str | None = Field(
-        ...,
-        title="study_arm_uid",
-        description=ARM_UID_DESC,
-    )
+    arm_uid: Annotated[str | None, Field(description=ARM_UID_DESC, nullable=True)]
 
-    name: str = Field(
-        ...,
-        title="study_arm_name",
-        description="name for the study arm",
-    )
+    name: Annotated[str, Field(description="name for the study arm")]
 
-    short_name: str = Field(
-        ...,
-        title="study_arm_short_name",
-        description="short name for the study arm",
-    )
+    short_name: Annotated[
+        str,
+        Field(description="short name for the study arm"),
+    ]
 
-    code: str | None = Field(
-        None,
-        title="study_arm_code",
-        description="code for the study arm",
-        nullable=True,
-    )
+    code: Annotated[
+        str | None,
+        Field(description="code for the study arm", nullable=True),
+    ] = None
 
-    description: str | None = Field(
-        None,
-        title="study_arm_description",
-        description="description for the study arm",
-        nullable=True,
-    )
+    description: Annotated[
+        str | None, Field(description="description for the study arm", nullable=True)
+    ] = None
 
-    arm_colour: str | None = Field(
-        None,
-        title="study_arm_colour",
-        description="colour for the study arm",
-        nullable=True,
-    )
+    arm_colour: Annotated[
+        str | None, Field(description="colour for the study arm", nullable=True)
+    ] = None
 
-    randomization_group: str | None = Field(
-        None,
-        title="study_arm_randomization_group",
-        description="randomization group for the study arm",
-        nullable=True,
-    )
+    randomization_group: Annotated[
+        str | None,
+        Field(description="randomization group for the study arm", nullable=True),
+    ] = None
 
-    number_of_subjects: int | None = Field(
-        None,
-        title="study_arm_number_of_subjects",
-        description="number of subjects for the study arm",
-        nullable=True,
-    )
+    number_of_subjects: Annotated[
+        int | None,
+        Field(description="number of subjects for the study arm", nullable=True),
+    ] = None
 
-    arm_type: CTTermName | None = Field(
-        None,
-        title="study_arm_type",
-        description="type for the study arm",
-        nullable=True,
-    )
+    arm_type: Annotated[
+        CTTermName | None,
+        Field(description="type for the study arm", nullable=True),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    status: str | None = STATUS_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete arm versions",
-        nullable=True,
-    )
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
+
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete arm versions",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_selection_arm_ar_and_order(
@@ -3268,7 +3201,9 @@ class StudySelectionArm(StudySelection):
             number_of_subjects=selection.number_of_subjects,
             arm_type=arm_type_call_back,
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                selection.author_id
+            ),
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -3303,7 +3238,9 @@ class StudySelectionArm(StudySelection):
             number_of_subjects=study_selection_history.arm_number_of_subjects,
             arm_type=arm_type_call_back,
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -3312,14 +3249,10 @@ class StudySelectionArm(StudySelection):
 
 
 class StudySelectionArmWithConnectedBranchArms(StudySelectionArm):
-    arm_connected_branch_arms: list[
-        StudySelectionBranchArmWithoutStudyArm
-    ] | None = Field(
-        None,
-        title="study_branch_arms",
-        description="lsit of study branch arms connected to arm",
-        nullable=True,
-    )
+    arm_connected_branch_arms: Annotated[
+        list[StudySelectionBranchArmWithoutStudyArm] | None,
+        Field(description="list of study branch arms connected to arm", nullable=True),
+    ] = None
 
     @classmethod
     def from_study_selection_arm_ar__order__connected_branch_arms(
@@ -3360,11 +3293,13 @@ class StudySelectionArmWithConnectedBranchArms(StudySelectionArm):
             arm_connected_branch_arms=find_multiple_connected_branch_arm(
                 study_uid=study_uid,
                 study_arm_uid=selection.study_selection_uid,
-                user_initials=selection.user_initials,
+                author_id=selection.author_id,
                 study_value_version=study_value_version,
             ),
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                selection.author_id
+            ),
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -3372,70 +3307,82 @@ class StudySelectionArmWithConnectedBranchArms(StudySelectionArm):
         )
 
 
-class StudySelectionArmCreateInput(BaseModel):
-    name: str = Field(
-        None,
-        title="study_arm_name",
-        description="name for the study arm",
+class StudySelectionArmCreateInput(PostInputModel):
+    name: Annotated[str | None, Field(description="name for the study arm")] = None
+
+    short_name: Annotated[
+        str | None, Field(description="short name for the study arm")
+    ] = None
+
+    code: Annotated[str | None, Field(description="code for the study arm")] = None
+
+    description: Annotated[
+        str | None, Field(description="description for the study arm")
+    ] = None
+
+    arm_colour: Annotated[str | None, Field(description="colour for the study arm")] = (
+        None
     )
 
-    short_name: str = Field(
-        None,
-        title="study_arm_short_name",
-        description="short name for the study arm",
+    randomization_group: Annotated[
+        str | None, Field(description="randomization group for the study arm")
+    ] = None
+
+    number_of_subjects: Annotated[
+        int | None,
+        Field(
+            description="number of subjects for the study arm",
+            ge=0,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ] = None
+
+    arm_type_uid: Annotated[str | None, Field(description=ARM_UID_DESC)] = None
+
+
+class StudySelectionArmInput(PatchInputModel):
+    name: Annotated[str | None, Field(description="name for the study arm")] = None
+
+    short_name: Annotated[
+        str | None, Field(description="short name for the study arm")
+    ] = None
+
+    code: Annotated[str | None, Field(description="code for the study arm")] = None
+
+    description: Annotated[
+        str | None, Field(description="description for the study arm")
+    ] = None
+
+    arm_colour: Annotated[str | None, Field(description="colour for the study arm")] = (
+        None
     )
 
-    code: str | None = Field(
-        None,
-        title="study_arm_code",
-        description="code for the study arm",
-    )
+    randomization_group: Annotated[
+        str | None, Field(description="randomization group for the study arm")
+    ] = None
 
-    description: str | None = Field(
-        None,
-        title="study_description",
-        description="description for the study arm",
-    )
+    number_of_subjects: Annotated[
+        int | None,
+        Field(
+            description="number of subjects for the study arm",
+            ge=0,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ] = None
 
-    arm_colour: str | None = Field(
-        None,
-        title="study_arm_colour",
-        description="colour for the study arm",
-    )
-
-    randomization_group: str | None = Field(
-        None,
-        title="study_arm_randomization_group",
-        description="randomization group for the study arm",
-    )
-
-    number_of_subjects: int | None = Field(
-        None,
-        title="study_arm_number_of_subjects",
-        description="number of subjects for the study arm",
-    )
-
-    arm_type_uid: str | None = Field(
-        None,
-        title="study_arm_type_uid",
-        description=ARM_UID_DESC,
-    )
+    arm_type_uid: Annotated[str | None, Field(description=ARM_UID_DESC)] = None
+    arm_uid: Annotated[str | None, Field(description=ARM_UID_DESC)] = None
 
 
-class StudySelectionArmInput(StudySelectionArmCreateInput):
-    arm_uid: str = Field(
-        None,
-        title="study_arm_uid",
-        description=ARM_UID_DESC,
-    )
-
-
-class StudySelectionArmNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order of the selected arm",
-    )
+class StudySelectionArmNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order of the selected arm",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 class StudySelectionArmVersion(StudySelectionArm):
@@ -3449,59 +3396,74 @@ class StudyActivityInstruction(BaseModel):
     class Config:
         orm_mode = True
 
-    study_activity_instruction_uid: str | None = Field(
-        ...,
-        title="study_activity_instruction_uid",
-        description="uid for the study activity instruction",
-        source="uid",
-    )
+    study_activity_instruction_uid: Annotated[
+        str | None,
+        Field(
+            description="uid for the study activity instruction",
+            source="uid",
+            nullable=True,
+        ),
+    ]
 
-    study_uid: str = STUDY_UID_FIELD
+    study_uid: Annotated[str, STUDY_UID_FIELD]
 
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None",
-    )
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None.",
-    )
-    study_activity_uid: str | None = Field(
-        ...,
-        title="study_activity_uid",
-        description=STUDY_ACTIVITY_UID_DESC,
-        source="study_activity.uid",
-    )
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None",
+            nullable=True,
+        ),
+    ] = None
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None.",
+            nullable=True,
+        ),
+    ] = None
+    study_activity_uid: Annotated[
+        str | None,
+        Field(
+            description=STUDY_ACTIVITY_UID_DESC,
+            source="study_activity.uid",
+            nullable=True,
+        ),
+    ]
 
-    activity_instruction_uid: str = Field(
-        title="activity_instruction_uid",
-        description="The related activity instruction UID",
-        source="activity_instruction_value.activity_instruction_root.uid",
-    )
+    activity_instruction_uid: Annotated[
+        str,
+        Field(
+            description="The related activity instruction UID",
+            source="activity_instruction_value.activity_instruction_root.uid",
+        ),
+    ]
 
-    activity_instruction_name: str = Field(
-        title="activity_instruction_name",
-        description="The related activity instruction name",
-        source="activity_instruction_value.name",
-    )
+    activity_instruction_name: Annotated[
+        str,
+        Field(
+            description="The related activity instruction name",
+            source="activity_instruction_value.name",
+        ),
+    ]
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-        source=AFTER_DATE_QUALIFIER,
-    )
+    start_date: Annotated[
+        datetime | None,
+        Field(description=START_DATE_DESC, source=AFTER_DATE_QUALIFIER, nullable=True),
+    ]
 
-    user_initials: str | None = Field(
-        ...,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        source=AFTER_USER_QUALIFIER,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(
+            title="author_username",
+            description=AUTHOR_FIELD_DESC,
+            source=AFTER_USER_QUALIFIER,
+            nullable=True,
+        ),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
     @classmethod
     def from_vo(
@@ -3521,26 +3483,26 @@ class StudyActivityInstruction(BaseModel):
             activity_instruction_name=instruction_vo.activity_instruction_name,
             activity_instruction_uid=instruction_vo.activity_instruction_uid,
             start_date=instruction_vo.start_date,
-            user_initials=instruction_vo.user_initials,
+            author_username=instruction_vo.author_username,
         )
 
 
-class StudyActivityInstructionCreateInput(BaseModel):
-    activity_instruction_data: ActivityInstructionCreateInput | None = Field(
-        None,
-        title="activity_instruction_data",
-        description="Data to create new activity instruction",
-    )
+class StudyActivityInstructionCreateInput(PostInputModel):
+    activity_instruction_data: Annotated[
+        ActivityInstructionCreateInput | None,
+        Field(
+            description="Data to create new activity instruction",
+        ),
+    ] = None
 
-    activity_instruction_uid: str | None = Field(
-        None,
-        title="activity_instruction_uid",
-        description="The uid of an existing activity instruction",
-    )
+    activity_instruction_uid: Annotated[
+        str | None,
+        Field(
+            description="The uid of an existing activity instruction",
+        ),
+    ] = None
 
-    study_activity_uid: str = Field(
-        ..., title="study_activity_uid", description=STUDY_ACTIVITY_UID_DESC
-    )
+    study_activity_uid: Annotated[str, Field(description=STUDY_ACTIVITY_UID_DESC)]
 
     @root_validator(pre=False)
     @classmethod
@@ -3555,22 +3517,23 @@ class StudyActivityInstructionCreateInput(BaseModel):
         return values
 
 
-class StudyActivityInstructionDeleteInput(BaseModel):
-    study_activity_instruction_uid: str | None = Field(
-        ...,
-        title="study_activity_instruction_uid",
-        description="uid for the study activity instruction",
-        source="uid",
-    )
+class StudyActivityInstructionDeleteInput(InputModel):
+    study_activity_instruction_uid: Annotated[
+        str,
+        Field(
+            description="uid for the study activity instruction",
+            source="uid",
+        ),
+    ]
 
 
-class StudyActivityInstructionBatchInput(BaseModel):
-    method: str = METHOD_FIELD
+class StudyActivityInstructionBatchInput(BatchInputModel):
+    method: Annotated[str, METHOD_FIELD]
     content: StudyActivityInstructionCreateInput | StudyActivityInstructionDeleteInput
 
 
 class StudyActivityInstructionBatchOutput(BaseModel):
-    response_code: int = RESPONSE_CODE_FIELD
+    response_code: Annotated[int, RESPONSE_CODE_FIELD]
     content: StudyActivityInstruction | None | BatchErrorResponse
 
 
@@ -3578,96 +3541,84 @@ class StudyActivityInstructionBatchOutput(BaseModel):
 
 
 class StudySelectionElement(StudySelection):
-    element_uid: str | None = Field(
-        ...,
-        title="study_element_uid",
-        description=ELEMENT_UID_DESC,
-    )
+    element_uid: Annotated[
+        str | None, Field(description=ELEMENT_UID_DESC, nullable=True)
+    ]
 
-    name: str | None = Field(
-        ...,
-        title="study_element_name",
-        description="name for the study element",
-    )
+    name: Annotated[
+        str | None, Field(description="name for the study element", nullable=True)
+    ]
 
-    short_name: str | None = Field(
-        ...,
-        title="study_element_short_name",
-        description="short name for the study element",
-    )
+    short_name: Annotated[
+        str | None, Field(description="short name for the study element", nullable=True)
+    ]
 
-    code: str | None = Field(
-        ...,
-        title="study_element_code",
-        description="code for the study element",
-    )
+    code: Annotated[
+        str | None, Field(description="code for the study element", nullable=True)
+    ]
 
-    description: str | None = Field(
-        ...,
-        title="study_element_description",
-        description="description for the study element",
-    )
+    description: Annotated[
+        str | None,
+        Field(description="description for the study element", nullable=True),
+    ]
 
-    planned_duration: DurationJsonModel | None = Field(
-        ...,
-        title="study_element_planned_duration",
-        description="planned_duration for the study element",
-    )
+    planned_duration: Annotated[
+        DurationJsonModel | None,
+        Field(description="planned_duration for the study element", nullable=True),
+    ] = None
 
-    start_rule: str | None = Field(
-        ...,
-        title="study_element_start_rule",
-        description="start_rule for the study element",
-    )
+    start_rule: Annotated[
+        str | None, Field(description="start_rule for the study element", nullable=True)
+    ] = None
 
-    end_rule: str | None = Field(
-        ...,
-        title="study_element_end_rule",
-        description="end_rule for the study element",
-    )
+    end_rule: Annotated[
+        str | None, Field(description="end_rule for the study element", nullable=True)
+    ] = None
 
-    element_colour: str | None = Field(
-        ...,
-        title="study_elementelement_colour",
-        description="element_colour for the study element",
-    )
+    element_colour: Annotated[
+        str | None,
+        Field(description="element_colour for the study element", nullable=True),
+    ] = None
 
-    element_subtype: CTTermName | None = Field(
-        ..., title="study_element_subtype", description="subtype for the study element"
-    )
+    element_subtype: Annotated[
+        CTTermName | None,
+        Field(description="subtype for the study element", nullable=True),
+    ] = None
 
-    element_type: CTTermName | None = Field(
-        ..., title="study_element_type", description="type for the study element"
-    )
+    element_type: Annotated[
+        CTTermName | None,
+        Field(description="type for the study element", nullable=True),
+    ] = None
 
-    study_compound_dosing_count: int | None = Field(
-        None,
-        description="Number of compound dosing linked to Study Element",
-        nullable=True,
-    )
+    study_compound_dosing_count: Annotated[
+        int | None,
+        Field(
+            description="Number of compound dosing linked to Study Element",
+            nullable=True,
+        ),
+    ] = None
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[datetime, Field(description=START_DATE_DESC, nullable=True)]
 
-    user_initials: str | None = Field(
-        ..., title="user_initials", description=USER_INITIALS_DESC
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    status: str | None = STATUS_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete element versions",
-        nullable=True,
-    )
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete element versions",
+            nullable=True,
+        ),
+    ]
 
     @classmethod
     def from_study_selection_element_ar_and_order(
@@ -3723,7 +3674,7 @@ class StudySelectionElement(StudySelection):
             element_type=element_type,
             study_compound_dosing_count=selection.study_compound_dosing_count,
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=selection.author_username,
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -3776,7 +3727,9 @@ class StudySelectionElement(StudySelection):
             element_subtype=element_subtype,
             element_type=element_type,
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -3784,68 +3737,107 @@ class StudySelectionElement(StudySelection):
         )
 
 
-class StudySelectionElementCreateInput(BaseModel):
-    name: str = Field(
-        None,
-        title="study_element_name",
-        description="name for the study element",
-    )
+class StudySelectionElementCreateInput(PostInputModel):
+    name: Annotated[str | None, Field(description="name for the study element")] = None
 
-    short_name: str = Field(
-        None,
-        title="study_element_short_name",
-        description="short name for the study element",
-    )
+    short_name: Annotated[
+        str | None,
+        Field(
+            description="short name for the study element",
+        ),
+    ] = None
 
-    code: str | None = Field(
-        None,
-        title="study_element_code",
-        description="code for the study element",
-    )
+    code: Annotated[
+        str | None,
+        Field(description="code for the study element"),
+    ] = None
 
-    description: str | None = Field(
-        None,
-        title="study_description",
-        description="description for the study element",
-    )
+    description: Annotated[
+        str | None,
+        Field(description="description for the study element"),
+    ] = None
 
-    planned_duration: DurationJsonModel | None = Field(
-        None,
-        title="study_element_planned_duration",
-        description="planned_duration for the study element",
-    )
+    planned_duration: Annotated[
+        DurationJsonModel | None,
+        Field(
+            description="planned_duration for the study element",
+        ),
+    ] = None
 
-    start_rule: str | None = Field(
-        None,
-        title="study_element_start_rule",
-        description="start_rule for the study element",
-    )
+    start_rule: Annotated[
+        str | None,
+        Field(
+            description="start_rule for the study element",
+        ),
+    ] = None
 
-    end_rule: str | None = Field(
-        None,
-        title="study_element_end_rule",
-        description="end_rule for the study element",
-    )
+    end_rule: Annotated[
+        str | None,
+        Field(description="end_rule for the study element"),
+    ] = None
 
-    element_colour: str | None = Field(
-        None,
-        title="studyelement_colour",
-        description="element_colour for the study element",
-    )
+    element_colour: Annotated[
+        str | None,
+        Field(
+            description="element_colour for the study element",
+        ),
+    ] = None
 
-    element_subtype_uid: str = Field(
-        None,
-        title="study_element_subtype_uid",
-        description=ELEMENT_UID_DESC,
+    element_subtype_uid: Annotated[str | None, Field(description=ELEMENT_UID_DESC)] = (
+        None
     )
 
 
-class StudySelectionElementInput(StudySelectionElementCreateInput):
-    element_uid: str = Field(
-        None,
-        title="study_element_uid",
-        description=ELEMENT_UID_DESC,
+class StudySelectionElementInput(PatchInputModel):
+    name: Annotated[str | None, Field(description="name for the study element")] = None
+
+    short_name: Annotated[
+        str | None,
+        Field(
+            description="short name for the study element",
+        ),
+    ] = None
+
+    code: Annotated[
+        str | None,
+        Field(description="code for the study element"),
+    ] = None
+
+    description: Annotated[
+        str | None,
+        Field(description="description for the study element"),
+    ] = None
+
+    planned_duration: Annotated[
+        DurationJsonModel | None,
+        Field(
+            description="planned_duration for the study element",
+        ),
+    ] = None
+
+    start_rule: Annotated[
+        str | None,
+        Field(
+            description="start_rule for the study element",
+        ),
+    ] = None
+
+    end_rule: Annotated[
+        str | None,
+        Field(description="end_rule for the study element"),
+    ] = None
+
+    element_colour: Annotated[
+        str | None,
+        Field(
+            description="element_colour for the study element",
+        ),
+    ] = None
+
+    element_subtype_uid: Annotated[str | None, Field(description=ELEMENT_UID_DESC)] = (
+        None
     )
+    element_uid: Annotated[str | None, Field(description=ELEMENT_UID_DESC)] = None
 
     @classmethod
     def from_study_selection_element(
@@ -3875,20 +3867,21 @@ class StudySelectionElementInput(StudySelectionElementCreateInput):
 
 
 class StudyElementTypes(BaseModel):
-    type: str = Field(..., title="Type uid", description="Element type uid")
-    type_name: str = Field(..., title="Type name", description="Element type name")
-    subtype: str = Field(..., title="Subtype", description="Element subtype uid")
-    subtype_name: str = Field(
-        ..., title="Subtype name", description="Element subtype name"
-    )
+    type: Annotated[str, Field(title="Type uid", description="Element type uid")]
+    type_name: Annotated[str, Field(description="Element type name")]
+    subtype: Annotated[str, Field(description="Element subtype uid")]
+    subtype_name: Annotated[str, Field(description="Element subtype name")]
 
 
-class StudySelectionElementNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order of the selected element",
-    )
+class StudySelectionElementNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order of the selected element",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 class StudySelectionElementVersion(StudySelectionElement):
@@ -3899,9 +3892,10 @@ class StudySelectionElementVersion(StudySelectionElement):
 
 
 class StudySelectionBranchArm(StudySelectionBranchArmWithoutStudyArm):
-    arm_root: StudySelectionArm = Field(
-        ..., title="study_arm_root", description="Root for the study branch arm"
-    )
+    arm_root: Annotated[
+        StudySelectionArm,
+        Field(description="Root for the study branch arm"),
+    ]
 
     @classmethod
     def from_study_selection_branch_arm_ar_and_order(
@@ -3936,7 +3930,7 @@ class StudySelectionBranchArm(StudySelectionBranchArmWithoutStudyArm):
                 terms_at_specific_datetime=terms_at_specific_datetime,
             ),
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=selection.author_username,
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -3965,7 +3959,9 @@ class StudySelectionBranchArm(StudySelectionBranchArmWithoutStudyArm):
                 study_uid, study_selection_history.arm_root
             ),
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -3978,9 +3974,10 @@ class StudySelectionBranchArmHistory(StudySelectionBranchArmWithoutStudyArm):
     Class created to describe Study BranchArm History, it specifies the ArmRootUid instead of ArmRoot to handle non longer existent Arms
     """
 
-    arm_root_uid: str = Field(
-        ..., title="study_arm_root_uid", description="Uid Root for the study branch arm"
-    )
+    arm_root_uid: Annotated[
+        str,
+        Field(description="Uid Root for the study branch arm"),
+    ]
 
     @classmethod
     def from_study_selection_history(
@@ -4001,7 +3998,9 @@ class StudySelectionBranchArmHistory(StudySelectionBranchArmWithoutStudyArm):
             number_of_subjects=study_selection_history.branch_arm_number_of_subjects,
             arm_root_uid=study_selection_history.arm_root,
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -4009,70 +4008,112 @@ class StudySelectionBranchArmHistory(StudySelectionBranchArmWithoutStudyArm):
         )
 
 
-class StudySelectionBranchArmCreateInput(BaseModel):
-    name: str = Field(
-        None,
-        title="study_branch_arm_name",
-        description="name for the study Brancharm",
-    )
+class StudySelectionBranchArmCreateInput(PostInputModel):
+    name: Annotated[
+        str | None,
+        Field(description="name for the study Brancharm"),
+    ] = None
 
-    short_name: str = Field(
-        None,
-        title="study_branch_arm_short_name",
-        description="short name for the study Brancharm",
-    )
+    short_name: Annotated[
+        str | None,
+        Field(
+            description="short name for the study Brancharm",
+        ),
+    ] = None
 
-    code: str | None = Field(
-        None,
-        title="study_branch_arm_code",
-        description="code for the study Brancharm",
-    )
+    code: Annotated[
+        str | None,
+        Field(description="code for the study Brancharm"),
+    ] = None
 
-    description: str | None = Field(
-        None,
-        title="study_description",
-        description="description for the study Brancharm",
-    )
+    description: Annotated[
+        str | None,
+        Field(description="description for the study Brancharm"),
+    ] = None
 
-    colour_code: str | None = Field(
-        None,
-        title="studycolour_code",
-        description="colour_code for the study Brancharm",
-    )
+    colour_code: Annotated[
+        str | None,
+        Field(description="colour_code for the study Brancharm"),
+    ] = None
 
-    randomization_group: str | None = Field(
-        None,
-        title="study_branch_arm_randomization_group",
-        description="randomization group for the study Brancharm",
-    )
+    randomization_group: Annotated[
+        str | None,
+        Field(
+            description="randomization group for the study Brancharm",
+        ),
+    ] = None
 
-    number_of_subjects: int | None = Field(
-        None,
-        title="study_branch_arm_number_of_subjects",
-        description="number of subjects for the study Brancharm",
-    )
+    number_of_subjects: Annotated[
+        int | None,
+        Field(
+            description="number of subjects for the study Brancharm",
+            ge=0,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ] = None
 
-    arm_uid: str = Field(
-        None,
-        title="study_armt_uid",
-        description=ARM_UID_DESC,
-    )
+    arm_uid: Annotated[str | None, Field(description=ARM_UID_DESC)] = None
 
 
-class StudySelectionBranchArmEditInput(StudySelectionBranchArmCreateInput):
-    branch_arm_uid: str = Field(
-        None,
-        title="study_branch_arm_uid",
-        description="uid for the study branch arm",
-    )
+class StudySelectionBranchArmEditInput(PatchInputModel):
+    name: Annotated[
+        str | None,
+        Field(description="name for the study Brancharm"),
+    ] = None
+
+    short_name: Annotated[
+        str | None,
+        Field(
+            description="short name for the study Brancharm",
+        ),
+    ] = None
+
+    code: Annotated[
+        str | None,
+        Field(description="code for the study Brancharm"),
+    ] = None
+
+    description: Annotated[
+        str | None,
+        Field(description="description for the study Brancharm"),
+    ] = None
+
+    colour_code: Annotated[
+        str | None,
+        Field(description="colour_code for the study Brancharm"),
+    ] = None
+
+    randomization_group: Annotated[
+        str | None,
+        Field(
+            description="randomization group for the study Brancharm",
+        ),
+    ] = None
+
+    number_of_subjects: Annotated[
+        int | None,
+        Field(
+            description="number of subjects for the study Brancharm",
+            ge=0,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ] = None
+
+    arm_uid: Annotated[str | None, Field(description=ARM_UID_DESC)] = None
+    branch_arm_uid: Annotated[
+        str | None, Field(description="uid for the study branch arm")
+    ] = None
 
 
-class StudySelectionBranchArmNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order of the selected branch arm",
-    )
+class StudySelectionBranchArmNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order of the selected branch arm",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 class StudySelectionBranchArmVersion(StudySelectionBranchArmHistory):
@@ -4083,83 +4124,70 @@ class StudySelectionBranchArmVersion(StudySelectionBranchArmHistory):
 
 
 class StudySelectionCohortWithoutArmBranArmRoots(StudySelection):
-    cohort_uid: str | None = Field(
-        ...,
-        title="study_cohort_uid",
-        description="uid for the study Cohort",
-    )
+    cohort_uid: Annotated[
+        str | None, Field(description="uid for the study Cohort", nullable=True)
+    ]
 
-    name: str = Field(
-        ...,
-        title="study_cohort_name",
-        description="name for the study Cohort",
-    )
+    name: Annotated[str, Field(description="name for the study Cohort")]
 
-    short_name: str = Field(
-        ...,
-        title="study_cohort_short_name",
-        description="short name for the study Cohort",
-    )
+    short_name: Annotated[
+        str,
+        Field(description="short name for the study Cohort", nullable=True),
+    ]
 
-    code: str | None = Field(
-        None,
-        title="study_cohort_code",
-        description="code for the study Cohort",
-        nullable=True,
-    )
+    code: Annotated[
+        str | None,
+        Field(description="code for the study Cohort", nullable=True),
+    ] = None
 
-    description: str | None = Field(
-        ...,
-        title="study_cohort_description",
-        description="description for the study Cohort",
-    )
+    description: Annotated[
+        str | None, Field(description="description for the study Cohort", nullable=True)
+    ]
 
-    colour_code: str | None = Field(
-        ...,
-        title="study_cohort_colour_code",
-        description="colour code for the study Cohort",
-    )
+    colour_code: Annotated[
+        str | None, Field(description="colour code for the study Cohort", nullable=True)
+    ]
 
-    number_of_subjects: int | None = Field(
-        ...,
-        title="study_cohort_number_of_subjects",
-        description="number of subjects for the study Cohort",
-    )
+    number_of_subjects: Annotated[
+        int | None,
+        Field(description="number of subjects for the study Cohort", nullable=True),
+    ]
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        ..., title="user_initials", description=USER_INITIALS_DESC
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
 
-    status: str | None = STATUS_FIELD
+    status: Annotated[str | None, STATUS_FIELD] = None
 
-    change_type: str | None = CHANGE_TYPE_FIELD
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
-    accepted_version: bool | None = Field(
-        None,
-        title=ACCEPTED_VERSION_DESC,
-        description="Denotes if user accepted obsolete cohort versions",
-        nullable=True,
-    )
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            title=ACCEPTED_VERSION_DESC,
+            description="Denotes if user accepted obsolete cohort versions",
+            nullable=True,
+        ),
+    ] = None
 
 
 class StudySelectionCohort(StudySelectionCohortWithoutArmBranArmRoots):
-    branch_arm_roots: list[StudySelectionBranchArm] | None = Field(
-        None,
-        title="study_branch_arm_roots",
-        description="Branch Arm Roots for the study Cohort",
-    )
+    branch_arm_roots: Annotated[
+        list[StudySelectionBranchArm] | None,
+        Field(description="Branch Arm Roots for the study Cohort", nullable=True),
+    ] = None
 
-    arm_roots: list[StudySelectionArm] | None = Field(
-        None, title="study_arm_roots", description="ArmRoots for the study Cohort"
-    )
+    arm_roots: Annotated[
+        list[StudySelectionArm] | None,
+        Field(description="ArmRoots for the study Cohort", nullable=True),
+    ] = None
 
     @classmethod
     def from_study_selection_cohort_ar_and_order(
@@ -4226,7 +4254,7 @@ class StudySelectionCohort(StudySelectionCohortWithoutArmBranArmRoots):
             branch_arm_roots=branch_arm_roots,
             arm_roots=arm_roots,
             start_date=selection.start_date,
-            user_initials=selection.user_initials,
+            author_username=selection.author_username,
             end_date=selection.end_date,
             status=selection.status,
             change_type=selection.change_type,
@@ -4235,17 +4263,15 @@ class StudySelectionCohort(StudySelectionCohortWithoutArmBranArmRoots):
 
 
 class StudySelectionCohortHistory(StudySelectionCohortWithoutArmBranArmRoots):
-    branch_arm_roots_uids: list[str] | None = Field(
-        None,
-        title="study_branch_arm_roots_uids",
-        description="Branch Arm Roots Uids for the study Cohort",
-    )
+    branch_arm_roots_uids: Annotated[
+        list[str] | None,
+        Field(description="Branch Arm Roots Uids for the study Cohort", nullable=True),
+    ] = None
 
-    arm_roots_uids: list[str] | None = Field(
-        None,
-        title="study_arm_roots_uids",
-        description="ArmRoots Uids for the study Cohort",
-    )
+    arm_roots_uids: Annotated[
+        list[str] | None,
+        Field(description="ArmRoots Uids for the study Cohort", nullable=True),
+    ] = None
 
     @classmethod
     def from_study_selection_history(
@@ -4276,7 +4302,9 @@ class StudySelectionCohortHistory(StudySelectionCohortWithoutArmBranArmRoots):
             branch_arm_roots_uids=branch_arm_roots_uids,
             arm_roots_uids=arm_roots_uids,
             start_date=study_selection_history.start_date,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
             end_date=study_selection_history.end_date,
             status=study_selection_history.status,
             change_type=study_selection_history.change_type,
@@ -4284,70 +4312,79 @@ class StudySelectionCohortHistory(StudySelectionCohortWithoutArmBranArmRoots):
         )
 
 
-class StudySelectionCohortCreateInput(BaseModel):
-    name: str = Field(
-        None,
-        title="study_cohort_name",
-        description="name for the study Cohort",
+class StudySelectionCohortCreateInput(PostInputModel):
+    name: Annotated[str | None, Field(description="name for the study Cohort")] = None
+
+    short_name: Annotated[
+        str | None, Field(description="short name for the study Cohort")
+    ] = None
+
+    code: Annotated[str | None, Field(description="code for the study Cohort")] = None
+
+    description: Annotated[
+        str | None, Field(description="description for the study Cohort")
+    ] = None
+
+    colour_code: Annotated[
+        str | None, Field(description="colour code for the study Cohort")
+    ] = None
+
+    number_of_subjects: Annotated[
+        int | None, Field(description="number of subjects for the study Cohort")
+    ] = None
+
+    branch_arm_uids: Annotated[
+        list[str] | None, Field(description="uid for the study branch arm")
+    ] = None
+
+    arm_uids: Annotated[list[str] | None, Field(description=ARM_UID_DESC)] = None
+
+
+class StudySelectionCohortEditInput(PatchInputModel):
+    name: Annotated[str | None, Field(description="name for the study Cohort")] = None
+
+    short_name: Annotated[
+        str | None, Field(description="short name for the study Cohort")
+    ] = None
+
+    code: Annotated[str | None, Field(description="code for the study Cohort")] = None
+
+    description: Annotated[
+        str | None, Field(description="description for the study Cohort")
+    ] = None
+
+    colour_code: Annotated[
+        str | None, Field(description="colour code for the study Cohort")
+    ] = None
+
+    number_of_subjects: Annotated[
+        int | None,
+        Field(
+            description="number of subjects for the study Cohort",
+            ge=0,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ] = None
+
+    branch_arm_uids: Annotated[
+        list[str] | None, Field(description="uid for the study branch arm")
+    ] = None
+
+    arm_uids: Annotated[list[str] | None, Field(description=ARM_UID_DESC)] = None
+    cohort_uid: Annotated[str | None, Field(description="uid for the study Cohort")] = (
+        None
     )
 
-    short_name: str = Field(
-        None,
-        title="study_cohort_short_name",
-        description="short name for the study Cohort",
-    )
 
-    code: str | None = Field(
-        None,
-        title="study_cohort_code",
-        description="code for the study Cohort",
-    )
-
-    description: str | None = Field(
-        None,
-        title="study_description",
-        description="description for the study Cohort",
-    )
-
-    colour_code: str | None = Field(
-        None,
-        title="study_cohort_colour_code",
-        description="colour code for the study Cohort",
-    )
-
-    number_of_subjects: int | None = Field(
-        None,
-        title="study_cohort_number_of_subjects",
-        description="number of subjects for the study Cohort",
-    )
-
-    branch_arm_uids: list[str] | None = Field(
-        None,
-        title="studybranch_arm_uid",
-        description="uid for the study branch arm",
-    )
-
-    arm_uids: list[str] | None = Field(
-        None,
-        title="study_armt_uid",
-        description=ARM_UID_DESC,
-    )
-
-
-class StudySelectionCohortEditInput(StudySelectionCohortCreateInput):
-    cohort_uid: str = Field(
-        None,
-        title="study_cohort_uid",
-        description="uid for the study Cohort",
-    )
-
-
-class StudySelectionCohortNewOrder(BaseModel):
-    new_order: int = Field(
-        ...,
-        title="new_order",
-        description="new order of the selected Cohort",
-    )
+class StudySelectionCohortNewOrder(PatchInputModel):
+    new_order: Annotated[
+        int,
+        Field(
+            description="new order of the selected Cohort",
+            gt=-settings.MAX_INT_NEO4J,
+            lt=settings.MAX_INT_NEO4J,
+        ),
+    ]
 
 
 class StudySelectionCohortVersion(StudySelectionCohortHistory):
@@ -4360,42 +4397,37 @@ class StudySelectionCohortVersion(StudySelectionCohortHistory):
 
 
 class StudyCompoundDosing(StudySelection):
-    study_compound_dosing_uid: str | None = Field(
-        ...,
-        title="study_compound_dosing_uid",
-        description="uid for the study compound dosing",
-    )
+    study_compound_dosing_uid: Annotated[
+        str | None,
+        Field(description="uid for the study compound dosing", nullable=True),
+    ]
 
-    study_compound: StudySelectionCompound = Field(
-        ..., title="study_compound", description="The related study compound"
-    )
+    study_compound: Annotated[
+        StudySelectionCompound, Field(description="The related study compound")
+    ]
 
-    study_element: StudySelectionElement = Field(
-        ..., title="study_element", description="The related study element"
-    )
+    study_element: Annotated[
+        StudySelectionElement, Field(description="The related study element")
+    ]
 
-    dose_value: SimpleNumericValueWithUnit | None = Field(
-        None,
-        title="dose",
-        description="compound dose defined for the study selection",
-        nullable=True,
-    )
+    dose_value: Annotated[
+        SimpleNumericValueWithUnit | None,
+        Field(
+            description="compound dose defined for the study selection", nullable=True
+        ),
+    ]
 
-    start_date: datetime | None = Field(
-        ...,
-        title="start_date",
-        description=START_DATE_DESC,
-    )
+    start_date: Annotated[
+        datetime | None, Field(description=START_DATE_DESC, nullable=True)
+    ]
 
-    user_initials: str | None = Field(
-        None,
-        title="user_initials",
-        description=USER_INITIALS_DESC,
-        nullable=True,
-    )
+    author_username: Annotated[
+        str | None,
+        Field(title="author_username", description=AUTHOR_FIELD_DESC, nullable=True),
+    ] = None
 
-    end_date: datetime | None = END_DATE_FIELD
-    change_type: str | None = CHANGE_TYPE_FIELD
+    end_date: Annotated[datetime | None, END_DATE_FIELD] = None
+    change_type: Annotated[str | None, CHANGE_TYPE_FIELD] = None
 
     @classmethod
     def from_vo(
@@ -4431,7 +4463,7 @@ class StudyCompoundDosing(StudySelection):
                 at_specific_date=terms_at_specific_datetime,
             ),
             start_date=compound_dosing_vo.start_date,
-            user_initials=compound_dosing_vo.user_initials,
+            author_username=compound_dosing_vo.author_username,
         )
 
     @classmethod
@@ -4463,27 +4495,53 @@ class StudyCompoundDosing(StudySelection):
             start_date=study_selection_history.start_date,
             end_date=study_selection_history.end_date,
             change_type=study_selection_history.change_type,
-            user_initials=study_selection_history.user_initials,
+            author_username=UserInfoService.get_author_username_from_id(
+                study_selection_history.author_id
+            ),
         )
 
 
-class StudyCompoundDosingInput(BaseModel):
-    study_compound_uid: str = Field(
-        ...,
-        title="study_compound_uid",
-        description="The related study compound uid",
-        min_length=1,
-    )
+class StudyCompoundDosingInput(InputModel):
+    study_compound_uid: Annotated[
+        str, Field(description="The related study compound uid")
+    ]
 
-    study_element_uid: str = Field(
-        ...,
-        title="study_element_uid",
-        description="The related study element uid",
-        min_length=1,
-    )
+    study_element_uid: Annotated[
+        str, Field(description="The related study element uid")
+    ]
 
-    dose_value_uid: str | None = Field(
-        None,
-        title="dose_value_uid",
-        description="compound dose defined for the study selection",
-    )
+    dose_value_uid: Annotated[
+        str | None,
+        Field(
+            description="compound dose defined for the study selection", nullable=True
+        ),
+    ] = None
+
+
+class ReferencedItem(BaseModel):
+    item_uid: Annotated[str, Field()]
+    item_name: Annotated[str | None, Field(nullable=True)] = None
+    item_type: Annotated[SoAItemType, Field()]
+
+
+class SoAFootnoteReference(BaseModel):
+    order: Annotated[int, Field()]
+    symbol: Annotated[str, Field()]
+    referenced_item: Annotated[ReferencedItem, Field()]
+
+
+class SoACellReference(BaseModel):
+    row: Annotated[int, Field()]
+    column: Annotated[int, Field()]
+    span: Annotated[int, Field()] = 1
+    is_propagated: Annotated[bool, Field()]
+    order: Annotated[int, Field()] = 0
+    referenced_item: Annotated[ReferencedItem, Field()]
+    footnote_references: Annotated[
+        list[SoAFootnoteReference] | None, Field(nullable=True)
+    ] = None
+
+
+class CellCoordinates(NamedTuple):
+    row: int
+    col: int

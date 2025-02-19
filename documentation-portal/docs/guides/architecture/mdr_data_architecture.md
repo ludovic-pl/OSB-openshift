@@ -68,7 +68,7 @@ Between each pair of nodes (the Root and one of its Value nodes), there is a HAS
 - version (metadata version)
 - status (Draft, Final, Retired)
 - change_description
-- user_initials
+- author_id
 
 Additional relationships also exist as "shortcuts" for
 - LATEST_FINAL (most recent version with status Final)

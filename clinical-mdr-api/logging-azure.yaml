@@ -25,7 +25,7 @@ handlers:
     level: DEBUG
     # Forwards the logs messages to Azure Monitor, uses a worker thread.
     # Requires APPLICATIONINSIGHTS_CONNECTION_STRING environment variable
-    class: opencensus.ext.azure.log_exporter.AzureLogHandler
+    class: common.telemetry.custom_azure_log_handler.CustomAzureLogHandler
     # Adds tracing context for correlation (filter runs multiple times if used for multiple handlers, but it's safe)
     filters:
       - add_trace_context
@@ -34,7 +34,7 @@ handlers:
 filters:
 
   add_trace_context:
-    (): clinical_mdr_api.telemetry.TracingContextFilter
+    (): common.telemetry.logging_filter.TracingContextFilter
 
 formatters:
 

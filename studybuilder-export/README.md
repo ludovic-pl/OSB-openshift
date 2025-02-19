@@ -41,7 +41,8 @@ Study epochs for study with uid "Study_000004":
 A pipeline definition is included. This can export from any of the cloud environments, and publishes the results as pipeline artifacts.
 
 #  Authentication
-Supports [OAuth 2.0 client credentials flow with shared secret](https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-client-creds-grant-flow#first-case-access-token-request-with-a-shared-secret).
+## Fetching an access token
+This supports [OAuth 2.0 client credentials flow with shared secret](https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-client-creds-grant-flow#first-case-access-token-request-with-a-shared-secret).
 Credentials can be configured by setting all the following environment variables.
 If *CLIENT_ID* is set, the authentication routine is activated.
 ```shell
@@ -59,6 +60,9 @@ SCOPE="api://d3e62185-f259-4d5b-8a8c-a9134fd34d47/.default"
 - **CLIENT_SECRET** is one of the secret key values set up with the client application at the authority
 Authentication is done once per migration script session, fetching an access token which is then included in each
 request as the *Authorization* header.
+
+## Using an existing access token
+It is possible to use an existing API access token. Provide this in the `STUDYBUILDER_API_TOKEN` environment variable.
 
 # TODO
 - Add whatever parts that are missing in the exported data. 

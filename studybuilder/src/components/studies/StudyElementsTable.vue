@@ -186,7 +186,7 @@ export default {
         { title: this.$t('StudyElements.colour'), key: 'element_colour' },
         { title: this.$t('_global.description'), key: 'description' },
         { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
       ],
       showForm: false,
       sortBy: 'name',

@@ -1,14 +1,16 @@
 """Study disclosure router"""
 
+from typing import Annotated
+
 from fastapi import Path
 from fastapi.responses import Response
 
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.routers.studies.study import router
 from clinical_mdr_api.services.ctr_xml.ctr_xml_service import CTRXMLService
+from common.auth import rbac
 
-StudyUID = Path(None, description="The unique id of the study.")
+StudyUID = Path(description="The unique id of the study.")
 
 
 class XMLResponse(Response):
@@ -27,6 +29,6 @@ class XMLResponse(Response):
     },
 )
 def get_odm_xml(
-    study_uid: str = StudyUID,
+    study_uid: Annotated[str, StudyUID],
 ) -> XMLResponse:
     return XMLResponse(content=CTRXMLService().get_ctr_odm(study_uid))

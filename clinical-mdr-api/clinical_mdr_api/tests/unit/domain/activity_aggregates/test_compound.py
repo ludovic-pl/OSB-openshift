@@ -6,7 +6,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 def create_random_compound_vo() -> CompoundVO:
@@ -33,7 +33,7 @@ def create_random_compound_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
         compound_uid_by_property_value_callback=lambda _, __: False,
     )
 
@@ -58,7 +58,7 @@ class TestCompound(unittest.TestCase):
         compound_ar = create_random_compound_ar()
 
         # when
-        compound_ar.approve(author="TODO")
+        compound_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(compound_ar.item_metadata._end_date)
@@ -69,10 +69,10 @@ class TestCompound(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         compound_ar = create_random_compound_ar()
-        compound_ar.approve(author="TODO")
+        compound_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        compound_ar.create_new_version(author="TODO")
+        compound_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(compound_ar.item_metadata._end_date)
@@ -83,10 +83,10 @@ class TestCompound(unittest.TestCase):
     def test__inactivate_final__version_created(self):
         # given
         compound_ar = create_random_compound_ar()
-        compound_ar.approve(author="TODO")
+        compound_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        compound_ar.inactivate(author="TODO")
+        compound_ar.inactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(compound_ar.item_metadata._end_date)
@@ -97,11 +97,11 @@ class TestCompound(unittest.TestCase):
     def test__reactivate_retired__version_created(self):
         # given
         compound_ar = create_random_compound_ar()
-        compound_ar.approve(author="TODO")
-        compound_ar.inactivate(author="TODO")
+        compound_ar.approve(author_id=AUTHOR_ID)
+        compound_ar.inactivate(author_id=AUTHOR_ID)
 
         # when
-        compound_ar.reactivate(author="TODO")
+        compound_ar.reactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(compound_ar.item_metadata._end_date)
@@ -123,14 +123,14 @@ class TestCompound(unittest.TestCase):
         # given
         compound_ar = create_random_compound_ar()
 
-        compound_ar.approve(author="Test")
-        compound_ar.create_new_version(author="TODO")
+        compound_ar.approve(author_id="Test")
+        compound_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         compound_vo = create_random_compound_vo()
 
         compound_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             concept_vo=compound_vo,
             compound_uid_by_property_value_callback=lambda _, __: False,
@@ -140,7 +140,7 @@ class TestCompound(unittest.TestCase):
         self.assertIsNotNone(compound_ar.item_metadata.start_date)
         self.assertEqual(compound_ar.item_metadata.version, "1.2")
         self.assertEqual(compound_ar.item_metadata.status, LibraryItemStatus.DRAFT)
-        self.assertEqual(compound_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(compound_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(compound_ar.item_metadata.change_description, "Test")
         self.assertEqual(compound_ar.name, compound_vo.name)
         self.assertEqual(

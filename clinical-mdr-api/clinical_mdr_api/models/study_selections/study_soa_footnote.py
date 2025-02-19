@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.study_selections.study_soa_footnote import (
-    SoAItemType,
     StudySoAFootnoteVO,
     StudySoAFootnoteVOHistory,
 )
@@ -12,63 +11,61 @@ from clinical_mdr_api.domains.syntax_instances.footnote import FootnoteAR
 from clinical_mdr_api.domains.syntax_templates.footnote_template import (
     FootnoteTemplateAR,
 )
-from clinical_mdr_api.models import Footnote, FootnoteCreateInput, FootnoteTemplate
 from clinical_mdr_api.models.error import BatchErrorResponse
-from clinical_mdr_api.models.study_selections.study_selection import RESPONSE_CODE_FIELD
-from clinical_mdr_api.models.utils import BaseModel, get_latest_on_datetime_str
-
-
-class ReferencedItem(BaseModel):
-    item_uid: str = Field(
-        ...,
-    )
-    item_name: str | None = Field(
-        None,
-    )
-    item_type: SoAItemType = Field(
-        ...,
-    )
+from clinical_mdr_api.models.study_selections.study_selection import (
+    RESPONSE_CODE_FIELD,
+    ReferencedItem,
+)
+from clinical_mdr_api.models.syntax_instances.footnote import (
+    Footnote,
+    FootnoteCreateInput,
+)
+from clinical_mdr_api.models.syntax_templates.footnote_template import FootnoteTemplate
+from clinical_mdr_api.models.utils import (
+    BaseModel,
+    PatchInputModel,
+    PostInputModel,
+    get_latest_on_datetime_str,
+)
 
 
 class StudySoAFootnote(BaseModel):
-    uid: str = Field(
-        ...,
-        title="The uid of the study footnote",
-    )
-    study_uid: str = Field(
-        ...,
-        title="The uid of the study",
-    )
-    study_version: str | None = Field(
-        None,
-        title="study version or date information",
-        description="Study version number, if specified, otherwise None.",
-    )
-    order: int = Field(
-        ...,
-        title="The uid of the study",
-    )
-    modified: datetime | None = Field(
-        None,
-        title="start_date",
-        description="The most recent point in time when the study soa footnote was edited."
-        "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
-    )
-    referenced_items: list[ReferencedItem] = Field([])
-    footnote: Footnote | None = Field(None, nullable=True)
-    template: FootnoteTemplate | None = Field(None, nullable=True)
-    accepted_version: bool | None = Field(
-        None,
-        title="Accepted Version",
-        description="Denotes if user accepted obsolete objective versions",
-        nullable=True,
-    )
-    latest_footnote: Footnote | None = Field(
-        None,
-        title="latest_footnote",
-        description="Latest version of footnote selected for study selection.",
-        nullable=True,
-    )
+    uid: Annotated[str, Field()]
+    study_uid: Annotated[str, Field()]
+    study_version: Annotated[
+        str | None,
+        Field(
+            title="study version or date information",
+            description="Study version number, if specified, otherwise None.",
+            nullable=True,
+        ),
+    ] = None
+    order: Annotated[int, Field()]
+    modified: Annotated[
+        datetime | None,
+        Field(
+            nullable=True,
+            description="The most recent point in time when the study soa footnote was edited."
+            "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
+        ),
+    ] = None
+    referenced_items: Annotated[list[ReferencedItem], Field()] = []
+    footnote: Annotated[Footnote | None, Field(nullable=True)] = None
+    template: Annotated[FootnoteTemplate | None, Field(nullable=True)] = None
+    accepted_version: Annotated[
+        bool | None,
+        Field(
+            description="Denotes if user accepted obsolete objective versions",
+            nullable=True,
+        ),
+    ] = None
+    latest_footnote: Annotated[
+        Footnote | None,
+        Field(
+            description="Latest version of footnote selected for study selection.",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_soa_footnote_vo(
@@ -138,62 +135,44 @@ class StudySoAFootnote(BaseModel):
         )
 
 
-class StudySoAFootnoteCreateInput(BaseModel):
-    footnote_uid: str | None = Field(
-        None,
-        title="The uid of the footnote",
-    )
-    footnote_template_uid: str | None = Field(
-        None,
-        title="The uid of the footnote template",
-    )
-    referenced_items: list[ReferencedItem] = Field(
-        [],
-        title="The list of items referenced by a single footnote",
-    )
+class StudySoAFootnoteCreateInput(PostInputModel):
+    footnote_uid: Annotated[str | None, Field()] = None
+    footnote_template_uid: Annotated[str | None, Field()] = None
+    referenced_items: Annotated[
+        list[ReferencedItem],
+        Field(title="The list of items referenced by a single footnote"),
+    ] = []
 
 
-class StudySoAFootnoteCreateFootnoteInput(BaseModel):
-    footnote_data: FootnoteCreateInput = Field(
-        ...,
-        title="footnote_data",
-        description="Footnote data to create new footnote",
-    )
-    referenced_items: list[ReferencedItem] = Field(
-        [],
-        title="The list of items referenced by a single footnote",
-    )
+class StudySoAFootnoteCreateFootnoteInput(PostInputModel):
+    footnote_data: Annotated[
+        FootnoteCreateInput,
+        Field(description="Footnote data to create new footnote"),
+    ]
+    referenced_items: Annotated[
+        list[ReferencedItem],
+        Field(title="The list of items referenced by a single footnote"),
+    ] = []
 
 
-class StudySoAFootnoteEditInput(BaseModel):
-    footnote_uid: str | None = Field(
-        None,
-        title="The uid of the footnote",
-    )
-    footnote_template_uid: str | None = Field(
-        None,
-        title="The uid of the footnote template",
-    )
-    referenced_items: list[ReferencedItem] | None = Field(
-        None,
-        title="The list of items referenced by a single footnote",
-    )
+class StudySoAFootnoteEditInput(PatchInputModel):
+    footnote_uid: Annotated[str | None, Field()] = None
+    footnote_template_uid: Annotated[str | None, Field()] = None
+    referenced_items: Annotated[
+        list[ReferencedItem] | None,
+        Field(title="The list of items referenced by a single footnote"),
+    ] = None
 
 
 class StudySoAFootnoteHistory(StudySoAFootnote):
-    change_type: str = Field(
-        ...,
-        title="type of action",
-        description="type of action",
-    )
-    start_date: datetime = Field(
-        ...,
-        title="start_date",
-    )
-    end_date: datetime | None = Field(
-        None,
-        title="end_date",
-    )
+    change_type: Annotated[
+        str,
+        Field(
+            description="type of action",
+        ),
+    ]
+    start_date: Annotated[datetime, Field()]
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_soa_footnote_vo_history(
@@ -238,7 +217,7 @@ class StudySoAFootnoteVersion(StudySoAFootnoteHistory):
     changes: dict
 
 
-class StudySoAFootnoteBatchEditInput(StudySoAFootnoteEditInput):
+class StudySoAFootnoteBatchEditInput(PatchInputModel):
     study_soa_footnote_uid: str
 
 

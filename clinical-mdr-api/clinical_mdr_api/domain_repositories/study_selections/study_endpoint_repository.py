@@ -2,9 +2,7 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
-from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.concepts import UnitDefinitionRoot
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
@@ -31,7 +29,9 @@ from clinical_mdr_api.domains.study_selections.study_selection_endpoint import (
     StudySelectionEndpointsAR,
     StudySelectionEndpointVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common.config import STUDY_ENDPOINT_TP_NAME
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 class StudySelectionEndpointRepository:
@@ -165,7 +165,7 @@ class StudySelectionEndpointRepository:
                 se.text AS text,
                 sa.date AS start_date,
                 is_instance AS is_instance,
-                sa.user_initials AS user_initials,
+                sa.author_id AS author_id,
                 values
                 ORDER BY order
             """
@@ -173,7 +173,7 @@ class StudySelectionEndpointRepository:
         all_endpoint_selections = db.cypher_query(query, query_parameters)
         all_selections = []
 
-        for selection in helpers.db_result_to_list(all_endpoint_selections):
+        for selection in utils.db_result_to_list(all_endpoint_selections):
             if not selection["endpoint_uid"]:
                 continue
 
@@ -207,7 +207,7 @@ class StudySelectionEndpointRepository:
                 study_selection_uid=selection["study_endpoint_uid"],
                 is_instance=selection["is_instance"],
                 start_date=convert_to_datetime(value=selection["start_date"]),
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
                 accepted_version=acv,
             )
             all_selections.append(selection_vo)
@@ -286,11 +286,11 @@ class StudySelectionEndpointRepository:
             return Create()
         return Delete()
 
-    def save(self, study_selection: StudySelectionEndpointsAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionEndpointsAR, author_id: str) -> None:
         """
         Persist the set of selected study endpoints from the aggregate to the database
         :param study_selection:
-        :param author:
+        :param author_id:
         """
         assert study_selection.repository_closure_data is not None
 
@@ -302,10 +302,10 @@ class StudySelectionEndpointRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -346,7 +346,7 @@ class StudySelectionEndpointRepository:
                 audit_node=audit_node,
                 study_selection_node=last_study_selection_node,
                 study_root_node=study_root_node,
-                author=author,
+                author_id=author_id,
             )
             audit_trail_nodes[selection.study_selection_uid] = audit_node
             if isinstance(audit_node, Delete):
@@ -360,7 +360,7 @@ class StudySelectionEndpointRepository:
                 audit_node = audit_trail_nodes[selection.study_selection_uid]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -421,9 +421,9 @@ class StudySelectionEndpointRepository:
         audit_node: StudyAction,
         study_selection_node: StudyEndpoint,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -641,13 +641,14 @@ class StudySelectionEndpointRepository:
                 values,
                 sa.date AS start_date,
                 sa.status AS status,
-                sa.user_initials AS user_initials,
+                sa.author_id AS author_id,
                 labels(sa) AS change_type,
                 bsa.date AS end_date""",
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_objective_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_objective_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -680,7 +681,7 @@ class StudySelectionEndpointRepository:
                     endpoint_units=units,
                     unit_separator=separator,
                     start_date=convert_to_datetime(value=res["start_date"]),
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     end_date=end_date,
                     order=res["order"],

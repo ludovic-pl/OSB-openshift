@@ -1,6 +1,5 @@
 """Placeholder for constant values."""
 
-
 COSM0S_RESULT_SCALES_MAP = {
     "NumericFinding": "Quantitative",
     "CategoricFinding": "Ordinal",

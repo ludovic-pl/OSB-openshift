@@ -15,24 +15,33 @@ import pytest
 from bs4 import BeautifulSoup
 from starlette.testclient import TestClient
 
+from clinical_mdr_api.models.study_selections.study import (
+    StatusChangeDescription,
+    StudyCreateInput,
+    StudyDescriptionJsonModel,
+    StudyMetadataJsonModel,
+    StudyPatchRequestJsonModel,
+)
+from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_flowchart import (
     DOCX_STYLES,
     OPERATIONAL_DOCX_STYLES,
     StudyFlowchartService,
 )
 from clinical_mdr_api.services.utils.table_f import TableWithFootnotes
+from clinical_mdr_api.tests.fixtures.database import TempDatabasePopulated
 
 # pylint: disable=unused-import
 from clinical_mdr_api.tests.integration.services.test_study_flowchart import (
-    TestData,
     detailed_soa_table__days,
     detailed_soa_table__weeks,
     operational_soa_table__days,
     operational_soa_table__weeks,
     protocol_soa_table__days,
     protocol_soa_table__weeks,
-    tst_data,
 )
+from clinical_mdr_api.tests.integration.utils.factory_soa import SoATestData
+from clinical_mdr_api.tests.integration.utils.utils import TestUtils
 from clinical_mdr_api.tests.unit.models.test_table_f import (
     compare_docx_footnotes,
     compare_docx_table,
@@ -88,6 +97,11 @@ OPERATIONAL_SOA_EXPORT_COLUMN_HEADERS_XLSX = [
 ]
 
 
+@pytest.fixture(scope="module")
+def soa_test_data(temp_database_populated: TempDatabasePopulated) -> SoATestData:
+    return SoATestData(project=temp_database_populated.project)
+
+
 @pytest.mark.parametrize(
     "time_unit, operational, hide_soa_groups",
     [
@@ -104,7 +118,7 @@ OPERATIONAL_SOA_EXPORT_COLUMN_HEADERS_XLSX = [
     ],
 )
 def test_flowchart(
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     api_client: TestClient,
     time_unit: str,
     operational: bool,
@@ -120,7 +134,9 @@ def test_flowchart(
     if hide_soa_groups:
         params["detailed"] = False
 
-    response = api_client.get(f"/studies/{tst_data.study.uid}/flowchart", params=params)
+    response = api_client.get(
+        f"/studies/{soa_test_data.study.uid}/flowchart", params=params
+    )
     assert_response_status_code(response, 200)
     assert_json_response(response)
     data = response.json()
@@ -128,43 +144,60 @@ def test_flowchart(
     assert TableWithFootnotes(**data)
 
 
-def test_flowchart_study_versioning(tst_data: TestData, api_client):
+def test_flowchart_study_versioning(soa_test_data: SoATestData, api_client):
+    locked_study_version = str(
+        StudyService()
+        .lock(uid=soa_test_data.study.uid, change_description="v1")
+        .current_metadata.version_metadata.version_number
+    )
+    StudyService().unlock(uid=soa_test_data.study.uid)
+
+    soa_test_data.create_study_visits(
+        {
+            "V79": {
+                "epoch": "Follow-Up",
+                "visit_contact_mode": "Virtual Visit",
+                "day": 79,
+                "min_window": -3,
+                "max_window": 3,
+            }
+        }
+    )
+
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart",
+        f"/studies/{soa_test_data.study.uid}/flowchart",
         params={
-            "study_value_version": "1",
+            "study_value_version": locked_study_version,
             "operational": True,
         },
     )
     assert_response_status_code(response, 200)
     assert_json_response(response)
-    old_data = response.json()
+    locked_data = response.json()
 
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart",
+        f"/studies/{soa_test_data.study.uid}/flowchart",
         params={
             "operational": True,
         },
     )
     assert_response_status_code(response, 200)
     assert_json_response(response)
-    data = response.json()
-    assert data != old_data
-    assert len(data["rows"]) != len(old_data["rows"])
-    assert len(old_data["rows"]) == 4
-    assert len(data["rows"]) == 38
+    recent_data = response.json()
+    assert recent_data != locked_data
+    assert len(recent_data["rows"][1]["cells"]) > len(locked_data["rows"][1]["cells"])
 
 
-def test_flowchart_with_non_latest_activities(tst_data: TestData, api_client):
-    for activity in tst_data.activities:
-        text_value_2_name = tst_data.activities[activity].name + " new version"
+def test_flowchart_with_non_latest_activities(soa_test_data: SoATestData, api_client):
+    for activity in soa_test_data.activities:
+        text_value_2_name = soa_test_data.activities[activity].name + " new version"
         # change activity name and approve the version
         response = api_client.post(
-            f"/concepts/activities/activities/{tst_data.activities[activity].uid}/versions",
+            f"/concepts/activities/activities/{soa_test_data.activities[activity].uid}/versions",
         )
-        assert response.status_code == 201
+        assert_response_status_code(response, 201)
         response = api_client.patch(
-            f"/concepts/activities/activities/{tst_data.activities[activity].uid}",
+            f"/concepts/activities/activities/{soa_test_data.activities[activity].uid}",
             json={
                 "change_description": "Change to have a new version not updated in library",
                 "name": text_value_2_name,
@@ -172,23 +205,25 @@ def test_flowchart_with_non_latest_activities(tst_data: TestData, api_client):
                 "guidance_text": "don't know",
             },
         )
-        assert response.status_code == 200
+        assert_response_status_code(response, 200)
         response = api_client.post(
-            f"/concepts/activities/activities/{tst_data.activities[activity].uid}/approvals"
+            f"/concepts/activities/activities/{soa_test_data.activities[activity].uid}/approvals"
         )
-        assert response.status_code == 201
+        assert_response_status_code(response, 201)
 
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart",
+        f"/studies/{soa_test_data.study.uid}/flowchart",
     )
     assert_response_status_code(response, 200)
     assert_json_response(response)
 
 
-def test_flowchart_coordinates(tst_data: TestData, api_client):
+def test_flowchart_coordinates(soa_test_data: SoATestData, api_client):
     """Tests /studies/{study_uid}/flowchart/coordinates to return a dict of coordinates (array of 2)"""
 
-    response = api_client.get(f"/studies/{tst_data.study.uid}/flowchart/coordinates")
+    response = api_client.get(
+        f"/studies/{soa_test_data.study.uid}/flowchart/coordinates"
+    )
     assert_response_status_code(response, 200)
     assert_json_response(response)
     results: dict[str, list[int, int]] = response.json()
@@ -213,7 +248,7 @@ def test_flowchart_coordinates(tst_data: TestData, api_client):
 )
 def test_flowchart_html(
     request,
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     api_client: TestClient,
     soa_table: TableWithFootnotes,
     detailed: bool,
@@ -239,14 +274,14 @@ def test_flowchart_html(
 
     # Fetch HTML SoA
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart.html", params=params
+        f"/studies/{soa_test_data.study.uid}/flowchart.html", params=params
     )
     assert_response_status_code(response, 200)
     # THEN returns HTML content-type HTTP header
     assert_response_content_type(response, "text/html")
 
     # THEN body is a parsable HTML document
-    # html.parser does not supplement the document with additional elements for the sake of well-formedness
+    # html.parser doesn't supplement the document with additional elements for the sake of well-formedness
     doc = BeautifulSoup(response.text, features="html.parser")
     # THEN document has HTML tag
     assert doc.find("html"), "<HTML> tag not found"
@@ -264,7 +299,7 @@ def test_flowchart_html(
 
     if detailed or operational:
         # Detailed and Operation SoA show all rows
-        StudyFlowchartService.show_hidden_rows(soa_table)
+        StudyFlowchartService.show_hidden_rows(soa_table.rows)
 
     # Compares table rows and cell contents and formatting
     compare_html_table(table, soa_table)
@@ -291,7 +326,7 @@ def test_flowchart_html(
 )
 def test_flowchart_docx(
     request,
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     api_client: TestClient,
     soa_table: TableWithFootnotes,
     detailed: bool,
@@ -318,7 +353,7 @@ def test_flowchart_docx(
 
     # Fetch DOCX SoA
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart.docx", params=params
+        f"/studies/{soa_test_data.study.uid}/flowchart.docx", params=params
     )
     assert_response_status_code(response, 200)
     # THEN returns DOCX content type HTTP header
@@ -335,7 +370,7 @@ def test_flowchart_docx(
 
     if detailed or operational:
         # Detailed and Operation SoA show all rows
-        StudyFlowchartService.show_hidden_rows(soa_table)
+        StudyFlowchartService.show_hidden_rows(soa_table.rows)
 
     # Compare table rows and column contents and properties
     compare_docx_table(
@@ -371,7 +406,7 @@ def test_flowchart_docx(
     ],
 )
 def test_flowchart_html_debug(
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     api_client: TestClient,
     time_unit: str,
     detailed: bool,
@@ -397,14 +432,14 @@ def test_flowchart_html_debug(
 
     # Fetch HTML SoA
     response = api_client.get(
-        f"/studies/{tst_data.study.uid}/flowchart.html", params=params
+        f"/studies/{soa_test_data.study.uid}/flowchart.html", params=params
     )
     assert_response_status_code(response, 200)
     # THEN returns HTML content-type HTTP header
     assert_response_content_type(response, "text/html")
 
     # THEN body is a parsable HTML document
-    # html.parser does not supplement the document with additional elements for the sake of well-formedness
+    # html.parser doesn't supplement the document with additional elements for the sake of well-formedness
     doc = BeautifulSoup(response.text, features="html.parser")
     # THEN document has HTML tag
     assert doc.find("html"), "<HTML> tag not found"
@@ -429,10 +464,10 @@ def test_flowchart_html_debug(
     ],
 )
 def test_endpoints_with_invalid_time_unit(
-    api_client: TestClient, tst_data: TestData, path, time_unit: str | None
+    api_client: TestClient, soa_test_data: SoATestData, path, time_unit: str | None
 ):
     response = api_client.get(
-        path.format_map({"study_uid": tst_data.study.uid}),
+        path.format_map({"study_uid": soa_test_data.study.uid}),
         params={"time_unit": time_unit},
     )
     assert_response_status_code(response, 422)
@@ -523,7 +558,7 @@ def test_endpoints_with_invalid_time_unit(
 )
 def test_soa_exports(
     api_client: TestClient,
-    tst_data: TestData,
+    soa_test_data: SoATestData,
     path: str,
     data_format: str,
     column_headers,
@@ -534,10 +569,10 @@ def test_soa_exports(
     if soa_preferences:
         show_epochs, show_milestones = soa_preferences
         response = api_client.patch(
-            f"/studies/{tst_data.study.uid}/soa-preferences",
+            f"/studies/{soa_test_data.study.uid}/soa-preferences",
             json={"show_epochs": show_epochs, "show_milestones": show_milestones},
         )
-        assert response.status_code == 200
+        assert_response_status_code(response, 200)
         res = response.json()
         assert res["show_epochs"] == show_epochs
         assert res["show_milestones"] == show_milestones
@@ -547,7 +582,7 @@ def test_soa_exports(
             expected_column_headers.append("milestone")
 
     response = api_client.get(
-        path.format_map({"study_uid": tst_data.study.uid}),
+        path.format_map({"study_uid": soa_test_data.study.uid}),
         headers={"Accept": data_format},
     )
     assert_response_status_code(response, 200)
@@ -613,3 +648,199 @@ def test_soa_exports(
         # THEN worksheet has more than 1 row
         num_rows = sum(1 for _ in worksheet.rows)
         assert num_rows > 1, f"worksheet 0 has only {num_rows} rows"
+
+
+def test_get_study_flowchart_versioned(api_client, soa_test_data):
+    """Test study flowchart endpoint with versioning for Protocol SoA
+
+    SCENARIO: A study with SoA data gets locked and unlocked, and SoA of the latest draft version updated.
+    Check that the protocol SoA of the locked study version is not modified, but the recent SoA of the latest draft
+    version differs.
+    Because the SoA snapshot is saved when a study version gets locked,
+    this also tests that the SoA snapshot is retrievable.
+    """
+
+    # GIVEN: a study with protocol SoA
+    response = api_client.get(
+        f"/studies/{soa_test_data.study.uid}/flowchart", params={"detailed": False}
+    )
+    assert_response_status_code(response, 200)
+    initial_soa = response.json()
+    assert len(initial_soa["rows"]) > initial_soa["num_header_rows"]
+
+    # GIVEN: study has a locked version
+
+    response = api_client.patch(
+        f"/studies/{soa_test_data.study.uid}",
+        json=StudyPatchRequestJsonModel(
+            current_metadata=StudyMetadataJsonModel(
+                study_description=StudyDescriptionJsonModel(
+                    study_title=TestUtils.random_str(prefix="Title ")
+                )
+            )
+        ).dict(),
+    )
+    assert_response_status_code(response, 200)
+
+    response = api_client.post(
+        f"/studies/{soa_test_data.study.uid}/locks",
+        json=StatusChangeDescription(change_description="Locking good").dict(),
+    )
+    assert_response_status_code(response, 201)
+
+    locked_study_version = response.json()["current_metadata"]["version_metadata"][
+        "version_number"
+    ]
+
+    response = api_client.delete(f"/studies/{soa_test_data.study.uid}/locks")
+    assert_response_status_code(response, 200)
+
+    # GIVEN: SoA has some alterations
+    sched = soa_test_data.study_activity_schedules[-1]
+    response = api_client.delete(
+        f"/studies/{soa_test_data.study.uid}/study-activity-schedules/{sched.study_activity_schedule_uid}"
+    )
+    assert_response_status_code(response, 204)
+
+    # WHEN: retrieving protocol SoA of draft version
+    response = api_client.get(
+        f"/studies/{soa_test_data.study.uid}/flowchart", params={"detailed": False}
+    )
+    assert_response_status_code(response, 200)
+    recent_soa = response.json()
+
+    # WHEN: retrieving protocol SoA of the locked version
+    response = api_client.get(
+        f"/studies/{soa_test_data.study.uid}/flowchart",
+        params={"detailed": False, "study_value_version": locked_study_version},
+    )
+    assert_response_status_code(response, 200)
+    locked_soa = response.json()
+
+    # THEN: SoA of the locked study version is the same as the initial SoA
+    assert locked_soa == initial_soa
+
+    # THEN: SoA of the latest draft study version is different from the SoA of the locked study version
+    assert recent_soa != locked_soa
+
+
+def test_soa_snapshot_endpoints(api_client, soa_test_data):
+    """Test the SoA snapshot updating endpoint
+
+    SCENARIO: Update the SoA snapshot for existing studies for all their locked versions.
+    It Also creates an empty study to ensure the endpoint does not break on missing SoA data.
+    """
+
+    # get the first project
+    response = api_client.get("/projects")
+    assert_response_status_code(response, 200)
+    project = response.json()["items"][0]
+
+    # create an empty study
+    response = api_client.post(
+        "/studies",
+        json=StudyCreateInput(
+            study_number=TestUtils.random_str(4),
+            project_number=project["project_number"],
+            description="tests_soa_flowchart_snapshot_endpoint",
+        ).dict(),
+    )
+    assert_response_status_code(response, 201)
+    study_uid = response.json()["uid"]
+    response = api_client.patch(
+        f"/studies/{study_uid}",
+        json=StudyPatchRequestJsonModel(
+            current_metadata=StudyMetadataJsonModel(
+                study_description=StudyDescriptionJsonModel(
+                    study_title=TestUtils.random_str(prefix="Title ")
+                )
+            )
+        ).dict(),
+    )
+    assert_response_status_code(response, 200)
+
+    # list up to 10 studies (there's at least 2 studies in the db, one because of soa_test_data fixture)
+    response = api_client.get("/studies")
+    assert_response_status_code(response, 200)
+    study_uids = {item["uid"] for item in response.json()["items"]}
+    assert len(study_uids) >= 2, "At least 2 studies are expected at this point"
+
+    # ensure recently created study uid is included
+    study_uids.add(study_uid)
+
+    for study_uid in study_uids:
+        for i in range(1, 3):
+            # lock the study
+            response = api_client.post(
+                f"/studies/{study_uid}/locks",
+                json=StatusChangeDescription(change_description=f"Lock {i}").dict(),
+            )
+            assert_response_status_code(response, 201)
+
+            # unlock the study
+            response = api_client.delete(f"/studies/{study_uid}/locks")
+            assert_response_status_code(response, 200)
+
+        # get study versions
+        response = api_client.get(f"/studies/{study_uid}/snapshot-history")
+        assert_response_status_code(response, 200)
+
+        for study in response.json()["items"]:
+            study_status = study["current_metadata"]["version_metadata"]["study_status"]
+            study_version = study["current_metadata"]["version_metadata"][
+                "version_number"
+            ]
+
+            # on locked versions
+            if study_status != "LOCKED":
+                continue
+
+            # get protocol SoA before updating the snapshot
+            response = api_client.get(
+                f"/studies/{study['uid']}/flowchart",
+                params={
+                    "study_value_version": study_version,
+                    "detailed": False,
+                    "operational": False,
+                    "force_build": True,
+                },
+            )
+            assert_response_status_code(response, 200)
+            soa_before = response.json()
+
+            # update SoA snapshot of the specific study version
+            response = api_client.post(
+                f"/studies/{study['uid']}/flowchart/snapshot",
+                params={"study_value_version": study_version},
+            )
+            assert_response_status_code(response, 204)
+
+            if study["uid"] == study_uid:
+                # the empty study would fail below checks
+                continue
+
+            # get protocol SoA from snapshot
+            response = api_client.get(
+                f"/studies/{study['uid']}/flowchart/snapshot",
+                params={"study_value_version": study_version},
+            )
+            assert_response_status_code(response, 200)
+            soa_snapshot = response.json()
+
+            assert (
+                soa_snapshot == soa_before
+            ), "protocol SoA snapshot does not match the initial SoA"
+
+            # get protocol SoA after updating the snapshot
+            response = api_client.get(
+                f"/studies/{study['uid']}/flowchart",
+                params={
+                    "study_value_version": study_version,
+                    "detailed": False,
+                    "operational": False,
+                },
+            )
+            assert_response_status_code(response, 200)
+            soa = response.json()
+
+            assert soa == soa_snapshot, "protocol SoA does not match snapshot"

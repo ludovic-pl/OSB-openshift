@@ -5,7 +5,6 @@ import pytest
 from bs4 import BeautifulSoup
 from docx import Document
 
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
 from clinical_mdr_api.models import study_selections
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import inject_base_data
@@ -15,6 +14,7 @@ from clinical_mdr_api.tests.utils.checks import (
     assert_response_content_type,
     assert_response_status_code,
 )
+from common.config import STUDY_ENDPOINT_TP_NAME
 
 TEST_DB_NAME = __name__.rsplit(".", maxsplit=1)[-1].replace("_", "-")
 
@@ -54,16 +54,16 @@ def test_docx_response(api_client, test_database):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     study_objective = TestUtils.create_study_objective(
         study.uid,

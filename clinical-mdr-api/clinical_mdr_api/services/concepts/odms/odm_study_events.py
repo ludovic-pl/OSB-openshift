@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.study_event_repository import (
     StudyEventRepository,
 )
@@ -17,11 +16,13 @@ from clinical_mdr_api.models.concepts.odms.odm_study_event import (
     OdmStudyEventPostInput,
     OdmStudyEventVersion,
 )
-from clinical_mdr_api.services._utils import get_input_or_new_value, normalize_string
+from clinical_mdr_api.services._utils import get_input_or_new_value
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
-from clinical_mdr_api.utils import strtobool
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import BusinessLogicException, NotFoundException
+from common.utils import strtobool
 
 
 class OdmStudyEventService(OdmGenericService[OdmStudyEventAR]):
@@ -41,7 +42,7 @@ class OdmStudyEventService(OdmGenericService[OdmStudyEventAR]):
         self, concept_input: OdmStudyEventPostInput, library
     ) -> OdmStudyEventAR:
         return OdmStudyEventAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmStudyEventVO.from_repository_values(
                 name=concept_input.name,
                 oid=get_input_or_new_value(concept_input.oid, "T.", concept_input.name),
@@ -60,7 +61,7 @@ class OdmStudyEventService(OdmGenericService[OdmStudyEventAR]):
         self, item: OdmStudyEventAR, concept_edit_input: OdmStudyEventPatchInput
     ) -> OdmStudyEventAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmStudyEventVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -84,8 +85,10 @@ class OdmStudyEventService(OdmGenericService[OdmStudyEventAR]):
     ) -> OdmStudyEvent:
         odm_study_event_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_study_event_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_study_event_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         if override:
             self._repos.odm_study_event_repository.remove_relation(
@@ -114,9 +117,10 @@ class OdmStudyEventService(OdmGenericService[OdmStudyEventAR]):
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_study_event_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Study Event identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_study_event_repository.exists_by("uid", uid, True),
+            "ODM Study Event",
+            uid,
+        )
 
         return self._repos.odm_study_event_repository.get_active_relationships(uid, [])

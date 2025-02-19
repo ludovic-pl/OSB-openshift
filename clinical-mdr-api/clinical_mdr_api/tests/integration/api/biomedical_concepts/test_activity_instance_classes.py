@@ -1,6 +1,7 @@
 """
 Tests for /activity-instance-classes endpoints
 """
+
 import json
 import logging
 from functools import reduce
@@ -14,11 +15,11 @@ from clinical_mdr_api.models.biomedical_concepts.activity_instance_class import 
 )
 from clinical_mdr_api.models.standard_data_models.dataset_class import DatasetClass
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -108,8 +109,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 ACTIVITY_IC_FIELDS_ALL = [
     "uid",
@@ -125,7 +124,7 @@ ACTIVITY_IC_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
 ]
 
@@ -141,7 +140,7 @@ def test_get_activity_instance_class(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVITY_IC_FIELDS_ALL)
@@ -216,11 +215,12 @@ def test_get_activity_instance_classes(
     if query_params:
         url = f"{url}?{'&'.join(query_params)}"
 
+    print(f"******** GET {url} \n\n")
     log.info("GET %s", url)
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -279,7 +279,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -332,7 +332,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -375,7 +375,7 @@ def test_edit_activity_instance_class(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "new name for instance class"
     assert res["definition"] == "definition"
     assert res["order"] == 30
@@ -394,7 +394,7 @@ def test_edit_activity_instance_class(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["dataset_classes"] == [{"uid": dataset_class.uid}]
 
 
@@ -407,7 +407,7 @@ def test_post_activity_instance_class(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["name"] == "New AC Name"
     assert res["definition"] is None
@@ -431,28 +431,28 @@ def test_activity_instance_class_versioning(api_client):
         f"/activity-instance-classes/{activity_instance_class.uid}/versions"
     )
     res = response.json()
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert res["message"] == "New draft version can be created only for FINAL versions."
 
     # successful approve
     response = api_client.post(
         f"/activity-instance-classes/{activity_instance_class.uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # not successful approve
     response = api_client.post(
         f"/activity-instance-classes/{activity_instance_class.uid}/approvals"
     )
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == "The object is not in draft status."
+    assert_response_status_code(response, 400)
+    assert res["message"] == "The object isn't in draft status."
 
     # not successful reactivate
     response = api_client.post(
         f"/activity-instance-classes/{activity_instance_class.uid}/activations"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
     assert res["message"] == "Only RETIRED version can be reactivated."
 
@@ -460,19 +460,19 @@ def test_activity_instance_class_versioning(api_client):
     response = api_client.delete(
         f"/activity-instance-classes/{activity_instance_class.uid}/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # successful reactivate
     response = api_client.post(
         f"/activity-instance-classes/{activity_instance_class.uid}/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # successful new version
     response = api_client.post(
         f"/activity-instance-classes/{activity_instance_class.uid}/versions"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     activity_ic_to_delete = TestUtils.create_activity_instance_class(
         name="activity ic to delete", approve=False
@@ -481,4 +481,4 @@ def test_activity_instance_class_versioning(api_client):
     response = api_client.delete(
         f"/activity-instance-classes/{activity_ic_to_delete.uid}"
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)

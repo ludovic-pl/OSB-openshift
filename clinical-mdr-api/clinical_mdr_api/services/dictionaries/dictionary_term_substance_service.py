@@ -9,12 +9,12 @@ from clinical_mdr_api.domains.dictionaries.dictionary_term_substance import (
     DictionaryTermSubstanceAR,
     DictionaryTermSubstanceVO,
 )
-from clinical_mdr_api.models import (
+from clinical_mdr_api.models.dictionaries.dictionary_term import (
+    DictionaryTermSubstance,
     DictionaryTermSubstanceCreateInput,
     DictionaryTermSubstanceEditInput,
     DictionaryTermVersion,
 )
-from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTermSubstance
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
@@ -38,7 +38,7 @@ class DictionaryTermSubstanceService(
     version_class = DictionaryTermVersion
     repository_interface = DictionaryTermSubstanceRepository
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     @property
     def repository(self) -> DictionaryTermSubstanceRepository:
@@ -57,7 +57,7 @@ class DictionaryTermSubstanceService(
         self, term_input: DictionaryTermSubstanceCreateInput, library
     ) -> _AggregateRootType:
         return DictionaryTermSubstanceAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             dictionary_term_vo=DictionaryTermSubstanceVO.from_input_values(
                 codelist_uid=term_input.codelist_uid,
                 name=term_input.name,
@@ -78,7 +78,7 @@ class DictionaryTermSubstanceService(
         term_input: DictionaryTermSubstanceEditInput,
     ) -> DictionaryTermSubstanceAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=term_input.change_description,
             dictionary_term_vo=DictionaryTermSubstanceVO.from_input_values(
                 codelist_uid=item.dictionary_term_vo.codelist_uid,

@@ -79,7 +79,7 @@ def import_json_data_into_cdisc_db(
     data_directory,
     cdisc_import_neo4j_driver,
     cdisc_import_db_name,
-    user_initials,
+    author_id,
 ):
     """
     :param effective_date: string, the effective date in ISO 8601 format (YYYY-MM-DD)
@@ -90,12 +90,12 @@ def import_json_data_into_cdisc_db(
         https://neo4j.com/docs/api/python-driver/current/api.html#neo4j.Driver
     :param cdisc_import_db_name: string, the name of the Neo4j database in which the CDISC data is loaded
         in the first place (after it will be loaded into the default MDR db)
-    :param user_initials: string, the initials of the user that triggers this step
+    :param author_id: string, the id of the user that triggers this step
     """
 
     try:
         start_time = time.time()
-        ct_import = CTImport(effective_date, user_initials)
+        ct_import = CTImport(effective_date, author_id)
 
         with cdisc_import_neo4j_driver.session(database="system") as session:
             session.run(

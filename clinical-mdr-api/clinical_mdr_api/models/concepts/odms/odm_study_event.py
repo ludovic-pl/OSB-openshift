@@ -1,7 +1,7 @@
 from datetime import date
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.odms.form import OdmFormRefVO
 from clinical_mdr_api.domains.concepts.odms.study_event import OdmStudyEventAR
@@ -11,13 +11,15 @@ from clinical_mdr_api.models.concepts.concept import (
     ConceptPostInput,
 )
 from clinical_mdr_api.models.concepts.odms.odm_form import OdmFormRefModel
+from clinical_mdr_api.models.utils import PostInputModel
+from common import config
 
 
 class OdmStudyEvent(ConceptModel):
-    oid: str | None = Field(None, nullable=True)
-    effective_date: date | None = Field(None, nullable=True)
-    retired_date: date | None = Field(None, nullable=True)
-    description: str | None = Field(None, nullable=True)
+    oid: Annotated[str | None, Field(nullable=True)] = None
+    effective_date: Annotated[date | None, Field(nullable=True)] = None
+    retired_date: Annotated[date | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
     display_in_tree: bool = True
     forms: list[OdmFormRefModel]
     possible_actions: list[str]
@@ -44,7 +46,7 @@ class OdmStudyEvent(ConceptModel):
             status=odm_study_event_ar.item_metadata.status.value,
             version=odm_study_event_ar.item_metadata.version,
             change_description=odm_study_event_ar.item_metadata.change_description,
-            user_initials=odm_study_event_ar.item_metadata.user_initials,
+            author_username=odm_study_event_ar.item_metadata.author_username,
             forms=sorted(
                 [
                     OdmFormRefModel.from_odm_form_uid(
@@ -63,27 +65,29 @@ class OdmStudyEvent(ConceptModel):
 
 
 class OdmStudyEventPostInput(ConceptPostInput):
-    oid: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
     effective_date: date | None = None
     retired_date: date | None = None
-    description: str | None = None
+    description: Annotated[str | None, Field(min_length=1)] = None
     display_in_tree: bool = True
 
 
 class OdmStudyEventPatchInput(ConceptPatchInput):
-    oid: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
     effective_date: date | None
     retired_date: date | None
-    description: str | None
+    description: Annotated[str | None, Field(min_length=1)]
     display_in_tree: bool = True
 
 
-class OdmStudyEventFormPostInput(BaseModel):
-    uid: str
-    order_number: int
-    mandatory: str
-    locked: str = "No"
-    collection_exception_condition_oid: str | None = None
+class OdmStudyEventFormPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    order_number: Annotated[int, Field(gt=0, lt=config.MAX_INT_NEO4J)]
+    mandatory: Annotated[str, Field(min_length=1)]
+    locked: Annotated[str, Field(min_length=1)] = "No"
+    collection_exception_condition_oid: Annotated[str | None, Field(min_length=1)] = (
+        None
+    )
 
 
 class OdmStudyEventVersion(OdmStudyEvent):
@@ -91,11 +95,13 @@ class OdmStudyEventVersion(OdmStudyEvent):
     Class for storing OdmStudyEvents and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the timeframe (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the timeframe (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

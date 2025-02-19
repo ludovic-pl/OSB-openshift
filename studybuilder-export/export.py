@@ -31,7 +31,7 @@ class StudyExporter:
         )
         self.log = logging.getLogger("studybuilder_export")
         self.api_base_url = self._read_env("API_BASE_URL")
-        api_headers = {"Accept": "application/json"}
+        api_headers = {"Accept": "application/json", "User-Agent": "studybuilder-export"}
         self.api_headers = self._authenticate(api_headers)
         self.verify_connection()
 
@@ -46,8 +46,12 @@ class StudyExporter:
     def _authenticate(self, headers):
         """Authenticates with client secret flow and appends Authorization header the dict of API request headers"""
         headers = headers.copy()
-        client_id = environ.get('CLIENT_ID', '')
-        if client_id:
+        client_id = environ.get("CLIENT_ID", "")
+        api_token = environ.get("STUDYBUILDER_API_TOKEN", "")
+
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
+        elif client_id:
             self.log.info("CLIENT_ID provided, enabling authentication")
             client_secret = self._read_env('CLIENT_SECRET')
             token_endpoint = self._read_env('TOKEN_ENDPOINT')
@@ -73,7 +77,7 @@ class StudyExporter:
                 raise RuntimeError(msg)
             headers['Authorization'] = f"{token_type} {access_token}"
         else:
-            self.log.info("No CLIENT_ID provided, running without authentication")
+            self.log.info("No CLIENT_ID or STUDYBUILDER_API_TOKEN provided, running without authentication")
         return headers
 
     # ---------------------------------------------------------------

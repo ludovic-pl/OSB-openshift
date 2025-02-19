@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from pydantic import Field
 
 from clinical_mdr_api.models.standard_data_models.dataset_variable import (
@@ -7,130 +9,56 @@ from clinical_mdr_api.models.utils import BaseModel
 
 
 class SimpleReferencedCodelist(BaseModel):
-    uid: str | None = Field(
-        None,
-        title="uid",
-        description="The uid of the referenced codelist",
-    )
-    name: str | None = Field(
-        None,
-        title="uid",
-        description="The name of the referenced codelist",
-    )
+    uid: Annotated[
+        str | None,
+        Field(title="The uid of the referenced codelist", nullable=True),
+    ] = None
+    name: Annotated[
+        str | None,
+        Field(title="The name of the referenced codelist", nullable=True),
+    ] = None
 
 
 class SimpleDatasetClass(BaseModel):
-    ordinal: str | None = Field(
-        None,
-        title="ordinal",
-        description="ordinal",
-    )
-    dataset_class_name: str | None = Field(
-        None,
-        title="uid",
-        description="The name of the dataset class",
-    )
+    ordinal: Annotated[str | None, Field(nullable=True)] = None
+    dataset_class_name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleVariableClass(BaseModel):
-    uid: str | None = Field(
-        None,
-        title="uid",
-        description="uid",
-    )
-    name: str | None = Field(
-        None,
-        title="name",
-        description="name",
-    )
+    uid: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class VariableClass(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="The uid of the dataset",
+    uid: Annotated[str, Field()]
+    label: Annotated[str, Field()]
+    title: Annotated[str, Field()]
+    description: Annotated[str | None, Field(nullable=True)] = None
+    implementation_notes: Annotated[str | None, Field(nullable=True)] = None
+    mapping_instructions: Annotated[str | None, Field(nullable=True)] = None
+    core: Annotated[str | None, Field(nullable=True)] = None
+    completion_instructions: Annotated[str | None, Field(nullable=True)] = None
+    prompt: Annotated[str | None, Field(nullable=True)] = None
+    question_text: Annotated[str | None, Field(nullable=True)] = None
+    simple_datatype: Annotated[str | None, Field(nullable=True)] = None
+    role: Annotated[str | None, Field(nullable=True)] = None
+    described_value_domain: Annotated[str | None, Field(nullable=True)] = None
+    notes: Annotated[str | None, Field(nullable=True)] = None
+    usage_restrictions: Annotated[str | None, Field(nullable=True)] = None
+    examples: Annotated[str | None, Field(nullable=True)] = None
+    dataset_class: Annotated[SimpleDatasetClass, Field()]
+    dataset_variable_name: Annotated[str | None, Field(nullable=True)] = None
+    catalogue_name: Annotated[str, Field()]
+    data_model_names: Annotated[list[str], Field()]
+    has_mapping_target: Annotated[SimpleMappingTarget | None, Field(nullable=True)] = (
+        None
     )
-    label: str = Field(
-        ...,
-        title="label",
-        description="The label of the dataset",
+    referenced_codelist: Annotated[
+        SimpleReferencedCodelist | None, Field(nullable=True)
+    ] = None
+    qualifies_variable: Annotated[SimpleVariableClass | None, Field(nullable=True)] = (
+        None
     )
-    title: str = Field(
-        ...,
-        title="title",
-        description="The title of the dataset",
-    )
-    description: str | None = Field(
-        None, title="description", description="description", nullable=True
-    )
-    implementation_notes: str | None = Field(
-        None,
-        title="implementation_notes",
-        description="implementation_notes",
-        nullable=True,
-    )
-    mapping_instructions: str | None = Field(
-        None,
-        title="mapping_instructions",
-        description="mapping_instructions",
-        nullable=True,
-    )
-    core: str | None = Field(None, title="core", description="core", nullable=True)
-    completion_instructions: str | None = Field(
-        None,
-        title="completion_instructions",
-        description="completion_instructions",
-        nullable=True,
-    )
-    prompt: str | None = Field(
-        None, title="prompt", description="prompt", nullable=True
-    )
-    question_text: str | None = Field(
-        None, title="question_text", description="question_text", nullable=True
-    )
-    simple_datatype: str | None = Field(
-        None,
-        title="simple_datatype",
-        description="simple_datatype",
-    )
-    role: str | None = Field(None, title="role", description="role", nullable=True)
-    described_value_domain: str | None = Field(
-        None,
-        title="described_value_domain",
-        description="described_value_domain",
-        nullable=True,
-    )
-    notes: str | None = Field(None, title="notes", description="notes", nullable=True)
-    usage_restrictions: str | None = Field(
-        None,
-        title="usage_restrictions",
-        description="usage_restrictions",
-        nullable=True,
-    )
-    examples: str | None = Field(
-        None, title="examples", description="examples", nullable=True
-    )
-    dataset_class: SimpleDatasetClass = Field(...)
-    dataset_variable_name: str | None = Field(
-        None,
-        title="dataset_variable_name",
-        description="dataset_variable_name",
-        nullable=True,
-    )
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue",
-        description="catalogue",
-    )
-    data_model_names: list[str] = Field(
-        ...,
-        title="Versions of associated data models",
-        description="Versions of associated data models",
-    )
-    has_mapping_target: SimpleMappingTarget | None = Field(None, nullable=True)
-    referenced_codelist: SimpleReferencedCodelist | None = Field(None, nullable=True)
-    qualifies_variable: SimpleVariableClass | None = Field(None, nullable=True)
 
     @classmethod
     def from_repository_output(cls, input_dict: dict):
@@ -170,22 +98,28 @@ class VariableClass(BaseModel):
             ),
             dataset_variable_name=input_dict.get("dataset_variable_name"),
             data_model_names=input_dict.get("data_model_names"),
-            referenced_codelist=SimpleReferencedCodelist(
-                uid=input_dict.get("referenced_codelist").get("uid"),
-                name=input_dict.get("referenced_codelist").get("name"),
-            )
-            if input_dict.get("referenced_codelist")
-            else None,
-            has_mapping_target=SimpleMappingTarget(
-                uid=input_dict.get("has_mapping_target").get("uid"),
-                name=input_dict.get("has_mapping_target").get("name"),
-            )
-            if input_dict.get("has_mapping_target")
-            else None,
-            qualifies_variable=SimpleVariableClass(
-                uid=input_dict.get("qualifies_variable").get("uid"),
-                name=input_dict.get("qualifies_variable").get("name"),
-            )
-            if input_dict.get("qualifies_variable")
-            else None,
+            referenced_codelist=(
+                SimpleReferencedCodelist(
+                    uid=input_dict.get("referenced_codelist").get("uid"),
+                    name=input_dict.get("referenced_codelist").get("name"),
+                )
+                if input_dict.get("referenced_codelist")
+                else None
+            ),
+            has_mapping_target=(
+                SimpleMappingTarget(
+                    uid=input_dict.get("has_mapping_target").get("uid"),
+                    name=input_dict.get("has_mapping_target").get("name"),
+                )
+                if input_dict.get("has_mapping_target")
+                else None
+            ),
+            qualifies_variable=(
+                SimpleVariableClass(
+                    uid=input_dict.get("qualifies_variable").get("uid"),
+                    name=input_dict.get("qualifies_variable").get("name"),
+                )
+                if input_dict.get("qualifies_variable")
+                else None
+            ),
         )

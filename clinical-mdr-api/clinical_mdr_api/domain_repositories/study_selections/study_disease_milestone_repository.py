@@ -2,12 +2,12 @@ import datetime
 from typing import Any, TypeVar
 
 from neomodel import Q, db
+from neomodel.sync_.match import NodeNameResolver, Optional
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
 )
@@ -28,15 +28,16 @@ from clinical_mdr_api.models.study_selections.study_disease_milestone import (
     StudyDiseaseMilestoneOGMVer,
 )
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     FilterOperator,
     get_field,
     get_field_path,
     get_order_by_clause,
     merge_q_query_filters,
     transform_filters_into_neomodel,
-    validate_page_number_and_page_size,
+    validate_filters_and_add_search_string,
 )
+from common.exceptions import ValidationException
+from common.utils import validate_page_number_and_page_size
 
 # pylint: disable=invalid-name
 _StandardsReturnType = TypeVar("_StandardsReturnType")
@@ -57,8 +58,8 @@ def get_ctlist_terms_by_name_and_definition(code_list_name: str):
 
 
 class StudyDiseaseMilestoneRepository:
-    def __init__(self, author: str):
-        self.author = author
+    def __init__(self, author_id: str):
+        self.author_id = author_id
 
     def create_ctlist_definition(self, code_list_name: str):
         return get_ctlist_terms_by_name_and_definition(code_list_name)
@@ -85,12 +86,10 @@ class StudyDiseaseMilestoneRepository:
         sort_paths = get_order_by_clause(
             sort_by=sort_by, model=StudyDiseaseMilestoneOGM
         )
-        page_number = validate_page_number_and_page_size(
-            page_number=page_number, page_size=page_size
-        )
-        start: int = page_number * page_size
+        validate_page_number_and_page_size(page_number=page_number, page_size=page_size)
+        start: int = (page_number - 1) * page_size
         end: int = start + page_size
-        nodes = to_relation_trees(
+        nodes = ListDistinct(
             StudyDiseaseMilestone.nodes.fetch_relations(
                 "has_after__audit_trail",
                 "has_disease_milestone_type__has_name_root__latest_final",
@@ -98,6 +97,7 @@ class StudyDiseaseMilestoneRepository:
             )
             .order_by(sort_paths[0] if len(sort_paths) > 0 else "uid")
             .filter(*q_filters)[start:end]
+            .resolve_subgraph()
         ).distinct()
         all_activities = [
             StudyDiseaseMilestoneOGM.from_orm(activity_node) for activity_node in nodes
@@ -105,6 +105,8 @@ class StudyDiseaseMilestoneRepository:
         if total_count:
             len_query = StudyDiseaseMilestone.nodes.filter(*q_filters)
             all_nodes = len(len_query)
+
+        # pylint: disable=possibly-used-before-assignment
         return all_activities, all_nodes if total_count else 0
 
     def create_query_filter_statement_neomodel(
@@ -131,7 +133,7 @@ class StudyDiseaseMilestoneRepository:
     ) -> _StandardsReturnType | None:
         all_disease_milestones = [
             StudyDiseaseMilestoneOGM.from_orm(sas_node)
-            for sas_node in to_relation_trees(
+            for sas_node in ListDistinct(
                 StudyDiseaseMilestone.nodes.fetch_relations(
                     "has_after__audit_trail",
                     "has_disease_milestone_type__has_name_root__latest_final",
@@ -139,42 +141,47 @@ class StudyDiseaseMilestoneRepository:
                 )
                 .filter(study_value__latest_value__uid=study_uid)
                 .order_by("order")
+                .resolve_subgraph()
             ).distinct()
         ]
         return all_disease_milestones
 
     def find_by_uid(self, uid: str) -> StudyDiseaseMilestoneVO:
-        disease_milestone_node = to_relation_trees(
+        disease_milestone_node = ListDistinct(
             StudyDiseaseMilestone.nodes.fetch_relations(
                 "has_after__audit_trail",
                 "study_value__latest_value",
                 "has_disease_milestone_type__has_name_root__latest_final",
                 "has_disease_milestone_type__has_attributes_root__latest_final",
-            ).filter(uid=uid)
+            )
+            .filter(uid=uid)
+            .resolve_subgraph()
         ).distinct()
 
-        if len(disease_milestone_node) > 1:
-            raise exceptions.ValidationException(
-                f"Found more than one StudyDiseaseMilestone node with uid='{uid}'."
-            )
-        if len(disease_milestone_node) == 0:
-            raise exceptions.ValidationException(
-                f"The StudyDiseaseMilestone with uid='{uid}' could not be found."
-            )
+        ValidationException.raise_if(
+            len(disease_milestone_node) > 1,
+            msg=f"Found more than one StudyDiseaseMilestone node with UID '{uid}'.",
+        )
+        ValidationException.raise_if(
+            len(disease_milestone_node) == 0,
+            msg=f"Study Disease Milestone with UID '{uid}' doesn't exist.",
+        )
+
         return StudyDiseaseMilestoneOGM.from_orm(disease_milestone_node[0])
 
     def get_all_versions(self, uid: str, study_uid):
         return sorted(
             [
                 StudyDiseaseMilestoneOGMVer.from_orm(se_node)
-                for se_node in to_relation_trees(
+                for se_node in ListDistinct(
                     StudyDiseaseMilestone.nodes.fetch_relations(
                         "has_after__audit_trail",
                         "has_disease_milestone_type__has_name_root__latest_final",
                         "has_disease_milestone_type__has_attributes_root__latest_final",
+                        Optional("has_before"),
                     )
-                    .fetch_optional_relations("has_before")
                     .filter(uid=uid, has_after__audit_trail__uid=study_uid)
+                    .resolve_subgraph()
                 )
             ],
             key=lambda item: item.start_date,
@@ -185,15 +192,16 @@ class StudyDiseaseMilestoneRepository:
         return sorted(
             [
                 StudyDiseaseMilestoneOGMVer.from_orm(se_node)
-                for se_node in to_relation_trees(
+                for se_node in (
                     StudyDiseaseMilestone.nodes.fetch_relations(
                         "has_after__audit_trail",
                         "has_disease_milestone_type__has_name_root__latest_final",
                         "has_disease_milestone_type__has_attributes_root__latest_final",
+                        Optional("has_before"),
                     )
-                    .fetch_optional_relations("has_before")
                     .filter(has_after__audit_trail__uid=study_uid)
                     .order_by("order")
+                    .resolve_subgraph()
                 )
             ],
             key=lambda item: item.start_date,
@@ -219,8 +227,11 @@ class StudyDiseaseMilestoneRepository:
     ):
         study_root: StudyRoot = StudyRoot.nodes.get(uid=item.study_uid)
         study_value: StudyValue = study_root.latest_value.get_or_none()
-        if study_value is None:
-            raise exceptions.ValidationException("Study does not have draft version")
+
+        ValidationException.raise_if(
+            study_value is None, msg="Study doesn't have draft version."
+        )
+
         if not create:
             previous_item = study_value.has_study_disease_milestone.get(uid=item.uid)
         new_study_disease_milestone = StudyDiseaseMilestone(
@@ -251,6 +262,7 @@ class StudyDiseaseMilestoneRepository:
                 self.manage_versioning_update(
                     study_root=study_root,
                     item=item,
+                    # pylint: disable=possibly-used-before-assignment
                     previous_item=previous_item,
                     new_item=new_study_disease_milestone,
                 )
@@ -279,7 +291,7 @@ class StudyDiseaseMilestoneRepository:
         action = Create(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_after.connect(new_item)
@@ -295,7 +307,7 @@ class StudyDiseaseMilestoneRepository:
         action = Edit(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -312,7 +324,7 @@ class StudyDiseaseMilestoneRepository:
         action = Delete(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -325,43 +337,52 @@ class StudyDiseaseMilestoneRepository:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
         :param search_string
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
         q_filters = transform_filters_into_neomodel(
             filter_by=filter_by, model=StudyDiseaseMilestoneOGM
         )
         q_filters = merge_q_query_filters(q_filters, filter_operator=filter_operator)
         field = get_field(prop=field_name, model=StudyDiseaseMilestoneOGM)
         field_path = get_field_path(prop=field_name, field=field)
-
+        nodeset = StudyDiseaseMilestone.nodes
         if "__" in field_path:
-            values = (
-                StudyDiseaseMilestone.nodes.collect_values(field_path)
-                .filter(*q_filters)[:result_count]
-                .all()
-            )
+            path, prop = field_path.rsplit("__", 1)
+            source = NodeNameResolver(path)
+            nodeset = nodeset.fetch_relations(path)
         else:
-            values = to_relation_trees(
-                StudyDiseaseMilestone.nodes.filter(*q_filters)[:result_count]
+            # FIXME: we need a proper way to resolve the variable name (NodeNameResolver
+            # does not support 'self'...)
+            source = StudyDiseaseMilestone.__name__.lower()
+            prop = field_path
+        values = (
+            nodeset.filter(*q_filters)[:page_size]
+            .intermediate_transform(
+                {
+                    field_path: {
+                        "source": source,
+                        "source_prop": prop,
+                        "include_in_return": True,
+                    }
+                },
+                distinct=True,
             )
+            .all()
+        )
         return values

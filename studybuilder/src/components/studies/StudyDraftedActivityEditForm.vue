@@ -1,9 +1,10 @@
 <template>
-  <v-card bg-color="dfltBackground">
+  <v-card bg-color="dfltBackground" rounded="xl">
     <v-card-title class="d-flex align-center">
       <span class="dialog-title">{{ $t('StudyActivityEditForm.title') }}</span>
-      <HelpButtonWithPanels :title="$t('_global.help')" :items="helpItems" />
+      <HelpButton :help-text="$t('_help.StudyActivityEditForm.drafted_general')" />
     </v-card-title>
+    <v-divider />
     <v-card-text class="mt-4">
       <div class="bg-white pa-4">
         <v-form ref="observer">
@@ -18,6 +19,10 @@
                 item-value="term_uid"
                 :rules="[formRules.required]"
                 :hint="$t('_help.StudyActivityForm.flowchart_group')"
+                variant="outlined"
+                color="nnBaseBlue"
+                rounded="lg"
+                class="mb-3"
                 persistent-hint
                 clearable
               />
@@ -27,8 +32,11 @@
                 :items="groups"
                 item-title="name"
                 item-value="uid"
-                density="compact"
                 clearable
+                variant="outlined"
+                color="nnBaseBlue"
+                rounded="lg"
+                :rules="form.soa_group_term_uid ? [formRules.required] : []"
                 @update:model-value="form.activity_subgroup_uid = null"
               />
               <v-autocomplete
@@ -38,26 +46,32 @@
                 :items="filteredSubGroups"
                 item-title="name"
                 item-value="uid"
-                density="compact"
                 clearable
+                variant="outlined"
+                color="nnBaseBlue"
+                rounded="lg"
                 :disabled="form.activity_group_uid ? false : true"
               />
               <v-text-field
                 v-model="form.activity_name"
                 :label="$t('ActivityFormsRequested.name')"
                 data-cy="instance-name"
-                density="compact"
                 clearable
+                variant="outlined"
+                color="nnBaseBlue"
+                rounded="lg"
                 :rules="[formRules.required]"
               />
               <v-textarea
                 v-model="form.request_rationale"
                 :label="$t('ActivityFormsRequested.rationale_for_request')"
                 data-cy="activity-rationale"
-                density="compact"
                 clearable
                 auto-grow
                 rows="1"
+                variant="outlined"
+                color="nnBaseBlue"
+                rounded="lg"
                 :rules="[formRules.required]"
               />
               <v-row>
@@ -78,21 +92,22 @@
         </v-form>
       </div>
     </v-card-text>
-    <v-card-actions class="pr-6 pb-6">
+    <v-divider />
+    <v-card-actions class="pr-6 my-2">
       <v-spacer />
       <v-btn
         class="secondary-btn"
         variant="outlined"
-        elevation="2"
+        rounded
         width="120px"
         @click="close"
       >
         {{ $t('_global.cancel') }}
       </v-btn>
       <v-btn
-        color="secondary"
+        color="nnBaseBlue"
+        rounded
         variant="flat"
-        elevation="2"
         width="120px"
         :loading="working"
         @click="submit"
@@ -107,11 +122,11 @@
 import study from '@/api/study'
 import terms from '@/api/controlledTerminology/terms'
 import activities from '@/api/activities'
-import HelpButtonWithPanels from '@/components/tools/HelpButtonWithPanels.vue'
+import HelpButton from '@/components/tools/HelpButton.vue'
 
 export default {
   components: {
-    HelpButtonWithPanels,
+    HelpButton,
   },
   inject: ['eventBusEmit', 'formRules'],
   props: {
@@ -127,6 +142,7 @@ export default {
       groups: [],
       subGroups: [],
       flowchartGroups: [],
+      working: false
     }
   },
   computed: {

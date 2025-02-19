@@ -1,11 +1,12 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.activities.activity_group import ActivityGroupAR
-from clinical_mdr_api.models.concepts.activities.activity import (
-    ActivityBase,
-    ActivityCommonInput,
+from clinical_mdr_api.models.concepts.activities.activity import ActivityBase
+from clinical_mdr_api.models.concepts.concept import (
+    ExtendedConceptPatchInput,
+    ExtendedConceptPostInput,
 )
 from clinical_mdr_api.models.libraries.library import Library
 
@@ -25,23 +26,19 @@ class ActivityGroup(ActivityBase):
             status=activity_group_ar.item_metadata.status.value,
             version=activity_group_ar.item_metadata.version,
             change_description=activity_group_ar.item_metadata.change_description,
-            user_initials=activity_group_ar.item_metadata.user_initials,
+            author_username=activity_group_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in activity_group_ar.get_possible_actions()]
             ),
         )
 
 
-class ActivityGroupInput(ActivityCommonInput):
-    pass
+class ActivityGroupEditInput(ExtendedConceptPatchInput):
+    change_description: Annotated[str | None, Field(min_length=1)] = None
 
 
-class ActivityGroupEditInput(ActivityGroupInput):
-    change_description: str = Field(None, title="change_description", description="")
-
-
-class ActivityGroupCreateInput(ActivityGroupInput):
-    library_name: str
+class ActivityGroupCreateInput(ExtendedConceptPostInput):
+    library_name: Annotated[str, Field(min_length=1)]
 
 
 class ActivityGroupVersion(ActivityGroup):
@@ -49,11 +46,13 @@ class ActivityGroupVersion(ActivityGroup):
     Class for storing ActivityGroup and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

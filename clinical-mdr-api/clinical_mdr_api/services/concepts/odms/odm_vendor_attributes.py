@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.vendor_attribute_repository import (
     VendorAttributeRepository,
 )
@@ -17,6 +16,7 @@ from clinical_mdr_api.models.concepts.odms.odm_vendor_attribute import (
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from common.exceptions import NotFoundException
 
 
 class OdmVendorAttributeService(OdmGenericService[OdmVendorAttributeAR]):
@@ -37,7 +37,7 @@ class OdmVendorAttributeService(OdmGenericService[OdmVendorAttributeAR]):
         self, concept_input: OdmVendorAttributePostInput, library
     ) -> OdmVendorAttributeAR:
         return OdmVendorAttributeAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmVendorAttributeVO.from_repository_values(
                 name=concept_input.name,
                 compatible_types=[
@@ -62,7 +62,7 @@ class OdmVendorAttributeService(OdmGenericService[OdmVendorAttributeAR]):
         concept_edit_input: OdmVendorAttributePatchInput,
     ) -> OdmVendorAttributeAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmVendorAttributeVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -80,10 +80,11 @@ class OdmVendorAttributeService(OdmGenericService[OdmVendorAttributeAR]):
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_vendor_attribute_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Vendor Attribute identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_vendor_attribute_repository.exists_by("uid", uid, True),
+            "ODM Vendor Attribute",
+            uid,
+        )
 
         return self._repos.odm_vendor_attribute_repository.get_active_relationships(
             uid, ["belongs_to_vendor_namespace", "belongs_to_vendor_element"]

@@ -1,40 +1,45 @@
 <template>
-  <NNTable
-    ref="table"
-    :headers="headers"
-    :items="items"
-    :items-length="total"
-    hide-default-switches
-    export-data-url="projects"
-    export-object-label="Projects"
-    column-data-resource="projects"
-    item-value="project_number"
-    @filter="fetchProjects"
-  >
-    <template #actions="">
-      <slot name="extraActions" />
-      <v-btn
-        class="ml-2"
-        size="small"
-        variant="outlined"
-        color="nnBaseBlue"
-        data-cy="add-project"
-        :title="$t('ProjectForm.add_title')"
-        icon="mdi-plus"
-        @click.stop="showForm"
-      />
-    </template>
-    <template #[`item.actions`]="{ item }">
-      <ActionsMenu :actions="actions" :item="item" />
-    </template>
-  </NNTable>
-  <ProjectForm
-    :open="showProjectForm"
-    :project-uid="selectedProject ? selectedProject.uid : ''"
-    @reload="table.filterTable()"
-    @close="closeForm"
-  />
-  <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
+  <div class="px-4">
+    <div class="page-title d-flex align-center">
+      {{ $t('ProjectsView.title') }}
+    </div>
+    <NNTable
+      ref="table"
+      :headers="headers"
+      :items="items"
+      :items-length="total"
+      hide-default-switches
+      export-data-url="projects"
+      export-object-label="Projects"
+      column-data-resource="projects"
+      item-value="project_number"
+      @filter="fetchProjects"
+    >
+      <template #actions="">
+        <slot name="extraActions" />
+        <v-btn
+          class="ml-2"
+          size="small"
+          variant="outlined"
+          color="nnBaseBlue"
+          data-cy="add-project"
+          :title="$t('ProjectForm.add_title')"
+          icon="mdi-plus"
+          @click.stop="showForm"
+        />
+      </template>
+      <template #[`item.actions`]="{ item }">
+        <ActionsMenu :actions="actions" :item="item" />
+      </template>
+    </NNTable>
+    <ProjectForm
+      :open="showProjectForm"
+      :project-uid="selectedProject ? selectedProject.uid : ''"
+      @reload="table.filterTable()"
+      @close="closeForm"
+    />
+    <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
+  </div>
 </template>
 
 <script setup>

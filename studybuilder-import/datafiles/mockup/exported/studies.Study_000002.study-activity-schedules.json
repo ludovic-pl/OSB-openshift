@@ -8,7 +8,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -19,7 +19,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -30,7 +30,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -41,7 +41,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -52,7 +52,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -63,7 +63,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -74,7 +74,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -85,7 +85,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -96,7 +96,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -107,7 +107,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -118,7 +118,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -129,7 +129,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -140,7 +140,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -151,7 +151,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -162,7 +162,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -173,7 +173,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -184,7 +184,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -195,7 +195,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -206,7 +206,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -217,7 +217,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -228,7 +228,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -239,7 +239,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -250,7 +250,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -261,7 +261,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -272,7 +272,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -283,7 +283,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -294,7 +294,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -305,7 +305,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -316,7 +316,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -327,7 +327,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -338,7 +338,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -349,7 +349,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -360,7 +360,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -371,7 +371,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -382,7 +382,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -393,7 +393,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -404,7 +404,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -415,7 +415,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -426,7 +426,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -437,7 +437,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -448,7 +448,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -459,7 +459,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -470,7 +470,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -481,7 +481,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -492,7 +492,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -503,7 +503,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -514,7 +514,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -525,7 +525,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -536,7 +536,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -547,7 +547,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -558,7 +558,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -569,7 +569,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -580,7 +580,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -591,7 +591,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -602,7 +602,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -613,7 +613,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -624,7 +624,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -635,7 +635,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -646,7 +646,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -657,7 +657,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -668,7 +668,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -679,7 +679,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -690,7 +690,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -701,7 +701,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -712,7 +712,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -723,7 +723,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -734,7 +734,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -745,7 +745,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -756,7 +756,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -767,7 +767,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -778,7 +778,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -789,7 +789,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -800,7 +800,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -811,7 +811,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -822,7 +822,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -833,7 +833,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -844,7 +844,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -855,7 +855,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -866,7 +866,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -877,7 +877,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -888,7 +888,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -899,7 +899,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -910,7 +910,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -921,7 +921,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -932,7 +932,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -943,7 +943,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -954,7 +954,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -965,7 +965,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -976,7 +976,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -987,7 +987,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -998,7 +998,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1009,7 +1009,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1020,7 +1020,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1031,7 +1031,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1042,7 +1042,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1053,7 +1053,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1064,7 +1064,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1075,7 +1075,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1086,7 +1086,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1097,7 +1097,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1108,7 +1108,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1119,7 +1119,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1130,7 +1130,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1141,7 +1141,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1152,7 +1152,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1163,7 +1163,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1174,7 +1174,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1185,7 +1185,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1196,7 +1196,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1207,7 +1207,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1218,7 +1218,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1229,7 +1229,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1240,7 +1240,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1251,7 +1251,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 10",
     "study_visit_uid": "StudyVisit_000014",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1262,7 +1262,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 9",
     "study_visit_uid": "StudyVisit_000013",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1273,7 +1273,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 8",
     "study_visit_uid": "StudyVisit_000012",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1284,7 +1284,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 7",
     "study_visit_uid": "StudyVisit_000011",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1295,7 +1295,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 6",
     "study_visit_uid": "StudyVisit_000010",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1306,7 +1306,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 5",
     "study_visit_uid": "StudyVisit_000009",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1317,7 +1317,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 4",
     "study_visit_uid": "StudyVisit_000008",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1328,7 +1328,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000007",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1339,7 +1339,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000006",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1350,7 +1350,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1361,7 +1361,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1372,7 +1372,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1383,7 +1383,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1394,7 +1394,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1405,7 +1405,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1416,7 +1416,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1427,7 +1427,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1438,7 +1438,7 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000005",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -1449,6 +1449,6 @@
     "study_uid": "Study_000002",
     "study_visit_name": "Visit 11",
     "study_visit_uid": "StudyVisit_000015",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   }
 ]

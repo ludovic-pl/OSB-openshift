@@ -40,7 +40,6 @@ from clinical_mdr_api.services.studies.study_endpoint_selection import (
 from clinical_mdr_api.services.studies.study_epoch import StudyEpochService
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -61,7 +60,6 @@ def test_data():
     inject_base_data()
 
     yield
-    drop_db(db_name)
 
 
 @pytest.fixture(scope="module")
@@ -101,7 +99,7 @@ def test_ddf_study_description(ddf_mapper, tst_study):
     ddf_study_description = ddf_mapper._get_study_description(tst_study)
     assert (
         ddf_study_description
-        == tst_study.current_metadata.identification_metadata.description
+        == tst_study.current_metadata.study_description.study_title
     )
 
 
@@ -121,6 +119,12 @@ def test_study_epochs(ddf_mapper, tst_study, study_epochs):
     ddf_study_epochs = ddf_mapper._get_study_epochs(tst_study)
     assert ddf_study_epochs is not None
     assert len(ddf_study_epochs) > 0
+
+
+def test_study_visits(ddf_mapper, tst_study, study_visits):
+    ddf_study_encounters = ddf_mapper._get_study_encounters(tst_study)
+    assert ddf_study_encounters is not None
+    assert len(ddf_study_encounters) > 0
 
 
 def test_study_identifier(ddf_mapper, tst_study):

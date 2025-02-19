@@ -18,7 +18,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -59,7 +59,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -67,7 +67,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:35:08.120823",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   },
@@ -90,7 +90,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -131,7 +131,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -139,7 +139,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:35:08.866828",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   },
@@ -162,7 +162,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -203,7 +203,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -211,7 +211,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:35:09.120267",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   },
@@ -234,7 +234,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -275,7 +275,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -283,7 +283,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:35:09.271360",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   },
@@ -306,7 +306,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -341,7 +341,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -349,7 +349,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:39:09.079059",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   },
@@ -372,7 +372,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -407,7 +407,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "newVersion"
@@ -415,7 +415,7 @@
     },
     "note": null,
     "start_date": "2022-04-27T12:39:09.236512",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_activity": null,
     "accepted_version": false
   }

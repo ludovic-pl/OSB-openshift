@@ -25,11 +25,11 @@ from clinical_mdr_api.models.standard_data_models.dataset_scenario import (
     DatasetScenario,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -180,8 +180,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 DATASET_SCENARIO_FIELDS_ALL = [
     "uid",
@@ -210,7 +208,7 @@ def test_get_dataset_scenario(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(DATASET_SCENARIO_FIELDS_ALL)
@@ -300,7 +298,7 @@ def test_get_dataset_scenarios(
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -354,7 +352,7 @@ def test_filtering_wildcard(
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -417,7 +415,7 @@ def test_filtering_exact(
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -455,9 +453,7 @@ def test_filtering_exact(
     ],
 )
 def test_headers(api_client, field_name):
-    url = (
-        f"/standards/dataset-scenarios/headers?field_name={field_name}&result_count=100"
-    )
+    url = f"/standards/dataset-scenarios/headers?field_name={field_name}&page_size=100"
     response = api_client.get(
         url,
         params={
@@ -467,7 +463,7 @@ def test_headers(api_client, field_name):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
 
     nested_path = None

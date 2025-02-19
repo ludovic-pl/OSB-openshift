@@ -190,7 +190,7 @@ def test_table_to_html(test_table: TableWithFootnotes):
     html = table_to_html(TEST_TABLE)
 
     # THEN body is a parsable HTML document
-    # html.parser does not supplement the document with additional elements for the sake of well-formedness
+    # html.parser doesn't supplement the document with additional elements for the sake of well-formedness
     doc = bs4.BeautifulSoup(html, features="html.parser")
 
     # THEN document has HTML tag
@@ -268,18 +268,18 @@ def compare_html_table(table: bs4.element.Tag, test_table: TableWithFootnotes):
             # THEN cell text matches
             assert (
                 next_string == cell.text
-            ), f"cell text does not match in row {r} column {c}"
+            ), f"cell text doesn't match in row {r} column {c}"
 
             # THEN horizontal cell spanning matches
             assert td.get("colspan", "1") == str(
                 cell.span
-            ), f"cell span does not match in row {r} column {c}"
+            ), f"cell span doesn't match in row {r} column {c}"
 
             # THEN cell styling matches
             style = " ".join(td.get("class", [])) or None
             assert (
                 style == cell.style
-            ), f"cell style does not match in row {r} column {c}"
+            ), f"cell style doesn't match in row {r} column {c}"
 
             if cell.footnotes:
                 # THEN footnote symbols found in cell as superscript
@@ -312,11 +312,11 @@ def compare_html_footnotes(doc: bs4.BeautifulSoup, test_table: TableWithFootnote
         footnote = test_table.footnotes[symbol]
 
         # THEN footnote symbols match with footnotes list
-        assert dt.text == symbol, f"<dt> text does not match symbol in footnote row {r}"
+        assert dt.text == symbol, f"<dt> text doesn't match symbol in footnote row {r}"
         # Then footnote text matches with footnote list
         assert (
             dd.text == footnote.text_plain
-        ), f"<dd> text does not match plain text in footnote row {r}"
+        ), f"<dd> text doesn't match plain text in footnote row {r}"
 
 
 @pytest.mark.parametrize("test_table", [TEST_TABLE])
@@ -373,7 +373,7 @@ def compare_docx_table(
             textx = parax0.runs[0].text if parax0.runs else parax0.text
             assert (
                 textx == cell.text
-            ), f"cell text does not match in row {row_idx} column {col_idx}"
+            ), f"cell text doesn't match in row {row_idx} column {col_idx}"
 
             if cell.vertical:
                 # THEN some header cell texts are oriented vertical
@@ -397,13 +397,13 @@ def compare_docx_table(
                 expected_style_name = docx_styles.get(cell.style, ["Normal"])[0]
                 assert (
                     parax0.style.name == expected_style_name
-                ), f"cell style does not match in row {row_idx} column {col_idx}"
+                ), f"cell style doesn't match in row {row_idx} column {col_idx}"
 
             if cell.footnotes:
                 # THEN number of footnote symbols appended to cell text matches
                 assert len(parax0.runs[1:]) == len(
                     cell.footnotes
-                ), f"runber of runs does not match number of footnotes in row {row_idx} column {col_idx}"
+                ), f"runber of runs doesn't match number of footnotes in row {row_idx} column {col_idx}"
 
                 # THEN footnote symbols match
                 assert [
@@ -440,7 +440,7 @@ def compare_docx_footnotes(
 
         # THEN footnote symbols match with footnotes list
         textx = parax.runs[0].text
-        assert textx == symbol, f"footnote symbol does not match in row {row_idx}"
+        assert textx == symbol, f"footnote symbol doesn't match in row {row_idx}"
 
         # THEN footnote symbols are in superscript
         assert parax.runs[
@@ -451,4 +451,4 @@ def compare_docx_footnotes(
         textx = parax.runs[1].text.lstrip(": ")
         assert (
             textx == footnote.text_plain
-        ), f"footnote text does not match in row {row_idx}"
+        ), f"footnote text doesn't match in row {row_idx}"

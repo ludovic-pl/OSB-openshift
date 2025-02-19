@@ -12,7 +12,6 @@ from clinical_mdr_api.domain_repositories.models.syntax import SyntaxTemplateRoo
 from clinical_mdr_api.domain_repositories.syntax_instances.template_parameters_repository import (
     TemplateParameterRepository,
 )
-from clinical_mdr_api.domains._utils import extract_parameters
 from clinical_mdr_api.domains.libraries.object import (
     ParametrizedTemplateARBase,
     ParametrizedTemplateVO,
@@ -30,12 +29,6 @@ from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
-)
-from clinical_mdr_api.exceptions import (
-    BusinessLogicException,
-    NotFoundException,
-    ValidationException,
 )
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.syntax_templates.template_parameter_multi_select_input import (
@@ -47,6 +40,12 @@ from clinical_mdr_api.services._utils import (
 )
 from clinical_mdr_api.services.generic_syntax_service import GenericSyntaxService
 from clinical_mdr_api.services.studies.study import StudyService
+from clinical_mdr_api.utils import extract_parameters
+from common.exceptions import (
+    AlreadyExistsException,
+    NotFoundException,
+    ValidationException,
+)
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -125,7 +124,7 @@ class GenericSyntaxInstanceService(GenericSyntaxService[_AggregateRootType], abc
         )
 
         item = self.aggregate_class.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(
@@ -155,18 +154,17 @@ class GenericSyntaxInstanceService(GenericSyntaxService[_AggregateRootType], abc
                 )
 
                 if not preview:
-                    if self.repository.check_exists_by_name(item.name):
-                        raise BusinessLogicException(
-                            "The specified object already exists."
-                        )
+                    AlreadyExistsException.raise_if(
+                        self.repository.check_exists_by_name(item.name),
+                        field_value=item.name,
+                        field_name="Name",
+                    )
 
                     self.repository.save(item)
 
             return self._transform_aggregate_root_to_pydantic_model(item_ar=item)
         except core.DoesNotExist as exc:
-            raise NotFoundException(
-                f"The library with the name='{template.library_name}' could not be found."
-            ) from exc
+            raise NotFoundException("Library", template.library_name, "Name") from exc
 
     def _get_template_vo_by_template_uid(self, template_uid: str) -> TemplateVO | None:
         """
@@ -187,32 +185,28 @@ class GenericSyntaxInstanceService(GenericSyntaxService[_AggregateRootType], abc
         """
         Supports edit draft action
         """
-        try:
-            item: ParametrizedTemplateARBase = self.repository.find_by_uid(
-                uid, for_update=True
-            )
-            parameter_terms = self._create_parameter_entries(
-                template, template_uid=item.template_uid
-            )
+        item: ParametrizedTemplateARBase = self.repository.find_by_uid(
+            uid, for_update=True
+        )
+        parameter_terms = self._create_parameter_entries(
+            template, template_uid=item.template_uid
+        )
 
-            template_vo = self.parametrized_template_vo_class.from_input_values_2(
-                template_uid=item.template_uid,
-                template_sequence_id=item.template_sequence_id,
-                parameter_terms=parameter_terms,
-                get_final_template_vo_by_template_uid_callback=self._get_template_vo_by_template_uid,
-                library_name=item.template_library_name,
-            )
-            item.edit_draft(
-                author=self.user_initials,
-                change_description=template.change_description,
-                template=template_vo,
-            )
-            self.repository.save(item)
+        template_vo = self.parametrized_template_vo_class.from_input_values_2(
+            template_uid=item.template_uid,
+            template_sequence_id=item.template_sequence_id,
+            parameter_terms=parameter_terms,
+            get_final_template_vo_by_template_uid_callback=self._get_template_vo_by_template_uid,
+            library_name=item.template_library_name,
+        )
+        item.edit_draft(
+            author_id=self.author_id,
+            change_description=template.change_description,
+            template=template_vo,
+        )
+        self.repository.save(item)
 
-            return self._transform_aggregate_root_to_pydantic_model(item)
-
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     def create_new_version(self, uid: str, template: BaseModel) -> BaseModel:
         """
@@ -238,9 +232,7 @@ class GenericSyntaxInstanceService(GenericSyntaxService[_AggregateRootType], abc
             )
             return process_complex_parameters(parameters, parameter_repository)
         except core.DoesNotExist as exc:
-            raise NotFoundException(
-                f"The object  with uid='{uid}' could not be found."
-            ) from exc
+            raise NotFoundException(field_value=uid) from exc
 
     def _create_parameter_entries(
         self,
@@ -264,8 +256,10 @@ class GenericSyntaxInstanceService(GenericSyntaxService[_AggregateRootType], abc
             )
         )
 
-        if not template.parameter_terms and self._allowed_parameters:
-            raise ValidationException("parameter_terms must be provided.")
+        ValidationException.raise_if(
+            not template.parameter_terms and self._allowed_parameters,
+            msg="parameter_terms must be provided.",
+        )
 
         parameter: TemplateParameterMultiSelectInput
         idx = 0

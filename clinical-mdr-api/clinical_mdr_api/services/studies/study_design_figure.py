@@ -7,8 +7,14 @@ import yattag
 from colour import Color
 from PIL import ImageFont
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.models.study_selections.study import StudySoaPreferences
+from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCell,
+    StudySelectionArmWithConnectedBranchArms,
+    StudySelectionElement,
+)
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
 from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_arm_selection import (
     StudyArmSelectionService,
@@ -21,7 +27,8 @@ from clinical_mdr_api.services.studies.study_epoch import StudyEpochService
 
 # Page and margin sizes (horizontal, vertical) in millimeters
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
-from clinical_mdr_api.telemetry import trace_calls
+from common import config
+from common.telemetry import trace_calls
 
 # A4 page size (width, height) in millimeters
 A4_PORTRAIT_SIZE = (210, 297)  # https://en.wikipedia.org/wiki/ISO_216#A_series
@@ -232,7 +239,7 @@ class StudyDesignFigureService:
     @trace_calls
     def _get_study_arms(
         self, study_uid, study_value_version: str | None = None
-    ) -> Mapping[str, models.StudySelectionArmWithConnectedBranchArms]:
+    ) -> Mapping[str, StudySelectionArmWithConnectedBranchArms]:
         """Returns Study Arms as an ordered dictionary of {uid: arm}"""
         study_arms = StudyArmSelectionService().get_all_selection(
             study_uid=study_uid,
@@ -245,8 +252,8 @@ class StudyDesignFigureService:
     @trace_calls
     def _get_study_epochs(
         self, study_uid, study_value_version: str | None = None
-    ) -> list[models.study_selections.study_epoch.StudyEpoch]:
-        """Returns the list of StudyEpochs if epoch_subtype_name is not "Basic"."""
+    ) -> list[StudyEpoch]:
+        """Returns the list of StudyEpochs except Basic epoch."""
         return [
             epoch
             for epoch in StudyEpochService()
@@ -256,13 +263,13 @@ class StudyDesignFigureService:
                 study_value_version=study_value_version,
             )
             .items
-            if epoch.epoch_subtype_ctterm.sponsor_preferred_name != "Basic"
+            if epoch.epoch_ctterm.sponsor_preferred_name != config.BASIC_EPOCH_NAME
         ]
 
     @trace_calls
     def _get_study_elements(
         self, study_uid, study_value_version: str | None = None
-    ) -> Mapping[str, models.StudySelectionElement]:
+    ) -> Mapping[str, StudySelectionElement]:
         """Returns Study Elements as an ordered dictionary of {uid: element}"""
         study_elements = StudyElementSelectionService().get_all_selection(
             study_uid=study_uid, study_value_version=study_value_version
@@ -275,7 +282,7 @@ class StudyDesignFigureService:
     @trace_calls
     def _get_study_design_cells(
         self, study_uid, study_value_version: str | None = None
-    ) -> list[models.StudyDesignCell]:
+    ) -> list[StudyDesignCell]:
         """Returns a list of Study Design Cells"""
         study_design_cells = StudyDesignCellService().get_all_design_cells(
             study_uid, study_value_version=study_value_version
@@ -285,7 +292,7 @@ class StudyDesignFigureService:
     @trace_calls
     def _get_study_visits(
         self, study_uid: str, study_value_version: str | None = None
-    ) -> list[models.study_selections.study_visit.StudyVisit]:
+    ) -> list[StudyVisit]:
         """Returns list of StudyVisits"""
         return (
             StudyVisitService(study_uid=study_uid)
@@ -297,7 +304,7 @@ class StudyDesignFigureService:
     def _mk_data_matrix(
         self,
         study_arms,
-        study_epochs: list[models.study_selections.study_epoch.StudyEpoch],
+        study_epochs: list[StudyEpoch],
         study_elements,
         study_design_cells,
         soa_preferences: StudySoaPreferences,
@@ -372,13 +379,19 @@ class StudyDesignFigureService:
     @staticmethod
     @trace_calls
     def _pick_first_visit_of_epochs(
-        study_visits: list[models.study_selections.study_visit.StudyVisit],
-    ) -> list[models.study_selections.study_visit.StudyVisit]:
-        """Returns the first visit of each epoch"""
+        study_visits: list[StudyVisit],
+    ) -> list[StudyVisit]:
+        """Returns the first visible visit of each epoch (except 'Basic' epoch)."""
 
         prev_epoch_id = None
         visits = []
         for visit in study_visits:
+            if (
+                not visit.show_visit
+                or visit.study_epoch.sponsor_preferred_name == config.BASIC_EPOCH_NAME
+            ):
+                continue
+
             # take the first visit of each Epoch
             if visit.study_epoch_uid != prev_epoch_id:
                 prev_epoch_id = visit.study_epoch_uid
@@ -1129,7 +1142,7 @@ class StudyDesignFigureService:
                 y=0,
                 width=cell["width"],
                 height=cell["height"],
-                # must repeat these as attributes for Wørd to render rounded corners (styling does not work)
+                # must repeat these as attributes for Wørd to render rounded corners (styling doesn't work)
                 rx=ROUND_CORNERS,
                 ry=ROUND_CORNERS,
             )

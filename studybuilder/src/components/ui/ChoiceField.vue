@@ -1,9 +1,9 @@
 <template>
-  <div class="text-nnTrueBlue mb-5" :class="{ 'label--disabled': disabled }">
+  <div v-if="label" class="text-nnTrueBlue mb-5" :class="{ 'label--disabled': disabled }">
     <label>{{ label }}</label>
   </div>
-  <div :class="{ 'd-flex': inline }">
-    <v-radio-group v-model="currentChoice">
+  <div>
+    <v-radio-group v-model="currentChoice" :inline="inline">
       <div
         v-for="(choice, index) in choices"
         :key="`choice-${index}`"

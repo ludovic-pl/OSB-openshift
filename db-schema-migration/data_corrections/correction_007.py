@@ -2,15 +2,14 @@
 
 import os
 
-from migrations.utils.utils import get_logger
 from data_corrections.utils.utils import (
-    get_db_driver,
-    run_cypher_query,
-    print_counters_table,
     capture_changes,
+    get_db_driver,
+    print_counters_table,
+    run_cypher_query,
     save_md_title,
 )
-
+from migrations.utils.utils import get_logger
 from verifications import correction_verification_007
 
 LOGGER = get_logger(os.path.basename(__file__))
@@ -35,6 +34,7 @@ def main(run_label="correction"):
     remove_duplicated_terms_in_operator(DB_DRIVER, LOGGER, run_label)
     remove_duplicated_terms_in_finding_subcat(DB_DRIVER, LOGGER, run_label)
     remove_duplicated_terms_in_frequency(DB_DRIVER, LOGGER, run_label)
+
 
 @capture_changes(task_level=1)
 def delete_unwanted_study(db_driver, log, run_label, study_number):
@@ -71,8 +71,9 @@ def delete_unwanted_study(db_driver, log, run_label, study_number):
 
 
 @capture_changes(
-    docs_only=True, verify_func=correction_verification_007.test_delete_unwanted_studies,
-    has_subtasks=True
+    docs_only=True,
+    verify_func=correction_verification_007.test_delete_unwanted_studies,
+    has_subtasks=True,
 )
 def delete_unwanted_studies(db_driver, log, run_label):
     """
@@ -95,7 +96,7 @@ def delete_unwanted_studies(db_driver, log, run_label):
     - Expected changes: ~3500 nodes deleted, ~10000 relationships deleted
     """
 
-    desc = f"Deleting unwanted studies from the database"
+    desc = "Deleting unwanted studies from the database"
     log.info(f"Run: {run_label}, {desc}")
 
     unwanted = [
@@ -446,7 +447,6 @@ def capitalize_first_letter_of_syntax_instance_and_pre_instance_if_template_para
     print_counters_table(counters2)
 
     return counters1.contains_updates or counters2.contains_updates
-
 
 
 @capture_changes(

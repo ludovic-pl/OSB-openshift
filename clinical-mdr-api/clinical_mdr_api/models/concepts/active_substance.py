@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -7,29 +7,31 @@ from clinical_mdr_api.domains.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.domains.dictionaries.dictionary_term_substance import (
     DictionaryTermSubstanceAR,
 )
-from clinical_mdr_api.models import Library
 from clinical_mdr_api.models.concepts.concept import VersionProperties
 from clinical_mdr_api.models.dictionaries.dictionary_term import CompoundSubstance
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.libraries.library import Library
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class ActiveSubstance(VersionProperties):
     uid: str
 
-    analyte_number: str | None = Field(None, nullable=True)
-    short_number: str | None = Field(None, nullable=True)
-    long_number: str | None = Field(None, nullable=True)
-    inn: str | None = Field(None, nullable=True)
-    external_id: str | None = Field(None, nullable=True)
+    analyte_number: Annotated[str | None, Field(nullable=True)] = None
+    short_number: Annotated[str | None, Field(nullable=True)] = None
+    long_number: Annotated[str | None, Field(nullable=True)] = None
+    inn: Annotated[str | None, Field(nullable=True)] = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
     library_name: str
-    unii: CompoundSubstance | None = Field(None, nullable=True)
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on ActiveSubstances. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    unii: Annotated[CompoundSubstance | None, Field(nullable=True)] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on ActiveSubstances. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ]
 
     @classmethod
     def from_active_substance_ar(
@@ -40,13 +42,15 @@ class ActiveSubstance(VersionProperties):
     ) -> Self:
         return cls(
             uid=active_substance_ar.uid,
-            unii=CompoundSubstance.from_term_uid(
-                uid=active_substance_ar.concept_vo.unii_term_uid,
-                find_term_by_uid=find_dictionary_term_by_uid,
-                find_substance_by_uid=find_substance_term_by_uid,
-            )
-            if active_substance_ar.concept_vo.unii_term_uid
-            else None,
+            unii=(
+                CompoundSubstance.from_term_uid(
+                    uid=active_substance_ar.concept_vo.unii_term_uid,
+                    find_term_by_uid=find_dictionary_term_by_uid,
+                    find_substance_by_uid=find_substance_term_by_uid,
+                )
+                if active_substance_ar.concept_vo.unii_term_uid
+                else None
+            ),
             analyte_number=active_substance_ar.concept_vo.analyte_number,
             short_number=active_substance_ar.concept_vo.short_number,
             long_number=active_substance_ar.concept_vo.long_number,
@@ -58,53 +62,55 @@ class ActiveSubstance(VersionProperties):
             status=active_substance_ar.item_metadata.status.value,
             version=active_substance_ar.item_metadata.version,
             change_description=active_substance_ar.item_metadata.change_description,
-            user_initials=active_substance_ar.item_metadata.user_initials,
+            author_username=active_substance_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in active_substance_ar.get_possible_actions()]
             ),
         )
 
 
-class ActiveSubstanceCreateInput(BaseModel):
-    external_id: str | None = None
-    analyte_number: str | None = None
-    short_number: str | None = None
-    long_number: str | None = None
-    inn: str | None = None
-    library_name: str
-    unii_term_uid: str | None = None
+class ActiveSubstanceCreateInput(PostInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    analyte_number: Annotated[str | None, Field(min_length=1)] = None
+    short_number: Annotated[str | None, Field(min_length=1)] = None
+    long_number: Annotated[str | None, Field(min_length=1)] = None
+    inn: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str, Field(min_length=1)]
+    unii_term_uid: Annotated[str | None, Field(min_length=1)] = None
 
 
-class ActiveSubstanceEditInput(BaseModel):
-    external_id: str | None = None
-    analyte_number: str | None = None
-    short_number: str | None = None
-    long_number: str | None = None
-    inn: str | None = None
-    library_name: str | None = None
-    unii_term_uid: str | None = None
-    change_description: str
+class ActiveSubstanceEditInput(PatchInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    analyte_number: Annotated[str | None, Field(min_length=1)] = None
+    short_number: Annotated[str | None, Field(min_length=1)] = None
+    long_number: Annotated[str | None, Field(min_length=1)] = None
+    inn: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
+    unii_term_uid: Annotated[str | None, Field(min_length=1)] = None
+    change_description: Annotated[str, Field(min_length=1)]
 
 
 class ActiveSubstanceVersion(ActiveSubstance):
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
 class SimpleActiveSubstance(BaseModel):
     uid: str
-    analyte_number: str | None = Field(None, nullable=True)
-    short_number: str | None = Field(None, nullable=True)
-    long_number: str | None = Field(None, nullable=True)
-    inn: str | None = Field(None, nullable=True)
-    external_id: str | None = Field(None, nullable=True)
-    unii: CompoundSubstance | None = Field(None, nullable=True)
+    analyte_number: Annotated[str | None, Field(nullable=True)] = None
+    short_number: Annotated[str | None, Field(nullable=True)] = None
+    long_number: Annotated[str | None, Field(nullable=True)] = None
+    inn: Annotated[str | None, Field(nullable=True)] = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
+    unii: Annotated[CompoundSubstance | None, Field(nullable=True)] = None
 
     @classmethod
     def from_concept_uid(

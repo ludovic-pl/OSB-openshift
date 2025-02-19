@@ -31,10 +31,7 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import (
     CTTermNameAR,
     CTTermNameVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryVO,
-    VersioningException,
-)
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.tests.integration.repositories.concurrency.tools.optimistic_locking_validator import (
     OptimisticLockingValidator,
@@ -43,6 +40,8 @@ from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_CT_TERM_NAME_CYPHER,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
+from common.exceptions import BusinessLogicException
 
 
 class ControlTerminologyConcurrencyTest(unittest.TestCase):
@@ -53,10 +52,9 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
     """
 
     _repos = MetaRepository()
-    user_initials = "TODO Initials"
+    author_id = AUTHOR_ID
     codelist_uid = "new_cr"
     library_name = "Sponsor"
-    user_initials = "TEST"
     ct_term_attributes_repository: CTTermAttributesRepository
     ct_term_names_repository: CTTermNameRepository
     ct_codelist_attributes_repository: CTCodelistAttributesRepository
@@ -102,7 +100,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
                 generate_uid_callback=lambda: self.codelist_uid,
                 ct_codelist_attributes_vo=ct_codelist_attributes_vo,
                 library=library_vo,
-                author=self.user_initials,
+                author_id=self.author_id,
             )
             self.ct_codelist_attributes_repository.save(ct_codelist_attributes_ar)
 
@@ -114,7 +112,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
                 generate_uid_callback=lambda: self.codelist_uid,
                 ct_codelist_name_vo=ct_codelist_name_vo,
                 library=library_vo,
-                author=self.user_initials,
+                author_id=self.author_id,
             )
             self.ct_codelist_names_repository.save(ct_codelist_name_ar)
 
@@ -126,7 +124,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
                 )
             )
             ct_codelist_attributes_ar.approve(
-                author=self.user_initials, change_description="changed"
+                author_id=self.author_id, change_description="changed"
             )
             self.ct_codelist_attributes_repository.save(ct_codelist_attributes_ar)
 
@@ -134,22 +132,22 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
                 codelist_uid=self.codelist_uid, for_update=True
             )
             ct_codelist_name_ar.approve(
-                author=self.user_initials, change_description="changed"
+                author_id=self.author_id, change_description="changed"
             )
             self.ct_codelist_names_repository.save(ct_codelist_name_ar)
 
     def test_add_term_aborted_on_codelist_unfinalized(self):
         self.set_up_base_graph_for_control_terminology()
 
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.upversion_codelist_without_save,
                 concurrent_operation=self.add_term_with_save,
                 main_operation_after=self.save_codelist,
             )
         self.assertEqual(
-            "Term 'new_ct_term_root_2' cannot be added to 'new_cr' as the codelist is in a draft state.",
-            str(message.exception),
+            "Term with UID 'new_ct_term_root_2' cannot be added to Codelist with UID 'new_cr' as the codelist is in a draft state.",
+            message.exception.msg,
         )
 
     def test_remove_term_aborted_on_codelist_unfinalized(self):
@@ -158,15 +156,15 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
         with db.transaction:
             self.add_term_with_save()
 
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.upversion_codelist_without_save,
                 concurrent_operation=self.remove_term_with_save,
                 main_operation_after=self.save_codelist,
             )
         self.assertEqual(
-            "Term 'new_ct_term_root_2' cannot be removed from 'new_cr' as the codelist is in a draft state.",
-            str(message.exception),
+            "Term with UID 'new_ct_term_root_2' cannot be removed from Codelist with UID 'new_cr' as the codelist is in a draft state.",
+            message.exception.msg,
         )
 
     def add_term_with_save(self):
@@ -195,7 +193,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
             generate_uid_callback=lambda: "new_ct_term_root_2",
             ct_term_attributes_vo=ct_term_attributes_vo,
             library=library_vo,
-            author=self.user_initials,
+            author_id=self.author_id,
         )
 
         ct_term_name_vo = CTTermNameVO.from_repository_values(
@@ -215,7 +213,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
             generate_uid_callback=lambda: "new_ct_term_root_2",
             ct_term_name_vo=ct_term_name_vo,
             library=library_vo,
-            author=self.user_initials,
+            author_id=self.author_id,
         )
 
         self.ct_term_attributes_repository.save(ct_term_attributes_ar)
@@ -225,7 +223,7 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
         self.ct_codelist_attributes_repository.remove_term(
             codelist_uid=self.codelist_uid,
             term_uid="new_ct_term_root_2",
-            author=self.user_initials,
+            author_id=self.author_id,
         )
 
     def upversion_codelist_without_save(self):
@@ -236,8 +234,8 @@ class ControlTerminologyConcurrencyTest(unittest.TestCase):
         ct_codelist_attributes_ar = self.ct_codelist_attributes_repository.find_by_uid(
             codelist_uid=self.codelist_uid, for_update=True
         )
-        ct_codelist_name_ar.create_new_version(author=self.user_initials)
-        ct_codelist_attributes_ar.create_new_version(author=self.user_initials)
+        ct_codelist_name_ar.create_new_version(author_id=self.author_id)
+        ct_codelist_attributes_ar.create_new_version(author_id=self.author_id)
         self.ct_codelist_name_ar = ct_codelist_name_ar
         self.ct_codelist_attributes_ar = ct_codelist_attributes_ar
 

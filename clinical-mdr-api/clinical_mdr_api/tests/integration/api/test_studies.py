@@ -22,10 +22,10 @@ import pytest
 from fastapi.testclient import TestClient
 from neomodel import db
 
-from clinical_mdr_api import config
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import UnitDefinitionModel
+from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
+    UnitDefinitionModel,
+)
 from clinical_mdr_api.models.controlled_terminologies import ct_term
 from clinical_mdr_api.models.study_selections.study import (
     RegistryIdentifiersJsonModel,
@@ -52,6 +52,9 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     input_metadata_in_study,
 )
 from clinical_mdr_api.tests.integration.utils.utils import PROJECT_NUMBER, TestUtils
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_USERNAME
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.config import STUDY_ENDPOINT_TP_NAME
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +62,7 @@ log = logging.getLogger(__name__)
 study: Study
 
 day_unit_definition: UnitDefinitionModel
+days_unit_definition: UnitDefinitionModel
 week_unit_definition: UnitDefinitionModel
 ct_term_study_standard_test: ct_term.CTTerm
 
@@ -79,6 +83,10 @@ def test_data():
     global day_unit_definition
     day_unit_definition = TestUtils.get_unit_by_uid(
         unit_uid=TestUtils.get_unit_uid_by_name(unit_name="day")
+    )
+    global days_unit_definition
+    days_unit_definition = TestUtils.get_unit_by_uid(
+        unit_uid=TestUtils.get_unit_uid_by_name(unit_name="days")
     )
     global week_unit_definition
     week_unit_definition = TestUtils.get_unit_by_uid(
@@ -140,7 +148,7 @@ def test_get_study_by_uid(api_client):
     response = api_client.get(
         f"/studies/{study.uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["uid"] == study.uid
     assert res["study_parent_part"] is None
@@ -159,7 +167,7 @@ def test_get_study_by_uid(api_client):
             "exclude_sections": ["identification_metadata"],
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["uid"] == study.uid
     assert res["study_parent_part"] is None
@@ -178,7 +186,7 @@ def test_get_study_by_uid(api_client):
             "exclude_sections": ["non-existent section"],
         },
     )
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
 
 
 def test_get_study_fields_audit_trail(api_client):
@@ -188,13 +196,13 @@ def test_get_study_fields_audit_trail(api_client):
         f"/studies/{created_study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Study-fields audit trail for all sections
     response = api_client.get(
         f"/studies/{created_study.uid}/fields-audit-trail",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     for audit_trail_item in res:
         actions = audit_trail_item["actions"]
@@ -210,7 +218,7 @@ def test_get_study_fields_audit_trail(api_client):
         f"/studies/{created_study.uid}/fields-audit-trail",
         params={"exclude_sections": ["identification_metadata"]},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     for audit_trail_item in res:
         actions = audit_trail_item["actions"]
@@ -225,19 +233,19 @@ def test_get_study_fields_audit_trail(api_client):
         f"/studies/{created_study.uid}/fields-audit-trail",
         params={"exclude_sections": ["non-existent section"]},
     )
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
 
     response = api_client.patch(
         f"/studies/{created_study.uid}",
-        json={"current_metadata": {"study_description": {"study_title": ""}}},
+        json={"current_metadata": {"study_description": {"study_title": None}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Study-fields audit trail for all sections
     response = api_client.get(
         f"/studies/{created_study.uid}/fields-audit-trail",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res[0]["actions"][0]["action"] == "Delete"
     assert res[0]["actions"][0]["after_value"]
@@ -246,10 +254,10 @@ def test_get_study_fields_audit_trail(api_client):
 def test_study_delete_successful(api_client):
     study_to_delete = TestUtils.create_study()
     response = api_client.delete(f"/studies/{study_to_delete.uid}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get("/studies", params={"deleted": True})
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert len(res["items"]) == 1
     assert res["items"][0]["uid"] == study_to_delete.uid
@@ -259,9 +267,9 @@ def test_study_delete_successful(api_client):
         f"/studies/{study_to_delete.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert res["message"] == f"Study {study_to_delete.uid} is deleted."
+    assert res["message"] == f"Study with UID '{study_to_delete.uid}' is deleted."
 
 
 def test_study_listing(api_client):
@@ -273,7 +281,7 @@ def test_study_listing(api_client):
     ]
 
     response = api_client.get("/studies")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert len(res["items"]) >= 3
     uids = [s["uid"] for s in res["items"]]
@@ -296,7 +304,7 @@ def test_study_listing(api_client):
     # Clean up
     for study in studies:
         response = api_client.delete(f"/studies/{study.uid}")
-        assert response.status_code == 204
+        assert_response_status_code(response, 204)
 
 
 def test_get_snapshot_history(api_client):
@@ -306,12 +314,12 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # snapshot history before lock
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = res["items"]
     assert len(res) == 1
     assert res[0]["possible_actions"] == ["delete", "lock", "release"]
@@ -323,20 +331,20 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all standard versions
     response = api_client.get(
         f"/studies/{study_with_history.uid}/study-standard-versions/",
     )
     res: Sequence[StudyStandardVersion] = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res[0]["automatically_created"] is True
 
     # snapshot history after lock
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = res["items"]
     assert len(res) == 2
     assert res[0]["current_metadata"]["version_metadata"]["study_status"] == "LOCKED"
@@ -354,14 +362,14 @@ def test_get_snapshot_history(api_client):
 
     # Unlock
     response = api_client.delete(f"/studies/{study_with_history.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all standard versions
     response = api_client.get(
         f"/studies/{study_with_history.uid}/study-standard-versions/",
     )
     res: StudyStandardVersion = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 0
 
     # get all history when was locked
@@ -369,12 +377,12 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}/study-standard-versions/audit-trail/",
     )
     res: Sequence[StudyStandardVersionVersion] = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res[0]["automatically_created"] is True
 
     # snapshot history after unlock
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     res = res["items"]
     assert len(res) == 3
@@ -387,10 +395,10 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}/release",
         json={"change_description": "Explicit release"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # snapshot history after release
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     res = res["items"]
 
@@ -413,10 +421,10 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}/release",
         json={"change_description": "Explicit second release"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # snapshot history after second release
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     res = res["items"]
     assert len(res) == 5
@@ -439,11 +447,11 @@ def test_get_snapshot_history(api_client):
         f"/studies/{study_with_history.uid}/locks",
         json={"change_description": "Lock 2"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # snapshot history after lock
     response = api_client.get(f"/studies/{study_with_history.uid}/snapshot-history")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     res = res["items"]
     assert len(res) == 6
@@ -470,7 +478,7 @@ def test_get_default_time_unit(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["identification_metadata"]["study_acronym"]
@@ -482,7 +490,7 @@ def test_get_default_time_unit(api_client):
     )
 
     response = api_client.get(f"/studies/{study.uid}/time-units")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["study_uid"] == study.uid
     assert res["time_unit_uid"] == day_unit_definition.uid
@@ -495,10 +503,10 @@ def test_edit_time_units(api_client):
         json={"unit_definition_uid": day_unit_definition.uid},
     )
     res = response.json()
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == f"The Preferred Time Unit for the following study ({study.uid}) is already ({day_unit_definition.uid})"
+        == f"The Preferred Time Unit for the Study with UID '{study.uid}' is already '{day_unit_definition.uid}'."
     )
 
     response = api_client.patch(
@@ -506,7 +514,7 @@ def test_edit_time_units(api_client):
         json={"unit_definition_uid": week_unit_definition.uid},
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["study_uid"] == study.uid
     assert res["time_unit_uid"] == week_unit_definition.uid
     assert res["time_unit_name"] == week_unit_definition.name
@@ -540,7 +548,7 @@ def test_get_specific_version(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": title_1}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     TestUtils.set_study_standard_version(study_uid=study.uid)
 
@@ -548,63 +556,63 @@ def test_get_specific_version(api_client):
     response = api_client.post(
         f"/studies/{study.uid}/locks", json={"change_description": "Lock 1"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # update study title
     response = api_client.patch(
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": title_11}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Release
     response = api_client.post(
         f"/studies/{study.uid}/release",
         json={"change_description": "Explicit release"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # update study title
     response = api_client.patch(
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": title_12}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # 2nd Release
     response = api_client.post(
         f"/studies/{study.uid}/release",
         json={"change_description": "Explicit second release"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # update study title
     response = api_client.patch(
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": title_2}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks", json={"change_description": "Lock 2"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # update study title
     response = api_client.patch(
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": title_draft}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # check study title in different versions
     response = api_client.get(
@@ -724,13 +732,13 @@ def test_get_protocol_title_for_specific_version(api_client):
     )
     res = response.json()
     study_compound_uid = res["study_compound_uid"]
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # response before locking
     response = api_client.get(
         f"/studies/{study.uid}/protocol-title",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_old = response.json()
 
     TestUtils.set_study_standard_version(study_uid=study.uid)
@@ -739,11 +747,11 @@ def test_get_protocol_title_for_specific_version(api_client):
     response = api_client.post(
         f"/studies/{study.uid}/locks", json={"change_description": "Lock 1"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Update
     response = api_client.patch(
@@ -756,7 +764,7 @@ def test_get_protocol_title_for_specific_version(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.patch(
         f"/studies/{study.uid}",
         json={
@@ -767,12 +775,12 @@ def test_get_protocol_title_for_specific_version(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.patch(
         f"/studies/{study.uid}/study-compounds/{study_compound_uid}",
         json={"compound_alias_uid": compound_alias2.uid},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     # check the study compound dosings for version 1 is same as first locked
     res_new = api_client.get(
         f"/studies/{study.uid}/protocol-title",
@@ -788,13 +796,12 @@ def test_create_study_subpart(api_client):
     response = api_client.post(
         "/studies",
         json={
-            "study_acronym": "something",
             "study_subpart_acronym": "sub something",
             "description": "desc",
             "study_parent_part_uid": study.uid,
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     post_res = response.json()
     assert post_res["uid"]
     assert post_res["study_parent_part"] == {
@@ -836,7 +843,7 @@ def test_create_study_subpart(api_client):
     assert post_res["current_metadata"].get("identification_metadata") == {
         "study_number": study.current_metadata.identification_metadata.study_number,
         "subpart_id": "a",
-        "study_acronym": "something",
+        "study_acronym": "new acronym",
         "study_subpart_acronym": "sub something",
         "project_number": "123",
         "project_name": "Project ABC",
@@ -874,7 +881,7 @@ def test_create_study_subpart(api_client):
     assert post_res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
         post_res["current_metadata"]["version_metadata"]["version_author"]
-        == "unknown-user"
+        == AUTHOR_USERNAME
     )
     assert (
         post_res["current_metadata"]["version_metadata"]["version_description"] is None
@@ -882,7 +889,7 @@ def test_create_study_subpart(api_client):
 
     # Check get response of study subpart
     response = api_client.get(f"/studies/{post_res['uid']}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     get_res = response.json()
     assert get_res["uid"] == post_res["uid"]
     assert get_res["study_parent_part"] == {
@@ -924,7 +931,7 @@ def test_create_study_subpart(api_client):
     assert get_res["current_metadata"].get("identification_metadata") == {
         "study_number": study.current_metadata.identification_metadata.study_number,
         "subpart_id": "a",
-        "study_acronym": "something",
+        "study_acronym": "new acronym",
         "study_subpart_acronym": "sub something",
         "project_number": "123",
         "project_name": "Project ABC",
@@ -962,7 +969,7 @@ def test_create_study_subpart(api_client):
     assert get_res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
         get_res["current_metadata"]["version_metadata"]["version_author"]
-        == "unknown-user"
+        == AUTHOR_USERNAME
     )
     assert (
         get_res["current_metadata"]["version_metadata"]["version_description"] is None
@@ -970,7 +977,7 @@ def test_create_study_subpart(api_client):
 
     # Check get response of study parent part
     response = api_client.get(f"/studies/{study.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     get_res = response.json()
     assert get_res["uid"] == study.uid
     assert get_res["study_parent_part"] is None
@@ -998,7 +1005,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     post_res = response.json()
     assert post_res["uid"]
     assert post_res["study_parent_part"] == {
@@ -1041,7 +1048,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
         "study_number": parent_study.current_metadata.identification_metadata.study_number,
         "subpart_id": "a",
         "project_number": "123",
-        "study_acronym": "something",
+        "study_acronym": parent_study.current_metadata.identification_metadata.study_acronym,
         "study_subpart_acronym": "sub something",
         "project_name": new_study.current_metadata.identification_metadata.project_name,
         "description": new_study.current_metadata.identification_metadata.description,
@@ -1078,7 +1085,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
     assert post_res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
         post_res["current_metadata"]["version_metadata"]["version_author"]
-        == "unknown-user"
+        == AUTHOR_USERNAME
     )
     assert (
         post_res["current_metadata"]["version_metadata"]["version_description"] is None
@@ -1086,7 +1093,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
 
     # Check get response of study parent part
     response = api_client.get(f"/studies/{parent_study.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     get_res = response.json()
     assert get_res["uid"] == parent_study.uid
     assert get_res["study_parent_part"] is None
@@ -1100,7 +1107,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
 
     # Check get response of study subpart
     response = api_client.get(f"/studies/{new_study.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     get_res = response.json()
     assert get_res["study_parent_part"] == {
         "uid": parent_study.uid,
@@ -1142,7 +1149,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
         "study_number": parent_study.current_metadata.identification_metadata.study_number,
         "subpart_id": "a",
         "project_number": "123",
-        "study_acronym": "something",
+        "study_acronym": parent_study.current_metadata.identification_metadata.study_acronym,
         "study_subpart_acronym": "sub something",
         "project_name": new_study.current_metadata.identification_metadata.project_name,
         "description": new_study.current_metadata.identification_metadata.description,
@@ -1179,7 +1186,7 @@ def test_use_an_already_existing_study_as_a_study_subpart(api_client):
     assert get_res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
         get_res["current_metadata"]["version_metadata"]["version_author"]
-        == "unknown-user"
+        == AUTHOR_USERNAME
     )
     assert (
         get_res["current_metadata"]["version_metadata"]["version_description"] is None
@@ -1202,7 +1209,7 @@ def test_cascade_of_study_parent_part(api_client):
                 "page_size": 0,
             },
         )
-        assert response.status_code == 200
+        assert_response_status_code(response, 200)
         res = response.json()
         for item in res["items"]:
             assert (
@@ -1240,7 +1247,7 @@ def test_cascade_of_study_parent_part(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         "/studies",
@@ -1256,7 +1263,7 @@ def test_cascade_of_study_parent_part(api_client):
             "page_size": 0,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     for item in res["items"]:
         response = api_client.get(f"/studies/{item['uid']}")
@@ -1301,13 +1308,13 @@ def test_cascade_of_study_parent_part(api_client):
         f"/studies/{parent_study.uid}/locks",
         json={"change_description": "Locked"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["current_metadata"]["version_metadata"]["study_status"] == "LOCKED"
     _check_study_subparts_status("LOCKED")
 
     response = api_client.delete(f"/studies/{parent_study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["current_metadata"]["version_metadata"]["study_status"] == "DRAFT"
     _check_study_subparts_status("DRAFT")
@@ -1316,7 +1323,7 @@ def test_cascade_of_study_parent_part(api_client):
         f"/studies/{parent_study.uid}/release",
         json={"change_description": "Released"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["current_metadata"]["version_metadata"]["study_status"] == "DRAFT"
     _check_study_subparts_status("DRAFT")
@@ -1336,7 +1343,7 @@ def test_reordering_study_subparts(api_client):
             "subpart_id": "a",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res[0]["current_metadata"]["identification_metadata"]["subpart_id"] == "b"
     assert res[1]["current_metadata"]["identification_metadata"]["subpart_id"] == "c"
@@ -1366,7 +1373,7 @@ def test_reordering_study_subparts(api_client):
             "subpart_id": "d",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res[0]["current_metadata"]["identification_metadata"]["subpart_id"] == "b"
     assert res[1]["current_metadata"]["identification_metadata"]["subpart_id"] == "c"
@@ -1396,7 +1403,7 @@ def test_reordering_study_subparts(api_client):
             "subpart_id": "a",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res[0]["current_metadata"]["identification_metadata"]["subpart_id"] == "c"
     assert res[1]["current_metadata"]["identification_metadata"]["subpart_id"] == "d"
@@ -1426,7 +1433,7 @@ def test_reordering_study_subparts(api_client):
             "subpart_id": "j",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res[0]["current_metadata"]["identification_metadata"]["subpart_id"] == "b"
     assert res[1]["current_metadata"]["identification_metadata"]["subpart_id"] == "c"
@@ -1467,7 +1474,7 @@ def test_auto_reordering_after_deleting_a_study_subpart(api_client):
         response = api_client.delete(
             f"/studies/{uid_of_random_study_subpart_to_delete}"
         )
-        assert response.status_code == 204
+        assert_response_status_code(response, 204)
 
     response = api_client.get(
         "/studies",
@@ -1483,7 +1490,7 @@ def test_auto_reordering_after_deleting_a_study_subpart(api_client):
             "page_size": 0,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     letters = ascii_lowercase[: 10 - len(uids_of_random_study_subparts_to_delete)]
@@ -1524,7 +1531,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["uid"]
     assert res["study_parent_part"] == {
@@ -1567,7 +1574,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
         "study_number": parent_part.current_metadata.identification_metadata.study_number,
         "subpart_id": "a",
         "project_number": "123",
-        "study_acronym": None,
+        "study_acronym": parent_part.current_metadata.identification_metadata.study_acronym,
         "study_subpart_acronym": "sub something",
         "project_name": new_study.current_metadata.identification_metadata.project_name,
         "description": None,
@@ -1603,7 +1610,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
     assert res["current_metadata"]["version_metadata"]["study_status"] == "DRAFT"
     assert res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
-        res["current_metadata"]["version_metadata"]["version_author"] == "unknown-user"
+        res["current_metadata"]["version_metadata"]["version_author"] == AUTHOR_USERNAME
     )
     assert res["current_metadata"]["version_metadata"]["version_description"] is None
 
@@ -1617,7 +1624,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["study_parent_part"] is None
     assert res["study_subpart_uids"] == []
@@ -1661,7 +1668,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
     assert res["current_metadata"]["version_metadata"]["study_status"] == "DRAFT"
     assert res["current_metadata"]["version_metadata"]["version_number"] is None
     assert (
-        res["current_metadata"]["version_metadata"]["version_author"] == "unknown-user"
+        res["current_metadata"]["version_metadata"]["version_author"] == AUTHOR_USERNAME
     )
     assert res["current_metadata"]["version_metadata"]["version_description"] is None
 
@@ -1669,7 +1676,7 @@ def test_remove_study_subpart_from_parent_part(api_client):
 # pylint: disable=too-many-statements
 def test_get_audit_trail_of_all_study_subparts_of_study(api_client):
     response = api_client.get("/studies/Study_000025/audit-trail")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     for i in [
         "subpart_uid",
@@ -1678,7 +1685,6 @@ def test_get_audit_trail_of_all_study_subparts_of_study(api_client):
         "study_subpart_acronym",
         "start_date",
         "end_date",
-        "user_initials",
         "change_type",
         "changes",
     ]:
@@ -1764,7 +1770,7 @@ def test_get_audit_trail_of_all_study_subparts_of_study(api_client):
         "/studies/Study_000025",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     TestUtils.set_study_standard_version(study_uid="Study_000025")
 
@@ -1772,11 +1778,11 @@ def test_get_audit_trail_of_all_study_subparts_of_study(api_client):
     response = api_client.post(
         "/studies/Study_000025/locks", json={"change_description": "version Lock"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Unlock
     response = api_client.delete("/studies/Study_000025/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.patch(
         "/studies/Study_000026",
@@ -1789,37 +1795,27 @@ def test_get_audit_trail_of_all_study_subparts_of_study(api_client):
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         "/studies/Study_000025/locks", json={"change_description": "version Lock"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Unlock
     response = api_client.delete("/studies/Study_000025/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get("/studies/Study_000025/audit-trail?study_value_version=1")
-    assert response.status_code == 200
-    res = response.json()
-    assert all(i["end_date"] for i in res if i["subpart_uid"] == "Study_000026")
-
-    response = api_client.get("/studies/Study_000025/audit-trail")
-    assert response.status_code == 200
-    res = response.json()
-    assert all(i["end_date"] for i in res if i["subpart_uid"] == "Study_000026")
-
-    response = api_client.get("/studies/Study_000025/audit-trail?study_value_version=2")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert all(i["end_date"] for i in res if i["subpart_uid"] == "Study_000026")
 
 
 def test_get_audit_trail_of_study_subpart(api_client):
     response = api_client.get("/studies/Study_000030/audit-trail?is_subpart=true")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     for i in [
         "subpart_uid",
@@ -1828,7 +1824,6 @@ def test_get_audit_trail_of_study_subpart(api_client):
         "study_subpart_acronym",
         "start_date",
         "end_date",
-        "user_initials",
         "change_type",
         "changes",
     ]:
@@ -1868,13 +1863,13 @@ def test_cannot_use_a_study_parent_part_as_study_subpart(api_client):
             "current_metadata": {"identification_metadata": {}},
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == f"Cannot use Study Parent Part with UID ({study.uid}) as a Study Subpart."
+        == f"Cannot use Study Parent Part with UID '{study.uid}' as a Study Subpart."
     )
 
 
@@ -1890,7 +1885,7 @@ def test_cannot_add_a_study_subpart_without_study_subpart_acronym(
             "current_metadata": {"identification_metadata": {}},
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     res = response.json()
 
     assert res["type"] == "ValidationException"
@@ -1912,7 +1907,7 @@ def test_cannot_use_a_study_subpart_with_different_project_number_than_study_par
             "current_metadata": {"identification_metadata": {}},
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -1932,13 +1927,13 @@ def test_cannot_use_a_study_subpart_as_study_parent_part(api_client):
             "current_metadata": {"identification_metadata": {}},
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == f"Provided study_parent_part_uid ({subpart.uid}) is a Study Subpart UID."
+        == f"Provided study_parent_part_uid '{subpart.uid}' is a Study Subpart UID."
     )
 
 
@@ -1950,7 +1945,7 @@ def test_cannot_make_a_study_a_subpart_of_itself(api_client):
             "current_metadata": {"identification_metadata": {}},
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -1965,19 +1960,19 @@ def test_cannot_reorder_study_subpart_of_another_study_parent_part(api_client):
             "subpart_id": "a",
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == f"Study Subparts identified by (Study_000006) don't belong to the Study Parent Part identified by ({study.uid})."
+        == f"Study Subparts with UID 'Study_000006' don't belong to the Study Parent Part with UID '{study.uid}'."
     )
 
 
 def test_cannot_delete_study_parent_part(api_client):
     response = api_client.delete(f"/studies/{study.uid}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -2000,7 +1995,7 @@ def test_cannot_change_study_title_of_subpart(api_client):
             },
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -2020,7 +2015,7 @@ def test_cannot_change_registry_identifiers_of_subpart(api_client):
             },
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -2044,7 +2039,7 @@ def test_cannot_change_project_of_subpart(api_client):
             },
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
@@ -2060,25 +2055,25 @@ def test_cannot_lock_study_subpart(api_client):
     response = api_client.post(
         "/studies/Study_000011/locks", json={"change_description": "Lock"}
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == "Study Subparts cannot be locked independently from its Study Parent Part with uid (Study_000002)."
+        == "Study Subparts cannot be locked independently from its Study Parent Part with UID 'Study_000002'."
     )
 
 
 def test_cannot_unlock_study_subpart(api_client):
     response = api_client.delete("/studies/Study_000011/locks")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == "Study Subparts cannot be unlocked independently from its Study Parent Part with uid (Study_000002)."
+        == "Study Subparts cannot be unlocked independently from its Study Parent Part with UID 'Study_000002'."
     )
 
 
@@ -2086,13 +2081,13 @@ def test_cannot_release_study_subpart(api_client):
     response = api_client.post(
         "/studies/Study_000011/release", json={"change_description": "Lock"}
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
 
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == "Study Subparts cannot be released independently from its Study Parent Part with uid (Study_000002)."
+        == "Study Subparts cannot be released independently from its Study Parent Part with UID 'Study_000002'."
     )
 
 
@@ -2104,14 +2099,14 @@ def test_cannot_add_study_subpart_to_a_locked_study_parent_part(api_client):
         f"/studies/{_study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "a title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     TestUtils.set_study_standard_version(study_uid=_study.uid)
 
     response = api_client.post(
         f"/studies/{_study.uid}/locks", json={"change_description": "Lock"}
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.patch(
         f"/studies/{study_subpart.uid}",
@@ -2125,7 +2120,7 @@ def test_cannot_add_study_subpart_to_a_locked_study_parent_part(api_client):
     assert res["type"] == "BusinessLogicException"
     assert (
         res["message"]
-        == f"Study Parent Part with UID ({_study.uid}) is locked or doesn't exist."
+        == f"Study Parent Part with UID '{_study.uid}' is locked or doesn't exist."
     )
 
 
@@ -2145,7 +2140,7 @@ def test_cannot_remove_study_subpart_from_parent_part_and_provide_an_existing_st
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.patch(
         f"/studies/{new_study.uid}",
@@ -2158,13 +2153,10 @@ def test_cannot_remove_study_subpart_from_parent_part_and_provide_an_existing_st
             },
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 409)
     res = response.json()
-    assert res["type"] == "BusinessLogicException"
-    assert (
-        res["message"]
-        == "The following study number already exists in the database (1111)"
-    )
+    assert res["type"] == "AlreadyExistsException"
+    assert res["message"] == "Study with Study Number '1111' already exists."
 
 
 def test_study_metadata_version_selecting_ct_package(api_client):
@@ -2178,7 +2170,7 @@ def test_study_metadata_version_selecting_ct_package(api_client):
         f"/ct/terms/{ct_term_study_standard_test.term_uid}/names/versions",
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.patch(
         f"/ct/terms/{ct_term_study_standard_test.term_uid}/names",
         json={
@@ -2191,7 +2183,7 @@ def test_study_metadata_version_selecting_ct_package(api_client):
         f"/ct/terms/{ct_term_study_standard_test.term_uid}/names/approvals"
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study with ctterm latest
     def payload_creation(
@@ -2268,7 +2260,7 @@ def test_study_metadata_version_selecting_ct_package(api_client):
     response = api_client.patch(
         f"/studies/{_study.uid}", json=new_named_study_payload.dict()
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["identification_metadata"]
@@ -2289,7 +2281,7 @@ def test_study_metadata_version_selecting_ct_package(api_client):
     response = api_client.get(
         f"/studies/{_study.uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["identification_metadata"]
@@ -2316,13 +2308,13 @@ def test_study_copy_component(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         f"/studies/{reference_study.uid}",
         params={"include_sections": ["study_population"]},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["relapse_criteria"]
@@ -2342,11 +2334,11 @@ def test_study_copy_component(api_client):
             }
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.get(
         f"/studies/{study.uid}", params={"include_sections": ["study_population"]}
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["relapse_criteria"]
@@ -2361,7 +2353,7 @@ def test_study_copy_component(api_client):
             "overwrite": False,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["relapse_criteria"]
@@ -2380,7 +2372,7 @@ def test_study_copy_component(api_client):
             "overwrite": True,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["relapse_criteria"]
@@ -2427,11 +2419,11 @@ def test_get_pharma_cm_representation(
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.get(
         f"/studies/{study.uid}/pharma-cm",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["unique_protocol_identification_number"]
@@ -2492,7 +2484,7 @@ def test_get_pharma_cm_representation(
             "key_criteria": True,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     TestUtils.create_study_criteria(
         study_uid=study.uid,
@@ -2534,7 +2526,7 @@ def test_get_pharma_cm_representation(
     response = api_client.get(
         f"/studies/{study.uid}/pharma-cm",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["unique_protocol_identification_number"]
@@ -2588,7 +2580,7 @@ def test_get_pharma_cm_representation(
     response = api_client.get(
         f"/studies/{study.uid}/pharma-cm",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["unique_protocol_identification_number"]
@@ -2637,7 +2629,7 @@ def test_get_pharma_cm_representation(
     # verify xml export
     export_url = f"/studies/{study.uid}/pharma-cm.xml"
     response = api_client.get(export_url)
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     TestUtils.assert_valid_xml(response.content.decode("utf-8"))
 
 
@@ -2650,16 +2642,24 @@ def test_verify_study_duration_fields(
         len(ct_terms) == 1
     ), "Something is wrong, there should exist just one CTTerm representing StudyTime"
     study_time_unit_subset = ct_terms[0]
-    days_unit_definition = TestUtils.create_unit_definition(
-        name="days",
-        convertible_unit=True,
-        display_unit=True,
-        master_unit=False,
-        si_unit=True,
-        us_conventional_unit=True,
-        conversion_factor_to_master=config.DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
-        unit_subsets=[study_time_unit_subset.term_uid],
+    # Adding StudyTime unit subset to `days` unit
+    response = api_client.post(
+        f"/concepts/unit-definitions/{days_unit_definition.uid}/versions",
     )
+    assert response.status_code == 201
+    response = api_client.patch(
+        f"/concepts/unit-definitions/{days_unit_definition.uid}",
+        json={
+            "unit_subsets": [study_time_unit_subset.term_uid],
+            "change_description": "Adding to StudyTime unit subset",
+        },
+    )
+    assert response.status_code == 200
+    response = api_client.post(
+        f"/concepts/unit-definitions/{days_unit_definition.uid}/approvals",
+    )
+    assert response.status_code == 201
+
     duration_value = 1
     duration_unit = day_unit_definition
 
@@ -2676,12 +2676,12 @@ def test_verify_study_duration_fields(
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         f"/studies/{study.uid}", params={"include_sections": ["study_population"]}
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["planned_maximum_age_of_subjects"][
@@ -2712,12 +2712,12 @@ def test_verify_study_duration_fields(
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         f"/studies/{study.uid}", params={"include_sections": ["study_population"]}
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["current_metadata"]["study_population"]["planned_maximum_age_of_subjects"][
@@ -2735,13 +2735,12 @@ def test_verify_study_duration_fields(
 
 def test_get_study_structure_overview(api_client):
     response = api_client.get("/studies/structure-overview")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert all(
         i in res["items"][0]
         for i in [
-            "uid",
-            "study_id",
+            "study_ids",
             "arms",
             "pre_treatment_epochs",
             "treatment_epochs",
@@ -2752,15 +2751,83 @@ def test_get_study_structure_overview(api_client):
             "cohorts_in_study",
         ]
     )
-    assert len(res["items"]) == 10
+    assert len(res["items"]) == 2
 
-    response = api_client.get("/studies/structure-overview?page_size=5&page_number=2")
-    assert response.status_code == 200
+    response = api_client.get("/studies/structure-overview?page_size=1&page_number=2")
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert len(res["items"]) == 5
+    assert len(res["items"]) == 1
 
-    response = api_client.get("/studies/structure-overview?page_size=0")
-    assert response.status_code == 200
+
+def test_study_structure_overview_grouping(api_client):
+    response = api_client.get("/studies/structure-overview")
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert len(res["items"]) == 64
-    print(res["items"])
+
+    assert len(res["items"][0]["study_ids"]) == 62
+    assert res["items"][0]["arms"] == 0
+    assert res["items"][0]["pre_treatment_epochs"] == 0
+    assert res["items"][0]["treatment_epochs"] == 0
+    assert res["items"][0]["no_treatment_epochs"] == 0
+    assert res["items"][0]["post_treatment_epochs"] == 0
+    assert res["items"][0]["treatment_elements"] == 0
+    assert res["items"][0]["no_treatment_elements"] == 0
+    assert res["items"][0]["cohorts_in_study"] == "N"
+
+    assert len(res["items"][1]["study_ids"]) == 1
+    assert res["items"][1]["arms"] == 2
+    assert res["items"][1]["pre_treatment_epochs"] == 0
+    assert res["items"][1]["treatment_epochs"] == 0
+    assert res["items"][1]["no_treatment_epochs"] == 0
+    assert res["items"][1]["post_treatment_epochs"] == 0
+    assert res["items"][1]["treatment_elements"] == 0
+    assert res["items"][1]["no_treatment_elements"] == 0
+    assert res["items"][1]["cohorts_in_study"] == "N"
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    [
+        pytest.param("arms"),
+        pytest.param("pre_treatment_epochs"),
+        pytest.param("treatment_epochs"),
+        pytest.param("post_treatment_epochs"),
+        pytest.param("no_treatment_epochs"),
+        pytest.param("no_treatment_elements"),
+        pytest.param("treatment_elements"),
+        pytest.param("cohorts_in_study"),
+        pytest.param("study_ids"),
+    ],
+)
+def test_get_study_structure_overview_headers(api_client, field_name):
+    response = api_client.get(
+        f"studies/structure-overview/headers?field_name={field_name}&page_size=100"
+    )
+    res = response.json()
+    assert_response_status_code(response, 200)
+    assert res
+
+
+@pytest.mark.parametrize(
+    "filter_by, expected_matched_field, expected_result_prefix",
+    [
+        pytest.param(
+            '{"cohorts_in_study": {"v": ["N"], "op": "eq"}}', "cohorts_in_study", "N"
+        ),
+        pytest.param('{"arms": {"v": [2], "op": "eq"}}', "arms", 2),
+        pytest.param('{"*": {"v": ["xyz"], "op": "eq"}}', None, None),
+    ],
+)
+def test_filtering_wildcard(
+    api_client, filter_by, expected_matched_field, expected_result_prefix
+):
+    response = api_client.get(f"studies/structure-overview/?filters={filter_by}")
+    res = response.json()
+
+    assert_response_status_code(response, 200)
+    if expected_result_prefix:
+        assert len(res["items"]) > 0
+        for row in res["items"]:
+            assert row[expected_matched_field] == expected_result_prefix
+    else:
+        assert len(res["items"]) == 0

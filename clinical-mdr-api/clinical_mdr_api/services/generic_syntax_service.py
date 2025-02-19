@@ -11,15 +11,7 @@ from clinical_mdr_api.domain_repositories.study_definitions.study_definition_rep
     StudyDefinitionRepository,
 )
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryItemStatus,
-    VersioningException,
-)
-from clinical_mdr_api.exceptions import (
-    BusinessLogicException,
-    ConflictErrorException,
-    NotFoundException,
-)
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
 from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleCTTermNameAndAttributes,
     SimpleTermAttributes,
@@ -28,10 +20,11 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term import (
 )
 from clinical_mdr_api.models.generic_models import SimpleNameModel
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
-from clinical_mdr_api.services._utils import calculate_diffs, raise_404_if_none
+from clinical_mdr_api.services._utils import calculate_diffs
+from common.auth.user import user
+from common.exceptions import BusinessLogicException, NotFoundException
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -55,10 +48,10 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
     version_class: type
     repository_interface: type
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
+        self.author_id = user().id()
         self._repos = MetaRepository()
 
     def __del__(self):
@@ -113,10 +106,10 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
             status=status,
             return_study_count=return_study_count,
         )
-        if item is None:
-            raise NotFoundException(
-                f"{self.aggregate_class.__name__} with uid {uid} does not exist or there's no version with requested status or version number."
-            )
+        NotFoundException.raise_if(
+            item is None,
+            msg=f"{self.aggregate_class.__name__} with UID '{uid}' doesn't exist or there's no version with requested status or version number.",
+        )
         return item
 
     @db.transaction
@@ -176,7 +169,7 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         return self.repository.get_headers(
             field_name=field_name,
@@ -184,7 +177,7 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
             status=LibraryItemStatus(status) if status else None,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
     def _parameter_name_exists(self, parameter_name: str) -> bool:
@@ -192,50 +185,41 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
 
     @db.transaction
     def approve(self, uid: str) -> BaseModel:
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
+        item = self.repository.find_by_uid(uid, for_update=True)
 
-            self.authorize_user_defined_syntax_write(item.library.name)
+        self.authorize_user_defined_syntax_write(item.library.name)
 
-            uses = self.repository.check_usage_count(uid)
-            if uses > 0:
-                raise ConflictErrorException(
-                    f"Template '{item.name}' is used in {uses} instantiations."
-                )
-            item.approve(author=self.user_initials)
-            self.repository.save(item)
+        uses = self.repository.check_usage_count(uid)
+        BusinessLogicException.raise_if(
+            uses > 0,
+            msg=f"Template with Name '{item.name}' is used in {uses} instantiations.",
+        )
+        item.approve(author_id=self.author_id)
+        self.repository.save(item)
 
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def create_new_version(self, uid: str, template: BaseModel) -> BaseModel:
-        try:
-            template_vo = TemplateVO.from_input_values_2(
-                template_name=template.name,
-                parameter_name_exists_callback=self._parameter_name_exists,
-            )
-            item = self.repository.find_by_uid(uid, for_update=True)
+        template_vo = TemplateVO.from_input_values_2(
+            template_name=template.name,
+            parameter_name_exists_callback=self._parameter_name_exists,
+        )
+        item = self.repository.find_by_uid(uid, for_update=True)
 
-            item.create_new_version(
-                author=self.user_initials,
-                change_description=template.change_description,
-                template=template_vo,
-            )
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item.create_new_version(
+            author_id=self.author_id,
+            change_description=template.change_description,
+            template=template_vo,
+        )
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def inactivate_final(self, uid: str) -> BaseModel:
         item = self.repository.find_by_uid(uid, for_update=True)
 
-        try:
-            item.inactivate(author=self.user_initials)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item.inactivate(author_id=self.author_id)
 
         self.repository.save(item)
         return self._transform_aggregate_root_to_pydantic_model(item)
@@ -244,10 +228,7 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
     def reactivate_retired(self, uid: str) -> BaseModel:
         item = self.repository.find_by_uid(uid, for_update=True)
 
-        try:
-            item.reactivate(author=self.user_initials)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item.reactivate(author_id=self.author_id)
 
         self.repository.save(item)
         return self._transform_aggregate_root_to_pydantic_model(item)
@@ -285,12 +266,9 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
 
     @db.transaction
     def soft_delete(self, uid: str) -> None:
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
-            item.soft_delete()
-            self.repository.save(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item = self.repository.find_by_uid(uid, for_update=True)
+        item.soft_delete()
+        self.repository.save(item)
 
     def _get_indexings(
         self, template: BaseModel, template_type_uid: str | None = None
@@ -319,18 +297,16 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
             template_type_name = self._repos.ct_term_name_repository.find_by_uid(
                 term_uid=template_type_term_uid
             )
-            raise_404_if_none(
-                template_type_name,
-                f"Template type with uid '{template_type_term_uid}' does not exist.",
+            NotFoundException.raise_if_not(
+                template_type_name, "Template Type", template_type_term_uid
             )
             template_type_attributes = (
                 self._repos.ct_term_attributes_repository.find_by_uid(
                     term_uid=template_type_term_uid
                 )
             )
-            raise_404_if_none(
-                template_type_attributes,
-                f"Template type with uid '{template_type_term_uid}' does not exist.",
+            NotFoundException.raise_if_not(
+                template_type_attributes, "Template Type", template_type_term_uid
             )
             template_type = SimpleCTTermNameAndAttributes(
                 term_uid=template_type_term_uid,
@@ -352,10 +328,9 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
                 indication = self._repos.dictionary_term_generic_repository.find_by_uid(
                     term_uid=uid
                 )
-                raise_404_if_none(
-                    indication,
-                    f"Indication with uid '{uid}' does not exist.",
-                )
+
+                NotFoundException.raise_if_not(indication, "Indication", uid)
+
                 indications.append(
                     SimpleTermModel(term_uid=indication.uid, name=indication.name)
                 )
@@ -368,10 +343,8 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
                 category_attributes = (
                     self._repos.ct_term_attributes_repository.find_by_uid(term_uid=uid)
                 )
-                raise_404_if_none(
-                    category_name,
-                    f"Category with uid '{uid}' does not exist.",
-                )
+
+                NotFoundException.raise_if_not(category_name, "Category", uid)
 
                 categories.append(
                     SimpleCTTermNameAndAttributes(
@@ -398,10 +371,9 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
                 subcategory_attributes = (
                     self._repos.ct_term_attributes_repository.find_by_uid(term_uid=uid)
                 )
-                raise_404_if_none(
-                    subcategory_name,
-                    f"Subcategory with uid '{uid}' does not exist.",
-                )
+
+                NotFoundException.raise_if_not(subcategory_name, "Subcategory", uid)
+
                 sub_categories.append(
                     SimpleCTTermNameAndAttributes(
                         term_uid=uid,
@@ -419,10 +391,9 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
         if getattr(template, "activity_uids", None) and len(template.activity_uids) > 0:
             for uid in template.activity_uids:
                 activity = self._repos.activity_repository.find_by_uid_2(uid=uid)
-                raise_404_if_none(
-                    activity,
-                    f"Activity with uid '{uid}' does not exist.",
-                )
+
+                NotFoundException.raise_if_not(activity, "Activity", uid)
+
                 activities.append(
                     SimpleNameModel(
                         uid=activity.uid,
@@ -439,10 +410,9 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
                 activity_group = self._repos.activity_group_repository.find_by_uid_2(
                     uid=uid
                 )
-                raise_404_if_none(
-                    activity_group,
-                    f"Activity group with uid '{uid}' does not exist.",
-                )
+
+                NotFoundException.raise_if_not(activity_group, "Activity Group", uid)
+
                 activity_groups.append(
                     SimpleNameModel(
                         uid=activity_group.uid,
@@ -459,10 +429,11 @@ class GenericSyntaxService(Generic[_AggregateRootType], abc.ABC):
                 activity_subgroup = (
                     self._repos.activity_subgroup_repository.find_by_uid_2(uid=uid)
                 )
-                raise_404_if_none(
-                    activity_subgroup,
-                    f"Activity subgroup with uid '{uid}' does not exist.",
+
+                NotFoundException.raise_if_not(
+                    activity_subgroup, "Activity Subgroup", uid
                 )
+
                 activity_subgroups.append(
                     SimpleNameModel(
                         uid=activity_subgroup.uid,

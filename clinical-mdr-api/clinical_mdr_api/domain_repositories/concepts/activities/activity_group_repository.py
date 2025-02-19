@@ -1,7 +1,6 @@
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivityGroupRoot,
     ActivityGroupValue,
@@ -23,6 +22,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
 )
 from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
+from common.utils import convert_to_datetime
 
 
 class ActivityGroupRepository(ConceptGenericRepository[ActivityGroupAR]):
@@ -51,7 +51,8 @@ class ActivityGroupRepository(ConceptGenericRepository[ActivityGroupAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),
@@ -90,19 +91,8 @@ class ActivityGroupRepository(ConceptGenericRepository[ActivityGroupAR]):
         value: VersionValue,
         **_kwargs,
     ) -> ActivityGroupAR:
-        return ActivityGroupAR.from_repository_values(
-            uid=root.uid,
-            concept_vo=ActivityGroupVO.from_repository_values(
-                name=value.name,
-                name_sentence_case=value.name_sentence_case,
-                definition=value.definition,
-                abbreviation=value.abbreviation,
-            ),
-            library=LibraryVO.from_input_values_2(
-                library_name=library.name,
-                is_library_editable_callback=(lambda _: library.is_editable),
-            ),
-            item_metadata=self._library_item_metadata_vo_from_relation(relationship),
+        return self._create_ar(
+            root=root, library=library, relationship=relationship, value=value
         )
 
     def create_query_filter_statement(

@@ -1,20 +1,19 @@
 from abc import abstractmethod
 from typing import Any, TypeVar
 
-from clinical_mdr_api.domain_repositories.models._utils import (
-    CustomNodeSet,
-    to_relation_trees,
-)
+from neomodel import NodeSet
+from neomodel.sync_.match import NodeNameResolver
+
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     FilterOperator,
     get_field,
     get_field_path,
     get_order_by_clause,
     merge_q_query_filters,
     transform_filters_into_neomodel,
-    validate_page_number_and_page_size,
+    validate_filters_and_add_search_string,
 )
+from common.utils import validate_page_number_and_page_size
 
 # pylint: disable=invalid-name
 _StandardsReturnType = TypeVar("_StandardsReturnType")
@@ -25,13 +24,13 @@ class NeomodelExtBaseRepository:
     return_model = type
 
     @abstractmethod
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         """
         Method creates a specific neomodel extension query that
         fetches all required relationships to build an object of type
         return_model.
 
-        :return CustomNodeSet:
+        :return NodeSet:
         """
 
         raise NotImplementedError
@@ -50,26 +49,28 @@ class NeomodelExtBaseRepository:
         )
         q_filters = merge_q_query_filters(q_filters, filter_operator=filter_operator)
         sort_paths = get_order_by_clause(sort_by=sort_by, model=self.return_model)
-        page_number = validate_page_number_and_page_size(
-            page_number=page_number, page_size=page_size
-        )
-        start: int = page_number * page_size
+        validate_page_number_and_page_size(page_number=page_number, page_size=page_size)
+        start: int = (page_number - 1) * page_size
         end: int = start + page_size
-        nodes = to_relation_trees(
+        nodes = (
             self.get_neomodel_extension_query()
             .order_by(sort_paths[0] if len(sort_paths) > 0 else "uid")
             .filter(*q_filters)[start:end]
+            .resolve_subgraph()
         )
+
         all_data_model = [
             self.return_model.from_orm(activity_node) for activity_node in nodes
         ]
         if total_count:
             len_query = self.root_class.nodes.filter(*q_filters)
             all_nodes = len(len_query)
+
+        # pylint: disable=possibly-used-before-assignment
         return all_data_model, all_nodes if total_count else 0
 
     def find_by_uid(self, uid: str) -> _StandardsReturnType | None:
-        return to_relation_trees(self.get_neomodel_extension_query().filter(uid=uid))
+        return self.get_neomodel_extension_query().filter(uid=uid).resolve_subgraph()
 
     def get_distinct_headers(
         self,
@@ -77,10 +78,10 @@ class NeomodelExtBaseRepository:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Fetches possible values for a given field_name, with a limit of result_count.
+        Fetches possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         Args:
@@ -88,29 +89,48 @@ class NeomodelExtBaseRepository:
             search_string (str | None, optional): A string to filter the field with. Defaults to "".
             filter_by (dict | None, optional): A dictionary of filters. Defaults to None.
             filter_operator (FilterOperator | None, optional): The operator to use for the filters. Defaults to FilterOperator.AND.
-            result_count (int, optional): The maximum number of values to return. Defaults to 10.
+            page_size (int, optional): The maximum number of values to return. Defaults to 10.
 
         Returns:
         A `sequence` of possible values for the given field_name.
         """
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
         q_filters = transform_filters_into_neomodel(
             filter_by=filter_by, model=self.return_model
         )
         q_filters = merge_q_query_filters(q_filters, filter_operator=filter_operator)
         field = get_field(prop=field_name, model=self.return_model)
         field_path = get_field_path(prop=field_name, field=field)
-
+        nodeset = self.root_class.nodes
+        if "__" in field_path:
+            path, prop = field_path.rsplit("__", 1)
+            source = NodeNameResolver(path)
+            nodeset = nodeset.fetch_relations(path)
+        else:
+            # FIXME: we need a proper way to resolve the variable name (NodeNameResolver
+            # does not support 'self'...)
+            source = self.root_class.__name__.lower()
+            prop = field_path
         values = (
-            self.root_class.nodes.collect_values(field_path)
-            .filter(*q_filters)[:result_count]
+            nodeset.filter(*q_filters)[:page_size]
+            .intermediate_transform(
+                {
+                    field_path: {
+                        "source": source,
+                        "source_prop": prop,
+                        "include_in_return": True,
+                    }
+                },
+                distinct=True,
+            )
             .all()
         )
         return values
+
+
+def _get_author_id(node) -> str:
+    author_id = node._relations.get("latest_version_relationship").author_id
+    return author_id if author_id else "?"

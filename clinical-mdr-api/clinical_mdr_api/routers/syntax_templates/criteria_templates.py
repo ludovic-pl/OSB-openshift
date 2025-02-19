@@ -1,22 +1,29 @@
 """Criteria templates router."""
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.syntax_pre_instances.criteria_pre_instance import (
+    CriteriaPreInstance,
     CriteriaPreInstanceCreateInput,
 )
 from clinical_mdr_api.models.syntax_templates.criteria_template import (
+    CriteriaTemplate,
+    CriteriaTemplateCreateInput,
+    CriteriaTemplateEditIndexingsInput,
+    CriteriaTemplateEditInput,
+    CriteriaTemplatePreValidateInput,
+    CriteriaTemplateVersion,
     CriteriaTemplateWithCount,
 )
+from clinical_mdr_api.models.syntax_templates.template_parameter import (
+    TemplateParameter,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.syntax_pre_instances.criteria_pre_instances import (
@@ -25,6 +32,9 @@ from clinical_mdr_api.services.syntax_pre_instances.criteria_pre_instances impor
 from clinical_mdr_api.services.syntax_templates.criteria_templates import (
     CriteriaTemplateService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/criteria-templates"
 router = APIRouter()
@@ -32,7 +42,7 @@ router = APIRouter()
 Service = CriteriaTemplateService
 
 # Argument definitions
-CriteriaTemplateUID = Path(None, description="The unique id of the criteria template.")
+CriteriaTemplateUID = Path(description="The unique id of the criteria template.")
 
 PARAMETERS_NOTE = """**Parameters in the 'name' property**:
 
@@ -60,14 +70,14 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.CriteriaTemplate],
+    response_model=CustomPage[CriteriaTemplate],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -83,7 +93,7 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Test</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
   </data>
 </root>
@@ -112,7 +122,7 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -125,36 +135,45 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 # pylint: disable=unused-argument
 def get_criteria_templates(
     request: Request,  # request is actually required by the allow_exports decorator
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those criteria templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the criteria template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.CriteriaTemplate]:
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those criteria templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the criteria template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[CriteriaTemplate]:
     results = Service().get_all(
         status=status,
         return_study_count=True,
@@ -188,28 +207,36 @@ def get_criteria_templates(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those criteria templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the criteria template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those criteria templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the criteria template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -217,16 +244,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.CriteriaTemplate],
+    response_model=CustomPage[CriteriaTemplate],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -234,24 +259,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -284,7 +315,7 @@ def retrieve_audit_trail(
     },
 )
 def get_criteria_template(
-    criteria_template_uid: str = CriteriaTemplateUID,
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
 ):
     return Service().get_by_uid(uid=criteria_template_uid)
 
@@ -298,14 +329,14 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.CriteriaTemplateVersion],
+    response_model=list[CriteriaTemplateVersion],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -321,7 +352,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Test</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
         <item type="dict">
             <name type="str">First  [ComparatorIntervention]</name>
@@ -330,7 +361,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             <status type="str">Draft</status>
             <version type="str">0.1</version>
             <change_description type="str">Initial version</change_description>
-            <user_initials type="str">TODO user initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
     </data>
 </root>
@@ -356,7 +387,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "version",
             "start_date",
             "end_date",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -369,7 +400,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 #  pylint: disable=unused-argument
 def get_criteria_template_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    criteria_template_uid: str = CriteriaTemplateUID,
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
 ):
     return Service().get_version_history(uid=criteria_template_uid)
 
@@ -383,7 +414,7 @@ def get_criteria_template_versions(
     "This is due to the fact, that the version number remains the same when inactivating or reactivating an criteria template "
     "(switching between 'Final' and 'Retired' status). \n\n"
     "In that case the latest/newest representation is returned.",
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=200,
     responses={
         404: {
@@ -394,13 +425,15 @@ def get_criteria_template_versions(
     },
 )
 def get_criteria_template_version(
-    criteria_template_uid: str = CriteriaTemplateUID,
-    version: str = Path(
-        None,
-        description="A specific version number of the criteria template. "
-        "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
-        "E.g. '0.1', '0.2', '1.0', ...",
-    ),
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
+    version: Annotated[
+        str,
+        Path(
+            description="A specific version number of the criteria template. "
+            "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
+            "E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ],
 ):
     return Service().get_specific_version(uid=criteria_template_uid, version=version)
 
@@ -409,8 +442,7 @@ def get_criteria_template_version(
     "/{criteria_template_uid}/releases",
     dependencies=[rbac.LIBRARY_READ],
     summary="List all final versions of a template identified by 'criteria_template_uid', including number of studies using a specific version",
-    description="",
-    response_model=list[models.CriteriaTemplate],
+    response_model=list[CriteriaTemplate],
     status_code=200,
     responses={
         404: {
@@ -420,7 +452,9 @@ def get_criteria_template_version(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_criteria_template_releases(criteria_template_uid: str = CriteriaTemplateUID):
+def get_criteria_template_releases(
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID]
+):
     return Service().get_releases(uid=criteria_template_uid, return_study_count=False)
 
 
@@ -439,7 +473,7 @@ If the request succeeds:
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=201,
     responses={
         201: {
@@ -449,19 +483,21 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template name is not valid.\n"
-            "- The library does not allow to create criteria templates.",
+            "- The library doesn't allow to create criteria templates.",
         },
         404: {
             "model": ErrorResponse,
             "description": "Not Found - The library with the specified 'library_name' could not be found.",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create_criteria_template(
-    criteria_template: models.CriteriaTemplateCreateInput = Body(
-        description="The criteria template that shall be created."
-    ),
+    criteria_template: Annotated[
+        CriteriaTemplateCreateInput,
+        Body(description="The criteria template that shall be created."),
+    ],
 ):
     return Service().create(criteria_template)
 
@@ -483,7 +519,7 @@ Once the criteria template has been approved, only the surrounding text (excludi
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -492,7 +528,7 @@ Once the criteria template has been approved, only the surrounding text (excludi
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template is not in draft status.\n"
             "- The criteria template name is not valid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The change of parameters of previously approved criteria templates.",
         },
         404: {
@@ -503,10 +539,13 @@ Once the criteria template has been approved, only the surrounding text (excludi
     },
 )
 def edit(
-    criteria_template_uid: str = CriteriaTemplateUID,
-    criteria_template: models.CriteriaTemplateEditInput = Body(
-        description="The new content of the criteria template including the change description.",
-    ),
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
+    criteria_template: Annotated[
+        CriteriaTemplateEditInput,
+        Body(
+            description="The new content of the criteria template including the change description.",
+        ),
+    ],
 ):
     return Service().edit_draft(uid=criteria_template_uid, template=criteria_template)
 
@@ -520,7 +559,7 @@ def edit(
     
     This is version independent : it won't trigger a status or a version change.
     """,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=200,
     responses={
         200: {
@@ -534,11 +573,14 @@ def edit(
     },
 )
 def patch_indexings(
-    criteria_template_uid: str = CriteriaTemplateUID,
-    indexings: models.CriteriaTemplateEditIndexingsInput = Body(
-        description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
-    ),
-) -> models.CriteriaTemplate:
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
+    indexings: Annotated[
+        CriteriaTemplateEditIndexingsInput,
+        Body(
+            description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
+        ),
+    ],
+) -> CriteriaTemplate:
     return Service().patch_indexings(uid=criteria_template_uid, indexings=indexings)
 
 
@@ -558,7 +600,7 @@ If the request succeeds:
 Parameters in the 'name' property cannot be changed with this request.
 Only the surrounding text (excluding the parameters) can be changed.
 """,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -567,7 +609,7 @@ Only the surrounding text (excluding the parameters) can be changed.
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template is not in final or retired status or has a draft status.\n"
             "- The criteria template name is not valid.\n"
-            "- The library does not allow to create a new version.",
+            "- The library doesn't allow to create a new version.",
         },
         404: {
             "model": ErrorResponse,
@@ -577,10 +619,13 @@ Only the surrounding text (excluding the parameters) can be changed.
     },
 )
 def create_new_version(
-    criteria_template_uid: str = CriteriaTemplateUID,
-    criteria_template: models.CriteriaTemplateEditInput = Body(
-        description="The content of the criteria template for the new 'Draft' version including the change description.",
-    ),
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
+    criteria_template: Annotated[
+        CriteriaTemplateEditInput,
+        Body(
+            description="The content of the criteria template for the new 'Draft' version including the change description.",
+        ),
+    ],
 ):
     return Service().create_new_version(
         uid=criteria_template_uid, template=criteria_template
@@ -600,7 +645,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -608,7 +653,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template is not in draft status.\n"
-            "- The library does not allow to approve drafts.",
+            "- The library doesn't allow to approve drafts.",
         },
         404: {
             "model": ErrorResponse,
@@ -622,7 +667,7 @@ If the request succeeds:
     },
 )
 def approve(
-    criteria_template_uid: str = CriteriaTemplateUID,
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
     cascade: bool = False,
 ):
     """
@@ -646,7 +691,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -662,7 +707,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(criteria_template_uid: str = CriteriaTemplateUID):
+def inactivate(criteria_template_uid: Annotated[str, CriteriaTemplateUID]):
     return Service().inactivate_final(uid=criteria_template_uid)
 
 
@@ -678,7 +723,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.CriteriaTemplate,
+    response_model=CriteriaTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -694,7 +739,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(criteria_template_uid: str = CriteriaTemplateUID):
+def reactivate(criteria_template_uid: Annotated[str, CriteriaTemplateUID]):
     return Service().reactivate_retired(uid=criteria_template_uid)
 
 
@@ -718,7 +763,7 @@ def reactivate(criteria_template_uid: str = CriteriaTemplateUID):
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template is not in draft status.\n"
             "- The criteria template was already in final state or is in use.\n"
-            "- The library does not allow to delete criteria templates.",
+            "- The library doesn't allow to delete criteria templates.",
         },
         404: {
             "model": ErrorResponse,
@@ -727,7 +772,9 @@ def reactivate(criteria_template_uid: str = CriteriaTemplateUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_criteria_template(criteria_template_uid: str = CriteriaTemplateUID):
+def delete_criteria_template(
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID]
+):
     Service().soft_delete(criteria_template_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
 
@@ -747,18 +794,14 @@ Per parameter, the parameter.terms are ordered by
 Note that parameters may be used multiple times in templates.
 In that case, the same parameter (with the same terms) is included multiple times in the response.
     """,
-    response_model=list[models.TemplateParameter],
+    response_model=list[TemplateParameter],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_parameters(
-    criteria_template_uid: str = Path(
-        None, description="The unique id of the criteria template."
-    ),
-):
+def get_parameters(criteria_template_uid: Annotated[str, CriteriaTemplateUID]):
     return Service().get_parameters(uid=criteria_template_uid)
 
 
@@ -787,9 +830,12 @@ with the same content will succeed.
     },
 )
 def pre_validate(
-    criteria_template: models.CriteriaTemplateNameInput = Body(
-        description="The content of the criteria template that shall be validated.",
-    ),
+    criteria_template: Annotated[
+        CriteriaTemplatePreValidateInput,
+        Body(
+            description="The content of the criteria template that shall be validated.",
+        ),
+    ],
 ):
     Service().validate_template_syntax(criteria_template.name)
 
@@ -798,8 +844,7 @@ def pre_validate(
     "/{criteria_template_uid}/pre-instances",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Create a Pre-Instance",
-    description="",
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=201,
     responses={
         201: {
@@ -810,7 +855,7 @@ def pre_validate(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The criteria template is not in draft status.\n"
             "- The criteria template name is not valid.\n"
-            "- The library does not allow to edit draft versions.",
+            "- The library doesn't allow to edit draft versions.",
         },
         404: {
             "model": ErrorResponse,
@@ -820,9 +865,9 @@ def pre_validate(
     },
 )
 def create_pre_instance(
-    criteria_template_uid: str = CriteriaTemplateUID,
-    pre_instance: CriteriaPreInstanceCreateInput = Body(description=""),
-) -> models.CriteriaTemplate:
+    criteria_template_uid: Annotated[str, CriteriaTemplateUID],
+    pre_instance: Annotated[CriteriaPreInstanceCreateInput, Body()],
+) -> CriteriaTemplate:
     return CriteriaPreInstanceService().create(
         template=pre_instance,
         template_uid=criteria_template_uid,

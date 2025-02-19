@@ -2,9 +2,10 @@ import datetime
 from dataclasses import dataclass, replace
 from typing import Callable
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.study_selections import study_selection_base
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,8 @@ class StudySelectionActivityVO(study_selection_base.StudySelectionBaseVO):
     show_soa_group_in_protocol_flowchart: bool
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
     activity_name: str | None = None
 
@@ -49,7 +51,7 @@ class StudySelectionActivityVO(study_selection_base.StudySelectionBaseVO):
         activity_version: str,
         study_soa_group_uid: str,
         soa_group_term_uid: str,
-        user_initials: str,
+        author_id: str,
         study_soa_group_order: int | None = None,
         activity_library_name: str | None = None,
         study_activity_subgroup_uid: str | None = None,
@@ -101,7 +103,8 @@ class StudySelectionActivityVO(study_selection_base.StudySelectionBaseVO):
             activity_group_uid=normalize_string(activity_group_uid),
             activity_group_name=normalize_string(activity_group_name),
             activity_order=activity_order,
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
         )
 
@@ -111,14 +114,14 @@ class StudySelectionActivityVO(study_selection_base.StudySelectionBaseVO):
         ct_term_level_exist_callback: Callable[[str], bool] = (lambda _: True),
     ) -> None:
         # Checks if there exists an activity which is approved with activity_uid
-        if not object_exist_callback(normalize_string(self.activity_uid)):
-            raise exceptions.ValidationException(
-                f"There is no approved activity identified by provided uid ({self.activity_uid})"
-            )
-        if not ct_term_level_exist_callback(self.soa_group_term_uid):
-            raise exceptions.ValidationException(
-                f"There is no approved flowchart group identified by provided term uid ({self.soa_group_term_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            object_exist_callback(normalize_string(self.activity_uid)),
+            msg=f"There is no approved Activity with UID '{self.activity_uid}'.",
+        )
+        BusinessLogicException.raise_if_not(
+            ct_term_level_exist_callback(self.soa_group_term_uid),
+            msg=f"There is no approved Flowchart Group Term with UID '{self.soa_group_term_uid}'.",
+        )
 
     def update_version(self, activity_version: str):
         return replace(self, activity_version=activity_version)
@@ -149,8 +152,8 @@ class StudySelectionActivityAR(study_selection_base.StudySelectionBaseAR):
             object_name = getattr(selection, self._object_name_field)
             activity_subgroup_uid = selection.activity_subgroup_uid
             activity_group_uid = selection.activity_group_uid
-            if (object_name, activity_subgroup_uid, activity_group_uid) in objects:
-                raise exceptions.ValidationException(
-                    f"There is already a study selection to that {self._object_type} ({object_name}) with the same groupings"
-                )
+            AlreadyExistsException.raise_if(
+                (object_name, activity_subgroup_uid, activity_group_uid) in objects,
+                msg=f"There is already a Study Selection to the {self._object_type} with Name '{object_name}' with the same groupings.",
+            )
             objects.append((object_name, activity_subgroup_uid, activity_group_uid))

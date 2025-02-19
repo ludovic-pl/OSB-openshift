@@ -7,8 +7,8 @@ from clinical_mdr_api.domains.concepts.simple_concepts.numeric_value_with_unit i
 )
 from clinical_mdr_api.models.concepts.concept import (
     NumericValueWithUnit,
-    NumericValueWithUnitInput,
-    SimpleConceptInput,
+    NumericValueWithUnitPostInput,
+    SimpleConceptPatchInput,
 )
 from clinical_mdr_api.services.concepts.simple_concepts.simple_concept_generic import (
     SimpleConceptGenericService,
@@ -29,10 +29,10 @@ class NumericValueWithUnitService(SimpleConceptGenericService[NumericValueWithUn
         )
 
     def _create_aggregate_root(
-        self, concept_input: NumericValueWithUnitInput, library
+        self, concept_input: NumericValueWithUnitPostInput, library
     ) -> NumericValueWithUnitAR:
         return self.aggregate_class.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             simple_concept_vo=self.value_object_class.from_input_values(
                 value=concept_input.value,
                 definition=concept_input.definition,
@@ -47,7 +47,7 @@ class NumericValueWithUnitService(SimpleConceptGenericService[NumericValueWithUn
         )
 
     def _edit_aggregate(
-        self, item: NumericValueWithUnitAR, concept_edit_input: SimpleConceptInput
+        self, item: NumericValueWithUnitAR, concept_edit_input: SimpleConceptPatchInput
     ) -> NumericValueWithUnitAR:
         raise AttributeError(
             "_edit_aggregate function is not defined for NumericValueWithUnitService"

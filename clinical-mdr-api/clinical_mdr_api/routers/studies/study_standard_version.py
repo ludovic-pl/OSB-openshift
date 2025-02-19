@@ -1,20 +1,20 @@
-from typing import Sequence
+from typing import Annotated, Sequence
 
 from fastapi import Body, Path, Request, Response, status
 
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections import study_standard_version
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.services.studies.study_standard_version_selection import (
     StudyStandardVersionService,
 )
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
-studyUID = Path(..., description="The unique id of the study.")
+studyUID = Path(description="The unique id of the study.")
 
 study_standard_version_uid_description = Path(
-    None, description="The unique id of the study standard_version."
+    description="The unique id of the study standard_version."
 )
 
 
@@ -73,8 +73,10 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = Path(description="the study"),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> Sequence[study_standard_version.StudyStandardVersion]:
     service = StudyStandardVersionService()
     return service.get_standard_versions_in_study(
@@ -112,7 +114,7 @@ Possible errors:
     },
 )
 def get_study_standard_versions_all_audit_trail(
-    study_uid: str = studyUID,
+    study_uid: Annotated[str, studyUID],
 ) -> list[study_standard_version.StudyStandardVersionVersion]:
     service = StudyStandardVersionService()
     return service.audit_trail_all_standard_versions(study_uid)
@@ -154,9 +156,11 @@ Possible errors:
 )
 # pylint: disable=unused-argument
 def get_study_standard_version(
-    study_uid: str = studyUID,
-    study_standard_version_uid: str = study_standard_version_uid_description,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    study_standard_version_uid: Annotated[str, study_standard_version_uid_description],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> study_standard_version.StudyStandardVersion:
     service = StudyStandardVersionService()
     return service.find_by_uid(
@@ -196,8 +200,8 @@ Possible errors:
     },
 )
 def get_study_standard_version_audit_trail(
-    study_uid: str = studyUID,
-    study_standard_version_uid: str = study_standard_version_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_standard_version_uid: Annotated[str, study_standard_version_uid_description],
 ) -> list[study_standard_version.StudyStandardVersionVersion]:
     service = StudyStandardVersionService()
     return service.audit_trail(
@@ -242,10 +246,11 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_standard_version_create(
-    study_uid: str = studyUID,
-    selection: study_standard_version.StudyStandardVersionInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        study_standard_version.StudyStandardVersionInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_standard_version.StudyStandardVersion:
     service = StudyStandardVersionService()
     return service.create(study_uid=study_uid, study_standard_version_input=selection)
@@ -278,7 +283,7 @@ Possible errors:
         204: {"description": "No Content - The selection was successfully deleted."},
         404: {
             "model": ErrorResponse,
-            "description": "Not Found - the study or standard_version does not exist.",
+            "description": "Not Found - the study or standard_version doesn't exist.",
         },
         500: _generic_descriptions.ERROR_500,
     },
@@ -286,8 +291,8 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def delete_study_standard_version(
-    study_uid: str = studyUID,
-    study_standard_version_uid: str = study_standard_version_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_standard_version_uid: Annotated[str, study_standard_version_uid_description],
 ):
     service = StudyStandardVersionService()
 
@@ -332,11 +337,12 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def patch_update_standard_version(
-    study_uid: str = studyUID,
-    study_standard_version_uid: str = study_standard_version_uid_description,
-    selection: study_standard_version.StudyStandardVersionEditInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    study_standard_version_uid: Annotated[str, study_standard_version_uid_description],
+    selection: Annotated[
+        study_standard_version.StudyStandardVersionEditInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_standard_version.StudyStandardVersion:
     service = StudyStandardVersionService()
     return service.edit(

@@ -28,7 +28,7 @@ class SponsorModelService(NeomodelExtGenericService):
         self, item_input: SponsorModelInput, library: LibraryVO
     ) -> SponsorModelAR:
         return SponsorModelAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             sponsor_model_vo=SponsorModelVO.from_repository_values(
                 ig_uid=item_input.ig_uid,
                 ig_version_number=item_input.ig_version_number,
@@ -46,7 +46,7 @@ class SponsorModelService(NeomodelExtGenericService):
         self, item: SponsorModelAR, item_edit_input: SponsorModelInput
     ) -> SponsorModelAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=item_edit_input.change_description,
             sponsor_model_vo=SponsorModelVO.from_repository_values(
                 ig_uid=item_edit_input.ig_uid,

@@ -1,9 +1,7 @@
+from neomodel import NodeSet
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    CustomNodeSet,
-    to_relation_trees,
 )
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
@@ -26,10 +24,10 @@ from clinical_mdr_api.domains.standard_data_models.sponsor_model_variable_class 
     SponsorModelVariableClassVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.standard_data_models.sponsor_model_variable_class import (
     SponsorModelVariableClass,
 )
+from common.exceptions import BusinessLogicException
 
 
 class SponsorModelVariableClassRepository(
@@ -40,7 +38,7 @@ class SponsorModelVariableClassRepository(
     value_class = SponsorModelVariableClassInstance
     return_model = SponsorModelVariableClass
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return VariableClass.nodes.fetch_relations(
             "has_sponsor_model_instance__has_variable_class",
             "has_variable_class__has_library",
@@ -89,24 +87,21 @@ class SponsorModelVariableClassRepository(
         instance = self._get_or_create_instance(root=root, ar=item)
 
         # Connect with SponsorModelDatasetClassInstance
-        parent_dataset_class_instance = to_relation_trees(
-            SponsorModelDatasetClassInstance.nodes.filter(
-                is_instance_of__uid=item.sponsor_model_variable_class_vo.dataset_class_uid,
-                has_dataset_class__name=item.sponsor_model_variable_class_vo.sponsor_model_name,
-            )
+        parent_dataset_class_instance = SponsorModelDatasetClassInstance.nodes.filter(
+            is_instance_of__uid=item.sponsor_model_variable_class_vo.dataset_class_uid,
+            has_dataset_class__name=item.sponsor_model_variable_class_vo.sponsor_model_name,
+        ).resolve_subgraph()
+        BusinessLogicException.raise_if_not(
+            parent_dataset_class_instance,
+            msg=f"Dataset Class with UID '{item.sponsor_model_variable_class_vo.dataset_class_uid}' isn't instantiated in this version of the sponsor model.",
         )
-        if parent_dataset_class_instance:
-            instance.has_variable_class.connect(
-                parent_dataset_class_instance[0],
-                {
-                    "ordinal": item.sponsor_model_variable_class_vo.order,
-                    "version_number": item.sponsor_model_variable_class_vo.sponsor_model_version_number,
-                },
-            )
-        else:
-            raise BusinessLogicException(
-                f"The DatasetClass {item.sponsor_model_variable_class_vo.dataset_class_uid} is not instantiated in this version of the sponsor model."
-            )
+        instance.has_variable_class.connect(
+            parent_dataset_class_instance[0],
+            {
+                "ordinal": item.sponsor_model_variable_class_vo.order,
+                "version_number": item.sponsor_model_variable_class_vo.sponsor_model_version_number,
+            },
+        )
 
         return item
 

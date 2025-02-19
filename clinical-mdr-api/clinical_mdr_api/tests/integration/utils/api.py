@@ -12,26 +12,23 @@ from requests.structures import CaseInsensitiveDict
 from starlette.testclient import TestClient
 
 from clinical_mdr_api.tests.integration.utils.data_library import inject_base_data
+from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 
 def inject_and_clear_db(db_name):
     os.environ["NEO4J_DATABASE"] = db_name
 
-    from clinical_mdr_api import config
+    from common import config
 
     config.settings = config.Settings()
 
     from neomodel import config as neoconfig
 
-    if db_name.strip() != "":
-        # The "neo4j" database should always exist, switch to it while creating a new database
-        if config.settings.neo4j_dsn.endswith("/neo4j"):
-            full_dsn = config.settings.neo4j_dsn
-        else:
-            full_dsn = f"{config.settings.neo4j_dsn}/neo4j"
-        neoconfig.DATABASE_URL = full_dsn
-        db.set_connection(full_dsn)
-        db.cypher_query("CREATE OR REPLACE DATABASE $db", {"db": db_name})
+    # Switch to "neo4j" database for creating a new database
+    neoconfig.DATABASE_URL = urljoin(config.settings.neo4j_dsn, "/neo4j")
+    db.set_connection(neoconfig.DATABASE_URL)
+    db.cypher_query("CREATE OR REPLACE DATABASE $db", {"db": db_name})
 
     try_cnt = 1
     db_exists = False
@@ -40,9 +37,8 @@ def inject_and_clear_db(db_name):
             # Database creation can take a couple of seconds
             # db.set_connection will return a ClientError if the database isn't ready
             # This allows for retrying after a small pause
-            full_dsn = urljoin(config.settings.neo4j_dsn, f"/{db_name}")
-            neoconfig.DATABASE_URL = full_dsn
-            db.set_connection(full_dsn)
+            neoconfig.DATABASE_URL = urljoin(config.settings.neo4j_dsn, f"/{db_name}")
+            db.set_connection(neoconfig.DATABASE_URL)
 
             # AuraDB workaround for not supporting multiple db's:
             # Use the main db for tests and remove all nodes
@@ -69,12 +65,12 @@ def inject_and_clear_db(db_name):
     from clinical_mdr_api.routers.admin import clear_caches
 
     clear_caches()
-
+    TestUtils.create_dummy_user()
     return db
 
 
 def drop_db(db_name):
-    from clinical_mdr_api import config
+    from common import config
 
     config.settings = config.Settings()
 
@@ -323,7 +319,7 @@ class APITest(TestCase):
                         response = self.test_client.patch(
                             url, json=request, headers=request_headers
                         )
-                    elif method == "DELETE":
+                    else:
                         response = self.test_client.delete(url, headers=request_headers)
                     print("URL", url)
                     print("HEADERS", request_headers)
@@ -342,7 +338,7 @@ class APITest(TestCase):
                     resp_length = resp_item.get("length")
                     to_save = resp_item.get("save")
 
-                    self.assertEqual(response.status_code, result_code)
+                    assert_response_status_code(response, result_code)
                     if resp_length is not None:
                         self.assertEqual(resp_length, len(response.json()))
                         # self.check_headers(response.headers, resp_item)
@@ -356,15 +352,7 @@ class APITest(TestCase):
                     # check neo_model
                     if resp_item.get("results") is not None:
                         # single response
-                        if isinstance(resp_item.get("results"), dict):
-                            self.check_results_neomodel(
-                                response.json(),
-                                self.preprocess_expected_response(
-                                    resp_item, response.json(), url
-                                ),
-                            )
-                        # Batch result
-                        elif isinstance(resp_item.get("results"), list):
+                        if isinstance(resp_item.get("results"), dict | list):
                             self.check_results_neomodel(
                                 response.json(),
                                 self.preprocess_expected_response(

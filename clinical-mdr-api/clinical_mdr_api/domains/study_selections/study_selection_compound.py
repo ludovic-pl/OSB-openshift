@@ -2,13 +2,13 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.concepts.medicinal_product import MedicinalProductAR
-from clinical_mdr_api.exceptions import BusinessLogicException
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
-def _raise(exc: Exception) -> Any:
+def _raise(exc: ValueError) -> Any:
     raise exc
 
 
@@ -32,7 +32,8 @@ class StudySelectionCompoundVO:
     study_compound_dosing_count: int | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
 
     @classmethod
     def from_input_values(
@@ -46,7 +47,7 @@ class StudySelectionCompoundVO:
         dispenser_uid: str | None,
         delivery_device_uid: str | None,
         other_info: str | None,
-        user_initials: str,
+        author_id: str,
         study_uid: str | None = None,
         study_selection_uid: str | None = None,
         study_compound_dosing_count: int | None = None,
@@ -93,7 +94,8 @@ class StudySelectionCompoundVO:
             delivery_device_uid=normalize_string(delivery_device_uid),
             other_info=normalize_string(other_info),
             study_compound_dosing_count=study_compound_dosing_count,
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             start_date=start_date,
         )
 
@@ -111,16 +113,14 @@ class StudySelectionCompoundVO:
         ),
     ) -> None:
         """
-        Raises ValueError or BusinessLogicException if values do not comply with relevant business rules.
+        Raises ValueError or exceptions.BusinessLogicException if values do not comply with relevant business rules.
 
         """
-        if (
+        exceptions.ValidationException.raise_if(
             self.reason_for_missing_value_uid is not None
-            and not reason_for_missing_callback(self.reason_for_missing_value_uid)
-        ):
-            raise exceptions.ValidationException(
-                "Unknown reason for missing value code provided for Reason For Missing"
-            )
+            and not reason_for_missing_callback(self.reason_for_missing_value_uid),
+            msg="Unknown reason for missing value code provided for Reason For Missing",
+        )
 
         if self.reason_for_missing_value_uid is not None:
             for value in (
@@ -129,35 +129,32 @@ class StudySelectionCompoundVO:
                 self.medicinal_product_uid,
                 self.other_info,
             ):
-                if value is not None:
-                    raise exceptions.ValidationException(
-                        "If reason_for_missing_null_value_uid has a value, "
-                        + "all fields except type of treatment have to be empty"
-                    )
+                exceptions.ValidationException.raise_if(
+                    value is not None,
+                    msg="If reason_for_missing_null_value_uid has a value, all fields except type of treatment have to be empty",
+                )
 
-        if self.compound_uid is not None and not compound_exist_callback(
-            normalize_string(self.compound_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved compound identified by provided uid ({self.compound_uid})"
-            )
+        exceptions.BusinessLogicException.raise_if(
+            self.compound_uid is not None
+            and not compound_exist_callback(normalize_string(self.compound_uid)),
+            msg=f"There is no approved Compound with UID '{self.compound_uid}'.",
+        )
 
-        if self.compound_alias_uid is not None and not compound_alias_exist_callback(
-            normalize_string(self.compound_alias_uid)
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved compound alias identified by provided uid ({self.compound_alias_uid})"
-            )
+        exceptions.BusinessLogicException.raise_if(
+            self.compound_alias_uid is not None
+            and not compound_alias_exist_callback(
+                normalize_string(self.compound_alias_uid)
+            ),
+            msg=f"There is no approved Compound Alias with UID '{self.compound_alias_uid}'.",
+        )
 
-        if (
+        exceptions.BusinessLogicException.raise_if(
             self.medicinal_product_uid is not None
             and not medicinal_product_exist_callback(
                 normalize_string(self.medicinal_product_uid)
-            )
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved medicinal product identified by provided uid ({self.medicinal_product_uid})"
-            )
+            ),
+            msg=f"There is no approved Medicinal Product with UID '{self.medicinal_product_uid}'.",
+        )
 
         # Find an existing study compound selection with the same details:
         #   - Compound alias
@@ -166,11 +163,11 @@ class StudySelectionCompoundVO:
         #   - Dispenser
         #   - Delivery device
         existing_uid = selection_uid_by_details_callback(self)
-        if existing_uid and self.study_selection_uid != existing_uid:
-            raise BusinessLogicException(
-                "Compound selection with the specified combination of compound, medicinal product, "
-                "dose frequency, dispenser and delivery device already exists."
-            )
+        exceptions.AlreadyExistsException.raise_if(
+            existing_uid and self.study_selection_uid != existing_uid,
+            msg="Compound selection with the specified combination of compound, medicinal product, "
+            "dose frequency, dispenser and delivery device already exists.",
+        )
 
         # Validate that each of these selections is actually defined on the selected library Medicinal Product:
         #   - Dose value
@@ -178,13 +175,11 @@ class StudySelectionCompoundVO:
             self.medicinal_product_uid
         )
         # Ensure that the provided CompoundAlias and MedicinalProduct both link to the same Compound
-        if (
+        exceptions.BusinessLogicException.raise_if(
             medicinal_product
-            and medicinal_product.concept_vo.compound_uid != self.compound_uid
-        ):
-            raise BusinessLogicException(
-                f"Selected compound alias '{self.compound_alias_uid}' and medicinal product '{self.medicinal_product_uid}' must relate to the same compound"
-            )
+            and medicinal_product.concept_vo.compound_uid != self.compound_uid,
+            msg=f"Selected Compound Alias with UID '{self.compound_alias_uid}' and Medicinal Product with UID '{self.medicinal_product_uid}' must relate to the same compound",
+        )
 
 
 @dataclass
@@ -215,7 +210,7 @@ class StudySelectionCompoundsAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the study compound '{study_selection_uid}' and the study"
+            msg=f"There is no selection between the Study Compound with UID '{study_selection_uid}' and the study."
         )
 
     def add_compound_selection(

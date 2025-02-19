@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -24,35 +24,32 @@ from clinical_mdr_api.models.concepts.pharmaceutical_product import (
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermModel
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import PatchInputModel, PostInputModel
 
 
 class MedicinalProduct(VersionProperties):
     uid: str
-    name: str = Field(
-        ...,
-    )
-    name_sentence_case: str | None = Field(
-        None,
-        nullable=True,
-    )
-    external_id: str | None = Field(None, nullable=True)
+    name: Annotated[str, Field()]
+    name_sentence_case: Annotated[str | None, Field(nullable=True)] = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
     library_name: str
     compound: SimpleCompound
     pharmaceutical_products: list[SimplePharmaceuticalProduct] = []
 
     dose_values: list[SimpleNumericValueWithUnit] = []
-    dose_frequency: SimpleTermModel | None = None
-    delivery_device: SimpleTermModel | None = None
-    dispenser: SimpleTermModel | None = None
+    dose_frequency: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    delivery_device: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    dispenser: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
 
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on MedicinalProducts. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on MedicinalProducts. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ]
 
     @classmethod
     def from_medicinal_product_ar(
@@ -114,46 +111,48 @@ class MedicinalProduct(VersionProperties):
             status=medicinal_product_ar.item_metadata.status.value,
             version=medicinal_product_ar.item_metadata.version,
             change_description=medicinal_product_ar.item_metadata.change_description,
-            user_initials=medicinal_product_ar.item_metadata.user_initials,
+            author_username=medicinal_product_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in medicinal_product_ar.get_possible_actions()]
             ),
         )
 
 
-class MedicinalProductCreateInput(BaseModel):
-    external_id: str | None = None
-    name: str
-    name_sentence_case: str | None = None
-    library_name: str
+class MedicinalProductCreateInput(PostInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    name: Annotated[str, Field(min_length=1)]
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str, Field(min_length=1)]
     dose_value_uids: list[str] = []
-    dose_frequency_uid: str | None = None
-    delivery_device_uid: str | None = None
-    dispenser_uid: str | None = None
-    compound_uid: str
+    dose_frequency_uid: Annotated[str | None, Field(min_length=1)] = None
+    delivery_device_uid: Annotated[str | None, Field(min_length=1)] = None
+    dispenser_uid: Annotated[str | None, Field(min_length=1)] = None
+    compound_uid: Annotated[str, Field(min_length=1)]
     pharmaceutical_product_uids: list[str] = []
 
 
-class MedicinalProductEditInput(BaseModel):
-    external_id: str | None = None
-    name: str | None = None
-    name_sentence_case: str | None = None
-    library_name: str | None = None
+class MedicinalProductEditInput(PatchInputModel):
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    name: Annotated[str | None, Field(min_length=1)] = None
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
     dose_value_uids: list[str] | None = None
-    dose_frequency_uid: str | None = None
-    delivery_device_uid: str | None = None
-    dispenser_uid: str | None = None
-    compound_uid: str | None = None
+    dose_frequency_uid: Annotated[str | None, Field(min_length=1)] = None
+    delivery_device_uid: Annotated[str | None, Field(min_length=1)] = None
+    dispenser_uid: Annotated[str | None, Field(min_length=1)] = None
+    compound_uid: Annotated[str | None, Field(min_length=1)] = None
     pharmaceutical_product_uids: list[str] | None = None
-    change_description: str
+    change_description: Annotated[str, Field(min_length=1)]
 
 
 class MedicinalProductVersion(MedicinalProduct):
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

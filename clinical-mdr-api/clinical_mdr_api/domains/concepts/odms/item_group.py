@@ -10,8 +10,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.utils import booltostr
+from common.exceptions import AlreadyExistsException, BusinessLogicException
+from common.utils import booltostr
 
 
 @dataclass(frozen=True)
@@ -79,8 +79,10 @@ class OdmItemGroupVO(ConceptVO):
         self,
         odm_object_exists_callback: Callable,
         odm_description_exists_by_callback: Callable[[str, str, bool], bool],
+        get_odm_description_parent_uids_callback: Callable[[list[str]], dict],
         odm_alias_exists_by_callback: Callable[[str, str, bool], bool],
         find_term_callback: Callable[[str], CTTermAttributesAR | None],
+        odm_uid: str | None = None,
     ) -> None:
         data = {
             "description_uids": self.description_uids,
@@ -96,9 +98,10 @@ class OdmItemGroupVO(ConceptVO):
             "comment": self.comment,
         }
         if uids := odm_object_exists_callback(**data):
-            raise BusinessLogicException(
-                f"ODM Item Group already exists with UID ({uids[0]}) and data {data}"
-            )
+            if uids[0] != odm_uid:
+                raise AlreadyExistsException(
+                    msg=f"ODM Item Group already exists with UID ({uids[0]}) and data {data}"
+                )
 
         self.check_concepts_exist(
             [
@@ -117,9 +120,15 @@ class OdmItemGroupVO(ConceptVO):
         )
 
         for sdtm_domain_uid in self.sdtm_domain_uids:
-            if not find_term_callback(sdtm_domain_uid):
+            BusinessLogicException.raise_if_not(
+                find_term_callback(sdtm_domain_uid),
+                msg=f"ODM Item Group tried to connect to non-existent SDTM Domain with UID '{sdtm_domain_uid}'.",
+            )
+
+        if uids := get_odm_description_parent_uids_callback(self.description_uids):
+            if odm_uid not in uids:
                 raise BusinessLogicException(
-                    f"ODM Item Group tried to connect to non-existent SDTM Domain identified by uid ({sdtm_domain_uid})."
+                    msg=f"ODM Descriptions are already used: {dict(uids)}."
                 )
 
 
@@ -153,7 +162,7 @@ class OdmItemGroupAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmItemGroupVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -161,16 +170,22 @@ class OdmItemGroupAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
         find_term_callback: Callable[[str], CTTermAttributesAR | None] = lambda _: None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             odm_object_exists_callback=odm_object_exists_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
             find_term_callback=find_term_callback,
         )
@@ -184,7 +199,7 @@ class OdmItemGroupAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmItemGroupVO,
         concept_exists_by_callback: Callable[
@@ -194,6 +209,9 @@ class OdmItemGroupAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
@@ -205,12 +223,16 @@ class OdmItemGroupAR(OdmARBase):
         concept_vo.validate(
             odm_object_exists_callback=odm_object_exists_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
             find_term_callback=find_term_callback,
+            odm_uid=self.uid,
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo
 
 

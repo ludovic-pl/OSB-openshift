@@ -7,7 +7,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models import study_selections
 from clinical_mdr_api.services.studies.study import StudyService
@@ -27,6 +26,8 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     input_metadata_in_study,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.config import STUDY_ENDPOINT_TP_NAME
 
 study_uid: str
 study_number: str
@@ -307,7 +308,7 @@ def test_study_metadata_listing_api(api_client):
     response = api_client.get(
         f"/listings/studies/study-metadata?project_id={project_id}&study_number={study_number}&datetime=2099-12-30",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res is not None
 
@@ -721,7 +722,7 @@ def test_study_metadata_listing_with_subpart(api_client):
             },
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     response = api_client.patch(
         f"/studies/{parent_study.uid}",
@@ -729,18 +730,18 @@ def test_study_metadata_listing_with_subpart(api_client):
             "current_metadata": {"study_description": {"study_title": "new title"}},
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     # Lock
     response = api_client.post(
         f"/studies/{parent_study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         f"/listings/studies/study-metadata?project_id={project_id}&study_number={p_study_number}&datetime=2099-12-30",
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert (
         response.json()["message"]
         == f"Study {project_id}-{p_study_number} is a parent study, please specify study subpart acronym for specific sub study."
@@ -750,7 +751,7 @@ def test_study_metadata_listing_with_subpart(api_client):
         "/listings/studies/study-metadata?"
         + f"project_id={project_id}&study_number={p_study_number}&subpart_acronym={subpart_acronym}&datetime=2099-12-30",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res is not None
 

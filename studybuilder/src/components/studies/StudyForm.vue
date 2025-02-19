@@ -22,7 +22,6 @@
               density="compact"
               clearable
               data-cy="project-id"
-              :disabled="isStudyASubPart(props.editedStudy)"
               @update:model-value="updateProject"
             />
           </v-col>
@@ -66,7 +65,6 @@
               density="compact"
               clearable
               data-cy="study-number"
-              :disabled="isStudyASubPart(props.editedStudy)"
             />
           </v-col>
         </v-row>
@@ -104,13 +102,12 @@
 import { computed, onMounted, inject, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import _isEqual from 'lodash/isEqual'
-import _isEmpty from 'lodash/isEmpty'
 import SimpleFormDialog from '@/components/tools/SimpleFormDialog.vue'
 import { useAppStore } from '@/stores/app'
 import { useStudiesGeneralStore } from '@/stores/studies-general'
 import { useStudiesManageStore } from '@/stores/studies-manage'
 import studyApi from '@/api/study'
+import { useFormStore } from '@/stores/form'
 
 const props = defineProps({
   editedStudy: {
@@ -129,6 +126,7 @@ const studiesManageStore = useStudiesManageStore()
 const studiesGeneralStore = useStudiesGeneralStore()
 const appStore = useAppStore()
 const formRef = ref()
+const formStore = useFormStore()
 
 const form = ref({})
 const project = ref({})
@@ -171,20 +169,17 @@ onMounted(() => {
 })
 
 async function close() {
-  if (hasChanged()) {
+  if (!formStore.isEqual(form.value)) {
     const options = {
       type: 'warning',
       cancelLabel: t('_global.cancel'),
       agreeLabel: t('_global.continue'),
     }
-    if (await formRef.value.confirm(t('_global.cancel_changes'), options)) {
-      form.value = {}
-      emit('close')
+    if (!(await formRef.value.confirm(t('_global.cancel_changes'), options))) {
+      return
     }
-  } else {
-    form.value = {}
-    emit('close')
   }
+  emit('close')
 }
 
 function initForm(value) {
@@ -194,14 +189,10 @@ function initForm(value) {
     study_number: value.current_metadata.identification_metadata.study_number,
     study_acronym: value.current_metadata.identification_metadata.study_acronym,
   }
-  if (value.study_parent_part) {
-    form.value.study_subpart_acronym =
-      value.current_metadata.identification_metadata.study_subpart_acronym
-    form.value.study_parent_part_uid = value.study_parent_part.uid
-  }
   project.value = studiesManageStore.getProjectByNumber(
     form.value.project_number
   )
+  formStore.save(form.value)
 }
 
 function updateProject(value) {
@@ -219,27 +210,8 @@ function addStudy() {
   })
 }
 
-function hasChanged() {
-  if (
-    (!_isEmpty(form.value) && props.editedStudy === null) ||
-    (!_isEmpty(form.value) &&
-      props.editedStudy &&
-      (!_isEqual(form.value.project_number, props.editedStudy.project_number) ||
-        !_isEqual(form.value.study_acronym, props.editedStudy.study_acronym) ||
-        !_isEqual(form.value.study_number, props.editedStudy.study_number)))
-  ) {
-    return true
-  } else {
-    return false
-  }
-}
-
-function isStudyASubPart(study) {
-  return study !== null && study.study_parent_part !== null
-}
-
 function updateStudy() {
-  if (!hasChanged()) {
+  if (formStore.isEqual(form.value)) {
     eventBusEmit('notification', { msg: t('_global.no_changes'), type: 'info' })
     return
   }
@@ -271,6 +243,7 @@ async function submit() {
       await updateStudy()
     }
     project.value = {}
+    formStore.reset()
     emit('close')
   } finally {
     formRef.value.working = false

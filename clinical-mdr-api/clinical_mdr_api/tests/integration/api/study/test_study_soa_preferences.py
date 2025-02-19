@@ -293,7 +293,7 @@ def test_patch_soa_preferences(
     assert_response_status_code(response, 200)
     assert_json_response(response)
     data2 = response.json()
-    assert data2 == data, "Response payload of PATCH does not match with GET"
+    assert data2 == data, "Response payload of PATCH doesn't match with GET"
 
 
 @pytest.mark.parametrize(
@@ -465,7 +465,7 @@ def test_soa_preferences_versioning(
     )
     assert_response_status_code(response2, 400)
     data = response2.json()
-    assert data["type"] == "ValidationException"
+    assert data["type"] == "BusinessLogicException"
     assert "is locked" in data["message"]
 
     # Unlock the study

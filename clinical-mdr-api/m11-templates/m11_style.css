@@ -1,0 +1,58 @@
+body {
+  font-family: "Times New Roman", Times, serif;
+}
+
+h1 {
+  font: small-caps bold large black "Times New Roman", serif;
+}
+h2 {
+  font: bold large black "Times New Roman", serif;
+}
+h3 {
+  font: bold smaller black "Times New Roman", serif;
+}
+
+.instructional-text {
+  color: red;
+  font-family: "Calibri", sans-serif;
+}
+
+.suggested-text {
+  color: blue;
+  font-family: "Times New Roman", serif;
+}
+
+.metadata-title {
+  font-family: "Times New Roman", serif;
+  font-weight: bold;
+}
+
+.metadata-reply {
+  background-color: lightgrey;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+td, th {
+  border:1px solid black;
+}
+
+.hidden {
+  display: none;
+}
+
+.float{
+  position:fixed;
+  width:200px;
+  top:10px;
+  right:10px;
+  text-align:center;
+}
+
+@media print {
+  .float {
+    display: none;
+  }
+}

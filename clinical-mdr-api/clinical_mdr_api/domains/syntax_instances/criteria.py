@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.libraries.object import (
     ParametrizedTemplateARBase,
     ParametrizedTemplateVO,
 )
 from clinical_mdr_api.domains.libraries.parameter_term import ParameterTermEntryVO
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
+from common.exceptions import NotFoundException
 
 
 @dataclass(frozen=True)
@@ -56,10 +56,7 @@ class CriteriaTemplateVO(ParametrizedTemplateVO):
         """
         template = get_final_template_vo_by_template_uid_callback(template_uid)
 
-        if template is None:
-            raise exceptions.ValidationException(
-                f"The template with uid '{template_uid}' was not found. Make sure that there is a latest 'Final' version."
-            )
+        NotFoundException.raise_if(template is None, field_value=template_uid)
 
         return cls(
             template_name=template.name,

@@ -11,6 +11,7 @@
         <title><xsl:value-of select="/ODM/Study/@OID"/></title>
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" />
         <style>
           em {
           font-weight: bold;
@@ -105,11 +106,12 @@
       <body>
         <div class="container-fluid">
           <div class="row">
-            <div class="col-8 text-left">
+            <div class="col-sm-8 text-left">
               <h3><xsl:value-of select="/ODM/Study/GlobalVariables/StudyName"/></h3>
             </div>
-            <div class="col-4 text-right">
+            <div class="col-sm-4 text-right">
               <h3>Blank CRF</h3>
+              <button type="button" class="btn btn-primary btn-sm" data-toggle="collapse" data-target=".help">Show help</button>
             </div>
           </div>
           <div class="row">
@@ -136,6 +138,8 @@
       <script defer="true" src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
       <script defer="true" src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
       <script defer="true" src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.min.js" integrity="sha384-IDwe1+LCz02ROU9k972gdyvl+AESN10+x7tBKgc9I5HFtuNz0wWnPclzo6p9vxnk" crossorigin="anonymous"></script>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
     </html>
   </xsl:template>
 
@@ -148,13 +152,12 @@
         <xsl:when test="./@osb:allowsMultiChoice = 'True'">checkbox</xsl:when>
         <xsl:otherwise>radio</xsl:otherwise> <!-- default value -->
       </xsl:choose>
-    </xsl:variable>
-    
+    </xsl:variable>    
     <div class="row">
       <xsl:choose>
         <xsl:when test="./@DataType = 'comment'"> <!-- Title -->
-            <div class="col-4 border text-right" /> <!-- Item lable column -->
-            <div class="col-8 border text-left">
+            <div class="col-1 border text-left" /> <!-- Item label column -->
+            <div class="col-11 border text-center">
               <xsl:choose>
                 <xsl:when test="./Question">
                   <xsl:choose>
@@ -184,8 +187,12 @@
               <xsl:if test="//ItemGroupDef/ItemRef[@ItemOID = current()/@OID]/@Mandatory = 'Yes'">
                 <em> * </em>
               </xsl:if>
-              <span class="material-symbols-outlined">lock</span>
-              <span class="material-symbols-outlined">account_tree</span>
+              <xsl:if test="./@osb:locked = 'Yes'">
+                <span class="material-symbols-outlined">lock</span>
+              </xsl:if>
+              <xsl:if test="./@osb:sdv = 'Yes'">
+                <span class="material-symbols-outlined">account_tree</span>
+              </xsl:if>
             </div>
             <div class="col-3 border text-right"> <!-- Item lable column -->
               <i aria-hidden="true" class="v-icon notranslate mr-1 mdi mdi-alpha-i-circle theme--light crfItem--text"></i>
@@ -218,7 +225,7 @@
               </xsl:if>
               <xsl:choose>
                 <xsl:when test="./@osb:instruction != 'None'">
-                  <div class="alert alert-secondary text-left" role="alert">
+                  <div class="alert alert-secondary text-left help collapse" role="alert">
                     <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
                   </div>
                 </xsl:when>
@@ -236,9 +243,9 @@
                 <div class="col-3 border text-left">
                   <xsl:for-each select="MeasurementUnitRef">
                     <input type="radio" id="{@MeasurementUnitOID}" name="{../@OID}" value="{@MeasurementUnitOID}" />
-                    <label for="contactChoice1">&#160;
+                    &#160;
                       <xsl:apply-templates select="//BasicDefinitions/MeasurementUnit[@OID = current()/@MeasurementUnitOID]/Symbol" />
-                    </label><br />
+                    <br />
                   </xsl:for-each>
                 </div>
               </xsl:when>
@@ -249,11 +256,11 @@
                       <xsl:for-each select="CodeListRef">
                         <xsl:for-each select="//CodeList[@OID = current()/@CodeListOID]/CodeListItem">
                           <input type="{$displayType}" id="{@CodedValue}" name="{../@OID}" value="{@CodedValue}" />
-                          <label for="contactChoice2">&#160;<xsl:apply-templates select="Decode"/></label><br />
+                          &#160;<xsl:apply-templates select="Decode"/><br />
                         </xsl:for-each>
                         <xsl:for-each select="//CodeList[@OID = current()/@CodeListOID]/EnumeratedItem">
                           <input type="{$displayType}" id="{@CodedValue}" name="{../@OID}" value="{@CodedValue}" />
-                          <label for="contactChoice2">&#160;<xsl:value-of select="@CodedValue" /></label><br />
+                          &#160;<xsl:value-of select="@CodedValue" /><br />
                         </xsl:for-each>
                       </xsl:for-each>
                     </xsl:when>
@@ -292,16 +299,26 @@
   <xsl:template match="ItemGroupDef">
     <div class="row border">
       <div class="col-12">
-        <i aria-hidden="true" class="v-icon notranslate mr-1 mdi mdi-alpha-g-circle theme--light crfGroup--text"></i>&#160;<xsl:value-of disable-output-escaping="yes" select="./Description/TranslatedText" />
-        <xsl:if test="//FormDef/ItemGroupRef[@ItemGroupOID = current()/@OID]/@Mandatory = 'Yes'">
-          <em>&#160;*&#160;</em>
-        </xsl:if>
+        <h3>
+          <span class="material-symbols-outlined">subdirectory_arrow_right</span>&#160;
+          <xsl:choose>
+              <xsl:when test="./Description/TranslatedText != ''">
+                <xsl:value-of disable-output-escaping="yes" select="./Description/TranslatedText" />
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of disable-output-escaping="yes" select="@Name" />
+              </xsl:otherwise>
+            </xsl:choose>
+          <xsl:if test="//FormDef/ItemGroupRef[@ItemGroupOID = current()/@OID]/@Mandatory = 'Yes'">
+            <em>&#160;*&#160;</em>
+          </xsl:if>
+        </h3>
       </div>
       <div class="col-12">
         <xsl:choose>
           <xsl:when test="./@osb:instruction != 'None'">
-            <div class="alert alert-secondary d-flex" role="alert">
-              <span class="material-symbols-outlined">help</span><xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
+            <div class="alert alert-secondary text-left help collapse" role="alert">
+              <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
             </div>
           </xsl:when>
         </xsl:choose>
@@ -324,7 +341,7 @@
         <h3><i aria-hidden="true" class="v-icon notranslate mr-1 mdi mdi-alpha-f-circle theme--light crfForm--text"></i><xsl:value-of select="@Name" /></h3>
         <xsl:choose>
           <xsl:when test="./@osb:instruction != 'None'">
-            <div class="alert alert-secondary d-flex" role="alert">
+            <div class="alert alert-secondary text-left help collapse" role="alert">
               <span class="material-symbols-outlined">help</span>&#160;<xsl:value-of disable-output-escaping="yes" select="@osb:instruction" />
             </div>
           </xsl:when>

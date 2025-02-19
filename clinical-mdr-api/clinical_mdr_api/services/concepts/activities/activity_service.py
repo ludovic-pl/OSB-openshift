@@ -2,8 +2,6 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import REQUESTED_LIBRARY_NAME
 from clinical_mdr_api.domain_repositories.concepts.activities.activity_repository import (
     ActivityRepository,
 )
@@ -16,12 +14,11 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.concepts.activities.activity import (
     Activity,
+    ActivityCreateInput,
     ActivityEditInput,
     ActivityFromRequestInput,
-    ActivityInput,
     ActivityOverview,
     ActivityRequestRejectInput,
     ActivityVersion,
@@ -29,7 +26,7 @@ from clinical_mdr_api.models.concepts.activities.activity import (
 from clinical_mdr_api.models.concepts.activities.activity_instance import (
     ActivityInstanceEditInput,
 )
-from clinical_mdr_api.services._utils import is_library_editable, normalize_string
+from clinical_mdr_api.services._utils import is_library_editable
 from clinical_mdr_api.services.concepts import constants
 from clinical_mdr_api.services.concepts.activities.activity_instance_service import (
     ActivityInstanceService,
@@ -38,6 +35,9 @@ from clinical_mdr_api.services.concepts.concept_generic_service import (
     ConceptGenericService,
     _AggregateRootType,
 )
+from clinical_mdr_api.utils import normalize_string
+from common.config import REQUESTED_LIBRARY_NAME
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class ActivityService(ConceptGenericService[ActivityAR]):
@@ -55,25 +55,29 @@ class ActivityService(ConceptGenericService[ActivityAR]):
         )
 
     def _create_aggregate_root(
-        self, concept_input: ActivityInput, library
+        self, concept_input: ActivityCreateInput, library
     ) -> _AggregateRootType:
         return ActivityAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=concept_input.nci_concept_id,
+                nci_concept_name=concept_input.nci_concept_name,
                 name=concept_input.name,
                 name_sentence_case=concept_input.name_sentence_case,
+                synonyms=concept_input.synonyms or [],
                 definition=concept_input.definition,
                 abbreviation=concept_input.abbreviation,
-                activity_groupings=[
-                    ActivityGroupingVO(
-                        activity_group_uid=activity_grouping.activity_group_uid,
-                        activity_subgroup_uid=activity_grouping.activity_subgroup_uid,
-                    )
-                    for activity_grouping in concept_input.activity_groupings
-                ]
-                if concept_input.activity_groupings
-                else [],
+                activity_groupings=(
+                    [
+                        ActivityGroupingVO(
+                            activity_group_uid=activity_grouping.activity_group_uid,
+                            activity_subgroup_uid=activity_grouping.activity_subgroup_uid,
+                        )
+                        for activity_grouping in concept_input.activity_groupings
+                    ]
+                    if concept_input.activity_groupings
+                    else []
+                ),
                 request_rationale=concept_input.request_rationale,
                 is_request_final=concept_input.is_request_final,
                 is_data_collected=concept_input.is_data_collected,
@@ -84,29 +88,34 @@ class ActivityService(ConceptGenericService[ActivityAR]):
             concept_exists_by_library_and_name_callback=self._repos.activity_repository.latest_concept_in_library_exists_by_name,
             activity_subgroup_exists=self._repos.activity_subgroup_repository.final_concept_exists,
             activity_group_exists=self._repos.activity_group_repository.final_concept_exists,
+            get_activity_uids_by_synonyms_callback=self._repos.activity_repository.get_activity_uids_by_synonyms,
         )
 
     def _edit_aggregate(
         self, item: ActivityAR, concept_edit_input: ActivityEditInput
     ) -> ActivityAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=concept_edit_input.nci_concept_id,
+                nci_concept_name=concept_edit_input.nci_concept_name,
                 name=concept_edit_input.name,
                 name_sentence_case=concept_edit_input.name_sentence_case,
+                synonyms=concept_edit_input.synonyms or [],
                 definition=concept_edit_input.definition,
                 abbreviation=concept_edit_input.abbreviation,
-                activity_groupings=[
-                    ActivityGroupingVO(
-                        activity_group_uid=activity_grouping.activity_group_uid,
-                        activity_subgroup_uid=activity_grouping.activity_subgroup_uid,
-                    )
-                    for activity_grouping in concept_edit_input.activity_groupings
-                ]
-                if concept_edit_input.activity_groupings
-                else [],
+                activity_groupings=(
+                    [
+                        ActivityGroupingVO(
+                            activity_group_uid=activity_grouping.activity_group_uid,
+                            activity_subgroup_uid=activity_grouping.activity_subgroup_uid,
+                        )
+                        for activity_grouping in concept_edit_input.activity_groupings
+                    ]
+                    if concept_edit_input.activity_groupings
+                    else []
+                ),
                 request_rationale=concept_edit_input.request_rationale,
                 is_request_final=concept_edit_input.is_request_final,
                 is_data_collected=concept_edit_input.is_data_collected,
@@ -115,6 +124,7 @@ class ActivityService(ConceptGenericService[ActivityAR]):
             concept_exists_by_library_and_name_callback=self._repos.activity_repository.latest_concept_in_library_exists_by_name,
             activity_subgroup_exists=self._repos.activity_subgroup_repository.final_concept_exists,
             activity_group_exists=self._repos.activity_group_repository.final_concept_exists,
+            get_activity_uids_by_synonyms_callback=self._repos.activity_repository.get_activity_uids_by_synonyms,
         )
         return item
 
@@ -122,12 +132,14 @@ class ActivityService(ConceptGenericService[ActivityAR]):
     def replace_requested_activity_with_sponsor(
         self, sponsor_activity_input: ActivityFromRequestInput
     ) -> Activity:
-        if not self._repos.library_repository.library_exists(
-            normalize_string(sponsor_activity_input.library_name)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({sponsor_activity_input.library_name})"
-            )
+        NotFoundException.raise_if_not(
+            self._repos.library_repository.library_exists(
+                normalize_string(sponsor_activity_input.library_name)
+            ),
+            "Library",
+            sponsor_activity_input.library_name,
+            "Name",
+        )
 
         library_vo = LibraryVO.from_input_values_2(
             library_name=sponsor_activity_input.library_name,
@@ -138,12 +150,18 @@ class ActivityService(ConceptGenericService[ActivityAR]):
         activity_request_ar = self.repository.find_by_uid_2(
             uid=sponsor_activity_input.activity_request_uid, for_update=True
         )
-        if activity_request_ar.item_metadata.status != LibraryItemStatus.FINAL:
-            raise exceptions.BusinessLogicException(
-                f"To update the following Activity Request {activity_request_ar.name} to Sponsor Activity it should be in Final state"
-            )
+        NotFoundException.raise_if(
+            activity_request_ar is None,
+            "Requested Activity",
+            sponsor_activity_input.activity_request_uid,
+            "activity_request_uid",
+        )
+        BusinessLogicException.raise_if(
+            activity_request_ar.item_metadata.status != LibraryItemStatus.FINAL,
+            msg=f"To update the Activity Request with Name '{activity_request_ar.name}' to Sponsor Activity it should be in Final state.",
+        )
         activity_request_ar.inactivate(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description="Inactivate Requested Activity as Sponsor Activity was created",
         )
         self.repository.save(activity_request_ar)
@@ -152,7 +170,7 @@ class ActivityService(ConceptGenericService[ActivityAR]):
             concept_input=sponsor_activity_input, library=library_vo
         )
         concept_ar.approve(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description="Approve Sponsor Activity created from Requested Activity",
         )
         self.repository.save(concept_ar)
@@ -172,26 +190,29 @@ class ActivityService(ConceptGenericService[ActivityAR]):
         activity_request_ar = self.repository.find_by_uid_2(
             uid=activity_request_uid, for_update=True
         )
-        if not activity_request_ar:
-            raise exceptions.BusinessLogicException(
-                f"The activity request ({activity_request_uid}) wasn't found"
-            )
-        if activity_request_ar.item_metadata.status != LibraryItemStatus.FINAL:
-            raise exceptions.BusinessLogicException(
-                f"To reject the following Activity Request {activity_request_ar.name} it has to be in Final state"
-            )
-        if activity_request_ar.library.name != REQUESTED_LIBRARY_NAME:
-            raise exceptions.BusinessLogicException(
-                "Only Requested Activities can be rejected"
-            )
-        activity_request_ar.create_new_version(author=self.user_initials)
+        BusinessLogicException.raise_if_not(
+            activity_request_ar,
+            msg=f"The Activity Request with UID '{activity_request_uid}' doesn't exist.",
+        )
+        BusinessLogicException.raise_if(
+            activity_request_ar.item_metadata.status != LibraryItemStatus.FINAL,
+            msg=f"To reject Activity Request with Name '{activity_request_ar.name}' it has to be in Final state.",
+        )
+        BusinessLogicException.raise_if(
+            activity_request_ar.library.name != REQUESTED_LIBRARY_NAME,
+            msg="Only Requested Activities can be rejected.",
+        )
+        activity_request_ar.create_new_version(author_id=self.author_id)
+        self.repository.save(activity_request_ar)
         activity_request_ar.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=f"Rejecting with the following reason {activity_request_rejection_input.reason_for_rejecting}",
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=activity_request_ar.concept_vo.nci_concept_id,
+                nci_concept_name=activity_request_ar.concept_vo.nci_concept_name,
                 name=activity_request_ar.concept_vo.name,
                 name_sentence_case=activity_request_ar.concept_vo.name_sentence_case,
+                synonyms=activity_request_ar.concept_vo.synonyms,
                 definition=activity_request_ar.concept_vo.definition,
                 abbreviation=activity_request_ar.concept_vo.abbreviation,
                 activity_groupings=activity_request_ar.concept_vo.activity_groupings,
@@ -206,12 +227,15 @@ class ActivityService(ConceptGenericService[ActivityAR]):
             concept_exists_by_library_and_name_callback=self._repos.activity_repository.latest_concept_in_library_exists_by_name,
             activity_subgroup_exists=self._repos.activity_subgroup_repository.final_concept_exists,
             activity_group_exists=self._repos.activity_group_repository.final_concept_exists,
+            get_activity_uids_by_synonyms_callback=self._repos.activity_repository.get_activity_uids_by_synonyms,
         )
+        self.repository.save(activity_request_ar)
         activity_request_ar.approve(
-            author=self.user_initials, change_description="Approving after rejecting"
+            author_id=self.author_id, change_description="Approving after rejecting"
         )
+        self.repository.save(activity_request_ar)
         activity_request_ar.inactivate(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description="Retiring rejected Activity Request",
         )
         self.repository.save(activity_request_ar)
@@ -220,20 +244,24 @@ class ActivityService(ConceptGenericService[ActivityAR]):
     def get_activity_overview(
         self, activity_uid: str, version: str | None
     ) -> ActivityOverview:
-        if not self.repository.exists_by("uid", activity_uid, True):
-            raise NotFoundException(
-                f"Cannot find Activity with the following uid ({activity_uid})"
-            )
+        NotFoundException.raise_if_not(
+            self.repository.exists_by("uid", activity_uid, True),
+            "Activity",
+            activity_uid,
+        )
+
         overview = self._repos.activity_repository.get_activity_overview(
             uid=activity_uid, version=version
         )
         return ActivityOverview.from_repository_input(overview=overview)
 
-    def get_cosmos_activity_overview(self, activity_uid: str) -> str:
-        if not self.repository.exists_by("uid", activity_uid, True):
-            raise NotFoundException(
-                f"Cannot find Activity with the following uid ({activity_uid})"
-            )
+    def get_cosmos_activity_overview(self, activity_uid: str) -> dict:
+        NotFoundException.raise_if_not(
+            self.repository.exists_by("uid", activity_uid, True),
+            "Activity",
+            activity_uid,
+        )
+
         data: dict = self.repository.get_cosmos_activity_overview(uid=activity_uid)
         result: dict = {
             "packageDate": datetime.date.today().isoformat(),
@@ -275,8 +303,13 @@ class ActivityService(ConceptGenericService[ActivityAR]):
         return result
 
     def cascade_edit_and_approve(self, item: ActivityAR):
-        _, _, _, prev_item = item.repository_closure_data
-        item_metadata = prev_item.item_metadata
+        if not item.concept_vo.is_data_collected:
+            # Do not upversion any instances if the activity is without data collection
+            return
+
+        _, _, _, activity_after_save = item.repository_closure_data
+        _, _, _, activity_before_save = activity_after_save.repository_closure_data
+        item_metadata = activity_before_save.item_metadata
         last_final_version = f"{item_metadata.major_version}.0"
 
         groupings = item.concept_vo.activity_groupings
@@ -289,16 +322,16 @@ class ActivityService(ConceptGenericService[ActivityAR]):
             }
             instance_groupings.append(grp)
 
-        overview = (
+        linked_instances = (
             self._repos.activity_repository.get_linked_upgradable_activity_instances(
                 uid=item.uid, version=last_final_version
             )
         )
-        if overview is None:
+        if linked_instances is None:
             return
         instance_service = ActivityInstanceService()
 
-        for instance in overview.get("activity_instances", []):
+        for instance in linked_instances.get("activity_instances", []):
             if instance["version"]["status"] not in (
                 LibraryItemStatus.DRAFT.value,
                 LibraryItemStatus.FINAL.value,

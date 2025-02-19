@@ -7,7 +7,7 @@ services:
     build:
       args:
         NEO4J_IMAGE: ${NEO4J_IMAGE:-neo4j:5.19.0-enterprise}
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.9-slim}
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.13.0-slim}
         NEO4J_server_memory_heap_initial__size: "3G"
         NEO4J_server_memory_heap_max__size: "3G"
         NEO4J_server_memory_pagecache_size: "2G"
@@ -41,10 +41,6 @@ services:
       context: ./clinical-mdr-api
       dockerfile: Dockerfile
       args:
-        UVICORN_PORT: 5003
-        UVICORN_ROOT_PATH: "/api"
-        UVICORN_APP: clinical_mdr_api.main:app
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.3-slim}
         TARGET: ${BUILD_TARGET:-dev}
     image: ${API_IMAGE:-}
     depends_on:
@@ -61,6 +57,8 @@ services:
       OAUTH_SWAGGER_APP_ID: "${OAUTH_SWAGGER_APP_ID:-}"
       MS_GRAPH_INTEGRATION_ENABLED: "${MS_GRAPH_INTEGRATION_ENABLED:-}"
       MS_GRAPH_GROUPS_QUERY: "${MS_GRAPH_GROUPS_QUERY:-}"
+      UVICORN_PORT: 5003
+      UVICORN_ROOT_PATH: "/api"
       # deprecated #
       OAUTH_APP_ID: "${OAUTH_APP_ID:-}"
       OAUTH_APP_SECRET: "${OAUTH_APP_SECRET:-}"
@@ -73,10 +71,6 @@ services:
       context: ./clinical-mdr-api
       dockerfile: Dockerfile
       args:
-        UVICORN_PORT: 5008
-        UVICORN_ROOT_PATH: "/consumer-api"
-        UVICORN_APP: consumer_api.consumer_api:app
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.3-slim}
         TARGET: ${BUILD_TARGET:-dev}
     image: ${API_IMAGE:-}
     depends_on:
@@ -90,6 +84,9 @@ services:
       OAUTH_METADATA_URL: "${OAUTH_METADATA_URL:-}"
       OAUTH_API_APP_ID: "${OAUTH_API_APP_ID:-}"
       OAUTH_SWAGGER_APP_ID: "${OAUTH_SWAGGER_APP_ID:-}"
+      UVICORN_PORT: 5008
+      UVICORN_ROOT_PATH: "/consumer-api"
+      UVICORN_APP: consumer_api.consumer_api:app
 
   # Frontend image for production (see UI service for local development)
   frontend:
@@ -125,15 +122,21 @@ services:
     build:
       args:
         NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
-        NODE_IMAGE: ${NODE_IMAGE:-node:lts-alpine3.14}
+        NODE_IMAGE: ${NODE_IMAGE:-node:lts-alpine}
       context: ./documentation-portal
       dockerfile: Dockerfile
     image: ${DOCUMENTATION_IMAGE:-}
-  
+
   # Neodash service used with defined parameters
   neodash:
+    image: ${NEODASH_IMAGE:-}
     platform: linux/x86_64
-    image: neo4jlabs/neodash:latest
+    build:
+      context: ./osb-neodash
+      dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:lts-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
     depends_on:
       database:
         condition: service_healthy

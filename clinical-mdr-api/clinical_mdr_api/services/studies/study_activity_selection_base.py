@@ -4,27 +4,30 @@ from typing import Any, Callable, TypeVar
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.study_selections.study_activity_base_repository import (
     StudySelectionActivityBaseRepository,
 )
 from clinical_mdr_api.domains.study_selections.study_selection_base import (
     StudySelectionBaseAR,
+    StudySelectionBaseVO,
 )
 from clinical_mdr_api.models.utils import BaseModel, GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     build_simple_filters,
+    ensure_transaction,
     extract_filtering_values,
     generic_item_filtering,
     generic_pagination,
     service_level_generic_filtering,
     service_level_generic_header_filtering,
+    validate_is_dict,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
-from clinical_mdr_api.telemetry import trace_calls
+from common import exceptions
+from common.auth.user import user
+from common.telemetry import trace_calls
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 _VOType = TypeVar("_VOType")  # pylint: disable=invalid-name
@@ -94,7 +97,11 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def update_study_activities(self, study_uid: str, study_selection_uid: str):
+    def update_dependent_objects(
+        self,
+        study_selection: StudySelectionBaseVO,
+        previous_study_selection: StudySelectionBaseVO,
+    ):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -105,7 +112,6 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
     ) -> _VOType:
         raise NotImplementedError
 
-    @db.transaction
     def get_all_selections_for_all_studies(
         self,
         project_name: str | None = None,
@@ -172,7 +178,10 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
                 study_uid, study_value_version=study_value_version, **kwargs
             )
             assert activity_selection_ar is not None
-
+            if filter_by is not None:
+                validate_is_dict("filter_by", filter_by)
+            if sort_by is not None:
+                validate_is_dict("sort_by", sort_by)
             simple_filters = build_simple_filters(
                 self._vo_to_ar_filter_map, filter_by, sort_by
             )
@@ -224,14 +233,13 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         finally:
             repos.close()
 
-    @db.transaction
     def get_all_selection_audit_trail(self, study_uid: str) -> list[BaseModel]:
         repos = self._repos
         try:
             try:
                 selection_history = self.repository.find_selection_history(study_uid)
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             return self._transform_history_to_response_model(
                 selection_history, study_uid
@@ -239,7 +247,6 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         finally:
             repos.close()
 
-    @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
     ) -> list[BaseModel]:
@@ -250,7 +257,7 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
                     study_uid, study_selection_uid
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             return self._transform_history_to_response_model(
                 selection_history, study_uid
@@ -258,7 +265,6 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         finally:
             repos.close()
 
-    @db.transaction
     def get_specific_selection(
         self,
         study_uid: str,
@@ -284,7 +290,8 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
             terms_at_specific_datetime=terms_at_specific_datetime,
         )
 
-    def patch_selection_non_transactional(
+    @ensure_transaction(db)
+    def patch_selection(
         self,
         study_uid: str,
         study_selection_uid: str,
@@ -323,8 +330,8 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
             self.repository.save(selection_aggregate, self.author)
 
             # # sync related nodes
-            self.update_study_activities(
-                study_uid=study_uid, study_selection_uid=study_selection_uid
+            self.update_dependent_objects(
+                study_selection=updated_selection, previous_study_selection=current_vo
             )
 
             # Fetch the new selection which was just updated
@@ -346,19 +353,6 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         finally:
             repos.close()
 
-    @db.transaction
-    def patch_selection(
-        self,
-        study_uid: str,
-        study_selection_uid: str,
-        selection_update_input: BaseModel,
-    ) -> BaseModel:
-        return self.patch_selection_non_transactional(
-            study_uid=study_uid,
-            study_selection_uid=study_selection_uid,
-            selection_update_input=selection_update_input,
-        )
-
     def get_distinct_values_for_header(
         self,
         field_name: str,
@@ -366,7 +360,7 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ):
         all_items = self.get_all_selection(
@@ -389,12 +383,12 @@ class StudyActivitySelectionBaseService(StudySelectionMixin):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
         return header_values
 
-    @db.transaction
+    @ensure_transaction(db)
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
     ) -> BaseModel:

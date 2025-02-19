@@ -7,7 +7,7 @@ from mdr_standards_import.scripts.utils import (
 )
 
 
-USER_INITIALS = None
+AUTHOR_ID = "CDISC_IMPORT"
 
 
 def print_ignored_stats(tx, effective_date):
@@ -115,7 +115,7 @@ def merge_codelist_version_independent_data(tx, codelist_data):
         MERGE (cl_root)-[:HAS_NAME_ROOT]->(:CTCodelistNameRoot)
         """,
         codelist_data=codelist_data,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -133,14 +133,14 @@ def merge_codelist_packages_version_independent_data(tx, codelist_data, effectiv
             MERGE (catalogue)-[has_codelist:HAS_CODELIST]->(cl_root)
             ON CREATE SET
                 has_codelist.start_date=datetime($start_date),
-                has_codelist.user_initials=$user_initials
+                has_codelist.author_id=$author_id
             MERGE (package_codelist:CTPackageCodelist{uid: package.name + '_' + data.codelist.concept_id})
             MERGE (ct_package)-[:CONTAINS_CODELIST]->(package_codelist)
         )
         """,
         codelist_data=codelist_data,
         start_date=effective_date,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -166,7 +166,7 @@ def merge_codelist_terms_version_independent_data(tx, codelist_data):
         )
         """,
         codelist_data=codelist_data,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -219,7 +219,7 @@ def update_has_term_and_had_term_relationships(tx, codelists_data, effective_dat
             SET
                 had_term.start_date = has_term.start_date,
                 had_term.end_date = datetime($end_date),
-                had_term.user_initials = has_term.user_initials
+                had_term.author_id = has_term.author_id
             DELETE has_term
             """,
             end_date=effective_date,
@@ -242,13 +242,13 @@ def update_has_term_and_had_term_relationships(tx, codelists_data, effective_dat
 
             CREATE (codelist_root)-[:HAS_TERM{
                 start_date: datetime($start_date),
-                user_initials: $user_initials
+                author_id: $author_id
             }]->(term_root)
             """,
             start_date=effective_date,
             codelist_uid=codelist["concept_id"],
             new_term_uids=term_uids_to_add,
-            user_initials=USER_INITIALS,
+            author_id=AUTHOR_ID,
         )
         nbr_unchanged_terms += (
             len(codelist_term_uids)
@@ -292,12 +292,12 @@ def merge_catalogues_and_packages(tx, packages_data, effective_date):
                 package.href = package_data.package.href,
                 
                 package.import_date = datetime(),
-                package.user_initials = $user_initials
+                package.author_id = $author_id
             MERGE (catalogue)-[:CONTAINS_PACKAGE]->(package)
         """,
         packages_data=packages_data,
         effective_date=effective_date,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -340,14 +340,14 @@ def delete_has_codelist_relationships(
         ON CREATE SET 
             had_codelist.start_date=has_codelist.start_date,
             had_codelist.end_date=datetime($effective_date),
-            had_codelist.user_initials=$user_initials
+            had_codelist.author_id=$author_id
         DELETE has_codelist
         RETURN collect(codelist_root.uid) AS codelist_concept_ids_that_have_been_removed
         """,
         catalogue_name=catalogue_name,
         codelist_concept_ids=existing_codelist_concept_ids,
         effective_date=effective_date,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     ).single()
 
     return result.get("codelist_concept_ids_that_have_been_removed", [])
@@ -382,11 +382,11 @@ def retire_codelist_attributes_value(tx, codelist_concept_id):
             status: 'Retired',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: 'The codelist was discontinued by CDISC.',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(cl_current_attributes_value)
         """,
         concept_id=codelist_concept_id,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -408,11 +408,11 @@ def retire_codelist_name_value(tx, codelist_concept_id):
             status: 'Retired',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: 'The codelist was discontinued by CDISC.',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(cl_current_name_value)
         """,
         concept_id=codelist_concept_id,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -459,13 +459,13 @@ def retire_term_attributes_value(tx, term_uid, effective_date, reason):
             status: 'Retired',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: $change_description,
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(current_attributes_value)
         """,
         term_uid=term_uid,
         effective_date_string=effective_date,
         change_description=reason,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -487,13 +487,13 @@ def retire_term_name_value(tx, term_uid, effective_date, reason):
             status: 'Retired',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: $change_description,
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(current_name_value)
         """,
         term_uid=term_uid,
         effective_date_string=effective_date,
         change_description=reason,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -614,7 +614,7 @@ def create_initial_codelist_attributes_value(
             status: 'Final',
             version: '1.0',
             change_description: 'Imported from CDISC',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(cl_attributes_value)
 
         WITH cl_attributes_value
@@ -626,7 +626,7 @@ def create_initial_codelist_attributes_value(
         effective_date_string=effective_date_string,
         codelist=codelist,
         packages=packages,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -644,12 +644,12 @@ def create_initial_codelist_name(tx, codelist, name, change_description):
             status: 'Final',
             version: '1.0',
             change_description: $change_description,
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(name_value)
         """,
         codelist_uid=codelist["concept_id"],
         name=name,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
         change_description=change_description,
     ).consume()
 
@@ -682,7 +682,7 @@ def create_new_version_codelist_attributes_value(
             status: 'Final',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: 'Imported from CDISC',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(cl_new_attributes_value)
         CREATE (cl_attributes_root)-[:LATEST]->(cl_new_attributes_value)
 
@@ -695,7 +695,7 @@ def create_new_version_codelist_attributes_value(
         effective_date_string=effective_date_string,
         codelist=codelist,
         packages=packages,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -808,7 +808,7 @@ def create_initial_term_attributes_value(tx, effective_date_string, term, packag
             status: 'Final',
             version: '1.0',
             change_description: 'Imported from CDISC',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(t_attributes_value)
 
         WITH t_attributes_value
@@ -820,7 +820,7 @@ def create_initial_term_attributes_value(tx, effective_date_string, term, packag
         effective_date_string=effective_date_string,
         term=term,
         packages=packages,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -839,13 +839,13 @@ def create_initial_term_names(tx, term, name, change_description):
             status: 'Final',
             version: '1.0',
             change_description: $change_description,
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(name_value)
         """,
         term_uid=term["uid"],
         name=name,
         name_sentence_case=get_sentence_case_string(name),
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
         change_description=change_description,
     ).consume()
 
@@ -876,7 +876,7 @@ def create_new_version_term_attributes_value(tx, effective_date_string, term, pa
             status: 'Final',
             version: toString(coalesce(toInteger(split(version, '.')[0]), 0) + 1) + '.0',
             change_description: 'Imported from CDISC',
-            user_initials: $user_initials
+            author_id: $author_id
         }]->(t_new_attributes_value)
         CREATE (t_attributes_root)-[:LATEST]->(t_new_attributes_value)
 
@@ -889,7 +889,7 @@ def create_new_version_term_attributes_value(tx, effective_date_string, term, pa
         effective_date_string=effective_date_string,
         term=term,
         packages=packages,
-        user_initials=USER_INITIALS,
+        author_id=AUTHOR_ID,
     )
 
 
@@ -1056,10 +1056,10 @@ def import_from_cdisc_db_into_mdr(
     cdisc_db_name,
     mdr_neo4j_driver,
     mdr_db_name,
-    user_initials,
+    author_id,
 ):
-    global USER_INITIALS
-    USER_INITIALS = user_initials
+    global AUTHOR_ID
+    AUTHOR_ID = author_id
 
     start_time = time.time()
 

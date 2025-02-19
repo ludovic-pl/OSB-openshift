@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.study_selections.study_compound_repository import (
     StudyCompoundSelectionHistory,
 )
@@ -9,9 +8,12 @@ from clinical_mdr_api.domains.study_selections.study_selection_compound import (
     StudySelectionCompoundsAR,
     StudySelectionCompoundVO,
 )
-from clinical_mdr_api.models import StudySelectionCompoundEditInput
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudySelectionCompound,
+    StudySelectionCompoundCreateInput,
+    StudySelectionCompoundEditInput,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -23,6 +25,8 @@ from clinical_mdr_api.services.studies.study_compound_dosing_selection import (
     StudyCompoundDosingRelationMixin,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from common.auth.user import user
+from common.exceptions import BusinessLogicException
 
 
 class StudyCompoundSelectionService(
@@ -36,7 +40,7 @@ class StudyCompoundSelectionService(
         self,
         study_selection: StudySelectionCompoundsAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionCompound]:
+    ) -> list[StudySelectionCompound]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -67,7 +71,7 @@ class StudyCompoundSelectionService(
                 )
 
             result.append(
-                models.StudySelectionCompound.from_study_compound_ar(
+                StudySelectionCompound.from_study_compound_ar(
                     study_uid=study_selection.study_uid,
                     selection=selection,
                     order=order,
@@ -84,7 +88,7 @@ class StudyCompoundSelectionService(
 
     def _transform_single_to_response_model(
         self, study_selection: StudySelectionCompoundVO, order: int, study_uid: str
-    ) -> models.StudySelectionCompound:
+    ) -> StudySelectionCompound:
         if study_selection.compound_uid is None:
             compound_model = None
         else:
@@ -109,7 +113,7 @@ class StudyCompoundSelectionService(
                 study_selection.medicinal_product_uid
             )
 
-        result = models.StudySelectionCompound.from_study_compound_ar(
+        result = StudySelectionCompound.from_study_compound_ar(
             study_uid=study_uid,
             selection=study_selection,
             order=order,
@@ -126,8 +130,8 @@ class StudyCompoundSelectionService(
     def make_selection(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionCompoundCreateInput,
-    ) -> models.StudySelectionCompound:
+        selection_create_input: StudySelectionCompoundCreateInput,
+    ) -> StudySelectionCompound:
         repos = MetaRepository()
         try:
             # Load aggregate
@@ -141,10 +145,10 @@ class StudyCompoundSelectionService(
                 )
             )
 
-            if not medicinal_product:
-                raise exceptions.ValidationException(
-                    f"There is no approved medicinal product identified by provided uid ({selection_create_input.medicinal_product_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                medicinal_product,
+                msg=f"There is no approved Medicinal Product with UID '{selection_create_input.medicinal_product_uid}'.",
+            )
 
             new_selection = StudySelectionCompoundVO.from_input_values(
                 compound_uid=repos.compound_alias_repository.get_compound_uid_by_alias_uid(
@@ -161,7 +165,7 @@ class StudyCompoundSelectionService(
                 reason_for_missing_value_uid=selection_create_input.reason_for_missing_null_value_uid,
                 study_compound_dosing_count=0,
                 generate_uid_callback=repos.study_compound_repository.generate_uid,
-                user_initials=self.author,
+                author_id=self.author,
             )
             # add VO to aggregate
             selection_aggregate.add_compound_selection(
@@ -204,7 +208,7 @@ class StudyCompoundSelectionService(
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.StudySelectionCompound]:
+    ) -> GenericFilteringReturn[StudySelectionCompound]:
         repos = self._repos
         compound_selection_ars = repos.study_compound_repository.find_all(
             project_name=project_name,
@@ -243,7 +247,7 @@ class StudyCompoundSelectionService(
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         repos = self._repos
 
@@ -258,7 +262,7 @@ class StudyCompoundSelectionService(
                 search_string=search_string,
                 filter_by=filter_by,
                 filter_operator=filter_operator,
-                result_count=result_count,
+                page_size=page_size,
             )
 
             return header_values
@@ -285,7 +289,7 @@ class StudyCompoundSelectionService(
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         # Return values for field_name
         return header_values
@@ -300,7 +304,7 @@ class StudyCompoundSelectionService(
         page_number: int = 1,
         page_size: int = 0,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.StudySelectionCompound]:
+    ) -> GenericFilteringReturn[StudySelectionCompound]:
         repos = MetaRepository()
         try:
             compound_selection_ar = repos.study_compound_repository.find_by_study(
@@ -326,7 +330,7 @@ class StudyCompoundSelectionService(
     @db.transaction
     def get_specific_selection(
         self, study_uid: str, study_selection_uid: str
-    ) -> models.StudySelectionCompound:
+    ) -> StudySelectionCompound:
         selection_aggregate = self._repos.study_compound_repository.find_by_study(
             study_uid
         )
@@ -361,7 +365,7 @@ class StudyCompoundSelectionService(
     @db.transaction
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
-    ) -> models.StudySelectionCompound:
+    ) -> StudySelectionCompound:
         repos = MetaRepository()
         try:
             # Load aggregate
@@ -417,10 +421,10 @@ class StudyCompoundSelectionService(
             )
         )
 
-        if not medicinal_product:
-            raise exceptions.ValidationException(
-                f"There is no approved medicinal product identified by provided uid ({request_study_compound.medicinal_product_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            medicinal_product,
+            msg=f"There is no approved Medicinal Product with UID '{request_study_compound.medicinal_product_uid}'.",
+        )
 
         return StudySelectionCompoundVO.from_input_values(
             compound_uid=self._repos.compound_alias_repository.get_compound_uid_by_alias_uid(
@@ -436,7 +440,7 @@ class StudyCompoundSelectionService(
             reason_for_missing_value_uid=request_study_compound.reason_for_missing_null_value_uid,
             study_compound_dosing_count=current_study_compound.study_compound_dosing_count,
             study_selection_uid=current_study_compound.study_selection_uid,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
     @db.transaction
@@ -444,8 +448,8 @@ class StudyCompoundSelectionService(
         self,
         study_uid: str,
         study_selection_uid: str,
-        selection_update_input: models.StudySelectionCompoundEditInput,
-    ) -> models.StudySelectionCompound:
+        selection_update_input: StudySelectionCompoundEditInput,
+    ) -> StudySelectionCompound:
         repos = MetaRepository()
         try:
             # Load aggregate
@@ -493,11 +497,11 @@ class StudyCompoundSelectionService(
         self,
         study_selection_history: list[StudyCompoundSelectionHistory],
         study_uid: str,
-    ) -> list[models.StudySelectionCompound]:
+    ) -> list[StudySelectionCompound]:
         result = []
         for history in study_selection_history:
             result.append(
-                models.StudySelectionCompound.from_study_selection_history(
+                StudySelectionCompound.from_study_selection_history(
                     study_selection_history=history,
                     study_uid=study_uid,
                     get_compound_by_uid=self._transform_compound_model,
@@ -511,7 +515,7 @@ class StudyCompoundSelectionService(
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudySelectionCompound]:
+    ) -> list[StudySelectionCompound]:
         repos = self._repos
         try:
             selection_history = repos.study_compound_repository.find_selection_history(
@@ -526,7 +530,7 @@ class StudyCompoundSelectionService(
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
-    ) -> list[models.StudySelectionCompound]:
+    ) -> list[StudySelectionCompound]:
         repos = self._repos
         try:
             selection_history = repos.study_compound_repository.find_selection_history(

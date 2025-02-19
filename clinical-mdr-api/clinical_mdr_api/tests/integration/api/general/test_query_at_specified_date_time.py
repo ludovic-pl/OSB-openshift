@@ -16,8 +16,18 @@ from datetime import datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
+from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
+    ActivitySubGroup,
+)
+from clinical_mdr_api.models.concepts.concept import NumericValueWithUnit
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.syntax_instances.activity_instruction import (
+    ActivityInstruction,
+)
+from clinical_mdr_api.models.syntax_instances.objective import Objective
+from clinical_mdr_api.models.syntax_instances.timeframe import Timeframe
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
@@ -27,18 +37,19 @@ from clinical_mdr_api.tests.integration.utils.api import (
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 
 # Global variables shared between fixtures and tests
-ct_term_delivery_device: models.CTTerm
-strength_value: models.NumericValueWithUnit
-objective: models.Objective
-timeframe: models.Timeframe
-activity_instruction: models.ActivityInstruction
-activity_group: models.ActivityGroup
-activity_subgroup: models.ActivitySubGroup
+ct_term_delivery_device: CTTerm
+strength_value: NumericValueWithUnit
+objective: Objective
+timeframe: Timeframe
+activity_instruction: ActivityInstruction
+activity_group: ActivityGroup
+activity_subgroup: ActivitySubGroup
 
 
 @pytest.fixture(scope="module")
@@ -260,7 +271,7 @@ def test_get_listings_gcmd_topic_cd_def(api_client):
 
         log.info("GET %s", final_url)
         response = api_client.get(final_url)
-        assert response.status_code == 200
+        assert_response_status_code(response, 200)
 
 
 def verify_returned_items(api_client, url, test_scenarios):

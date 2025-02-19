@@ -34,6 +34,7 @@ from clinical_mdr_api.tests.unit.domain.controlled_terminology_aggregates.test_c
 from clinical_mdr_api.tests.unit.domain.controlled_terminology_aggregates.test_ct_term_names import (
     create_random_ct_term_name_ar,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
 
 
 class TestCTTermRepository(unittest.TestCase):
@@ -91,7 +92,7 @@ class TestCTTermRepository(unittest.TestCase):
                             library=library, is_editable=True, catalogue=catalogue
                         )
 
-                        codelist_attributes.approve(author=current_function_name())
+                        codelist_attributes.approve(author_id=current_function_name())
                         self.codelist_attributes_repo.save(codelist_attributes)
                         codelist_names = create_random_ct_codelist_name_ar(
                             generate_uid_callback=lambda x=codelist_attributes.uid: x,
@@ -99,14 +100,14 @@ class TestCTTermRepository(unittest.TestCase):
                             is_editable=True,
                             catalogue=catalogue,
                         )
-                        codelist_names.approve(author=current_function_name())
+                        codelist_names.approve(author_id=current_function_name())
                         self.codelist_names_repo.save(codelist_names)
 
                     available_codelists.append(codelist_attributes.uid)
                     available_codelist_names.append(codelist_names.name)
-                    codelist_uid_to_name_dict[
-                        codelist_attributes.uid
-                    ] = codelist_names.name
+                    codelist_uid_to_name_dict[codelist_attributes.uid] = (
+                        codelist_names.name
+                    )
 
                     # for codelist in available_codelists:
                     for lib in available_libraries:
@@ -117,7 +118,9 @@ class TestCTTermRepository(unittest.TestCase):
                                     is_editable=True,
                                     codelist_uid=codelist_attributes.uid,
                                 )
-                                term_attributes.approve(author=current_function_name())
+                                term_attributes.approve(
+                                    author_id=current_function_name()
+                                )
                                 self.term_attributes_repo.save(term_attributes)
                                 term_names = create_random_ct_term_name_ar(
                                     generate_uid_callback=lambda x=term_attributes.uid: x,
@@ -125,12 +128,12 @@ class TestCTTermRepository(unittest.TestCase):
                                     is_editable=True,
                                     codelist_uid=codelist_attributes.uid,
                                 )
-                                term_names.approve(author=current_function_name())
+                                term_names.approve(author_id=current_function_name())
                                 self.term_names_repo.save(term_names)
                                 if catalogue == package_catalogue:
-                                    term_uid_to_package_name[
-                                        term_attributes.uid
-                                    ] = packages
+                                    term_uid_to_package_name[term_attributes.uid] = (
+                                        packages
+                                    )
                                     for package in packages:
                                         db.cypher_query(
                                             """
@@ -179,7 +182,7 @@ class TestCTTermRepository(unittest.TestCase):
                                     self.codelist_attributes_repo.add_term(
                                         codelist_uid=codelist_uid,
                                         term_uid=term_attributes.uid,
-                                        author="TODO author",
+                                        author_id=AUTHOR_ID,
                                         order=term_names.ct_term_vo.codelists[0].order,
                                     )
                                     all_terms_for_codelist[codelist_uid].append(

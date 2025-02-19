@@ -48,11 +48,11 @@ class SponsorModelMetadataVO(LibraryItemMetadataVO):
 
     # pylint: disable=arguments-renamed
     @classmethod
-    def get_initial_item_metadata(cls, author: str, version: str) -> Self:
+    def get_initial_item_metadata(cls, author_id: str, version: str) -> Self:
         return cls(
             _change_description="Approved version",
             _status=LibraryItemStatus.FINAL,
-            _author=author,
+            _author_id=author_id,
             _start_date=datetime.datetime.now(datetime.timezone.utc),
             _end_date=None,
             _major_version=version,
@@ -114,12 +114,12 @@ class SponsorModelAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         sponsor_model_vo: SponsorModelVO,
         library: LibraryVO,
     ) -> Self:
         item_metadata = SponsorModelMetadataVO.get_initial_item_metadata(
-            author=author, version=sponsor_model_vo.version_number
+            author_id=author_id, version=sponsor_model_vo.version_number
         )
 
         sponsor_model_ar = cls(
@@ -132,7 +132,7 @@ class SponsorModelAR(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         sponsor_model_vo: SponsorModelVO,
     ) -> None:
@@ -141,14 +141,16 @@ class SponsorModelAR(LibraryItemAggregateRootBase):
         """
 
         if self._sponsor_model_vo != sponsor_model_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self.sponsor_model_vo = sponsor_model_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """

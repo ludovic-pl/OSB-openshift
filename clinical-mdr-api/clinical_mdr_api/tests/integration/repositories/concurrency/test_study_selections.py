@@ -2,7 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.controlled_terminologies.ct_term_attributes_repository import (
     CTTermAttributesRepository,
 )
@@ -21,7 +20,6 @@ from clinical_mdr_api.domain_repositories.study_selections.study_objective_repos
 from clinical_mdr_api.domain_repositories.syntax_instances.objective_repository import (
     ObjectiveRepository,
 )
-from clinical_mdr_api.domains._utils import strip_html
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_attributes import (
     CTTermAttributesAR,
     CTTermAttributesVO,
@@ -54,7 +52,6 @@ from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
 )
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.tests.integration.repositories.concurrency.tools.optimistic_locking_validator import (
@@ -66,6 +63,9 @@ from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_STUDY_FIELD_CYPHER,
     inject_base_data,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
+from clinical_mdr_api.utils import strip_html
+from common import exceptions
 
 
 class StudySelectionsConcurrencyTests(unittest.TestCase):
@@ -78,7 +78,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
     _repos = MetaRepository()
 
     library_name = "Sponsor"
-    user_initials = "TEST"
+    author_id = "TEST"
     template_name = "Example Template"
     parameter_terms: list[ParameterTermEntryVO] = []
     study_title_repository: StudyTitleRepository
@@ -100,8 +100,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
     template_repository = None
     object_repository = None
 
-    def __init__(self, method_name="test_concurrent_updates_handled_correctly"):
-        super().__init__(methodName=method_name)
+    def setUp(self):
         inject_and_clear_db("concurrency.studyselections")
         inject_base_data()
 
@@ -229,14 +228,14 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
                 generate_uid_callback=lambda: term_uid,
                 ct_term_attributes_vo=ct_term_attributes_vo,
                 library=library_vo,
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
             )
             self.ct_term_attributes_repository.save(self.ct_term_attributes_ar)
         with db.transaction:
             ct_term_attributes_ar = self.ct_term_attributes_repository.find_by_uid(
                 term_uid, for_update=True
             )
-            ct_term_attributes_ar.approve(author="TODO Initials")
+            ct_term_attributes_ar.approve(author_id=AUTHOR_ID)
             self.ct_term_attributes_repository.save(ct_term_attributes_ar)
         with db.transaction:
             ct_term_name_vo = CTTermNameVO.from_repository_values(
@@ -256,7 +255,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
                 generate_uid_callback=lambda: term_uid,
                 ct_term_name_vo=ct_term_name_vo,
                 library=library_vo,
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
             )
 
             self.ct_term_names_repository.save(self.ct_term_name_ar)
@@ -264,7 +263,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             ct_term_name_ar = self.ct_term_names_repository.find_by_uid(
                 term_uid, for_update=True
             )
-            ct_term_name_ar.approve(author="TODO Initials")
+            ct_term_name_ar.approve(author_id=AUTHOR_ID)
             self.ct_term_names_repository.save(ct_term_name_ar)
 
     def set_up_base_graph_for_objectives_without_clearing_graph(self):
@@ -281,7 +280,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         objective_template_ar = ObjectiveTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(lambda: self.template_uid),
@@ -294,7 +293,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             objective_template_ar = self.template_repository.find_by_uid(
                 self.template_uid, for_update=True
             )
-            objective_template_ar.approve(author=self.user_initials)
+            objective_template_ar.approve(author_id=self.author_id)
             self.template_repository.save(objective_template_ar)
         self.parameterized_template_vo = (
             ParametrizedTemplateVO.from_name_and_parameter_terms(
@@ -308,7 +307,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         self.object_ar = ObjectiveAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=self.parameterized_template_vo,
             library=library_vo,
         )
@@ -318,7 +317,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
         self.set_up_base_graph_for_studies()
         self.set_up_base_graph_for_objectives_without_clearing_graph()
 
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(exceptions.BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.lock_study_without_save,
                 concurrent_operation=self.create_study_objective_with_save,
@@ -326,7 +325,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             )
         self.assertEqual(
             "You cannot add or reorder a study selection when the study is in a locked state.",
-            str(message.exception),
+            message.exception.msg,
         )
 
     def test_study_selection_reorder_cancelled_on_concurrent_study_lock(self):
@@ -336,7 +335,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
         with db.transaction:
             self.create_study_objective_with_save()
 
-        with self.assertRaises(VersioningException) as message:
+        with self.assertRaises(exceptions.BusinessLogicException) as message:
             OptimisticLockingValidator().assert_optimistic_locking_ensures_execution_order(
                 main_operation_before=self.lock_study_without_save,
                 concurrent_operation=self.reorder_study_objective_with_save,
@@ -344,14 +343,14 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             )
         self.assertEqual(
             "You cannot add or reorder a study selection when the study is in a locked state.",
-            str(message.exception),
+            message.exception.msg,
         )
 
     def lock_study_without_save(self):
         self.study_ar = self.studies_repository.find_by_uid(
             "Study_000001", for_update=True
         )
-        self.study_ar.lock(version_description="info", version_author="TODO Initials")
+        self.study_ar.lock(version_description="info", author_id=AUTHOR_ID)
 
     def save_study(self):
         self.studies_repository.save(self.study_ar)
@@ -371,7 +370,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             objective_version="1.0",
             objective_level_uid="term_root_final",
             objective_level_order=1,
-            user_initials="TODO initials",
+            author_id=AUTHOR_ID,
             study_selection_uid="StudyObjective_000001",
         )
         if new_selection.objective_uid is not None:
@@ -380,12 +379,12 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
             )
             # if in draft status - approve
             if objective_ar.item_metadata.status == LibraryItemStatus.DRAFT:
-                objective_ar.approve("TODO user initials")
+                objective_ar.approve(AUTHOR_ID)
                 objective_repo.save(objective_ar)
             # if in retired then we return a error
             elif objective_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-                raise exceptions.BusinessLogicException(
-                    f"There is no approved objective identified by provided uid ({new_selection.objective_uid})"
+                raise exceptions.NotFoundException(
+                    msg=f"There is no approved Objective with UID '{new_selection.objective_uid}'."
                 )
         # add VO to aggregate
         assert selection_aggregate is not None
@@ -396,7 +395,7 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
         )
         selection_aggregate.validate()
         self.study_objective_selection_repository.save(
-            selection_aggregate, author="TODO Initials"
+            selection_aggregate, author_id=AUTHOR_ID
         )
 
     def reorder_study_objective_with_save(self):
@@ -408,10 +407,8 @@ class StudySelectionsConcurrencyTests(unittest.TestCase):
         # remove the connection
         assert selection_aggregate is not None
         selection_aggregate.set_new_order_for_selection(
-            "StudyObjective_000001", 2, "TODO user initials"
+            "StudyObjective_000001", 2, AUTHOR_ID
         )
 
         # sync with DB and save the update
-        self.study_objective_selection_repository.save(
-            selection_aggregate, "TODO user initials"
-        )
+        self.study_objective_selection_repository.save(selection_aggregate, AUTHOR_ID)

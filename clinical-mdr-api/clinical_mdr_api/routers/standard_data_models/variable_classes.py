@@ -1,25 +1,26 @@
 """class variables router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.standard_data_models.variable_class import VariableClass
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.standard_data_models.variable_class import (
     VariableClassService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/standards"
 router = APIRouter()
 
-ClassVariableUID = Path(None, description="The unique id of the VariableClass")
+ClassVariableUID = Path(description="The unique id of the VariableClass")
 
 
 @router.get(
@@ -59,37 +60,51 @@ State after:
 # pylint: disable=unused-argument
 def get_class_variables(
     request: Request,  # request is actually required by the allow_exports decorator
-    data_model_name: str = Query(
-        ...,
-        description="The name of the selected Data model, for instance 'SDTM'",
-    ),
-    data_model_version: str = Query(
-        ...,
-        description="The version of the selected Data model, for instance '1.4'",
-    ),
-    dataset_class_name: str = Query(
-        ...,
-        description="The name of the selected DatasetClass, for instance 'General Observations'",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    data_model_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected Data model, for instance 'SDTM'",
+        ),
+    ],
+    data_model_version: Annotated[
+        str,
+        Query(
+            description="The version of the selected Data model, for instance '1.4'",
+        ),
+    ],
+    dataset_class_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected DatasetClass, for instance 'General Observations'",
+        ),
+    ],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     class_variable_service = VariableClassService()
     results = class_variable_service.get_all_items(
@@ -125,30 +140,43 @@ def get_class_variables(
     },
 )
 def get_distinct_values_for_header(
-    data_model_name: str = Query(
-        ...,
-        description="The name of the selected Data model, for instance 'SDTM'",
-    ),
-    data_model_version: str = Query(
-        ...,
-        description="The version of the selected Data model, for instance '1.4'",
-    ),
-    dataset_class_name: str = Query(
-        ...,
-        description="The name of the selected DatasetClass, for instance 'General Observations'",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    data_model_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected Data model, for instance 'SDTM'",
+        ),
+    ],
+    data_model_version: Annotated[
+        str,
+        Query(
+            description="The version of the selected Data model, for instance '1.4'",
+        ),
+    ],
+    dataset_class_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected DatasetClass, for instance 'General Observations'",
+        ),
+    ],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     class_variable_service = VariableClassService()
     return class_variable_service.get_distinct_values_for_header(
@@ -159,7 +187,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -187,19 +215,25 @@ Possible errors:
     },
 )
 def get_class_variable(
-    class_variable_uid: str = ClassVariableUID,
-    data_model_name: str = Query(
-        ...,
-        description="The name of the selected Data model, for instance 'SDTM'",
-    ),
-    data_model_version: str = Query(
-        ...,
-        description="The version of the selected Data model, for instance '1.4'",
-    ),
-    dataset_class_name: str = Query(
-        ...,
-        description="The name of the selected DatasetClass, for instance 'General Observations'",
-    ),
+    class_variable_uid: Annotated[str, ClassVariableUID],
+    data_model_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected Data model, for instance 'SDTM'",
+        ),
+    ],
+    data_model_version: Annotated[
+        str,
+        Query(
+            description="The version of the selected Data model, for instance '1.4'",
+        ),
+    ],
+    dataset_class_name: Annotated[
+        str,
+        Query(
+            description="The name of the selected DatasetClass, for instance 'General Observations'",
+        ),
+    ],
 ):
     class_variable_service = VariableClassService()
     return class_variable_service.get_by_uid(

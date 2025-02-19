@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Iterable
 from unittest.mock import PropertyMock, patch
 
-from clinical_mdr_api.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 from clinical_mdr_api.domain_repositories.controlled_terminologies import (
     ct_term_generic_repository,
 )
@@ -57,6 +56,7 @@ from clinical_mdr_api.tests.unit.domain_repositories.test_study_definition_repos
 from clinical_mdr_api.tests.unit.services.test_study_description import (
     StudyTitleRepositoryForTestImpl,
 )
+from common.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 
 
 class UnitDefinitionRepositoryForTestImpl:

@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -8,8 +8,11 @@ from clinical_mdr_api.domains.concepts.activities.activity_sub_group import (
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import CTTermNameAR
 from clinical_mdr_api.models.concepts.activities.activity import (
     ActivityBase,
-    ActivityCommonInput,
     ActivityHierarchySimpleModel,
+)
+from clinical_mdr_api.models.concepts.concept import (
+    ExtendedConceptPatchInput,
+    ExtendedConceptPostInput,
 )
 from clinical_mdr_api.models.libraries.library import Library
 
@@ -41,7 +44,7 @@ class ActivitySubGroup(ActivityBase):
             status=activity_subgroup_ar.item_metadata.status.value,
             version=activity_subgroup_ar.item_metadata.version,
             change_description=activity_subgroup_ar.item_metadata.change_description,
-            user_initials=activity_subgroup_ar.item_metadata.user_initials,
+            author_username=activity_subgroup_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in activity_subgroup_ar.get_possible_actions()]
             ),
@@ -50,16 +53,14 @@ class ActivitySubGroup(ActivityBase):
     activity_groups: list[ActivityHierarchySimpleModel]
 
 
-class ActivitySubGroupInput(ActivityCommonInput):
+class ActivitySubGroupEditInput(ExtendedConceptPatchInput):
     activity_groups: list[str] | None = None
+    change_description: Annotated[str | None, Field(min_length=1)] = None
 
 
-class ActivitySubGroupEditInput(ActivitySubGroupInput):
-    change_description: str = Field(None, title="change_description", description="")
-
-
-class ActivitySubGroupCreateInput(ActivitySubGroupInput):
-    library_name: str
+class ActivitySubGroupCreateInput(ExtendedConceptPostInput):
+    activity_groups: list[str] | None = None
+    library_name: Annotated[str, Field(min_length=1)]
 
 
 class ActivitySubGroupVersion(ActivitySubGroup):
@@ -67,11 +68,13 @@ class ActivitySubGroupVersion(ActivitySubGroup):
     Class for storing ActivitySubGroup and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

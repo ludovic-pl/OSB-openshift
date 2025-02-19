@@ -1,4 +1,3 @@
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.study_definitions.study_definition_repository import (
     StudyDefinitionRepository,
 )
@@ -6,6 +5,7 @@ from clinical_mdr_api.domains.study_selections.study_epoch import TimelineAR
 from clinical_mdr_api.models.listings.listings_study import StudyMetadataListingModel
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services.studies.study_epoch import StudyEpochService
+from common.exceptions import NotFoundException, ValidationException
 
 
 class StudyMetadataListingService:
@@ -94,53 +94,55 @@ class StudyMetadataListingService:
             # To be implemented, replace by real api version
             api_ver = "TBA"
 
-            if project_id is None or study_number is None:
-                raise exceptions.ValidationException(
-                    "Please specify both project id and study number."
-                )
-            if version and datetime:
-                raise exceptions.ValidationException(
-                    "Please specify either version or datetime, not both."
-                )
-            if version is None and datetime is None:
-                raise exceptions.ValidationException(
-                    "No version nor datetime was specified, please specify either one of them."
-                )
+            ValidationException.raise_if(
+                project_id is None or study_number is None,
+                msg="Please specify both project id and study number.",
+            )
+            ValidationException.raise_if(
+                version and datetime,
+                msg="Please specify either version or datetime, not both.",
+            )
+            ValidationException.raise_if(
+                version is None and datetime is None,
+                msg="No version nor datetime was specified, please specify either one of them.",
+            )
             study_uid = StudyDefinitionRepository.find_uid_by_study_number(
                 project_id=project_id,
                 study_number=study_number,
                 subpart_acronym=subpart_acronym,
             )
-            if study_uid is None:
-                raise exceptions.NotFoundException(
-                    f"Study id {project_id}-{study_number}{subpart_acronym if subpart_acronym else None} not found."
-                )
+            NotFoundException.raise_if(
+                study_uid is None,
+                msg=f"Study id {project_id}-{study_number}{subpart_acronym if subpart_acronym else None} not found.",
+            )
 
             if datetime:
                 version = self._repos.study_definition_repository.get_latest_released_version_from_specific_datetime(
                     study_uid=study_uid, specified_datetime=datetime
                 )
-                if version is None:
-                    raise exceptions.NotFoundException(
-                        f"Study {project_id}-{study_number} has no released version before '{datetime}'."
-                    )
+                NotFoundException.raise_if(
+                    version is None,
+                    msg=f"Study {project_id}-{study_number} has no released version before '{datetime}'.",
+                )
             study_definition = self._repos.study_definition_repository.find_by_uid(
                 uid=study_uid, study_value_version=version
             )
 
-            if study_definition is None:
-                raise exceptions.NotFoundException(
-                    f"Study definition {project_id}-{study_number} not found."
-                )
+            NotFoundException.raise_if(
+                study_definition is None,
+                "Study Definition",
+                "{project_id}-{study_number}",
+                "ID",
+            )
             if subpart_acronym is None:
-                if study_definition.study_parent_part_uid is not None:
-                    raise exceptions.ValidationException(
-                        f"Study {project_id}-{study_number} is a sub study, please specify study subpart acronym for specific sub study."
-                    )
-                if study_definition.study_subpart_uids != []:
-                    raise exceptions.ValidationException(
-                        f"Study {project_id}-{study_number} is a parent study, please specify study subpart acronym for specific sub study."
-                    )
+                ValidationException.raise_if(
+                    study_definition.study_parent_part_uid is not None,
+                    msg=f"Study {project_id}-{study_number} is a sub study, please specify study subpart acronym for specific sub study.",
+                )
+                ValidationException.raise_if(
+                    study_definition.study_subpart_uids != [],
+                    msg=f"Study {project_id}-{study_number} is a parent study, please specify study subpart acronym for specific sub study.",
+                )
                 full_study_id = project_id + "-" + study_number
             else:
                 full_study_id = project_id + "-" + study_number + subpart_acronym

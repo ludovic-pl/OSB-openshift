@@ -4,8 +4,12 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.feature_flag_repository import (
     FeatureFlagRepository,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.models.feature_flag import FeatureFlag, FeatureFlagInput
+from clinical_mdr_api.models.feature_flag import (
+    FeatureFlag,
+    FeatureFlagInput,
+    FeatureFlagPatchInput,
+)
+from common.exceptions import AlreadyExistsException
 
 
 class FeatureFlagService:
@@ -25,10 +29,12 @@ class FeatureFlagService:
         self,
         feature_flag_input: FeatureFlagInput,
     ) -> FeatureFlag:
-        if self.repo.find_feature_flag_by_name(feature_flag_input.name):
-            raise BusinessLogicException(
-                f"Feature flag with name ({feature_flag_input.name}) already exists."
-            )
+        AlreadyExistsException.raise_if(
+            self.repo.find_feature_flag_by_name(feature_flag_input.name),
+            "Feature Flag",
+            feature_flag_input.name,
+            "Name",
+        )
 
         return self.repo.create_feature_flag(
             name=feature_flag_input.name,
@@ -40,19 +46,10 @@ class FeatureFlagService:
     def update_feature_flag(
         self,
         sn: int,
-        feature_flag_input: FeatureFlagInput,
+        feature_flag_patch_input: FeatureFlagPatchInput,
     ) -> FeatureFlag:
-        ff = self.repo.find_feature_flag_by_name(feature_flag_input.name)
-        if ff and ff.sn != sn:
-            raise BusinessLogicException(
-                f"Feature flag with name ({feature_flag_input.name}) already exists."
-            )
-
         return self.repo.update_feature_flag(
-            sn=sn,
-            name=feature_flag_input.name,
-            enabled=feature_flag_input.enabled,
-            description=feature_flag_input.description,
+            sn=sn, enabled=feature_flag_patch_input.enabled
         )
 
     @db.transaction

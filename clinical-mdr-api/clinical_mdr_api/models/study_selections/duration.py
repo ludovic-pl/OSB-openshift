@@ -32,9 +32,11 @@ class DurationJsonModel(BaseModel):
 
         return cls(
             duration_value=duration_value,
-            duration_unit_code=UnitDefinitionSimpleModel(
-                uid=duration_unit.uid, name=duration_unit.name
-            )
-            if duration_unit
-            else None,
+            duration_unit_code=(
+                UnitDefinitionSimpleModel(
+                    uid=duration_unit.uid, name=duration_unit.name
+                )
+                if duration_unit
+                else None
+            ),
         )

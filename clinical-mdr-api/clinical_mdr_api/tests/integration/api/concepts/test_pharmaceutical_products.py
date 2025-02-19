@@ -17,28 +17,36 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.active_substance import ActiveSubstance
+from clinical_mdr_api.models.concepts.concept import LagTime, NumericValueWithUnit
+from clinical_mdr_api.models.concepts.pharmaceutical_product import (
+    PharmaceuticalProduct,
+)
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 HEADERS = {"content-type": "application/json"}
 
 # Global variables shared between fixtures and tests
-pharmaceutical_products_all: list[models.PharmaceuticalProduct]
-ct_term_roa: models.CTTerm
-ct_term_dose_form: models.CTTerm
-active_substances_all: list[models.ActiveSubstance]
-dictionary_term_unii: models.DictionaryTerm
-unii_codelist: models.DictionaryCodelist
-strength: models.NumericValueWithUnit
-lag_time: models.LagTime
-half_life: models.NumericValueWithUnit
+pharmaceutical_products_all: list[PharmaceuticalProduct]
+ct_term_roa: CTTerm
+ct_term_dose_form: CTTerm
+active_substances_all: list[ActiveSubstance]
+dictionary_term_unii: DictionaryTerm
+unii_codelist: DictionaryCodelist
+strength: NumericValueWithUnit
+lag_time: LagTime
+half_life: NumericValueWithUnit
 formulation_1: dict
 
 
@@ -188,7 +196,7 @@ PHARMACEUTICAL_PRODUCT_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "external_id",
     "dosage_forms",
@@ -212,7 +220,7 @@ def test_get_pharmaceutical_product(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(PHARMACEUTICAL_PRODUCT_FIELDS_ALL)
@@ -264,7 +272,7 @@ def test_get_pharmaceutical_products_versions(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 10
     assert res["total"] >= len(pharmaceutical_products_all)
 
@@ -306,7 +314,7 @@ def test_update_pharmaceutical_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == pharmaceutical_products_all[0].uid
     assert res["external_id"] == pharmaceutical_products_all[0].external_id
     assert res["routes_of_administration"][0]["term_uid"] == ct_term_roa.term_uid
@@ -331,7 +339,7 @@ def test_update_pharmaceutical_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == pharmaceutical_products_all[0].uid
     assert res["external_id"] == pharmaceutical_products_all[0].external_id
     assert res["routes_of_administration"][0]["term_uid"] == ct_term_roa.term_uid
@@ -361,7 +369,7 @@ def test_update_pharmaceutical_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == pharmaceutical_products_all[0].uid
     assert res["external_id"] == external_id_new
@@ -391,7 +399,7 @@ def test_update_pharmaceutical_product_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == pharmaceutical_products_all[0].uid
     assert res["external_id"] is None
@@ -429,7 +437,7 @@ def test_update_pharmaceutical_product_roa(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == pharmaceutical_products_all[1].uid
     assert res["external_id"] == "external_id_b"
@@ -462,7 +470,7 @@ def test_update_pharmaceutical_product_roa(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == pharmaceutical_products_all[1].uid
     assert res["routes_of_administration"] == []
@@ -479,7 +487,7 @@ def test_get_pharmaceutical_product_versioning(api_client):
     response = api_client.get(f"/concepts/pharmaceutical-products/{uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res:
@@ -492,14 +500,14 @@ def test_get_pharmaceutical_product_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"/concepts/pharmaceutical-products/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
 
     # Create new version
     response = api_client.post(f"/concepts/pharmaceutical-products/{uid}/versions")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.1"
     assert res["status"] == "Draft"
     assert res["possible_actions"] == ["approve", "edit"]
@@ -507,7 +515,7 @@ def test_get_pharmaceutical_product_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"/concepts/pharmaceutical-products/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -515,7 +523,7 @@ def test_get_pharmaceutical_product_versioning(api_client):
     # Inactivate final version
     response = api_client.delete(f"/concepts/pharmaceutical-products/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Retired"
     assert res["possible_actions"] == ["reactivate"]
@@ -523,7 +531,7 @@ def test_get_pharmaceutical_product_versioning(api_client):
     # Reactivate retired version
     response = api_client.post(f"/concepts/pharmaceutical-products/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -531,7 +539,7 @@ def test_get_pharmaceutical_product_versioning(api_client):
     # Get all versions, assert they are sorted by version number (newest on top)
     response = api_client.get(f"/concepts/pharmaceutical-products/{uid}/versions")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 6
 
@@ -622,7 +630,7 @@ def test_get_pharmaceutical_products(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -676,7 +684,9 @@ def test_get_pharmaceutical_products_csv_xml_excel(api_client, export_format):
         pytest.param('{"*": {"v": ["aaa"]}}', "external_id", "external_id_AAA"),
         pytest.param('{"*": {"v": ["bBb"]}}', "external_id", "external_id_BBB"),
         pytest.param(
-            '{"*": {"v": ["wn-us"], "op": "co"}}', "user_initials", "unknown-user"
+            '{"*": {"v": ["unknown-user"], "op": "co"}}',
+            "author_username",
+            "unknown-user@example.com",
         ),
         pytest.param('{"*": {"v": ["Draft"]}}', "status", "Draft"),
         pytest.param('{"*": {"v": ["0.1"]}}', "version", "0.1"),
@@ -690,7 +700,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -723,7 +733,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -742,11 +752,11 @@ def test_filtering_exact(
 def test_get_pharmaceutical_products_headers(
     api_client, field_name, expected_returned_values
 ):
-    url = f"/concepts/pharmaceutical-products/headers?field_name={field_name}&result_count=100"
+    url = f"/concepts/pharmaceutical-products/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) >= len(expected_returned_values)
     for val in expected_returned_values:
         assert val in res
@@ -787,7 +797,7 @@ def test_create_and_delete_pharmaceutical_product(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["external_id"] == "external_id-NEW"
     assert res["routes_of_administration"][0]["term_uid"] == ct_term_roa.term_uid
     assert (
@@ -829,11 +839,11 @@ def test_create_and_delete_pharmaceutical_product(api_client):
 
     # Delete pharmaceutical product
     response = api_client.delete(f"/concepts/pharmaceutical-products/{res['uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the pharmaceutical product is deleted
     response = api_client.get(f"/concepts/pharmaceutical-products/{res['uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_create_and_delete_pharmaceutical_product_with_missing_values(api_client):
@@ -866,7 +876,7 @@ def test_create_and_delete_pharmaceutical_product_with_missing_values(api_client
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["external_id"] == "external_id-NEW"
     assert res["routes_of_administration"][0]["term_uid"] == ct_term_roa.term_uid
     assert (
@@ -910,11 +920,11 @@ def test_create_and_delete_pharmaceutical_product_with_missing_values(api_client
 
     # Delete pharmaceutical product
     response = api_client.delete(f"/concepts/pharmaceutical-products/{res['uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the pharmaceutical product is deleted
     response = api_client.get(f"/concepts/pharmaceutical-products/{res['uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_negative_create_pharmaceutical_product_wrong_links(api_client):
@@ -952,10 +962,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "PharmaceuticalProductVO tried to connect to non-existent or non-final dosage form identified by uid (NON_EXISTING_UID)"
+        == "PharmaceuticalProductVO tried to connect to non-existent or non-final Dosage Form with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new pharmaceutical product with non-existing route of administration
@@ -971,10 +981,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "PharmaceuticalProductVO tried to connect to non-existent or non-final route of administration identified by uid (NON_EXISTING_UID)"
+        == "PharmaceuticalProductVO tried to connect to non-existent or non-final Route of Administration with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new pharmaceutical product with non-existing active substance
@@ -992,10 +1002,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "IngredientVO tried to connect to non-existent active substance identified by uid (NON_EXISTING_UID)"
+        == "IngredientVO tried to connect to non-existent Active Substance with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new pharmaceutical product with non-existing ingredient strength
@@ -1013,10 +1023,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "IngredientVO tried to connect to non-existent strength value identified by uid (NON_EXISTING_UID)"
+        == "IngredientVO tried to connect to non-existent Strength with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new pharmaceutical product with non-existing ingredient half-life
@@ -1034,10 +1044,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "IngredientVO tried to connect to non-existent half-life value identified by uid (NON_EXISTING_UID)"
+        == "IngredientVO tried to connect to non-existent Half-Life with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create new pharmaceutical product with non-existing ingredient lag-time
@@ -1055,10 +1065,10 @@ def test_negative_create_pharmaceutical_product_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "IngredientVO tried to connect to non-existent lag-time identified by uid (NON_EXISTING_UID)"
+        == "IngredientVO tried to connect to non-existent Lag-Time with UID 'NON_EXISTING_UID'."
     )
 
 
@@ -1067,9 +1077,9 @@ def test_negative_delete_approved_pharmaceutical_product(api_client):
 
     # Try to delete approved pharmaceutical product
     response = api_client.delete(f"/concepts/pharmaceutical-products/{item.uid}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert response.json()["message"] == "Object has been accepted"
 
     # Check that the pharmaceutical product is not deleted
     response = api_client.get(f"/concepts/pharmaceutical-products/{item.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)

@@ -44,7 +44,7 @@
     "study_count": 1,
     "sub_categories": null,
     "uid": "EndpointTemplate_000008",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -92,7 +92,7 @@
     "study_count": 0,
     "sub_categories": null,
     "uid": "EndpointTemplate_000007",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -140,7 +140,7 @@
     "study_count": 1,
     "sub_categories": null,
     "uid": "EndpointTemplate_000006",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -206,7 +206,7 @@
     "study_count": 1,
     "sub_categories": null,
     "uid": "EndpointTemplate_000005",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -245,7 +245,7 @@
     "study_count": 1,
     "sub_categories": null,
     "uid": "EndpointTemplate_000004",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -284,7 +284,7 @@
     "study_count": 0,
     "sub_categories": null,
     "uid": "EndpointTemplate_000003",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -332,7 +332,7 @@
     "study_count": 1,
     "sub_categories": null,
     "uid": "EndpointTemplate_000002",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -371,7 +371,7 @@
     "study_count": 0,
     "sub_categories": null,
     "uid": "EndpointTemplate_000001",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

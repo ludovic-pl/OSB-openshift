@@ -38,18 +38,18 @@ def get_mdr_neo4j_driver():
     )
 
 
-def get_user_initials(
-    parameter_index: int, default_user_initials: str = "CDISC_IMPORT"
+def get_author_id(
+    parameter_index: int, default_author_id: str = "CDISC_IMPORT"
 ):
     try:
         return str(sys.argv[parameter_index])
     except IndexError:
         print(
             f"The script parameter {parameter_index} is not defined. "
-            f"Using '{default_user_initials}' as default user initials."
+            f"Using '{default_author_id}' as default user initials."
         )
 
-        return default_user_initials
+        return default_author_id
 
 
 def get_directory_name(parameter_index: int, suffix: str = ""):
@@ -364,8 +364,9 @@ REPLACEMENTS = [
 
 # Clean a string by replacing all characters that may cause trouble in a URL.
 def sanitize_string(value):
-    for old, new in REPLACEMENTS:
-        value = value.replace(old, new)
+    if value:
+        for old, new in REPLACEMENTS:
+            value = value.replace(old, new)
     return value
 
 

@@ -16,7 +16,10 @@
         item-title="name.sponsor_preferred_name"
         return-object
         clearable
-        class="border-top mt-4"
+        class="mt-4"
+        variant="outlined"
+        color="nnBaseBlue"
+        rounded="lg"
       />
       <v-checkbox
         v-model="form.deleteSelection"
@@ -125,9 +128,3 @@ export default {
   },
 }
 </script>
-
-<style scoped>
-.border-top {
-  border-top: 1px solid rgb(var(--v-theme-dfltBackground));
-}
-</style>

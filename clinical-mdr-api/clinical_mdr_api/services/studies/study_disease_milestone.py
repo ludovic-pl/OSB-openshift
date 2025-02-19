@@ -2,8 +2,6 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import config as settings
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
@@ -24,7 +22,6 @@ from clinical_mdr_api.models.utils import (
     GenericFilteringReturn,
     get_latest_on_datetime_str,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -32,6 +29,10 @@ from clinical_mdr_api.services._utils import (
     calculate_diffs_history,
     fill_missing_values_in_base_model_from_reference_base_model,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common import config as settings
+from common.auth.user import user
+from common.exceptions import BusinessLogicException, ValidationException
 
 
 class StudyDiseaseMilestoneService:
@@ -75,9 +76,11 @@ class StudyDiseaseMilestoneService:
             order=disease_milestone.order,
             status=disease_milestone.status.value,
             start_date=disease_milestone.start_date.strftime(settings.DATE_TIME_FORMAT),
-            user_initials=disease_milestone.author,
+            author_username=UserInfoService.get_author_username_from_id(
+                disease_milestone.author_id,
+            ),
             disease_milestone_type=disease_milestone.disease_milestone_type,
-            disease_milestone_type_named=disease_milestone.disease_milestone_type_named,
+            disease_milestone_type_name=disease_milestone.disease_milestone_type_name,
             disease_milestone_type_definition=disease_milestone.disease_milestone_type_definition,
             repetition_indicator=disease_milestone.repetition_indicator,
         )
@@ -149,7 +152,7 @@ class StudyDiseaseMilestoneService:
 
             return self._transform_all_to_response_model(study_disease_milestone)
         except ValueError as e:
-            raise exceptions.ValidationException(e.args[0])
+            raise ValidationException(msg=e.args[0]) from e
         finally:
             repos.close()
 
@@ -162,17 +165,15 @@ class StudyDiseaseMilestoneService:
             disease_milestone.dm_type.name
             for disease_milestone in all_disease_milestones
         ]
-        if disease_milestone_input.disease_milestone_type in used_types:
-            raise exceptions.ValidationException(
-                f'Value "{disease_milestone_input.disease_milestone_type}" in field Type is not unique for the study'
-            )
-        if (
+        BusinessLogicException.raise_if(
+            disease_milestone_input.disease_milestone_type in used_types,
+            msg=f"Value '{disease_milestone_input.disease_milestone_type}' in field Type is not unique for the study.",
+        )
+        BusinessLogicException.raise_if(
             disease_milestone_input.disease_milestone_type
-            not in StudyDiseaseMilestoneType
-        ):
-            raise exceptions.ValidationException(
-                "Invalid value for study Disease Milestone type"
-            )
+            not in StudyDiseaseMilestoneType,
+            msg="Invalid value for study Disease Milestone type",
+        )
 
     def _validate_update(
         self,
@@ -190,19 +191,17 @@ class StudyDiseaseMilestoneService:
                 disease_milestone.dm_type.name
                 for disease_milestone in all_disease_milestones
             ]
-            if disease_milestone_input.disease_milestone_type in used_types:
-                raise exceptions.ValidationException(
-                    "There can exist only one Study DiseaseMilestone for type."
-                )
+            BusinessLogicException.raise_if(
+                disease_milestone_input.disease_milestone_type in used_types,
+                msg="There can exist only one Study DiseaseMilestone for type.",
+            )
 
-        if (
+        BusinessLogicException.raise_if(
             disease_milestone_input.disease_milestone_type is not None
             and disease_milestone_input.disease_milestone_type
-            not in StudyDiseaseMilestoneType
-        ):
-            raise exceptions.ValidationException(
-                "Invalid value for study disease_milestone type"
-            )
+            not in StudyDiseaseMilestoneType,
+            msg="Invalid value for study disease_milestone type",
+        )
 
     def _from_input_values(
         self,
@@ -218,9 +217,10 @@ class StudyDiseaseMilestoneService:
             order=study_disease_milestone_create_input.order,
             start_date=datetime.datetime.now(datetime.timezone.utc),
             status=StudyStatus.DRAFT,
-            author=self.author,
+            author_id=self.author,
+            author_username=UserInfoService.get_author_username_from_id(self.author),
             disease_milestone_type=disease_milestone_type,
-            disease_milestone_type_named=self.study_disease_milestone_types[
+            disease_milestone_type_name=self.study_disease_milestone_types[
                 disease_milestone_type
             ]["name"],
             disease_milestone_type_definition=self.study_disease_milestone_types[
@@ -268,10 +268,14 @@ class StudyDiseaseMilestoneService:
         )
 
         if study_disease_milestone_input.order:
-            if len(all_disease_milestones) + 1 < created_study_disease_milestone.order:
-                raise exceptions.ValidationException("Order is too big.")
-            if created_study_disease_milestone.order < 1:
-                raise exceptions.ValidationException("Order must be greater than 0.")
+            BusinessLogicException.raise_if(
+                len(all_disease_milestones) + 1 < created_study_disease_milestone.order,
+                msg="Order is too big.",
+            )
+            BusinessLogicException.raise_if(
+                created_study_disease_milestone.order < 1,
+                msg="Order must be greater than 0.",
+            )
 
             for disease_milestone in all_disease_milestones[
                 created_study_disease_milestone.order - 1 :
@@ -319,12 +323,13 @@ class StudyDiseaseMilestoneService:
                 old_order = i
                 disease_milestone = disease_milestone_checked
 
-        if new_order < 0:
-            raise exceptions.ValidationException("New order cannot be lesser than 1")
-        if new_order > len(study_disease_milestones) - 1:
-            raise exceptions.ValidationException(
-                f"New order cannot be greater than {len(study_disease_milestones)}"
-            )
+        BusinessLogicException.raise_if(
+            new_order < 0, msg="New order cannot be lesser than 1"
+        )
+        BusinessLogicException.raise_if(
+            new_order > len(study_disease_milestones) - 1,
+            msg=f"New order cannot be greater than {len(study_disease_milestones)}",
+        )
         if new_order > old_order:
             start_order = old_order + 1
             end_order = new_order + 1
@@ -393,7 +398,7 @@ class StudyDiseaseMilestoneService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         **kwargs,
     ):
         header_values = self.repo.get_distinct_headers(
@@ -401,7 +406,7 @@ class StudyDiseaseMilestoneService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
             **kwargs,
         )
         return header_values

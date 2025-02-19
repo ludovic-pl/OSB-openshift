@@ -19,11 +19,11 @@ from clinical_mdr_api.main import app
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.study_selections.study_selection import StudySelectionArm
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -56,8 +56,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 def test_cohort_modify_actions_on_locked_study(api_client):
     response = api_client.post(
@@ -69,14 +67,14 @@ def test_cohort_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all cohorts
     response = api_client.get(
         f"/studies/{study.uid}/study-cohort/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     cohort_uid = res[0]["cohort_uid"]
 
@@ -85,14 +83,14 @@ def test_cohort_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-cohorts",
@@ -102,9 +100,9 @@ def test_cohort_modify_actions_on_locked_study(api_client):
             "code": "Cohort_code_2",
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
     # edit cohort
     response = api_client.patch(
         f"/studies/{study.uid}/study-cohorts/{cohort_uid}",
@@ -112,31 +110,28 @@ def test_cohort_modify_actions_on_locked_study(api_client):
             "name": "New_cohort_Name_1",
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-cohort/audit-trail/",
     )
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert response.status_code == 200
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(f"/studies/{study.uid}/study-cohorts/{cohort_uid}")
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_cohort_study_value_version(api_client):
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-branch-arms",
@@ -151,8 +146,8 @@ def test_study_cohort_study_value_version(api_client):
             "arm_uid": study_arm.arm_uid,
         },
     )
+    assert_response_status_code(response, 201)
     res = response.json()
-    assert response.status_code == 201
     branch_arm = res
 
     response = api_client.post(
@@ -169,8 +164,8 @@ def test_study_cohort_study_value_version(api_client):
             ],
         },
     )
+    assert_response_status_code(response, 201)
     res = response.json()
-    assert response.status_code == 201
     cohort = res
 
     before_unlock_arms = api_client.get(f"/studies/{study.uid}/study-arms").json()
@@ -184,10 +179,10 @@ def test_study_cohort_study_value_version(api_client):
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit arm
     response = api_client.patch(
@@ -196,8 +191,8 @@ def test_study_cohort_study_value_version(api_client):
             "name": "New_Arm_Name_1",
         },
     )
-    res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
+    response.json()
 
     # edit branch arm
     response = api_client.patch(
@@ -206,8 +201,8 @@ def test_study_cohort_study_value_version(api_client):
             "name": "New_Branch_Arm_Name_1",
         },
     )
-    res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
+    response.json()
 
     # edit cohort
     response = api_client.patch(
@@ -216,8 +211,8 @@ def test_study_cohort_study_value_version(api_client):
             "name": "New_cohort_Name_2",
         },
     )
-    res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
+    response.json()
 
     # get all
     for i, _ in enumerate(before_unlock_arms["items"]):

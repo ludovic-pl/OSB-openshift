@@ -305,10 +305,10 @@ class MetaRepository:
     _repositories: MutableMapping[type, Any]
 
     # service instance specific variables needed for repository creation
-    _user: str
+    _author_id: str
 
-    def __init__(self, user: str = "TODO Initials"):
-        self._user = user
+    def __init__(self, author_id: str = "unknown-user"):
+        self._author_id = author_id
         self._repositories = {}
 
     def close(self) -> None:
@@ -330,12 +330,14 @@ class MetaRepository:
         # it's a dictionary which maps interface type, to (no param) Callable which creates a new instance
         # of implementing class
         repository_configuration: Mapping[type, Callable[[], Any]] = {
-            StudyDefinitionRepository: lambda: StudyDefinitionRepositoryImpl(self._user)
+            StudyDefinitionRepository: lambda: StudyDefinitionRepositoryImpl(
+                self._author_id
+            )
         }
 
         if repo_interface not in repository_configuration:
             raise NotImplementedError(
-                f"This class does not know how to provide {repo_interface} implementation."
+                f"This class doesn't know how to provide {repo_interface} implementation."
             )
 
         return repository_configuration[repo_interface]()
@@ -529,51 +531,51 @@ class MetaRepository:
     def footnote_template_repository(
         self,
     ) -> FootnoteTemplateRepository:
-        return FootnoteTemplateRepository(self._user)
+        return FootnoteTemplateRepository(self._author_id)
 
     @property
     def activity_instruction_template_repository(
         self,
     ) -> ActivityInstructionTemplateRepository:
-        return ActivityInstructionTemplateRepository(self._user)
+        return ActivityInstructionTemplateRepository(self._author_id)
 
     @property
     def criteria_template_repository(self) -> CriteriaTemplateRepository:
-        return CriteriaTemplateRepository(self._user)
+        return CriteriaTemplateRepository(self._author_id)
 
     @property
     def endpoint_template_repository(self) -> EndpointTemplateRepository:
-        return EndpointTemplateRepository(self._user)
+        return EndpointTemplateRepository(self._author_id)
 
     @property
     def objective_template_repository(self) -> ObjectiveTemplateRepository:
-        return ObjectiveTemplateRepository(self._user)
+        return ObjectiveTemplateRepository(self._author_id)
 
     @property
     def timeframe_template_repository(self) -> TimeframeTemplateRepository:
-        return TimeframeTemplateRepository(self._user)
+        return TimeframeTemplateRepository(self._author_id)
 
     @property
     def activity_instruction_pre_instance_repository(
         self,
     ) -> ActivityInstructionPreInstanceRepository:
-        return ActivityInstructionPreInstanceRepository(self._user)
+        return ActivityInstructionPreInstanceRepository(self._author_id)
 
     @property
     def footnote_pre_instance_repository(self) -> FootnotePreInstanceRepository:
-        return FootnotePreInstanceRepository(self._user)
+        return FootnotePreInstanceRepository(self._author_id)
 
     @property
     def criteria_pre_instance_repository(self) -> CriteriaPreInstanceRepository:
-        return CriteriaPreInstanceRepository(self._user)
+        return CriteriaPreInstanceRepository(self._author_id)
 
     @property
     def endpoint_pre_instance_repository(self) -> EndpointPreInstanceRepository:
-        return EndpointPreInstanceRepository(self._user)
+        return EndpointPreInstanceRepository(self._author_id)
 
     @property
     def objective_pre_instance_repository(self) -> ObjectivePreInstanceRepository:
-        return ObjectivePreInstanceRepository(self._user)
+        return ObjectivePreInstanceRepository(self._author_id)
 
     @property
     def library_repository(self) -> LibraryRepository:
@@ -719,23 +721,23 @@ class MetaRepository:
 
     @property
     def study_epoch_repository(self) -> StudyEpochRepository:
-        return StudyEpochRepository(self._user)
+        return StudyEpochRepository(self._author_id)
 
     @property
     def study_disease_milestone_repository(self) -> StudyDiseaseMilestoneRepository:
-        return StudyDiseaseMilestoneRepository(self._user)
+        return StudyDiseaseMilestoneRepository(self._author_id)
 
     @property
     def study_standard_version_repository(self) -> StudyStandardVersionRepository:
-        return StudyStandardVersionRepository(self._user)
+        return StudyStandardVersionRepository(self._author_id)
 
     @property
     def study_visit_repository(self) -> StudyVisitRepository:
-        return StudyVisitRepository(self._user)
+        return StudyVisitRepository(self._author_id)
 
     @property
     def ct_config_repository(self) -> CTConfigRepository:
-        return CTConfigRepository(self._user)
+        return CTConfigRepository(self._author_id)
 
     @property
     def study_arm_repository(self) -> StudySelectionArmRepository:

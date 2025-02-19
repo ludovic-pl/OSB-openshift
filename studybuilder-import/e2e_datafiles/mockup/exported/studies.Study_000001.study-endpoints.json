@@ -24,7 +24,7 @@
               "status": "Final",
               "version": "2.0",
               "change_description": "Approved version",
-              "user_initials": "unknown-user",
+              "author_username": "unknown-user@example.com",
               "possible_actions": [
                   "inactivate",
                   "newVersion"
@@ -39,7 +39,7 @@
               "status": "Final",
               "version": "1.0",
               "change_description": "Approved version",
-              "user_initials": "unknown-user",
+              "author_username": "unknown-user@example.com",
               "possible_actions": [
                   "inactivate"
               ],
@@ -93,7 +93,7 @@
               "study_count": null
           },
           "start_date": "2022-06-29T10:39:09.144366",
-          "user_initials": "unknown-user",
+          "author_username": "unknown-user@example.com",
           "endpoint_count": 1,
           "latest_objective": null,
           "accepted_version": false
@@ -111,7 +111,7 @@
           "status": "Final",
           "version": "2.0",
           "change_description": "Approved version",
-          "user_initials": "unknown-user",
+          "author_username": "unknown-user@example.com",
           "possible_actions": [
               "inactivate",
               "newVersion"
@@ -130,7 +130,7 @@
           "status": "Final",
           "version": "1.0",
           "change_description": "Approved version",
-          "user_initials": "unknown-user",
+          "author_username": "unknown-user@example.com",
           "possible_actions": [
               "inactivate",
               "newVersion"
@@ -151,7 +151,7 @@
           "status": "Final",
           "version": "1.0",
           "change_description": "Approved version",
-          "user_initials": "unknown-user",
+          "author_username": "unknown-user@example.com",
           "possible_actions": [
               "inactivate"
           ],
@@ -201,7 +201,7 @@
           "status": "Final",
           "version": "1.0",
           "change_description": "Approved version",
-          "user_initials": "unknown-user",
+          "author_username": "unknown-user@example.com",
           "possible_actions": [
               "inactivate"
           ],
@@ -232,7 +232,7 @@
       "latest_endpoint": null,
       "latest_timeframe": null,
       "start_date": "2022-06-29T10:47:57.827778",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "accepted_version": false
   }
 ]

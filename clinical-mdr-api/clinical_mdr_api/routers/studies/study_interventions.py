@@ -1,11 +1,11 @@
 """Study Protocol Interventions router"""
 
 import os
+from typing import Annotated
 
 from fastapi import Path
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.routers import studies_router as router
 from clinical_mdr_api.services.studies.study import StudyService
@@ -13,8 +13,9 @@ from clinical_mdr_api.services.studies.study_interventions import (
     StudyInterventionsService,
 )
 from clinical_mdr_api.services.utils.table_f import TableWithFootnotes
+from common.auth import rbac
 
-StudyUID = Path(None, description="The unique id of the study.")
+StudyUID = Path(description="The unique id of the study.")
 
 
 @router.get(
@@ -29,7 +30,7 @@ StudyUID = Path(None, description="The unique id of the study.")
     response_model=TableWithFootnotes,
 )
 def get_study_interventions(
-    study_uid: str = StudyUID,
+    study_uid: Annotated[str, StudyUID],
 ) -> TableWithFootnotes:
     StudyService().check_if_study_exists(study_uid)
     return StudyInterventionsService().get_table(study_uid)
@@ -46,7 +47,7 @@ def get_study_interventions(
     },
 )
 def get_study_interventions_html(
-    study_uid: str = StudyUID,
+    study_uid: Annotated[str, StudyUID],
 ) -> HTMLResponse:
     StudyService().check_if_study_exists(study_uid)
     return HTMLResponse(StudyInterventionsService().get_html(study_uid))
@@ -67,7 +68,7 @@ def get_study_interventions_html(
     },
 )
 def get_study_interventions_docx(
-    study_uid: str = StudyUID,
+    study_uid: Annotated[str, StudyUID],
 ) -> StreamingResponse:
     StudyService().check_if_study_exists(study_uid)
     docx = StudyInterventionsService().get_docx(study_uid)

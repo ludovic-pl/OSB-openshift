@@ -6,9 +6,9 @@ from clinical_mdr_api.domains.concepts.simple_concepts.time_point import (
     TimePointVO,
 )
 from clinical_mdr_api.models.concepts.concept import (
-    SimpleConceptInput,
+    SimpleConceptPatchInput,
     TimePoint,
-    TimePointInput,
+    TimePointPostInput,
 )
 from clinical_mdr_api.services.concepts.simple_concepts.simple_concept_generic import (
     SimpleConceptGenericService,
@@ -25,10 +25,10 @@ class TimePointService(SimpleConceptGenericService[TimePointAR]):
         return TimePoint.from_concept_ar(time_point=item_ar)
 
     def _create_aggregate_root(
-        self, concept_input: TimePointInput, library
+        self, concept_input: TimePointPostInput, library
     ) -> TimePointAR:
         return TimePointAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             simple_concept_vo=TimePointVO.from_input_values(
                 name_sentence_case=concept_input.name_sentence_case,
                 definition=concept_input.definition,
@@ -47,7 +47,7 @@ class TimePointService(SimpleConceptGenericService[TimePointAR]):
         )
 
     def _edit_aggregate(
-        self, item: TimePointAR, concept_edit_input: SimpleConceptInput
+        self, item: TimePointAR, concept_edit_input: SimpleConceptPatchInput
     ) -> TimePointAR:
         raise AttributeError(
             "_edit_aggregate function is not defined for NumericValueService"

@@ -164,9 +164,9 @@ class StudyObjectivesService:
                     with tag("tbody"):
                         for objective_level, objectives, endpoints in sorted(
                             tree.values(),
-                            key=lambda o: o[0].codelists[0].order
-                            if o[0].codelists
-                            else 0,
+                            key=lambda o: (
+                                o[0].codelists[0].order if o[0].codelists else 0
+                            ),
                         ):
                             with tag("tr"):
                                 with tag("td"):
@@ -183,9 +183,11 @@ class StudyObjectivesService:
                                 with tag("td"):
                                     for endpoint_level, study_endpoints in sorted(
                                         endpoints.values(),
-                                        key=lambda e: e[0].codelists[0].order
-                                        if e[0].codelists
-                                        else 0,
+                                        key=lambda e: (
+                                            e[0].codelists[0].order
+                                            if e[0].codelists
+                                            else 0
+                                        ),
                                     ):
                                         line(
                                             "p",
@@ -223,9 +225,12 @@ class StudyObjectivesService:
                     with tag("tbody"):
                         for objective_level, study_objectives in sorted(
                             tree.values(),
-                            key=lambda o: o[0].codelists[0].order
-                            if o[0].codelists and o[0].codelists[0].order is not None
-                            else 0,
+                            key=lambda o: (
+                                o[0].codelists[0].order
+                                if o[0].codelists
+                                and o[0].codelists[0].order is not None
+                                else 0
+                            ),
                         ):
                             with tag("tr"):
                                 line(
@@ -249,10 +254,12 @@ class StudyObjectivesService:
                                 for epl_idx, epl_ste in enumerate(
                                     sorted(
                                         endpoint_levels.values(),
-                                        key=lambda o: o[0].codelists[0].order
-                                        if o[0].codelists
-                                        and o[0].codelists[0].order is not None
-                                        else 0,
+                                        key=lambda o: (
+                                            o[0].codelists[0].order
+                                            if o[0].codelists
+                                            and o[0].codelists[0].order is not None
+                                            else 0
+                                        ),
                                     )
                                 ):
                                     endpoint_level, study_endpoints = epl_ste

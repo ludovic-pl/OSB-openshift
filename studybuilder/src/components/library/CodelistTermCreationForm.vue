@@ -36,13 +36,14 @@
             :headers="termHeaders"
             :items="terms"
             :items-length="total"
+            :items-per-page-options="itemsPerPage"
             item-value="term_uid"
             class="mt-4"
             hide-export-button
             column-data-resource="ct/terms"
             :loading="loading"
             show-select
-            :codelist-uid="codelistUid"
+            :codelist-uid="null"
             @filter="scheduleFilterTerms"
           />
         </v-col>
@@ -171,6 +172,32 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'created'])
 
+const itemsPerPage = [
+  {
+    value: 5,
+    title: '5',
+  },
+  {
+    value: 10,
+    title: '10',
+  },
+  {
+    value: 15,
+    title: '15',
+  },
+  {
+    value: 25,
+    title: '25',
+  },
+  {
+    value: 50,
+    title: '50',
+  },
+  {
+    value: 100,
+    title: '100',
+  },
+]
 const createNewTerm = ref(false)
 const form = ref({})
 const alternateSteps = [
@@ -200,7 +227,7 @@ const steps = ref(getInitialSteps())
 const termHeaders = [
   {
     title: t('CodelistTermCreationForm.concept_id'),
-    key: 'term_uid',
+    key: 'attributes.concept_id',
   },
   {
     title: t('CodelistTermCreationForm.sponsor_name'),

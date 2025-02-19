@@ -13,7 +13,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 class MockObject:
@@ -55,7 +55,7 @@ def create_random_numeric_value_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
         find_uid_by_name_callback=lambda _: unit_definition,
         find_uid_by_value_and_unit_callback=lambda _, __: random_str(),
     )

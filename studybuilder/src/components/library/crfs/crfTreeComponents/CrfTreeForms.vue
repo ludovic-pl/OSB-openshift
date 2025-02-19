@@ -55,7 +55,7 @@
                 @click="orderDown(item, index)"
               />
               <ActionsMenu :actions="actions" :item="item" />
-              <span>
+              <span class="ml-2">
                 <v-icon color="crfForm"> mdi-alpha-f-circle-outline </v-icon>
                 {{ item.name }}
               </span>

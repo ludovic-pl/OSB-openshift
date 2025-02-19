@@ -67,10 +67,11 @@ Therefore it must be equal to the the base URL of the API instance that is to be
 It is possible to configure the API to use a different port.
 In that case, the port number must be updated in API_BASE_URL of the `.env` file of the data import component.
 
-There are two more general variables:
+There are three more general variables:
 ```
 LOG_LEVEL=INFO
 MDR_MIGRATION_SAMPLE=False
+MDR_MIGRATION_FROM_SAME_ENV=False
 ```
 `LOG_LEVEL` determines the logging level. `INFO` is the recommended setting for normal use.
 This shows info level messages, and hides `DEBUG` and `TRACE`.
@@ -79,6 +80,16 @@ This shows info level messages, and hides `DEBUG` and `TRACE`.
 rather than the full content of the provided files.
 This should normally be set to `False` to ensure a complete set of data is imported.
 Only enable this to save time while doing work on the import scripts themselves.
+
+`MDR_MIGRATION_FROM_SAME_ENV` can be set to `True` if the data to be imported
+was exported from the same environment.
+The import script can then use the provided UIDs for library content.
+Otherwise, the script will look up the UIDs in the target environment
+by name or submission value.
+Setting this to `True` can make sure that linked library content is found
+even if the name or submission value has been updated,
+and the content to be imported is refering to an older version with a different name.
+
 
 The rest of the .env-file contains various settings for customizing the behavior of the import script.
 It also determines which files are used by each import step.

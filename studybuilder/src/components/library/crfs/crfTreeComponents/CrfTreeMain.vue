@@ -6,12 +6,14 @@
       :label="$t('CrfTree.reorder')"
     />
   </v-row>
-  <v-data-table
+  <v-data-table-server
+    ref="mainTable"
     v-model:expanded="expanded"
     :headers="headers"
     item-value="name"
     :items-length="totalTemplates"
     :items="templates"
+    @update:options="getTemplates"
   >
     <template #headers="{ columns }">
       <tr class="header">
@@ -39,8 +41,8 @@
               @click="toggleExpand(internalItem)"
             />
             <v-btn v-else variant="text" class="hide" icon />
-            <ActionsMenu :actions="actions" :item="item" />
-            <span>
+            <ActionsMenu :actions="actions" :item="item"/>
+            <span class="ml-2">
               <v-icon color="crfTemplate"> mdi-alpha-t-circle-outline </v-icon>
               {{ item.name }}
             </span>
@@ -102,11 +104,9 @@
         :columns="columns"
         :refresh-forms="refreshForms"
         :expand-forms-for-template="expandFormsForTemplate"
-        :approve-all-forms-for-template="approveAllFormsForTemplate"
-        @set-false-forms-expand="setFalseFormsExpand"
       />
     </template>
-  </v-data-table>
+  </v-data-table-server>
   <CrfTemplateForm
     :open="showTemplateForm"
     :selected-template="selectedTemplate"
@@ -159,6 +159,7 @@ import CrfTemplateForm from '@/components/library/crfs/CrfTemplateForm.vue'
 import CrfExportForm from '@/components/library/crfs/CrfExportForm.vue'
 import crfTypes from '@/constants/crfTypes'
 import CrfFormForm from '@/components/library/crfs/CrfFormForm.vue'
+import filteringParameters from '@/utils/filteringParameters'
 
 export default {
   components: {
@@ -225,7 +226,6 @@ export default {
       expanded: [],
       expandFormsForTemplate: '',
       showExportForm: false,
-      approveAllFormsForTemplate: '',
       showCreateForm: false,
       sortMode: false,
     }
@@ -237,6 +237,14 @@ export default {
     this.fetchTemplates()
   },
   methods: {
+    getTemplates(options) {
+      const params = filteringParameters.prepareParameters(
+        options,
+        null,
+        null
+      )
+      this.fetchTemplates(params)
+    },
     openCreateAndAddForm(item) {
       this.selectedTemplate = item
       this.showCreateForm = true
@@ -278,9 +286,8 @@ export default {
     closeLinkForm() {
       this.showLinkForm = false
       this.selectedTemplate = {}
-      this.fetchTemplates().then(() => {
-        this.refreshForms += 1
-      })
+      this.$refs.table.filterTable()
+      this.refreshForms += 1
     },
     async expandAll(item) {
       await this.expanded.push(item.name)

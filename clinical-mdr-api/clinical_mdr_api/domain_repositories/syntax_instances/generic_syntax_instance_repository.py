@@ -5,7 +5,6 @@ from typing import Iterable, TypeVar
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories._utils.helpers import (
     get_latest_version_properties,
 )
@@ -23,12 +22,12 @@ from clinical_mdr_api.domains.libraries.parameter_term import (
     SimpleParameterTermVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleCTTermNameAndAttributes,
     SimpleTermAttributes,
     SimpleTermName,
 )
+from common.exceptions import BusinessLogicException, NotFoundException
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -127,10 +126,13 @@ class GenericSyntaxInstanceRepository(
         # Double check that we actually performed a valid connection to the template that isn't retired.
         # this needs to be done after connecting, as there might be concurrent transactions retiring the template.
         latest_version = get_latest_version_properties(template)
-        if latest_version and latest_version.status == LibraryItemStatus.RETIRED.value:
-            raise exceptions.BusinessLogicException(
-                root.uid + " cannot be added to " + template.uid + ", as it is retired."
-            )
+        BusinessLogicException.raise_if(
+            latest_version and latest_version.status == LibraryItemStatus.RETIRED.value,
+            msg=root.uid
+            + " cannot be added to "
+            + template.uid
+            + ", as it is retired.",
+        )
 
     def _add_value_parameter_relation(
         self, value: VersionValue, parameter_uid: str, position: int, index: int
@@ -161,13 +163,14 @@ class GenericSyntaxInstanceRepository(
 
     def find_by(self, name: str) -> _AggregateRootType:
         values: Iterable[VersionValue] = self.value_class.nodes.filter(name=name)
-        if len(values) > 0:
-            root_uid = values[0].get_root_uid_by_latest()
-            item: _AggregateRootType = self.find_by_uid(uid=root_uid)
-            return item
-        raise NotFoundException(
-            "Not Found - The object with the specified 'name' wasn't found."
+
+        NotFoundException.raise_if(
+            len(values) < 1, self.root_class.__name__, name, "Name"
         )
+
+        root_uid = values[0].get_root_uid_by_latest()
+        item: _AggregateRootType = self.find_by_uid(uid=root_uid)
+        return item
 
     def _get_template_parameters(self, root, value):
         # TODO: This should be refactored when we change the relationship between
@@ -213,7 +216,16 @@ class GenericSyntaxInstanceRepository(
         value.tptv_name AS tptv_name
         OPTIONAL MATCH (ptv: ParameterTemplateValue)<-[:LATEST_FINAL]-(td: ParameterTemplateRoot)-[:HAS_COMPLEX_VALUE]->(tptr)
         WHERE tptv_name iS NOT NULL AND tp is NOT NULL
-        WITH pre_instance_value, position, parameter, collect(DISTINCT {{set_number: 0, position: rel.position, index: rel.index, parameter_name: tp.name, parameter_term: tptv_name, parameter_uid: tptr.uid,definition: td.uid, template: ptv.template_string, labels: labels(tptr) }}) as data
+        WITH pre_instance_value, position, parameter, collect(DISTINCT {{
+            set_number: 0,
+            position: rel.position,
+            index: rel.index,
+            parameter_name: tp.name,
+            parameter_term: tptv_name,
+            parameter_uid: tptr.uid,definition: td.uid,
+            template: ptv.template_string,
+            labels: labels(tptr)
+        }}) as data
         OPTIONAL MATCH (pre_instance_value)-[con_rel:HAS_CONJUNCTION]->(con:Conjunction)
         WHERE con_rel.position=position
         WITH position, parameter, data, coalesce(con.string, "") AS conjunction
@@ -238,7 +250,7 @@ class GenericSyntaxInstanceRepository(
                 OPTIONAL MATCH (tptr)-[rel:HAS_UNIT]->(un:UnitDefinitionRoot)-[:LATEST_FINAL]->(udv:UnitDefinitionValue)
                 WITH rel, udv, tptr ORDER BY rel.index
                 WITH collect(udv.name) as unit_names, tptr
-                OPTIONAL MATCH (tptr)-[:HAS_CONJUNCTION]->(co:Conjunction) 
+                OPTIONAL MATCH (tptr)-[:HAS_CONJUNCTION]->(co:Conjunction)
                 WITH unit_names, co
                 RETURN apoc.text.join(unit_names, ' ' + coalesce(co.string, '') + ' ') AS unit
             }}
@@ -266,7 +278,17 @@ class GenericSyntaxInstanceRepository(
         OPTIONAL MATCH (tpvv: ParameterTemplateValue)<-[:LATEST_FINAL]-(td: ParameterTemplateRoot)-[:HAS_COMPLEX_VALUE]->(tptr)
         WHERE tpv iS NOT NULL AND tp is NOT NULL
         
-        WITH vv, position, parameter, collect(DISTINCT {{set_number: 0, position: rel.position, index: rel.index, parameter_name: tp.name, parameter_term: tpv, parameter_uid: tptr.uid,  definition: td.uid, template: tpvv.template_string, labels: labels(tptr) }}) as data
+        WITH vv, position, parameter, collect(DISTINCT {{
+            set_number: 0,
+            position: rel.position,
+            index: rel.index,
+            parameter_name: tp.name,
+            parameter_term: tpv,
+            parameter_uid: tptr.uid,
+            definition: td.uid,
+            template: tpvv.template_string,
+            labels: labels(tptr)
+        }}) as data
         OPTIONAL MATCH (vv)-[con_rel:HAS_CONJUNCTION]->(con:Conjunction)
         WHERE con_rel.position=position
         WITH position, parameter, data, coalesce(con.string, "") AS conjunction

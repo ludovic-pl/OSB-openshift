@@ -43,12 +43,12 @@ class Inconsistency:
         "codelists='{codelist_concept_ids}', packages={package_names}."
     )
 
-    def __init__(self, tagline: str, message: str, user_initials: str):
+    def __init__(self, tagline: str, message: str, author_id: str):
         self.date_time: str = datetime.datetime.now().astimezone().isoformat()
         self.tagline = tagline
         self.message = message
         self.comment = None
-        self.user_initials = user_initials
+        self.author_id = author_id
 
         self.affected_package = None
         self.affected_codelist = None

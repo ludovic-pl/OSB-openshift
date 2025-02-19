@@ -82,17 +82,16 @@
   >
     <StudyActivityForm @close="closeForm" @added="onStudyActivitiesUpdated" />
   </v-dialog>
-  <v-dialog v-model="showActivityEditForm" max-width="1000px">
+  <v-dialog v-model="showActivityEditForm" max-width="800px">
     <StudyActivityEditForm
       :study-activity="selectedStudyActivity"
       @close="closeEditForm"
       @updated="onStudyActivitiesUpdated"
     />
   </v-dialog>
-  <v-dialog v-model="showDraftedActivityEditForm" max-width="1000px">
+  <v-dialog v-model="showDraftedActivityEditForm" max-width="800px">
     <StudyDraftedActivityEditForm
       :study-activity="selectedStudyActivity"
-      class="fullscreen-dialog"
       @close="closeEditForm"
       @updated="onStudyActivitiesUpdated"
     />
@@ -188,6 +187,14 @@ export default {
           accessRole: this.$roles.STUDY_WRITE,
         },
         {
+          label: this.$t('StudyActivityTable.update_activity_version'),
+          icon: 'mdi-update',
+          condition: (item) =>
+            item.latest_activity && !item.latest_activity.is_request_rejected,
+          click: this.updateToLatest,
+          accessRole: this.$roles.STUDY_WRITE,
+        },
+        {
           label: this.$t('_global.edit'),
           icon: 'mdi-pencil-outline',
           iconColor: 'primary',
@@ -218,7 +225,7 @@ export default {
           accessRole: this.$roles.STUDY_WRITE,
         },
         {
-          label: this.$t('_global.delete'),
+          label: this.$t('StudyActivityTable.remove_activity'),
           icon: 'mdi-delete-outline',
           iconColor: 'error',
           condition: () => !this.selectedStudyVersion,
@@ -246,7 +253,7 @@ export default {
         { title: this.$t('_global.library'), key: 'activity.library_name' },
         {
           title: this.$t('StudyActivity.flowchart_group'),
-          key: 'study_soa_group.soa_group_name',
+          key: 'study_soa_group.soa_group_term_name',
         },
         {
           title: this.$t('StudyActivity.activity_group'),
@@ -264,7 +271,7 @@ export default {
           key: 'activity.is_data_collected',
         },
         { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
       ],
       studyActivities: [],
       total: 0,
@@ -333,10 +340,20 @@ export default {
       }
       return result
     },
+    updateToLatest(item) {
+      study.updateToLatestActivityVersion(this.selectedStudy.uid, item.study_activity_uid)
+        .then(() => {
+          this.eventBusEmit('notification', {
+            type: 'success',
+            msg: this.$t('StudyActivityTable.update_success'),
+          })
+          this.$refs.table.filterTable()
+        })
+    },
     actionsMenuBadge(item) {
       if (
         item.activity.replaced_by_activity ||
-        (item.latest_activity && item.latest_activity.is_request_rejected)
+        (item.latest_activity)
       ) {
         return {
           color: 'error',

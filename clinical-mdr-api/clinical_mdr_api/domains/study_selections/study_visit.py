@@ -4,12 +4,12 @@ from enum import Enum
 from math import ceil, floor
 from typing import Any, Callable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import GLOBAL_ANCHOR_VISIT_NAME
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term_name import CTTermName
+from common import exceptions
+from common.config import GLOBAL_ANCHOR_VISIT_NAME
 
 VisitTypeNamedTuple = CTTermName
 StudyVisitType: dict[str, VisitTypeNamedTuple] = {}
@@ -86,7 +86,7 @@ class StudyVisitVO:
 
     status: StudyStatus
     start_date: datetime.datetime
-    author: str
+    author_id: str
 
     visit_class: VisitClass
     visit_subclass: VisitSubclass
@@ -167,7 +167,7 @@ class StudyVisitVO:
                 visit_prefix = "O"
             else:
                 raise exceptions.ValidationException(
-                    "Unrecognized visit contact mode passed."
+                    msg="Unrecognized visit contact mode passed."
                 )
             visit_short_name = f"{visit_prefix}{visit_number}"
 
@@ -399,13 +399,10 @@ class StudyVisitVO:
 
     def compare_cons_group_equality(
         self,
-        visit_study_activities: set,
         other_visit: "StudyVisitVO",
-        other_visit_study_activities: set,
     ) -> bool:
         return (
-            set(visit_study_activities) == set(other_visit_study_activities)
-            and self.visit_type == other_visit.visit_type
+            self.visit_type == other_visit.visit_type
             and self.epoch_uid == other_visit.epoch_uid
             and self.visit_contact_mode == other_visit.visit_contact_mode
             and self.timepoint.visit_timereference
@@ -413,17 +410,6 @@ class StudyVisitVO:
             and self.visit_window_min == other_visit.visit_window_min
             and self.visit_window_max == other_visit.visit_window_max
         )
-
-    def copy_cons_group_visit_properties(
-        self,
-        other_visit: "StudyVisitVO",
-    ):
-        self.visit_type = other_visit.visit_type
-        self.epoch_connector = other_visit.epoch
-        self.visit_contact_mode = other_visit.visit_contact_mode
-        self.timepoint.visit_timereference = other_visit.timepoint.visit_timereference
-        self.visit_window_min = other_visit.visit_window_min
-        self.visit_window_max = other_visit.visit_window_max
 
 
 @dataclass

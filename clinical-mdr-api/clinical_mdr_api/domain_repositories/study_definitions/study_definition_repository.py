@@ -4,7 +4,6 @@ from typing import Any, Sequence
 
 from neomodel.sync_.core import NodeMeta, db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.generic_repository import (
     RepositoryClosureData,  # type: ignore
 )
@@ -23,6 +22,7 @@ from clinical_mdr_api.models.study_selections.study import (
 )
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
+from common import exceptions
 
 
 class StudyDefinitionRepository(ABC):
@@ -52,7 +52,7 @@ class StudyDefinitionRepository(ABC):
         modifications and creation of study instances.
         """
 
-        user: str | None = None
+        author_id: str | None = None
 
     __retrieved_for_update: dict[str, StudyDefinitionAR]
     __audit_info: _RepositoryAuditInfo
@@ -67,10 +67,9 @@ class StudyDefinitionRepository(ABC):
         Protected method used internally by the repository implementation to raise an error in case of
         attempt repository after it's been closed.
         """
-        if self.__closed:
-            raise exceptions.BusinessLogicException(
-                "Cannot use repository after it's closed."
-            )
+        exceptions.BusinessLogicException.raise_if(
+            self.__closed, msg="Cannot use repository after it's closed."
+        )
 
     @property
     def audit_info(self) -> _RepositoryAuditInfo:
@@ -145,6 +144,7 @@ class StudyDefinitionRepository(ABC):
     def get_study_structure_overview(self):
         query = """
 MATCH (sr:StudyRoot)-[:LATEST]->(sv:StudyValue)
+WHERE sv.study_id_prefix IS NOT NULL AND sv.study_number IS NOT NULL
 CALL {
     WITH sv
     OPTIONAL MATCH (sv)-[:HAS_STUDY_ARM]->(arm:StudyArm)
@@ -177,7 +177,6 @@ CALL {
         } as counts
 }
 RETURN
-    sr.uid,
     sv.study_id_prefix + "-" + sv.study_number AS study_id,
     counts
 """
@@ -295,11 +294,11 @@ RETURN
             self._create(snapshot)
         elif repository_closure_data.repository is not self:
             raise exceptions.BusinessLogicException(
-                "Aggregate instances can be save only by repository which has retrieved the instance."
+                msg="Aggregate instances can be save only by repository which has retrieved the instance."
             )
         elif repository_closure_data.not_for_update:
             raise exceptions.BusinessLogicException(
-                "Only aggregate instances retrieved for update can be saved."
+                msg="Only aggregate instances retrieved for update can be saved."
             )
         else:
             # this is the case of saving an instance which was retrieved for update from this repository
@@ -372,22 +371,22 @@ RETURN
         assert len(self.__retrieved_for_update) == 0
 
         # delegating the real work to abstract method
-        snapshots: GenericFilteringReturn[
-            StudyDefinitionSnapshot
-        ] = self._retrieve_all_snapshots(
-            has_study_footnote=has_study_footnote,
-            has_study_objective=has_study_objective,
-            has_study_endpoint=has_study_endpoint,
-            has_study_criteria=has_study_criteria,
-            has_study_activity=has_study_activity,
-            has_study_activity_instruction=has_study_activity_instruction,
-            sort_by=sort_by,
-            page_number=page_number,
-            page_size=page_size,
-            total_count=total_count,
-            filter_by=filter_by,
-            filter_operator=filter_operator,
-            deleted=deleted,
+        snapshots: GenericFilteringReturn[StudyDefinitionSnapshot] = (
+            self._retrieve_all_snapshots(
+                has_study_footnote=has_study_footnote,
+                has_study_objective=has_study_objective,
+                has_study_endpoint=has_study_endpoint,
+                has_study_criteria=has_study_criteria,
+                has_study_activity=has_study_activity,
+                has_study_activity_instruction=has_study_activity_instruction,
+                sort_by=sort_by,
+                page_number=page_number,
+                page_size=page_size,
+                total_count=total_count,
+                filter_by=filter_by,
+                filter_operator=filter_operator,
+                deleted=deleted,
+            )
         )
         # projecting results to StudyDefinitionAR instances
         studies: list[StudyDefinitionAR] = [
@@ -485,16 +484,16 @@ RETURN
 
         # Find all studies referencing given library item
         # Get snapshots through implementation
-        snapshots: GenericFilteringReturn[
-            StudyDefinitionSnapshot
-        ] = self._retrieve_all_snapshots(
-            page_number=page_number,
-            page_size=page_size,
-            sort_by=sort_by,
-            filter_by=filter_by,
-            filter_operator=filter_operator,
-            study_selection_object_node_id=uid,
-            study_selection_object_node_type=library_item_type,
+        snapshots: GenericFilteringReturn[StudyDefinitionSnapshot] = (
+            self._retrieve_all_snapshots(
+                page_number=page_number,
+                page_size=page_size,
+                sort_by=sort_by,
+                filter_by=filter_by,
+                filter_operator=filter_operator,
+                study_selection_object_node_id=uid,
+                study_selection_object_node_type=library_item_type,
+            )
         )
         # Project results to StudyDefinitionAR instances
         studies: list[StudyDefinitionAR] = [

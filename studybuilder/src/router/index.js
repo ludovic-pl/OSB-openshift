@@ -5,6 +5,7 @@ import { auth } from '@/plugins/auth'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useStudiesGeneralStore } from '@/stores/studies-general'
+import { useFeatureFlagsStore } from '@/stores/feature-flags'
 import roles from '@/constants/roles'
 import study from '@/api/study'
 
@@ -492,6 +493,24 @@ const routes = [
           authRequired: true,
         },
       },
+      {
+        path: 'overviews',
+        component: () => import('../components/layout/PassThrough.vue'),
+        meta: {
+          authRequired: true,
+        },
+        children: [
+          {
+            path: 'study_structures',
+            name: 'StudyStructureOverview',
+            component: () =>
+              import('../views/library/overviews/StudyStructure.vue'),
+            meta: {
+              authRequired: true,
+            },
+          },
+        ],
+      },
     ],
   },
   {
@@ -820,6 +839,15 @@ const routes = [
           authRequired: true,
         },
       },
+      {
+        path: ':study_id/ichm11',
+        name: 'IchM11',
+        component: () => import('../views/studies/IchM11Page.vue'),
+        meta: {
+          studyRequired: true,
+          authRequired: true,
+        },
+      },
       // {
       //   path: 'adam_specification',
       //   name: 'AdamSpecification',
@@ -878,6 +906,7 @@ const routes = [
         meta: {
           studyRequired: true,
           authRequired: true,
+          featureFlag: 'studies_view_listings_analysis_study_metadata_new',
         },
       },
       // {
@@ -947,15 +976,24 @@ const routes = [
     path: '/administration',
     name: 'Administration',
     component: () => import('../components/layout/PassThrough.vue'),
-    redirect: { name: 'SystemAnnouncements' },
+    redirect: { name: 'FeatureFlags' },
     children: [
+      {
+        path: 'featureflags',
+        name: 'FeatureFlags',
+        component: () => import('../views/administration/FeatureFlags.vue'),
+        meta: {
+          resetBreadcrumbs: true,
+          authRequired: true,
+          requiredPermission: roles.ADMIN_READ,
+        },
+      },
       {
         path: 'announcements',
         name: 'SystemAnnouncements',
         component: () =>
           import('../views/administration/SystemAnnouncements.vue'),
         meta: {
-          resetBreadcrumbs: true,
           authRequired: true,
           section: 'Administration',
           requiredPermission: roles.ADMIN_READ,
@@ -1040,6 +1078,16 @@ router.beforeEach(async (to, from, next) => {
   const $config = inject('$config')
   const studiesGeneralStore = useStudiesGeneralStore()
   const authStore = useAuthStore()
+  const featureFlagsStore = useFeatureFlagsStore()
+
+  await featureFlagsStore.fetchFeatureFlags()
+  if (
+    to.meta.featureFlag &&
+    featureFlagsStore.getFeatureFlag(to.meta.featureFlag) === false
+  ) {
+    next(false)
+    return
+  }
 
   if (to.params.study_id && to.params.study_id !== '*') {
     await saveStudyUid(to.params.study_id)

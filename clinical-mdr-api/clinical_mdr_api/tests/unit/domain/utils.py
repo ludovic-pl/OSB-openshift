@@ -1,13 +1,24 @@
 import random
 import uuid
 
+AUTHOR_ID = "unknown-user"
+AUTHOR_USERNAME = "unknown-user@example.com"
+
 
 def random_str() -> str:
     return str(uuid.uuid4())
 
 
+def random_bool() -> str:
+    return random.choice([True, False])
+
+
 def random_int(int_min: int = 0, int_max: int = 1000) -> int:
     return random.randint(int_min, int_max)
+
+
+def random_float() -> float:
+    return random.random()
 
 
 def random_opt_str(null_probability: float = 0.5) -> str | None:

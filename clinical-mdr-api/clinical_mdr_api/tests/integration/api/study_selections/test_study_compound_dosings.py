@@ -16,10 +16,10 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.concepts.compound import Compound
 from clinical_mdr_api.models.concepts.compound_alias import CompoundAlias
+from clinical_mdr_api.models.concepts.concept import NumericValueWithUnit
 from clinical_mdr_api.models.concepts.medicinal_product import MedicinalProduct
 from clinical_mdr_api.models.concepts.pharmaceutical_product import (
     PharmaceuticalProduct,
@@ -30,7 +30,6 @@ from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionElement,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -42,6 +41,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ study_compound2: StudySelectionCompound
 study_elements: Sequence[StudySelectionElement]
 pharmaceutical_product1: PharmaceuticalProduct
 medicinal_product1: MedicinalProduct
-dose_value: models.NumericValueWithUnit
+dose_value: NumericValueWithUnit
 
 initialize_ct_data_map = {
     "TypeOfTreatment": [("CTTerm_000001", "CTTerm_000001")],
@@ -77,7 +77,7 @@ STUDY_COMPOUND_DOSING_FIELDS_ALL = [
     "study_compound",
     "dose_value",
     "start_date",
-    "user_initials",
+    "author_username",
 ]
 
 STUDY_COMPOUND_DOSING_FIELDS_NOT_NULL = [
@@ -88,7 +88,6 @@ STUDY_COMPOUND_DOSING_FIELDS_NOT_NULL = [
     "study_compound_dosing_uid",
     "study_compound",
     "start_date",
-    "user_initials",
 ]
 
 
@@ -226,7 +225,6 @@ def test_data():
     ]
 
     yield
-    drop_db(db_name)
 
 
 def test_create_and_remove_study_compound_dosing_selection(api_client):
@@ -239,7 +237,7 @@ def test_create_and_remove_study_compound_dosing_selection(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Check fields included in the response
     TestUtils.assert_response_shape_ok(
@@ -249,18 +247,18 @@ def test_create_and_remove_study_compound_dosing_selection(api_client):
     response = api_client.get(BASE_URL)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 1
 
     # Delete the created study compound
     response = api_client.delete(
         f"{BASE_URL}/{res['items'][0]['study_compound_dosing_uid']}"
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the study compound has been deleted
     response = api_client.get(BASE_URL)
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(response.json()["items"]) == 0
 
 
@@ -274,14 +272,14 @@ def test_compound_dosing_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all compounds
     response = api_client.get(
         f"/studies/{study.uid}/study-compound-dosings/audit-trail/"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     study_compound_dosing_uid = res[0]["study_compound_dosing_uid"]
 
@@ -290,14 +288,14 @@ def test_compound_dosing_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
 
     # add another compound dosing
@@ -309,9 +307,9 @@ def test_compound_dosing_modify_actions_on_locked_study(api_client):
             "dose_value_uid": dose_value.uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # edit compound dosing
     response = api_client.patch(
@@ -322,16 +320,16 @@ def test_compound_dosing_modify_actions_on_locked_study(api_client):
             "dose_value_uid": dose_value.uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-compound-dosings/audit-trail/"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     for i, _ in enumerate(old_res):
         old_res[i]["study_compound"]["study_version"] = mock.ANY
         old_res[i]["study_element"]["study_version"] = mock.ANY
@@ -341,23 +339,20 @@ def test_compound_dosing_modify_actions_on_locked_study(api_client):
     response = api_client.delete(
         f"/studies/{study.uid}/study-compound-dosings/{study_compound_dosing_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_get_compound_doings_data_for_specific_study_version(api_client):
     # get compound data for first lock
     response = api_client.get(f"/studies/{study.uid}/study-compound-dosings/")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_old = res
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study compound connected
     response = api_client.patch(
@@ -365,7 +360,7 @@ def test_get_compound_doings_data_for_specific_study_version(api_client):
         json={"other_info": "some info, updated"},
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study element connected
     response = api_client.patch(
@@ -375,7 +370,7 @@ def test_get_compound_doings_data_for_specific_study_version(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # add another compound dosing
     response = api_client.post(
@@ -387,7 +382,7 @@ def test_get_compound_doings_data_for_specific_study_version(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # check the study compound dosings for version 1 is same as first locked
     res_new = api_client.get(

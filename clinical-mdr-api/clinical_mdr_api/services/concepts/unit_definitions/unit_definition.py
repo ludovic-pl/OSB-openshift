@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Callable, cast
+from typing import Annotated, Callable, cast
 
 from fastapi import Depends
 from neomodel import db
@@ -12,41 +12,40 @@ from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionModel,
     UnitDefinitionPatchInput,
     UnitDefinitionPostInput,
 )
 from clinical_mdr_api.models.utils import BaseModel, GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import is_library_editable, validate_is_dict
 from clinical_mdr_api.services.concepts.concept_generic_service import (
     ConceptGenericService,
 )
+from common.auth.user import user
+from common.exceptions import NotFoundException
 
-NOT_FOUND_EXCEPTION = "Resource not found."
+NOT_FOUND_EXCEPTION = "Unit Definition"
 
 
 def _get_meta_repository() -> MetaRepository:
-    return MetaRepository(user=user().id())
+    return MetaRepository(author_id=user().id())
 
 
 class UnitDefinitionService:
     _repos: MetaRepository
-    _user_id: str
+    _author_id: str
 
     def __init__(
         self,
         *,
-        meta_repository: MetaRepository = Depends(_get_meta_repository),
+        meta_repository: Annotated[MetaRepository, Depends(_get_meta_repository)],
     ):
         self._repos = meta_repository
-        self._user_id = user().id()
+        self._author_id = user().id()
 
     @db.transaction
     def get_all(
@@ -99,7 +98,7 @@ class UnitDefinitionService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         header_values = self._repos.unit_definition_repository.get_distinct_headers(
             library=library_name,
@@ -107,7 +106,7 @@ class UnitDefinitionService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
             dimension=dimension,
             subset=subset,
         )
@@ -132,8 +131,9 @@ class UnitDefinitionService:
             for_update=False,
             at_specific_date=at_specified_datetime,
         )
-        if unit_definition_ar is None:
-            raise NotFoundException(NOT_FOUND_EXCEPTION)
+
+        NotFoundException.raise_if(unit_definition_ar is None, NOT_FOUND_EXCEPTION, uid)
+
         return UnitDefinitionModel.from_unit_definition_ar(
             unit_definition_ar,
             find_term_by_uid=self._repos.ct_term_name_repository.find_by_uid,
@@ -143,8 +143,9 @@ class UnitDefinitionService:
     @db.transaction
     def get_versions(self, uid: str) -> list[UnitDefinitionModel]:
         versions = self._repos.unit_definition_repository.get_all_versions_2(uid)
-        if not versions:
-            raise NotFoundException(NOT_FOUND_EXCEPTION)
+
+        NotFoundException.raise_if_not(versions, NOT_FOUND_EXCEPTION, uid)
+
         return [
             UnitDefinitionModel.from_unit_definition_ar(
                 unit_def_ar,
@@ -157,7 +158,7 @@ class UnitDefinitionService:
     @db.transaction
     def post(self, post_input: UnitDefinitionPostInput) -> UnitDefinitionModel:
         unit_definition_ar = UnitDefinitionAR.from_input_values(
-            author=self._user_id,
+            author_id=self._author_id,
             unit_definition_value=self._post_input_to_unit_definition_value_vo(
                 post_input
             ),
@@ -184,30 +185,27 @@ class UnitDefinitionService:
         unit_definition_ar = self._repos.unit_definition_repository.find_by_uid_2(
             uid, for_update=True
         )
-        if unit_definition_ar is None:
-            raise NotFoundException(NOT_FOUND_EXCEPTION)
-        try:
-            new_unit_dimension_value = (
-                self._patch_input_to_new_unit_definition_value_vo(
-                    patch_input=patch_input, current=unit_definition_ar
-                )
-            )
-            unit_definition_ar.edit_draft(
-                author=self._user_id,
-                change_description=patch_input.change_description,
-                new_unit_definition_value=new_unit_dimension_value,
-                concept_exists_by_callback=(
-                    self._repos.unit_definition_repository.exists_by
-                ),
-                master_unit_exists_for_dimension_predicate=(
-                    self._repos.unit_definition_repository.master_unit_exists_by_unit_dimension
-                ),
-                unit_definition_exists_by_legacy_code=(
-                    self._repos.unit_definition_repository.exists_by_legacy_code
-                ),
-            )
-        except VersioningException as err:
-            raise BusinessLogicException(err.msg) from err
+
+        NotFoundException.raise_if(unit_definition_ar is None, NOT_FOUND_EXCEPTION, uid)
+
+        new_unit_dimension_value = self._patch_input_to_new_unit_definition_value_vo(
+            patch_input=patch_input, current=unit_definition_ar
+        )
+        unit_definition_ar.edit_draft(
+            author_id=self._author_id,
+            change_description=patch_input.change_description,
+            new_unit_definition_value=new_unit_dimension_value,
+            concept_exists_by_callback=(
+                self._repos.unit_definition_repository.exists_by
+            ),
+            master_unit_exists_for_dimension_predicate=(
+                self._repos.unit_definition_repository.master_unit_exists_by_unit_dimension
+            ),
+            unit_definition_exists_by_legacy_code=(
+                self._repos.unit_definition_repository.exists_by_legacy_code
+            ),
+        )
+
         self._repos.unit_definition_repository.save(unit_definition_ar)
 
         return UnitDefinitionModel.from_unit_definition_ar(
@@ -221,36 +219,36 @@ class UnitDefinitionService:
         unit_definition_ar = self._repos.unit_definition_repository.find_by_uid_2(
             uid, for_update=True
         )
-        if unit_definition_ar is None:
-            raise NotFoundException(NOT_FOUND_EXCEPTION)
-        try:
-            unit_definition_ar.soft_delete()
-        except VersioningException as err:
-            raise BusinessLogicException(err.msg) from err
+
+        NotFoundException.raise_if(unit_definition_ar is None, NOT_FOUND_EXCEPTION, uid)
+
+        unit_definition_ar.soft_delete()
+
         self._repos.unit_definition_repository.save(unit_definition_ar)
 
     @db.transaction
     def approve(self, uid: str) -> UnitDefinitionModel:
         return self._workflow_action(
-            uid, lambda ar: cast(UnitDefinitionAR, ar).approve(self._user_id)
+            uid, lambda ar: cast(UnitDefinitionAR, ar).approve(self._author_id)
         )
 
     @db.transaction
     def inactivate(self, uid: str) -> UnitDefinitionModel:
         return self._workflow_action(
-            uid, lambda ar: cast(UnitDefinitionAR, ar).inactivate(self._user_id)
+            uid, lambda ar: cast(UnitDefinitionAR, ar).inactivate(self._author_id)
         )
 
     @db.transaction
     def reactivate(self, uid: str) -> UnitDefinitionModel:
         return self._workflow_action(
-            uid, lambda ar: cast(UnitDefinitionAR, ar).reactivate(self._user_id)
+            uid, lambda ar: cast(UnitDefinitionAR, ar).reactivate(self._author_id)
         )
 
     @db.transaction
     def new_version(self, uid: str) -> UnitDefinitionModel:
         return self._workflow_action(
-            uid, lambda ar: cast(UnitDefinitionAR, ar).create_new_version(self._user_id)
+            uid,
+            lambda ar: cast(UnitDefinitionAR, ar).create_new_version(self._author_id),
         )
 
     def _workflow_action(
@@ -259,12 +257,10 @@ class UnitDefinitionService:
         unit_definition_ar = self._repos.unit_definition_repository.find_by_uid_2(
             uid, for_update=True
         )
-        if unit_definition_ar is None:
-            raise NotFoundException(NOT_FOUND_EXCEPTION)
-        try:
-            workflow_ar_method(unit_definition_ar)
-        except VersioningException as err:
-            raise BusinessLogicException(err.msg) from err
+
+        NotFoundException.raise_if(unit_definition_ar is None, NOT_FOUND_EXCEPTION, uid)
+
+        workflow_ar_method(unit_definition_ar)
         self._repos.unit_definition_repository.save(unit_definition_ar)
         return UnitDefinitionModel.from_unit_definition_ar(
             unit_definition_ar,
@@ -285,8 +281,9 @@ class UnitDefinitionService:
             display_unit=post_input.display_unit,
             convertible_unit=post_input.convertible_unit,
             us_conventional_unit=post_input.us_conventional_unit,
+            use_complex_unit_conversion=post_input.use_complex_unit_conversion,
             legacy_code=post_input.legacy_code,
-            molecular_weight_conv_expon=post_input.molecular_weight_conv_expon,
+            use_molecular_weight=post_input.use_molecular_weight,
             conversion_factor_to_master=post_input.conversion_factor_to_master,
             unit_ct_uid_exists_callback=self._repos.ct_term_name_repository.term_exists,
             master_unit=post_input.master_unit,
@@ -346,9 +343,10 @@ class UnitDefinitionService:
             master_unit=patch_input.master_unit,
             si_unit=patch_input.si_unit,
             us_conventional_unit=patch_input.us_conventional_unit,
+            use_complex_unit_conversion=patch_input.use_complex_unit_conversion,
             unit_dimension_uid=patch_input.unit_dimension,
             legacy_code=patch_input.legacy_code,
-            molecular_weight_conv_expon=patch_input.molecular_weight_conv_expon,
+            use_molecular_weight=patch_input.use_molecular_weight,
             conversion_factor_to_master=patch_input.conversion_factor_to_master,
             comment=patch_input.comment,
             order=patch_input.order,

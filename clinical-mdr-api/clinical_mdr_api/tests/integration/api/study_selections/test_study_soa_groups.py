@@ -25,7 +25,6 @@ from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
 from clinical_mdr_api.models.controlled_terminologies import ct_term
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -37,6 +36,7 @@ from clinical_mdr_api.tests.integration.utils.factory_controlled_terminology imp
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -129,11 +129,11 @@ def test_data():
     )
 
     yield
-    drop_db(db_name)
 
 
 def test_post_and_get_all_study_soa_groups(api_client):
     study_soa_group_into_study_activity_group_mapping: dict[str, list] = {}
+    study_soa_group_into_soa_group_term_group_mapping: dict[str, list] = {}
     for i in range(20):
         soa_group_term_uid = f"SoAGroup uid{i}"
         db.cypher_query(
@@ -156,7 +156,7 @@ def test_post_and_get_all_study_soa_groups(api_client):
                 "soa_group_term_uid": soa_group_term_uid,
             },
         )
-        assert response.status_code == 201
+        assert_response_status_code(response, 201)
         res = response.json()
         assert res["activity"]["uid"] == randomized_activity.uid
         assert (
@@ -172,6 +172,11 @@ def test_post_and_get_all_study_soa_groups(api_client):
         study_activity_group_uid = res["study_activity_group"][
             "study_activity_group_uid"
         ]
+
+        # Save SoAGroup CTTerm for specific StudySoAGroup
+        study_soa_group_into_soa_group_term_group_mapping[study_soa_group_uid] = (
+            soa_group_term_uid
+        )
         # Find child StudyActivityGroups for given StudySoAGroup
         study_soa_group_into_study_activity_group_mapping.setdefault(
             study_soa_group_uid, []
@@ -180,10 +185,16 @@ def test_post_and_get_all_study_soa_groups(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-groups", params={"page_size": 0}
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     study_soa_groups = response.json()["items"]
     assert len(study_soa_groups) == 20
     for study_soa_group in study_soa_groups:
+        assert (
+            study_soa_group["soa_group_term_uid"]
+            == study_soa_group_into_soa_group_term_group_mapping[
+                study_soa_group["study_soa_group_uid"]
+            ]
+        )
         # Check if StudySoAGroup returns correct StudyActivityGroups
         assert sorted(study_soa_group["study_activity_group_uids"]) == sorted(
             study_soa_group_into_study_activity_group_mapping[
@@ -214,7 +225,7 @@ def test_modify_visibility_flag_in_protocol_flowchart(
             "soa_group_term_uid": "term_efficacy_uid",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     study_activity_uid = res["study_activity_uid"]
     study_soa_group_uid = res["study_soa_group"]["study_soa_group_uid"]
@@ -229,7 +240,7 @@ def test_modify_visibility_flag_in_protocol_flowchart(
             "show_activity_in_protocol_flowchart": True,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["show_activity_in_protocol_flowchart"] is True
 
@@ -239,14 +250,14 @@ def test_modify_visibility_flag_in_protocol_flowchart(
             "show_soa_group_in_protocol_flowchart": True,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["show_soa_group_in_protocol_flowchart"] is True
 
     response = api_client.get(
         f"/studies/{study.uid}/study-activities/{study_activity_uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["show_activity_in_protocol_flowchart"] is True
     assert res["show_activity_subgroup_in_protocol_flowchart"] is True

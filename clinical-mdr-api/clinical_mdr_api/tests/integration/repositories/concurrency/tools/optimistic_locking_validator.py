@@ -71,7 +71,7 @@ class OptimisticLockingValidator:
             # Start the second thread with the concurrent operation.
             concurrent_thread.start()
 
-            # Validate that the thread does not finish within a set time (e.g. the locks are still taken)
+            # Validate that the thread doesn't finish within a set time (e.g. the locks are still taken)
             concurrent_thread.join(timeout=self.thread_timeout)
             if not concurrent_thread.is_alive():
                 raise AssertionError(

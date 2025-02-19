@@ -66,16 +66,6 @@
           )
         }}
       </template>
-      <template #[`item.actions`]="{ item }">
-        <v-row>
-          <ActionsMenu
-            v-if="!readOnly"
-            :actions="actions"
-            :item="item"
-            :badge="actionsMenuBadge(item)"
-          />
-        </v-row>
-      </template>
     </NNTable>
     <StudyForm
       :open="showForm"
@@ -86,7 +76,6 @@
 </template>
 
 <script>
-import ActionsMenu from '@/components/tools/ActionsMenu.vue'
 import NNTable from '@/components/tools/NNTable.vue'
 import StudyForm from '@/components/studies/StudyForm.vue'
 import { useAccessGuard } from '@/composables/accessGuard'
@@ -94,7 +83,6 @@ import { useStudiesGeneralStore } from '@/stores/studies-general'
 import { useStudiesManageStore } from '@/stores/studies-manage'
 export default {
   components: {
-    ActionsMenu,
     NNTable,
     StudyForm,
   },
@@ -118,37 +106,7 @@ export default {
   },
   data() {
     return {
-      actions: [
-        {
-          label: this.$t('StudyTable.select'),
-          icon: 'mdi-check-circle-outline',
-          iconColor: 'primary',
-          condition: (item) =>
-            !this.studiesGeneralStore.selectedStudy ||
-            this.studiesGeneralStore.selectedStudy.uid !== item.uid,
-          click: this.selectStudy,
-        },
-        {
-          label: this.$t('StudyTable.unselect'),
-          icon: 'mdi-check-circle',
-          iconColor: 'green',
-          condition: (item) =>
-            this.studiesGeneralStore.selectedStudy &&
-            this.studiesGeneralStore.selectedStudy.uid === item.uid,
-          click: this.unSelectStudy,
-        },
-        {
-          label: this.$t('_global.edit'),
-          icon: 'mdi-pencil-outline',
-          iconColor: 'primary',
-          condition: (item) =>
-            item.current_metadata.version_metadata.study_status === 'DRAFT',
-          click: this.editStudy,
-          accessRole: this.$roles.STUDY_WRITE,
-        },
-      ],
       headers: [
-        { title: '', key: 'actions', width: '1%' },
         {
           title: this.$t('StudyTable.clinical_programme'),
           key: 'current_metadata.identification_metadata.clinical_programme_name',
@@ -218,34 +176,11 @@ export default {
     },
   },
   methods: {
-    actionsMenuBadge(item) {
-      if (
-        this.studiesGeneralStore.selectedStudy &&
-        this.studiesGeneralStore.selectedStudy.uid === item.uid
-      ) {
-        return {
-          color: 'green',
-          icon: 'mdi-check-circle',
-        }
-      }
-      return undefined
-    },
     closeForm() {
       this.showForm = false
       this.activeStudy = null
       this.$refs.table.filterTable()
       this.$emit('refreshStudies')
-    },
-    selectStudy(study) {
-      this.studiesGeneralStore.selectStudy(study, true)
-    },
-    unSelectStudy() {
-      this.studiesGeneralStore.unselectStudy()
-      window.location.reload()
-    },
-    editStudy(study) {
-      this.activeStudy = study
-      this.showForm = true
     },
     getBrandName(study) {
       const project = this.studiesManageStore.getProjectByNumber(

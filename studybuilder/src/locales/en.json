@@ -644,6 +644,9 @@
         "SdtmSpecificationTable": {
             "general": "Help text to be added."
         },
+        "StudyActivityTable": {
+            "general": "You can choose from 3 different options:<br><b> Select from studies: </b> Selection of activities from existing studies.<br><b>Select from library: </b>Selection of activities from the library<br><b>Create a placeholder for new activity Request: </b> If your activity is not available within the library you can create a placeholder for your missing activity and request it later."
+        },
         "CTDashboard": {
             "general": "The dashboard provides an overview of the activities (Added/Updated/Deleted) performed on code lists and their terms. The latests code lists being added is listed in the bottom table."
         },
@@ -782,7 +785,8 @@
             "general": "A 'Study Activity' is an assessment or procedure performed on a subject in a clinical study. The menu option 'Study Activities' is where you administer/select the activities needed for your study and the group them, you assign them to relevant visits, and specify how it should be in the protocol view of the Schedule of Activity (SoA). You can also attach footnotes to the SoA, control the SoA header row and preview different detail levels of the SoA.",
             "settings": "The 'Settings' option allow you to control the time unit (days/weeks) for the SoA and whether or not you need baseline visit (eg. randomisation) shown as time 0",
             "study_activities": "The activities can be selected from the library, from other studies or activity placeholders can be created for requesting new activities.",
-            "detailed_soa": "'Detailed SoA' is detailed level of the SoA, where you define at what visit an activity is needed. By default the activity is listed under activities with now allocation to visits. You then mark the visits the activity is applicable for (by clicking on the circle under the relevant visit). Thereafter, you decide what should be visible in the SoA for the protocol by clicking on the small eye icon (hide/unhide).",
+            "detailed_soa": "The Detailed SoA is where you define at what visit(s) an activity is needed. The SoA has four levels: </br> 1) SoA group </br> 2) Activity group </br> 3) Activity subgroup </br> 4) Activity </br> Click the circle to select or unselect that an activity should be done at that visit. Click the eye icon to toggle the visibility of an activity level in the Protocol SoA. If an activity level is hidden, the timings ticked will 'inherit up' a level, so you can hide the Activity and Activity subgroup level to just include the Activity group in the Protocol SoA (for example you might want to hide e.g. 'Height' and 'Weight' and just include 'Body measurements' in the Protocol SoA).",
+            "detailed_soa_actions": "Use the ellipsis (three dots) to the left of an activity to access these: </br><b> Edit Activity: </b> Adjust details in an activity. </br><b> Add Activity: </b>Add an activity above the selected activity (you can change the order of activities from the 'Study Activities' tab). </br><b> Exchange Activity: </b> Replace an activity with a new activity while keeping visits and footnotes in the detailed SoA. </br><b> Remove Activity: </b> Remove the activity, any visits and references to footnotes that have been added to this activity. A removed activity can be added again under the ‘Study Activities’ tab. Footnotes will not be removed, so can be linked to again.",
             "study_footnotes": "Select or create footnotes to be used in the  protocol SoA. Footnotes can be selected from library, other studies or created from scratch. The footnotes will automatically be ordered by occurrence in the SoA.",
             "protocol_soa": "The Protocol SoA is a preview of the settings/selections in the 'Detailed SoA' section. The view is what will be pulled into the protocol template via the Word add-in. You can also preview the SoA at the detailed and data specification operational level.",
             "instructions": "NOTE: This functionality is not in use yet. When in use, it will link selected activities from the SoA to the applicable instruction text for section 8 of the protocol 'Study assessments and procedures'"
@@ -807,7 +811,8 @@
             "general": "To add an instruction to the activities selected, then add from a study, from a template or from scratch"
         },
         "StudyActivityEditForm": {
-            "general": "Edit the study activity selected. To edit more than one activity, go back to the List of Study Activities, slide 'Select Rows' and select the relevant activities. The press the blue edit icon above the table (to the right)",
+            "general": "Adjust details in a specific activity here.<br>It is only possible to change to another value if this is already defined in the library (e.g. HbA1c is allowed in both Efficacy and Safety).",
+            "drafted_general": "Adjust details in a specific placeholder activity here.<br>It is only possible to change the content if the placeholder has not been submitted for approval.",
             "flowchart_group": "Select the SoA group the activity/activities should be assigned to"
         },
         "StudyStatus": {
@@ -866,6 +871,9 @@
             "therapeutic_areas": "A categorization of a disease, disorder, or other condition based on common characteristics and often associated with a medical specialty focusing on research and development of specific therapeutic interventions for the purpose of treatment and prevention.",
             "trial_blinding_schema": "The type of experimental design used to describe the level of awareness of the study subjects and/ or study personnel as it relates to the respective intervention(s) or assessments being observed, received or administered. See [<a href='/library/ct_catalogues/All/C66735/terms'>C66735-CDISC SDTM Trial Blinding Schema Terminology</a>]",
             "target_study_population": "The population within the general population to which the study results can be generalized."
+        },
+        "StudyStructuresOverview": {
+            "general": "The Study Structures page is intended to assist Standards Developers by offering an overview of how existing trials have been defined. It allows users to view the study structures they can replicate, identify trends, and spot any deviations. The Study Structures page aims to increase consistency when setting up new trials. Note that studies that share the same structure are grouped together and listed in the table under the same row. The columns display numeric values indicating the number of arms/epochs/elements in the trial or Y/N to indicate if cohorts are part of the trial design."
         }
     },
     "Topbar": {
@@ -875,6 +883,7 @@
         "documentation_portal": "Technical documentation",
         "user_guide": "User guides",
         "about": "About",
+        "need_help": "Need Help?",
         "enable_dark_theme": "Enable dark theme",
         "enable_light_theme": "Enable light theme",
         "settings": "Settings",
@@ -897,7 +906,8 @@
         "process_overview_description": "Find schematic overviews of the activities covered under the Library. You can use these to navigate to the relevant pages to enter or look up information.",
         "projects": "View or create projects.",
         "clinical_programmes": "View or create clinical programmes.",
-        "administrative_definitions": "View or create administrative definitions."
+        "administrative_definitions": "View or create administrative definitions.",
+        "overview_pages_description": ""
     },
     "Studies": {
         "description_top_before": "Under ",
@@ -956,7 +966,7 @@
             "sponsor_ct_packages": "Sponsor CT Packages",
             "concepts": "Concepts",
             "activities": "Activities",
-            "activities_instances": "Activities Instances",
+            "activities_instances": "Activity Instances",
             "units": "Units",
             "crfs": "CRFs",
             "compounds": "Compounds",
@@ -1008,7 +1018,9 @@
             "process_overview": "Process Overview",
             "clinical_programmes": "Clinical Programmes",
             "projects": "Projects",
-            "administrative_definitions": "Admin Definitions"
+            "administrative_definitions": "Admin Definitions",
+            "overview_pages": "Overview Pages",
+            "study_structures": "Study Structures"
         },
         "study": {
             "about": "About Studies",
@@ -1103,14 +1115,16 @@
             "study_branches": "Study Branches",
             "disease_milestones": "Disease Milestones",
             "data_specifications": "Data Specifications",
-            "usdm": "USDM"
+            "usdm": "USDM",
+            "ichm11": "ICH M11"
         },
         "admin": {
-            "announcements": "System annoucement"
+            "announcements": "System annoucement",
+            "feature_flags": "Feature flags"
         }
     },
     "HomeView": {
-        "title": "Welcome to the StudyBuilder application",
+        "title": "Welcome to the StudyBuilder {env} application",
         "subtitle": "Study Specification made easy",
         "design": "Build",
         "design_text1": "your study in a",
@@ -1947,13 +1961,15 @@
         "sdtm_category": "SDTM category",
         "sdtm_sub_category": "SDTM sub category",
         "group_or_subgroup": "Group/subgroup/activity",
-        "instances": "Activities Instances",
+        "instances": "Activity Instances",
         "instance": "Activity Instance",
         "activities_overview": "Activities by Grouping",
         "type": "Activity instance class",
         "requested": "Requested Activities",
         "activity_groups": "Activity Groups",
         "activity_subgroups": "Activity Subgroups",
+        "is_research_lab": "Research Lab",
+        "molecular_weight": "Molecular Weight",
         "is_data_collected": "Data collection",
         "is_used_by_legacy_instances": "Legacy usage",
         "is_required_for_activity": "Required for activity",
@@ -1961,6 +1977,8 @@
         "is_data_sharing": "Data sharing",
         "is_legacy_usage": "Legacy usage",
         "nci_concept_id": "NCI Concept ID",
+        "nci_concept_name": "NCI Concept Name",
+        "synonyms": "Synonyms",
         "show_only_handled": "Show only handled requests",
         "study_id": "Study ID"
     },
@@ -2042,6 +2060,8 @@
         "addAdditionalData": "Add additional data",
         "abbreviation": "Abbreviation",
         "activity_groupings": "Activity groupings",
+        "is_research_lab": "Research Lab",
+        "molecular_weight": "Molecular Weight",
         "is_data_collected": "Data collection",
         "is_required_for_activity": "Required for activity",
         "is_default_selected_for_activity": "Default selected for activity",
@@ -2052,9 +2072,13 @@
         "name_sentence_case": "Sentence case name",
         "select_class": "Select class",
         "nci_concept_id": "NCI Concept ID",
+        "nci_concept_name": "NCI Concept Name",
+        "synonyms": "Synonyms",
         "add_activity_request": "Add activity request",
         "edit_activity_request": "Edit activity request",
-        "submit_request": "Submit request"
+        "submit_request": "Submit request",
+        "similar_activity_alert": "It looks like an Activity with a similar name already exist. Please do not request Activities that already exists, but instead select the existing activity below.",
+        "similar_activity_title": "Existing activities with similar name"
     },
     "StudyTitleView": {
         "title": "Study Title",
@@ -2119,6 +2143,8 @@
     "StudyStatusForm": {
         "release_title": "Release study",
         "lock_title": "Lock study",
+        "release_description": "Release description",
+        "lock_description": "Lock description",
         "lock_success": "Study has been locked",
         "release_success": "Study has been released"
     },
@@ -2341,12 +2367,14 @@
         "us_conventional_unit": "US conventional unit",
         "unit_dimension": "Unit dimension",
         "legacy_code": "Legacy code",
-        "molecular_weight": "Molecular weight",
+        "molecular_weight": "Use molecular weight",
         "conversion_factor": "Conversion factor to master",
         "ucum_unit": "UCUM unit",
         "unit_subsets": "Unit subsets",
         "ct_units": "CT Unit terms",
-        "mandatory": "Mandatory"
+        "mandatory": "Mandatory",
+        "history_title": "History for unit [{name}]",
+        "complex_conversion": "Use complex unit conversion"
     },
     "UnitForm": {
         "add_title": "Add unit",
@@ -2361,9 +2389,10 @@
         "legacy_code": "Legacy code",
         "add_success": "Unit added",
         "update_success": "Unit updated",
-        "molecular_weight": "Molecular weight",
+        "molecular_weight": "Use molecular weight",
         "conversion_factor": "Conversion factor to master",
-        "reason_for_change": "Reason for change"
+        "reason_for_change": "Reason for change",
+        "complex_conversion": "Use complex unit conversion"
     },
     "UCUMUnitField": {
         "label": "UCUM unit"
@@ -2773,7 +2802,7 @@
         "timing": "Visit type, timing and name",
         "if_applicable": "If applicable",
         "single_visit": "Single visit",
-        "single_anchor_addtional": "Visit subclass: Single visit/Anchor visit in visit group/Additional sub-visit/Repeating visit", 
+        "single_anchor_addtional": "Visit subclass: Single visit/Anchor visit in visit group/Additional sub-visit/Repeating visit",
         "anchor_visit_in_group": "Anchor visit in visit group",
         "repeating_visit": "Repeating visit",
         "repeating_frequency": "Repeating frequency",
@@ -2806,7 +2835,8 @@
         "names_and_timing": "Names and timing",
         "no_visit_available": "No visit in this epoch",
         "manually_defined_visit": "Manually defined visit",
-        "visit_number_uniqueness_warning": "Enter unique visit names and visit numbers. Ensure that the newly created manually defined visit is placed in the correct chronological order, reflecting the defined visit names and numbers."
+        "visit_number_uniqueness_warning": "Enter unique visit names and visit numbers. Ensure that the newly created manually defined visit is placed in the correct chronological order, reflecting the defined visit names and numbers.",
+        "visit_window_alert": "Visit window unit selected for first visit in a Study will be preselected for each subsequent visit."
     },
     "StudyVisitDuplicate": {
         "time_value": "Timing",
@@ -2951,7 +2981,7 @@
         "disease_milestone_rep_ind": "Disease Milestone Repetition Indicator"
     },
     "UsdmPage": {
-        "title": "USDM version of the Protocol",
+        "title": "USDM version of the Protocol / USDM version: {version}",
         "general": "General",
         "clinical_study_def": "Clinical study [C15206]",
         "official_protocol_title": "Official Protocol Title [C132346]",
@@ -2964,6 +2994,9 @@
         "therapeutic_areas": "Therapeutic Areas [C101302]",
         "trial_blinding_schema": "Trial Blinding Schema [C49658]",
         "target_study_population": "Target Study Population [C142728]"
+    },
+    "IchM11Page": {
+        "title": "ICH M11 version of the protocol"
     },
     "CtPackageCodelistHistoryView": {
         "title": "CT packages history for one code list"
@@ -3147,7 +3180,9 @@
         "rejected_activity_info_part_3": "Contact",
         "rejected_activity_info_part_4": " or your assigned Standards Developer for further details.   Click accept and remove the not-approved activity from the study.",
         "submitted": "Submitted",
-        "not_submitted": "Not Submitted"
+        "not_submitted": "Not Submitted",
+        "update_activity_version": "Update activity version",
+        "remove_activity": "Remove Activity"
     },
     "StudyActivity": {
         "study_activity": "Study activity",
@@ -3172,6 +3207,7 @@
         "settings": "Settings",
         "study_activities": "Study Activities",
         "detailed_soa": "Detailed SoA",
+        "detailed_soa_actions": "Detailed SoA: Edit, Add, Exchange or Remove an activity ",
         "study_footnotes": "Study Footnotes",
         "protocol_soa": "Protocol SoA"
     },
@@ -3191,6 +3227,7 @@
         "update_to_new_version": "Update Instance to new version",
         "instance_deleted": "Study Activity Instance deleted",
         "instance_updated": "Study Activity Instance updated",
+        "instance_created": "New Study Activity Instances created",
         "edit_add_instance": "Edit/Add Activity instance(s)",
         "activity_selected": "Activity Selected",
         "details": "Details",
@@ -3204,7 +3241,8 @@
         "no_action_needed": "No action needed",
         "notification": "Notification",
         "action_needed": "Action needed",
-        "na": "Not applicable"
+        "na": "Not applicable",
+        "multiple_select_info": "Selecting multiple instances will result in the creation of new Study Activity Instances."
     },
     "StudyActivityForm": {
         "add_title": "Add study activities",
@@ -3224,7 +3262,14 @@
         "copy_activity": "Copy activity",
         "copy_all_activities": "Copy all displayed activities",
         "create_placeholder": "Create Placeholder",
-        "select_activities_info": "You need to select Activities"
+        "select_activities_info": "You need to select Activities",
+        "is_data_collected": "Data collection",
+        "show_selected": "Show selected Activities",
+        "request_radio_title": "Request activity",
+        "request_radio_text": "Request and submit for approval",
+        "placeholder_radio_title": "Create a placeholder activity",
+        "placeholder_radio_text": "Create a placeholder activity without submitting for approval",
+        "soa_group_required_info": "Every selected Activity needs SoA Group"
     },
     "StudyActivityEditForm": {
         "title": "Edit study activity",
@@ -3250,19 +3295,21 @@
         "show_activity_selection": "Show activity in protocol SoA",
         "edit_activity_selection": "Edit current activity selection",
         "update_success": "Selection updated",
+        "batch_update_success": "{number} Study Activities has been updated.",
         "edit_from": "Edit from",
         "list_of_activity": "List of Activities",
         "study_activities": "Study Activities",
         "study_epochs": "Study Epochs",
         "study_visits": "Study Visits",
         "batch_edit_no_selection": "Select the items (rows) in scope for Batch Editing.",
+        "batch_remove_no_selection": "Select the items (rows) in scope for Batch Removing.",
         "show_flowchart_groups": "Show SoA groups",
         "edit_dialog_title": "Do you want to edit",
         "table_caption": "SoA table",
         "confirm_group_deletion": "Collapsible visit group {group} will be deleted",
         "soa_footnotes": "SoA footnotes",
         "activity_instructions": "Activity Instructions",
-        "batch_edit_warning": "Batch-editing will overwrite existing choices. Only activities expected to have same schedule should be batch-edited together. Do you want to continue?",
+        "batch_edit_warning": "Batch editing will overwrite existing choices. Only activities expected to have same schedule should be batch-edited together.",
         "history_object_type": "Object type",
         "history_title": "Detailed SoA history for study [{study}]",
         "detailed": "Detailed",
@@ -3270,7 +3317,16 @@
         "operational": "Operational",
         "remove_activity": "Remove Activity",
         "remove_activity_msg": "Do you want to remove Activity?",
-        "remove_activity_success": "Study activity removed"
+        "remove_multiple_activities_msg": "Are you sure you want to remove {activities} activities from the study?",
+        "remove_success": "{activities} Study Activities has been removed.",
+        "remove_activity_success": "Study activity removed",
+        "edit_activity": "Edit Activity",
+        "exchange_activity": "Exchange Activity",
+        "exchange_study_activity": "Exchange Study Activity",
+        "exchange_success": "Study Activity Exchanged",
+        "add_activity": "Add activity",
+        "bulk_edit": "Bulk Edit Activities",
+        "bulk_remove": "Bulk Remove Activities"
     },
     "StudyActivityInstructionTable": {
         "activities": "Activities",
@@ -3297,7 +3353,7 @@
     "StudyActivityBatchEditForm": {
         "title": "Batch edit study activities",
         "note": "Note: The entire row of existing selections will be overwritten with the selection(s) done here",
-        "items_selected": "Items selected:",
+        "items_selected": "Items selected ({number}):",
         "show_items": "Show items:",
         "update_success": "Selection updated",
         "delete_selection": "Delete selected items from list of study activities"
@@ -3494,6 +3550,7 @@
         "alias_created": "Alias created",
         "form_created": "Form created",
         "form_updated": "Form updated",
+        "description_change_description": "Updated by ODM Form",
         "eng": "ENG",
         "change_desc": "Change Description",
         "displayed_text": "Displayed text",
@@ -3540,6 +3597,7 @@
         "description_details": "Translations",
         "group_created": "Item Group created",
         "group_updated": "Item Group updated",
+        "description_change_description": "Updated by ODM Item Group",
         "alias_created": "Alias created",
         "displayed_text": "Displayed text",
         "help_for_site": "Help for site",
@@ -3575,6 +3633,7 @@
         "alias_created": "Alias created",
         "item_created": "Item created",
         "item_updated": "Item updated",
+        "description_change_description": "Updated by ODM Item",
         "add_title": "Add CRF Item",
         "crf_item": "CRF Item",
         "unit_name": "Unit Name",
@@ -3853,6 +3912,10 @@
         "reactivate_activity-groups_success": "Activity group reactivated",
         "delete_activity-groups_success": "Activity group deleted",
         "approve_activity-groups_success": "Activity group is now in Final state",
+        "inactivate_activity-sub-groups_success": "Activity subgroup inactivated",
+        "reactivate_activity-sub-groups_success": "Activity subgroup reactivated",
+        "delete_activity-sub-groups_success": "Activity subgroup deleted",
+        "approve_activity-sub-groups_success": "Activity subgroup is now in Final state",
         "item_history_title": "History for {type} [{uid}]",
         "activity": "Activity",
         "activity_group": "Activity Group",
@@ -3906,6 +3969,10 @@
         "activity_group": "Activity group",
         "activity_subgroup": "Activity subgroup",
         "activity": "Activity",
+        "nci_concept_id": "NCI Concept ID",
+        "nci_concept_name": "NCI Concept Name",
+        "is_research_lab": "Research Lab",
+        "molecular_weight": "Molecular Weight",
         "adam_code": "ADaM parameter code",
         "topic_code": "Topic code",
         "class": "Activity instance class",
@@ -4009,7 +4076,7 @@
         "step2_title": "Define footnote details",
         "step3_title": "Select footnote level",
         "select_tpl_title": "Select footnote templates",
-        "create_template_title": "Create template",
+        "create_footnote_title": "Create footnote",
         "edit_template_title": "Edit template",
         "step_edit_title": "Edit footnote",
         "create_from_tpl_title": "Create study footnote from template",
@@ -4056,8 +4123,8 @@
         "save_linking": "Save linking"
     },
     "StudyRemoveFootnoteForm": {
-        "title": "Remove footnote",
-        "remove_info": "Please check the footnote that you want to remove"
+        "title": "Unlink footnote",
+        "remove_info": "Please check the footnote that you want to unlink"
     },
     "Comments": {
         "filter_by_ALL": "All comments",
@@ -4080,6 +4147,9 @@
         "reply_add_placeholder": "Write a reply...",
         "reply_delete_approve": "Are you sure you want to delete this reply?"
     },
+    "ClinicalProgrammesView": {
+        "title": "Clinical Programmes"
+    },
     "ClinicalProgrammes": {
         "name": "Name",
         "add_success": "Clinical programme added",
@@ -4091,6 +4161,9 @@
         "add_title": "Add clinical programme",
         "edit_title": "Edit clinical programme",
         "name": "Name"
+    },
+    "ProjectsView": {
+        "title": "Projects"
     },
     "Projects": {
         "name": "Name",
@@ -4166,7 +4239,6 @@
     },
     "StudyDisclosure": {
         "study_disclosure": "Clinical Transparency",
-        "tab_1": "PharmaCM Specification",
         "table_1": "Identification",
         "table_2": "Secondary IDs",
         "table_3": "Study Status",
@@ -4222,5 +4294,21 @@
         "study_randomised": "Study is randomised",
         "arm_title": "Arm Title",
         "outcome_measure": "Outcome Measure"
+    },
+    "StudyStructuresOverview": {
+        "title": "Study Structures",
+        "arms": "No of arms",
+        "pre_treatment_epochs": "No of pre-treatment epochs",
+        "treatment_epochs": "No of treatment epochs",
+        "no_treatment_epochs": "No of no-treatment epochs",
+        "post_treatment_epochs": "No of post-treatment epochs",
+        "no_treatment_elements": "No of no-treatment elements",
+        "treatment_elements": "No of treatment elements",
+        "cohorts": "Cohorts in study",
+        "study_ids": "Study ID(s)"
+    },
+    "FeatureFlagsView": {
+        "title": "Feature flags",
+        "help": "Feature flags enable you to toggle features in StudyBuilder on/off, thus controlling the visibility for the users. It only has an effect on the visibility in the environment you currently are in."
     }
 }

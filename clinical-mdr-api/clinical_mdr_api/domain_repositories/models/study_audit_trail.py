@@ -14,7 +14,7 @@ class StudyAction(ClinicalMdrNode):
     )
     date = ZonedDateTimeProperty()
     status = StringProperty()
-    user_initials = StringProperty()
+    author_id = StringProperty()
     has_before = RelationshipTo(
         ".study_selections.StudySelection",
         "BEFORE",
@@ -63,3 +63,7 @@ class Create(StudyAction):
 
 class Edit(StudyAction):
     pass
+
+
+class UpdateSoASnapshot(StudyAction):
+    object_type = StringProperty()

@@ -42,13 +42,13 @@ SNOMED_DEFINITION_MAPPER = {
     "SNOMED": lambda row, headers: {
         "path": "/dictionaries/terms",
         "body": {
-            "dictionary_id": row[headers.index("concept_id")],
+            "dictionary_id": row[headers.index("concept_id")] or "TBD",
             "name": row[headers.index("Preferred synonym")],
             "name_sentence_case": row[
                 headers.index("Preferred synonym in sentence case")
             ],
-            "abbreviation": row[headers.index("Abbreviation")],
-            "definition": row[headers.index("Fully specified name")],
+            "abbreviation": row[headers.index("Abbreviation")] or None,
+            "definition": row[headers.index("Fully specified name")] or "TBD",
             "codelist_uid": None,
             "library_name": "SNOMED",
         },
@@ -61,8 +61,8 @@ MED_RT_DEFINITION_MAPPER = {
         "body": {
             "name": row[headers.index("pclass_ndf_rt_concept")],
             "name_sentence_case": row[headers.index("pclass_ndf_rt_concept")].lower(),
-            "dictionary_id": row[headers.index("PCLASS_NDF_RT_NUI")],
-            "definition": row[headers.index("pclass_ndf_rt_concept")],
+            "dictionary_id": row[headers.index("PCLASS_NDF_RT_NUI")] or "TBD",
+            "definition": row[headers.index("pclass_ndf_rt_concept")] or None,
             "codelist_uid": None,
             "library_name": "MED-RT",
         },
@@ -77,7 +77,7 @@ UNII_DEFINITION_MAPPER = {
             "name_sentence_case": row[headers.index("CD_VAL_LB")].lower(),
             "dictionary_id": row[
                 headers.index("CD_VAL")
-            ],  # find out which field is dictionaryID
+            ] or "TBD",  # find out which field is dictionaryID
             "codelist_uid": None,
             "library_name": "UNII",
             "pclass_uid": None,
@@ -96,8 +96,9 @@ UCUM_DEFINITION_MAPPER = {
                 headers.index(
                     "Description of the Unit (using UCUM descriptions where they exist)"
                 )
-            ],
-            "abbreviation": "",
+            ]
+            or "TBD",
+            "abbreviation": None,
             "dictionary_id": "UCUM",
             "codelist_uid": None,
             "library_name": "UCUM",
@@ -141,7 +142,7 @@ class Dictionaries(BaseImporter):
         # TODO why only check against SMOMED?
         all_dictionary_codelist_names = self.api.get_all_identifiers(
             self.api.get_all_from_api(
-                "/dictionaries/codelists", params={"library": "SNOMED"}
+                "/dictionaries/codelists", params={"library_name": "SNOMED"}
             ),
             identifier="name",
         )
@@ -171,7 +172,7 @@ class Dictionaries(BaseImporter):
             headers = next(csv_data)
             all_dictionary_codelist = self.api.get_all_identifiers(
                 self.api.get_all_from_api(
-                    f"/dictionaries/codelists", params={"library": library}
+                    f"/dictionaries/codelists", params={"library_name": library}
                 ),
                 identifier="name",
                 value="codelist_uid",
@@ -216,8 +217,8 @@ class Dictionaries(BaseImporter):
                         data = copy.deepcopy(data)
                         data["body"]["name"] = name
                         data["body"]["name_sentence_case"] = nsc
-                        data["body"]["dictionary_id"] = dict_id
-                        data["body"]["definition"] = defin
+                        data["body"]["dictionary_id"] = dict_id or "TBD"
+                        data["body"]["definition"] = defin or "TBD"
                         multiple_rows.append(data)
                 # the '|' was not spotted, migrate just simple records
                 else:
@@ -246,7 +247,7 @@ class Dictionaries(BaseImporter):
         self, library, file_env_variable, mappings, codelist_name, encoding="utf-8"
     ):
         pclass_codelists = self.api.get_all_from_api(
-            "/dictionaries/codelists", params={"library": "MED-RT"}
+            "/dictionaries/codelists", params={"library_name": "MED-RT"}
         )
         all_pclass_terms = {}
         for pclass_codelist in pclass_codelists:
@@ -265,7 +266,7 @@ class Dictionaries(BaseImporter):
             headers = next(readCSV)
             all_dictionary_codelist = self.api.get_all_identifiers(
                 self.api.get_all_from_api(
-                    f"/dictionaries/codelists", params={"library": library}
+                    f"/dictionaries/codelists", params={"library_name": library}
                 ),
                 identifier="name",
                 value="codelist_uid",

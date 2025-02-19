@@ -18,7 +18,7 @@
       "status": "Final",
       "version": "2.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate",
         "new_version"
@@ -33,7 +33,7 @@
       "status": "Final",
       "version": "1.0",
       "change_description": "Approved version",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "possible_actions": [
         "inactivate"
       ],
@@ -87,7 +87,7 @@
       "study_count": null
     },
     "start_date": "2022-11-21T10:22:19.784820",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "endpoint_count": 0,
     "latest_objective": null,
     "accepted_version": false

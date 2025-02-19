@@ -4,7 +4,6 @@ from typing import Any, Generic, TypeVar
 from neomodel import db
 from pydantic import BaseModel
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.dictionaries.dictionary_term_repository import (
     DictionaryTermGenericRepository,
 )
@@ -12,20 +11,25 @@ from clinical_mdr_api.domains.dictionaries.dictionary_term import (
     DictionaryTermAR,
     DictionaryTermVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryVO,
-    VersioningException,
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
+from clinical_mdr_api.models.dictionaries.dictionary_term import (
+    DictionaryTerm,
+    DictionaryTermVersion,
 )
-from clinical_mdr_api.models import DictionaryTerm, DictionaryTermVersion
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
     fill_missing_values_in_base_model_from_reference_base_model,
     is_library_editable,
-    normalize_string,
+)
+from clinical_mdr_api.utils import is_attribute_in_model, normalize_string
+from common.auth.user import user
+from common.exceptions import (
+    BusinessLogicException,
+    NotFoundException,
+    ValidationException,
 )
 
 _AggregateRootType = TypeVar("_AggregateRootType")
@@ -42,11 +46,11 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
     version_class = DictionaryTermVersion
     repository_interface = DictionaryTermGenericRepository
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
-        self._repos = MetaRepository(self.user_initials)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     def __del__(self):
         self._repos.close()
@@ -65,7 +69,7 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
         self, term_input: BaseModel, library: LibraryVO
     ) -> _AggregateRootType:
         return DictionaryTermAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             dictionary_term_vo=DictionaryTermVO.from_input_values(
                 codelist_uid=term_input.codelist_uid,
                 name=term_input.name,
@@ -83,7 +87,7 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
         self, item: _AggregateRootType, term_input: BaseModel
     ) -> _AggregateRootType:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=term_input.change_description,
             dictionary_term_vo=DictionaryTermVO.from_input_values(
                 codelist_uid=item.dictionary_term_vo.codelist_uid,
@@ -133,15 +137,13 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[str]:
         # First, check that attributes provided for filtering exist in the return class
         # Properties can be nested => check if root property exists in class
-        if not models.utils.is_attribute_in_model(
-            field_name.split(".")[0], DictionaryTerm
-        ):
-            raise exceptions.NotFoundException(
-                f"Invalid field name specified in the filter dictionary : {field_name}"
+        if not is_attribute_in_model(field_name.split(".")[0], DictionaryTerm):
+            raise ValidationException(
+                msg=f"Invalid field name specified in the filter dictionary : {field_name}"
             )
 
         header_values = self.repository.get_distinct_headers(
@@ -150,7 +152,7 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
         return header_values
 
@@ -163,20 +165,23 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
         self, term_uid: str, for_update: bool | None = False
     ) -> _AggregateRootType:
         item = self.repository.find_by_uid_2(uid=term_uid, for_update=for_update)
-        if item is None:
-            raise exceptions.NotFoundException(
-                f"{self.aggregate_class.__name__} with uid {term_uid} does not exist or there's no version with requested status or version number."
-            )
+
+        NotFoundException.raise_if(
+            item is None,
+            msg=f"{self.aggregate_class.__name__} with UID '{term_uid}' doesn't exist or there's no version with requested status or version number.",
+        )
+
         return item
 
     @db.transaction
     def get_version_history(self, term_uid: str) -> list[BaseModel]:
         if self.version_class is not None:
             all_versions = self.repository.get_all_versions_2(term_uid)
-            if all_versions is None:
-                raise exceptions.NotFoundException(
-                    f"{self.aggregate_class.__name__} with uid {term_uid} does not exist."
-                )
+
+            NotFoundException.raise_if(
+                all_versions is None, self.aggregate_class.__name__, term_uid
+            )
+
             versions = [
                 self._transform_aggregate_root_to_pydantic_model(
                     dictionary_term_ar
@@ -188,19 +193,19 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
 
     @db.transaction
     def create(self, term_input: BaseModel) -> BaseModel:
-        if not self._repos.dictionary_codelist_generic_repository.codelist_exists(
-            normalize_string(term_input.codelist_uid)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no dictionary codelist identified by provided uid ({term_input.codelist_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            self._repos.dictionary_codelist_generic_repository.codelist_exists(
+                normalize_string(term_input.codelist_uid)
+            ),
+            msg=f"Dictionary Codelist with UID '{term_input.codelist_uid}' doesn't exist.",
+        )
 
-        if not self._repos.library_repository.library_exists(
-            normalize_string(term_input.library_name)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({term_input.library_name})"
-            )
+        BusinessLogicException.raise_if_not(
+            self._repos.library_repository.library_exists(
+                normalize_string(term_input.library_name)
+            ),
+            msg=f"Library with Name '{term_input.library_name}' doesn't exist.",
+        )
 
         library_vo = LibraryVO.from_input_values_2(
             library_name=term_input.library_name,
@@ -215,71 +220,45 @@ class DictionaryTermGenericService(Generic[_AggregateRootType], ABC):
 
     @db.transaction
     def create_new_version(self, term_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(
-                term_uid=term_uid, for_update=True
-            )
-            item.create_new_version(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.ValidationException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid=term_uid, for_update=True)
+        item.create_new_version(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def edit_draft(self, term_uid: str, term_input: BaseModel) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(
-                term_uid=term_uid, for_update=True
-            )
-            fill_missing_values_in_base_model_from_reference_base_model(
-                base_model_with_missing_values=term_input,
-                reference_base_model=self._transform_aggregate_root_to_pydantic_model(
-                    item
-                ),
-            )
-            item = self._edit_aggregate(item=item, term_input=term_input)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid=term_uid, for_update=True)
+        fill_missing_values_in_base_model_from_reference_base_model(
+            base_model_with_missing_values=term_input,
+            reference_base_model=self._transform_aggregate_root_to_pydantic_model(item),
+        )
+        item = self._edit_aggregate(item=item, term_input=term_input)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def approve(self, term_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(
-                term_uid=term_uid, for_update=True
-            )
-            item.approve(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid=term_uid, for_update=True)
+        item.approve(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def inactivate_final(self, term_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
-            item.inactivate(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
+        item.inactivate(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def reactivate_retired(self, term_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
-            item.reactivate(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
+        item.reactivate(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def soft_delete(self, term_uid: str) -> None:
-        try:
-            item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
-            item.soft_delete()
-            self.repository.save(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(term_uid, for_update=True)
+        item.soft_delete()
+        self.repository.save(item)

@@ -19,7 +19,6 @@ from clinical_mdr_api.domains.concepts.utils import (
     VendorAttributeCompatibleType,
     VendorElementCompatibleType,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmVendorElementRelationPostInput,
     OdmVendorRelationPostInput,
@@ -29,6 +28,7 @@ from clinical_mdr_api.services.concepts.concept_generic_service import (
     ConceptGenericService,
     _AggregateRootType,
 )
+from common.exceptions import BusinessLogicException
 
 
 class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
@@ -64,12 +64,12 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
             for odm_vendor_attribute_ar in odm_vendor_attribute_ars
         }
 
-        if not odm_vendor_attribute_element_uids.issubset(
-            {input_element.uid for input_element in input_elements}
-        ):
-            raise BusinessLogicException(
-                "Cannot remove an ODM Vendor Element whose attributes are connected to this ODM element."
-            )
+        BusinessLogicException.raise_if_not(
+            odm_vendor_attribute_element_uids.issubset(
+                {input_element.uid for input_element in input_elements}
+            ),
+            msg="Cannot remove an ODM Vendor Element whose attributes are connected to this ODM element.",
+        )
 
     def fail_if_these_attributes_cannot_be_added(
         self,
@@ -103,22 +103,18 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
 
         for odm_vendor_attribute_ar in odm_vendor_attribute_ars:
             if odm_vendor_attribute_ar:
-                if (
+                BusinessLogicException.raise_if(
                     element_uids
                     and odm_vendor_attribute_ar.concept_vo.vendor_element_uid
-                    not in element_uids
-                ):
-                    raise BusinessLogicException(
-                        f"ODM Vendor Attribute identified by ({odm_vendor_attribute_ar.uid}) cannot not be added as an Vendor Element Attribute."
-                    )
+                    not in element_uids,
+                    msg=f"ODM Vendor Attribute with UID '{odm_vendor_attribute_ar.uid}' cannot not be added as an Vendor Element Attribute.",
+                )
 
-                if (
+                BusinessLogicException.raise_if(
                     not element_uids
-                    and not odm_vendor_attribute_ar.concept_vo.vendor_namespace_uid
-                ):
-                    raise BusinessLogicException(
-                        f"ODM Vendor Attribute identified by ({odm_vendor_attribute_ar.uid}) cannot not be added as an Vendor Attribute."
-                    )
+                    and not odm_vendor_attribute_ar.concept_vo.vendor_namespace_uid,
+                    msg=f"ODM Vendor Attribute with UID '{odm_vendor_attribute_ar.uid}' cannot not be added as an Vendor Attribute.",
+                )
 
         self.are_attributes_vendor_compatible(odm_vendor_attribute_ars, compatible_type)
 
@@ -134,10 +130,10 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
             if not attr or not attr.concept_vo.vendor_namespace_uid:
                 errors.append(attribute.uid)
 
-        if errors:
-            raise BusinessLogicException(
-                f"ODM Vendor Attributes with the following UIDs don't exist or aren't connected to an ODM Vendor Namespace. UIDs: {errors}"
-            )
+        BusinessLogicException.raise_if(
+            errors,
+            msg=f"ODM Vendor Attributes with the following UIDs don't exist or aren't connected to an ODM Vendor Namespace. UIDs: {errors}",
+        )
 
         return True
 
@@ -171,10 +167,10 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
                 )
             ):
                 errors[input_attribute.uid] = attribute_patterns[input_attribute.uid]
-        if errors:
-            raise BusinessLogicException(
-                f"Provided values for following attributes don't match their regex pattern:\n\n{errors}"
-            )
+        BusinessLogicException.raise_if(
+            errors,
+            msg=f"Provided values for following attributes don't match their regex pattern:\n\n{errors}",
+        )
 
         return True
 
@@ -226,20 +222,20 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
                 and compatible_type.value
                 not in odm_vendor_element.concept_vo.compatible_types
             ):
-                errors[
-                    odm_vendor_element.uid
-                ] = odm_vendor_element.concept_vo.compatible_types
-        if errors:
-            raise BusinessLogicException(
-                f"Trying to add non-compatible ODM Vendor:\n\n{errors}"
-            )
+                errors[odm_vendor_element.uid] = (
+                    odm_vendor_element.concept_vo.compatible_types
+                )
+        BusinessLogicException.raise_if(
+            errors, msg=f"Trying to add non-compatible ODM Vendor:\n\n{errors}"
+        )
 
         return True
 
     def are_attributes_vendor_compatible(
         self,
-        odm_vendor_attributes: list[OdmVendorRelationPostInput]
-        | list[OdmVendorAttributeAR],
+        odm_vendor_attributes: (
+            list[OdmVendorRelationPostInput] | list[OdmVendorAttributeAR]
+        ),
         compatible_type: VendorAttributeCompatibleType | None = None,
     ):
         """
@@ -271,13 +267,12 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
                 and compatible_type.value
                 not in odm_vendor_attribute.concept_vo.compatible_types
             ):
-                errors[
-                    odm_vendor_attribute.uid
-                ] = odm_vendor_attribute.concept_vo.compatible_types
-        if errors:
-            raise BusinessLogicException(
-                f"Trying to add non-compatible ODM Vendor:\n\n{errors}"
-            )
+                errors[odm_vendor_attribute.uid] = (
+                    odm_vendor_attribute.concept_vo.compatible_types
+                )
+        BusinessLogicException.raise_if(
+            errors, msg=f"Trying to add non-compatible ODM Vendor:\n\n{errors}"
+        )
 
         return True
 
@@ -350,3 +345,79 @@ class OdmGenericService(ConceptGenericService[_AggregateRootType], ABC):
                         "value": element.value,
                     },
                 )
+
+    def cascade_new_version(self, item):
+        from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
+            OdmDescriptionService,
+        )
+
+        description_service = OdmDescriptionService()
+
+        if getattr(item.concept_vo, "description_uids", None):
+            for description_uid in item.concept_vo.description_uids:
+
+                item = description_service._find_by_uid_or_raise_not_found(
+                    description_uid, for_update=True
+                )
+                item.create_new_version(author_id=description_service.author_id)
+                description_service.repository.save(item)
+
+    def cascade_inactivate(self, item):
+        from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
+            OdmDescriptionService,
+        )
+
+        description_service = OdmDescriptionService()
+
+        if getattr(item.concept_vo, "description_uids", None):
+            for description_uid in item.concept_vo.description_uids:
+                item = description_service._find_by_uid_or_raise_not_found(
+                    description_uid, for_update=True
+                )
+                item.inactivate(author_id=description_service.author_id)
+                description_service.repository.save(item)
+
+    def cascade_reactivate(self, item):
+        from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
+            OdmDescriptionService,
+        )
+
+        description_service = OdmDescriptionService()
+
+        if getattr(item.concept_vo, "description_uids", None):
+            for description_uid in item.concept_vo.description_uids:
+                item = description_service._find_by_uid_or_raise_not_found(
+                    description_uid, for_update=True
+                )
+                item.reactivate(author_id=description_service.author_id)
+                description_service.repository.save(item)
+
+    def cascade_edit_and_approve(self, item):
+        from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
+            OdmDescriptionService,
+        )
+
+        description_service = OdmDescriptionService()
+
+        if getattr(item.concept_vo, "description_uids", None):
+            for description_uid in item.concept_vo.description_uids:
+                item = description_service._find_by_uid_or_raise_not_found(
+                    description_uid, for_update=True
+                )
+                item.approve(author_id=description_service.author_id)
+                description_service.repository.save(item)
+
+    def cascade_delete(self, item):
+        from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
+            OdmDescriptionService,
+        )
+
+        description_service = OdmDescriptionService()
+
+        if getattr(item.concept_vo, "description_uids", None):
+            for description_uid in item.concept_vo.description_uids:
+                item = description_service._find_by_uid_or_raise_not_found(
+                    description_uid, for_update=True
+                )
+                item.soft_delete()
+                description_service.repository.save(item)

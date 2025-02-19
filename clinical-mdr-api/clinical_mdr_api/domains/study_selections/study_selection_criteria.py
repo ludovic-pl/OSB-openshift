@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -22,7 +23,8 @@ class StudySelectionCriteriaVO:
     key_criteria: bool
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
 
     @classmethod
@@ -30,7 +32,7 @@ class StudySelectionCriteriaVO:
         cls,
         syntax_object_uid: str,
         syntax_object_version: str,
-        user_initials: str,
+        author_id: str,
         criteria_type_uid: str | None,
         criteria_type_order: int | None = 0,
         is_instance: bool = True,
@@ -57,7 +59,8 @@ class StudySelectionCriteriaVO:
             key_criteria=key_criteria,
             start_date=start_date,
             study_selection_uid=normalize_string(study_selection_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
         )
 
@@ -67,17 +70,15 @@ class StudySelectionCriteriaVO:
         ct_term_criteria_type_exist_callback: Callable[[str], bool] = (lambda _: True),
     ) -> None:
         # Checks if there exists a criteria which is approved with criteria_uid
-        if not criteria_exist_callback(normalize_string(self.syntax_object_uid)):
-            raise exceptions.ValidationException(
-                f"There is no approved criteria identified by provided uid ({self.syntax_object_uid})"
-            )
-        if (
+        exceptions.ValidationException.raise_if_not(
+            criteria_exist_callback(normalize_string(self.syntax_object_uid)),
+            msg=f"There is no approved Criteria with UID '{self.syntax_object_uid}'.",
+        )
+        exceptions.ValidationException.raise_if(
             not ct_term_criteria_type_exist_callback(self.criteria_type_uid)
-            and self.criteria_type_uid
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved criteria type identified by provided term uid ({self.criteria_type_uid})"
-            )
+            and self.criteria_type_uid,
+            msg=f"There is no approved Criteria Type with UID '{self.criteria_type_uid}'.",
+        )
 
     def update_version(self, criteria_version: str):
         return replace(self, syntax_object_version=criteria_version)
@@ -131,7 +132,7 @@ class StudySelectionCriteriaAR:
             if len(_criteria_type_uid) == 1:
                 criteria_type_uid = _criteria_type_uid[0]
             else:
-                return None, 0
+                raise exceptions.NotFoundException("Study Criteria", study_criteria_uid)
 
         # Then, filter the list on criteria type, and return the order of the criteria selection in the type group
         study_criteria_selection_with_type = [
@@ -142,9 +143,7 @@ class StudySelectionCriteriaAR:
         for order, selection in enumerate(study_criteria_selection_with_type, start=1):
             if selection.study_selection_uid == study_criteria_uid:
                 return selection, order
-        raise exceptions.NotFoundException(
-            f"The study criteria with uid '{study_criteria_uid}' does not exist"
-        )
+        raise exceptions.NotFoundException("Study Criteria", study_criteria_uid)
 
     def add_criteria_selection(
         self,
@@ -210,7 +209,7 @@ class StudySelectionCriteriaAR:
         self._study_criteria_selection = tuple(updated_selection)
 
     def set_new_order_for_selection(
-        self, study_selection_uid: str, new_order: int, user_initials: str
+        self, study_selection_uid: str, new_order: int, author_id: str
     ):
         # check if the new order is valid using the robustness principle
         if new_order > len(self.study_criteria_selection):
@@ -226,7 +225,7 @@ class StudySelectionCriteriaAR:
         selected_value = StudySelectionCriteriaVO.from_input_values(
             syntax_object_uid=selected_value.syntax_object_uid,
             criteria_type_uid=selected_value.criteria_type_uid,
-            user_initials=user_initials,
+            author_id=author_id,
             study_selection_uid=selected_value.study_selection_uid,
             criteria_type_order=selected_value.criteria_type_order,
             syntax_object_version=selected_value.syntax_object_version,
@@ -281,8 +280,8 @@ class StudySelectionCriteriaAR:
     def validate(self):
         criteria = []
         for selection in self.study_criteria_selection:
-            if selection.syntax_object_uid in criteria:
-                raise exceptions.ValidationException(
-                    f"There is already a study selection to that criteria ({selection.syntax_object_uid})"
-                )
+            exceptions.AlreadyExistsException.raise_if(
+                selection.syntax_object_uid in criteria,
+                msg=f"There is already a Study Selection to a criteria with UID '{selection.syntax_object_uid}'.",
+            )
             criteria.append(selection.syntax_object_uid)

@@ -1,7 +1,8 @@
+from neomodel import NodeSet
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
 )
-from clinical_mdr_api.domain_repositories.models._utils import CustomNodeSet
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -22,10 +23,10 @@ from clinical_mdr_api.domains.standard_data_models.sponsor_model_dataset_class i
     SponsorModelDatasetClassVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.standard_data_models.sponsor_model_dataset_class import (
     SponsorModelDatasetClass,
 )
+from common.exceptions import BusinessLogicException
 
 
 class SponsorModelDatasetClassRepository(
@@ -35,7 +36,7 @@ class SponsorModelDatasetClassRepository(
     value_class = SponsorModelDatasetClassInstance
     return_model = SponsorModelDatasetClass
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return DatasetClass.nodes.fetch_relations(
             "has_sponsor_model_instance__has_dataset_class",
             "has_dataset_class__has_library",
@@ -69,12 +70,13 @@ class SponsorModelDatasetClassRepository(
         parent_node = SponsorModelValue.nodes.get_or_none(
             name=item.sponsor_model_dataset_class_vo.sponsor_model_name
         )
-        if parent_node:
-            instance.has_dataset_class.connect(parent_node)
-        else:
-            raise BusinessLogicException(
-                f"The given Sponsor Model version {item.sponsor_model_dataset_class_vo.sponsor_model_name} does not exist in the database."
-            )
+
+        BusinessLogicException.raise_if_not(
+            parent_node,
+            msg=f"Sponsor Model with Name '{item.sponsor_model_dataset_class_vo.sponsor_model_name}' doesn't exist.",
+        )
+
+        instance.has_dataset_class.connect(parent_node)
 
         return item
 

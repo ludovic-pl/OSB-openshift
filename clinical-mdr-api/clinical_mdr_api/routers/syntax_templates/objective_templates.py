@@ -1,23 +1,29 @@
 """Objective templates router."""
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.syntax_pre_instances.objective_pre_instance import (
+    ObjectivePreInstance,
     ObjectivePreInstanceCreateInput,
 )
 from clinical_mdr_api.models.syntax_templates.objective_template import (
-    ObjectiveTemplateNameInput,
+    ObjectiveTemplate,
+    ObjectiveTemplateCreateInput,
+    ObjectiveTemplateEditIndexingsInput,
+    ObjectiveTemplateEditInput,
+    ObjectiveTemplatePreValidateInput,
+    ObjectiveTemplateVersion,
     ObjectiveTemplateWithCount,
 )
+from clinical_mdr_api.models.syntax_templates.template_parameter import (
+    TemplateParameter,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.syntax_pre_instances.objective_pre_instances import (
@@ -26,6 +32,9 @@ from clinical_mdr_api.services.syntax_pre_instances.objective_pre_instances impo
 from clinical_mdr_api.services.syntax_templates.objective_templates import (
     ObjectiveTemplateService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/objective-templates"
 router = APIRouter()
@@ -33,9 +42,7 @@ router = APIRouter()
 Service = ObjectiveTemplateService
 
 # Argument definitions
-ObjectiveTemplateUID = Path(
-    None, description="The unique id of the objective template."
-)
+ObjectiveTemplateUID = Path(description="The unique id of the objective template.")
 
 PARAMETERS_NOTE = """**Parameters in the 'name' property**:
 
@@ -63,20 +70,20 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.ObjectiveTemplate],
+    response_model=CustomPage[ObjectiveTemplate],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -101,7 +108,7 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -114,36 +121,45 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 # pylint: disable=unused-argument
 def get_objective_templates(
     request: Request,  # request is actually required by the allow_exports decorator
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those objective templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the objective template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.ObjectiveTemplate]:
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those objective templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the objective template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[ObjectiveTemplate]:
     results = Service().get_all(
         status=status,
         return_study_count=True,
@@ -177,28 +193,36 @@ def get_objective_templates(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those objective templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the objective template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those objective templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the objective template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -206,16 +230,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.ObjectiveTemplate],
+    response_model=CustomPage[ObjectiveTemplate],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -223,24 +245,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -273,8 +301,8 @@ def retrieve_audit_trail(
     },
 )
 def get_objective_template(
-    objective_template_uid: str = ObjectiveTemplateUID,
-) -> models.ObjectiveTemplate:
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+) -> ObjectiveTemplate:
     return Service().get_by_uid(uid=objective_template_uid)
 
 
@@ -287,20 +315,20 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.ObjectiveTemplateVersion],
+    response_model=list[ObjectiveTemplateVersion],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library";"uid";"name";"start_date";"end_date";"status";"version";"change_description";"user_initials"
+"library";"uid";"name";"start_date";"end_date";"status";"version";"change_description";"author_username"
 "Sponsor";"826d80a7-0b6a-419d-8ef1-80aa241d7ac7";"First  [ComparatorIntervention]";"2020-10-22T10:19:29+00:00";;"Draft";"0.1";"Initial version";"NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><user_initials type="str">TODO user initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -323,7 +351,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "version",
             "start_date",
             "end_date",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -336,7 +364,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 # pylint: disable=unused-argument
 def get_objective_template_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    objective_template_uid: str = ObjectiveTemplateUID,
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
 ):
     return Service().get_version_history(uid=objective_template_uid)
 
@@ -350,7 +378,7 @@ def get_objective_template_versions(
     "This is due to the fact, that the version number remains the same when inactivating or reactivating an objective template "
     "(switching between 'Final' and 'Retired' status). \n\n"
     "In that case the latest/newest representation is returned.",
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=200,
     responses={
         404: {
@@ -361,13 +389,15 @@ def get_objective_template_versions(
     },
 )
 def get_objective_template_version(
-    objective_template_uid: str = ObjectiveTemplateUID,
-    version: str = Path(
-        None,
-        description="A specific version number of the objective template. "
-        "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
-        "E.g. '0.1', '0.2', '1.0', ...",
-    ),
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    version: Annotated[
+        str,
+        Path(
+            description="A specific version number of the objective template. "
+            "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
+            "E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ],
 ):
     return Service().get_specific_version(uid=objective_template_uid, version=version)
 
@@ -376,8 +406,7 @@ def get_objective_template_version(
     "/{objective_template_uid}/releases",
     dependencies=[rbac.LIBRARY_READ],
     summary="List all final versions of a template identified by 'objective_template_uid', including number of studies using a specific version",
-    description="",
-    response_model=list[models.ObjectiveTemplate],
+    response_model=list[ObjectiveTemplate],
     status_code=200,
     responses={
         404: {
@@ -387,7 +416,9 @@ def get_objective_template_version(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_objective_template_releases(objective_template_uid: str = ObjectiveTemplateUID):
+def get_objective_template_releases(
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID]
+):
     return Service().get_releases(uid=objective_template_uid, return_study_count=False)
 
 
@@ -406,7 +437,7 @@ If the request succeeds:
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=201,
     responses={
         201: {
@@ -416,20 +447,22 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template name is not valid.\n"
-            "- The library does not allow to create objective templates.",
+            "- The library doesn't allow to create objective templates.",
         },
         404: {
             "model": ErrorResponse,
             "description": "Not Found - The library with the specified 'library_name' could not be found.",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create_objective_template(
-    objective_template: models.ObjectiveTemplateCreateInput = Body(
-        description="The objective template that shall be created."
-    ),
-) -> models.ObjectiveTemplate:
+    objective_template: Annotated[
+        ObjectiveTemplateCreateInput,
+        Body(description="The objective template that shall be created."),
+    ],
+) -> ObjectiveTemplate:
     return Service().create(objective_template)
 
 
@@ -450,7 +483,7 @@ Once the objective template has been approved, only the surrounding text (exclud
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -459,7 +492,7 @@ Once the objective template has been approved, only the surrounding text (exclud
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template is not in draft status.\n"
             "- The objective template name is not valid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The change of parameters of previously approved objective templates.",
         },
         404: {
@@ -470,11 +503,14 @@ Once the objective template has been approved, only the surrounding text (exclud
     },
 )
 def edit(
-    objective_template_uid: str = ObjectiveTemplateUID,
-    objective_template: models.ObjectiveTemplateEditInput = Body(
-        description="The new content of the objective template including the change description.",
-    ),
-) -> models.ObjectiveTemplate:
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    objective_template: Annotated[
+        ObjectiveTemplateEditInput,
+        Body(
+            description="The new content of the objective template including the change description.",
+        ),
+    ],
+) -> ObjectiveTemplate:
     return Service().edit_draft(uid=objective_template_uid, template=objective_template)
 
 
@@ -487,7 +523,7 @@ def edit(
     
     This is version independent : it won't trigger a status or a version change.
     """,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=200,
     responses={
         200: {
@@ -501,11 +537,14 @@ def edit(
     },
 )
 def patch_indexings(
-    objective_template_uid: str = ObjectiveTemplateUID,
-    indexings: models.ObjectiveTemplateEditIndexingsInput = Body(
-        description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
-    ),
-) -> models.ObjectiveTemplate:
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    indexings: Annotated[
+        ObjectiveTemplateEditIndexingsInput,
+        Body(
+            description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
+        ),
+    ],
+) -> ObjectiveTemplate:
     return Service().patch_indexings(uid=objective_template_uid, indexings=indexings)
 
 
@@ -525,7 +564,7 @@ If the request succeeds:
 Parameters in the 'name' property cannot be changed with this request.
 Only the surrounding text (excluding the parameters) can be changed.
 """,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -534,7 +573,7 @@ Only the surrounding text (excluding the parameters) can be changed.
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template is not in final or retired status or has a draft status.\n"
             "- The objective template name is not valid.\n"
-            "- The library does not allow to create a new version.",
+            "- The library doesn't allow to create a new version.",
         },
         404: {
             "model": ErrorResponse,
@@ -544,13 +583,14 @@ Only the surrounding text (excluding the parameters) can be changed.
     },
 )
 def create_new_version(
-    objective_template_uid: str = ObjectiveTemplateUID,
-    objective_template: models.ObjectiveTemplateEditInput = Body(
-        description="The content of the objective template for the new 'Draft' version including the change description.",
-    ),
-) -> models.ObjectiveTemplate:
-    # return service.create_new_version_of_final_or_retired(uid, objective_template)
-    # TODO: do sth not to mislead static code analysis
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    objective_template: Annotated[
+        ObjectiveTemplateEditInput,
+        Body(
+            description="The content of the objective template for the new 'Draft' version including the change description.",
+        ),
+    ],
+) -> ObjectiveTemplate:
     return Service().create_new_version(
         uid=objective_template_uid, template=objective_template
     )
@@ -569,7 +609,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -577,7 +617,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template is not in draft status.\n"
-            "- The library does not allow to approve drafts.",
+            "- The library doesn't allow to approve drafts.",
         },
         404: {
             "model": ErrorResponse,
@@ -591,7 +631,7 @@ If the request succeeds:
     },
 )
 def approve(
-    objective_template_uid: str = ObjectiveTemplateUID,
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
     cascade: bool = False,
 ):
     """
@@ -615,7 +655,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -632,10 +672,8 @@ If the request succeeds:
     },
 )
 def inactivate(
-    objective_template_uid: str = ObjectiveTemplateUID,
-) -> models.ObjectiveTemplate:
-    # return service.inactivate_final(uid)
-    # TODO: do sth to make static code analysis work for this code
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+) -> ObjectiveTemplate:
     return Service().inactivate_final(uid=objective_template_uid)
 
 
@@ -651,7 +689,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.ObjectiveTemplate,
+    response_model=ObjectiveTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -668,10 +706,8 @@ If the request succeeds:
     },
 )
 def reactivate(
-    objective_template_uid: str = ObjectiveTemplateUID,
-) -> models.ObjectiveTemplate:
-    # return service.reactivate_retired(uid)
-    # TODO: do sth to allow for static code analysis of this code
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+) -> ObjectiveTemplate:
     return Service().reactivate_retired(objective_template_uid)
 
 
@@ -695,7 +731,7 @@ def reactivate(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template is not in draft status.\n"
             "- The objective template was already in final state or is in use.\n"
-            "- The library does not allow to delete objective templates.",
+            "- The library doesn't allow to delete objective templates.",
         },
         404: {
             "model": ErrorResponse,
@@ -705,8 +741,8 @@ def reactivate(
     },
 )
 def delete_objective_template(
-    objective_template_uid: str = ObjectiveTemplateUID,
-) -> None:
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+) -> Response:
     # service.soft_delete(uid)
     Service().soft_delete(objective_template_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
@@ -727,7 +763,7 @@ Per parameter, the parameter.terms are ordered by
 Note that parameters may be used multiple times in templates.
 In that case, the same parameter (with the same terms) is included multiple times in the response.
     """,
-    response_model=list[models.TemplateParameter],
+    response_model=list[TemplateParameter],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -735,14 +771,13 @@ In that case, the same parameter (with the same terms) is included multiple time
     },
 )
 def get_parameters(
-    objective_template_uid: str = Path(
-        None, description="The unique id of the objective template."
-    ),
-    study_uid: str
-    | None = Query(
-        None,
-        description="Optionally, the uid of the study to subset the parameters to (e.g. for StudyEndpoints parameters)",
-    ),
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    study_uid: Annotated[
+        str | None,
+        Query(
+            description="Optionally, the uid of the study to subset the parameters to (e.g. for StudyEndpoints parameters)",
+        ),
+    ] = None,
 ):
     return Service().get_parameters(
         uid=objective_template_uid, study_uid=study_uid, include_study_endpoints=True
@@ -774,9 +809,12 @@ with the same content will succeed.
     },
 )
 def pre_validate(
-    objective_template: ObjectiveTemplateNameInput = Body(
-        description="The content of the objective template that shall be validated.",
-    ),
+    objective_template: Annotated[
+        ObjectiveTemplatePreValidateInput,
+        Body(
+            description="The content of the objective template that shall be validated.",
+        ),
+    ],
 ):
     # service.validate(objective_template)
     Service().validate_template_syntax(objective_template.name)
@@ -786,8 +824,7 @@ def pre_validate(
     "/{objective_template_uid}/pre-instances",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Create a Pre-Instance",
-    description="",
-    response_model=models.ObjectivePreInstance,
+    response_model=ObjectivePreInstance,
     status_code=201,
     responses={
         201: {
@@ -798,7 +835,7 @@ def pre_validate(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The objective template is not in draft status.\n"
             "- The objective template name is not valid.\n"
-            "- The library does not allow to edit draft versions.",
+            "- The library doesn't allow to edit draft versions.",
         },
         404: {
             "model": ErrorResponse,
@@ -808,9 +845,9 @@ def pre_validate(
     },
 )
 def create_pre_instance(
-    objective_template_uid: str = ObjectiveTemplateUID,
-    pre_instance: ObjectivePreInstanceCreateInput = Body(description=""),
-) -> models.ObjectiveTemplate:
+    objective_template_uid: Annotated[str, ObjectiveTemplateUID],
+    pre_instance: Annotated[ObjectivePreInstanceCreateInput, Body()],
+) -> ObjectiveTemplate:
     return ObjectivePreInstanceService().create(
         template=pre_instance,
         template_uid=objective_template_uid,

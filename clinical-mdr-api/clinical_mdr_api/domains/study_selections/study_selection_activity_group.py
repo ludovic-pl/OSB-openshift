@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass
 from typing import Callable
 
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.study_selections import study_selection_base
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,7 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
     study_selection_uid: str
     study_uid: str
     activity_group_uid: str
+    activity_group_name: str | None
     activity_group_version: str | None
     show_activity_group_in_protocol_flowchart: bool
     order: int | None
@@ -23,7 +25,8 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
     study_activity_subgroup_uids: list[str] | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
 
     @classmethod
@@ -32,7 +35,8 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
         study_uid: str,
         activity_group_uid: str,
         activity_group_version: str,
-        user_initials: str,
+        author_id: str,
+        activity_group_name: str | None = None,
         order: int | None = None,
         study_soa_group_uid: str | None = None,
         study_activity_subgroup_uids: list[str] | None = None,
@@ -51,6 +55,7 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
         return cls(
             study_uid=normalize_string(study_uid),
             activity_group_uid=normalize_string(activity_group_uid),
+            activity_group_name=normalize_string(activity_group_name),
             activity_group_version=activity_group_version,
             show_activity_group_in_protocol_flowchart=show_activity_group_in_protocol_flowchart,
             order=order,
@@ -58,7 +63,8 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
             study_activity_subgroup_uids=study_activity_subgroup_uids,
             start_date=start_date,
             study_selection_uid=normalize_string(study_selection_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
         )
 
@@ -70,7 +76,7 @@ class StudySelectionActivityGroupVO(study_selection_base.StudySelectionBaseVO):
         # Checks if there exists an activity group which is approved with activity_group_uid
         if not object_exist_callback(normalize_string(self.activity_group_uid)):
             raise ValueError(
-                f"There is no approved activity group identified by provided uid ({self.activity_group_uid})"
+                f"There is no approved Activity Group with UID '{self.activity_group_uid}'."
             )
 
 

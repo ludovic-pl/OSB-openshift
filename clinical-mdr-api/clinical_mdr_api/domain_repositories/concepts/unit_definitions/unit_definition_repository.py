@@ -5,7 +5,6 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.concepts import (
     UnitDefinitionRoot,
     UnitDefinitionValue,
@@ -37,6 +36,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionModel,
 )
+from common.utils import convert_to_datetime
 
 
 class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
@@ -55,7 +55,8 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
             concept_value.master_unit as master_unit,
             concept_value.convertible_unit as convertible_unit,
             concept_value.us_conventional_unit as us_conventional_unit,
-            concept_value.molecular_weight_conv_expon AS molecular_weight_conv_expon,
+            concept_value.use_complex_unit_conversion as use_complex_unit_conversion,
+            concept_value.use_molecular_weight AS use_molecular_weight,
             concept_value.legacy_code AS legacy_code,
             concept_value.conversion_factor_to_master as conversion_factor_to_master,
             concept_value.order as order,
@@ -148,8 +149,9 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
                 display_unit=ar_value.display_unit,
                 master_unit=ar_value.master_unit,
                 convertible_unit=ar_value.convertible_unit,
-                us_conventional_unit=ar_value.convertible_unit,
-                molecular_weight_conv_expon=ar_value.molecular_weight_conv_expon,
+                us_conventional_unit=ar_value.us_conventional_unit,
+                use_complex_unit_conversion=ar_value.use_complex_unit_conversion,
+                use_molecular_weight=ar_value.use_molecular_weight,
                 legacy_code=ar_value.legacy_code,
                 conversion_factor_to_master=ar_value.conversion_factor_to_master,
                 order=ar_value.order,
@@ -208,8 +210,9 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
                 display_unit=ar_value.display_unit,
                 master_unit=ar_value.master_unit,
                 convertible_unit=ar_value.convertible_unit,
-                us_conventional_unit=ar_value.convertible_unit,
-                molecular_weight_conv_expon=ar_value.molecular_weight_conv_expon,
+                us_conventional_unit=ar_value.us_conventional_unit,
+                use_complex_unit_conversion=ar_value.use_complex_unit_conversion,
+                use_molecular_weight=ar_value.use_molecular_weight,
                 legacy_code=ar_value.legacy_code,
                 conversion_factor_to_master=ar_value.conversion_factor_to_master,
                 order=ar_value.order,
@@ -256,9 +259,10 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
                 master_unit=input_dict.get("master_unit"),
                 convertible_unit=input_dict.get("convertible_unit"),
                 us_conventional_unit=input_dict.get("us_conventional_unit"),
-                molecular_weight_conv_expon=input_dict.get(
-                    "molecular_weight_conv_expon"
+                use_complex_unit_conversion=input_dict.get(
+                    "use_complex_unit_conversion"
                 ),
+                use_molecular_weight=input_dict.get("use_molecular_weight"),
                 legacy_code=input_dict.get("legacy_code"),
                 conversion_factor_to_master=input_dict.get(
                     "conversion_factor_to_master"
@@ -282,7 +286,8 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -298,9 +303,10 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
         value_node.master_unit = ar.concept_vo.master_unit
         value_node.si_unit = ar.concept_vo.si_unit
         value_node.us_conventional_unit = ar.concept_vo.us_conventional_unit
-        value_node.molecular_weight_conv_expon = (
-            ar.concept_vo.molecular_weight_conv_expon
+        value_node.use_complex_unit_conversion = (
+            ar.concept_vo.use_complex_unit_conversion
         )
+        value_node.use_molecular_weight = ar.concept_vo.use_molecular_weight
         value_node.conversion_factor_to_master = (
             ar.concept_vo.conversion_factor_to_master
         )
@@ -348,9 +354,10 @@ class UnitDefinitionRepository(ConceptGenericRepository[UnitDefinitionAR]):
             or ar.concept_vo.master_unit != value.master_unit
             or ar.concept_vo.si_unit != value.si_unit
             or ar.concept_vo.us_conventional_unit != value.us_conventional_unit
+            or ar.concept_vo.use_complex_unit_conversion
+            != value.use_complex_unit_conversion
             or ar.concept_vo.legacy_code != value.legacy_code
-            or ar.concept_vo.molecular_weight_conv_expon
-            != value.molecular_weight_conv_expon
+            or ar.concept_vo.use_molecular_weight != value.use_molecular_weight
             or ar.concept_vo.conversion_factor_to_master
             != value.conversion_factor_to_master
             or ar.concept_vo.order != value.order

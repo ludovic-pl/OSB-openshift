@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from clinical_mdr_api.tests.integration.utils.api import inject_base_data
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
 from consumer_api.consumer_api import app
-from consumer_api.tests.utils import set_db
+from consumer_api.tests.utils import assert_response_status_code, set_db
 from consumer_api.v2 import models
 
 pytestmark = pytest.mark.skip("Skip until we have a v2 version of the API")
@@ -58,7 +58,7 @@ def test_data():
 
 def test_get_studies(api_client):
     response = api_client.get(f"{BASE_URL}/studies")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res.keys() == {"self", "prev", "next", "items"}

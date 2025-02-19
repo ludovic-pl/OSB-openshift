@@ -5,7 +5,7 @@ MATCH (Library:Library {name: row.library})
 MERGE (TemplateRoot:ConceptRoot:OdmTemplateRoot {uid: row.oid})
 MERGE (TemplateValue:ConceptValue:OdmTemplateValue {oid: row.oid, name: row.name, effective_date: row.effectivedate, retired_date: row.retireddate})
 MERGE (Library)-[r0:CONTAINS_CONCEPT]->(TemplateRoot)
-MERGE (TemplateRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(TemplateValue)
+MERGE (TemplateRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(TemplateValue)
 MERGE (TemplateRoot)-[r2:LATEST]->(TemplateValue);
 
 // Metadata: For the Form metadata
@@ -17,10 +17,10 @@ MERGE (FormValue:ConceptValue:OdmFormValue {oid: row.oid, name: row.name, repeat
 MERGE (DescriptionRoot:ConceptRoot:OdmDescriptionRoot {uid: row.oid+'.DESC'})
 MERGE (DescriptionValue:ConceptValue:OdmDescriptionValue {language: row.language, name: row.name, description: row.description, instruction: COALESCE(row.instruction,'')})
 MERGE (Library)-[r0:CONTAINS_CONCEPT]->(FormRoot)
-MERGE (FormRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(FormValue)
+MERGE (FormRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(FormValue)
 MERGE (FormRoot)-[r2:LATEST]->(FormValue)
 MERGE (FormRoot)-[r3:HAS_DESCRIPTION]->(DescriptionRoot)
-MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(DescriptionValue)
+MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(DescriptionValue)
 MERGE (Library)-[r5:CONTAINS_CONCEPT]->(DescriptionRoot)
 MERGE (DescriptionRoot)-[r6:LATEST]->(DescriptionValue);
 
@@ -35,10 +35,10 @@ MERGE (ItemGroupRoot)-[r7:HAS_SDTM_DOMAIN]->(cttermroot)
 MERGE (DescriptionRoot:ConceptRoot:OdmDescriptionRoot {uid: row.oid+'.DESC'})
 MERGE (DescriptionValue:ConceptValue:OdmDescriptionValue {language: row.language, name: row.name, description: row.description, instruction: COALESCE(row.instruction,'')})
 MERGE (Library)-[r0:CONTAINS_CONCEPT]->(ItemGroupRoot)
-MERGE (ItemGroupRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(ItemGroupValue)
+MERGE (ItemGroupRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(ItemGroupValue)
 MERGE (ItemGroupRoot)-[r2:LATEST]->(ItemGroupValue)
 MERGE (ItemGroupRoot)-[r3:HAS_DESCRIPTION]->(DescriptionRoot)
-MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(DescriptionValue)
+MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(DescriptionValue)
 MERGE (Library)-[r5:CONTAINS_CONCEPT]->(DescriptionRoot)
 MERGE (DescriptionRoot)-[r6:LATEST]->(DescriptionValue);
 
@@ -51,10 +51,10 @@ MERGE (Library)-[r0:CONTAINS_CONCEPT]->(ItemRoot)
 MERGE (ItemValue:ConceptValue:OdmItemValue {oid: row.oid, name: row.name, prompt: COALESCE(row.prompt,''), datatype: row.datatype, length: row.length, significant_digits: row.significantdigits, codelist: COALESCE(row.codelist,''), term: COALESCE(row.term,''), unit: COALESCE(row.unit,''), sas_field_name: row.sasfieldname, sds_var_name: row.sdsvarname, origin:row.origin, comment: COALESCE(row.comment,'')})
 MERGE (DescriptionRoot:ConceptRoot:OdmDescriptionRoot {uid: row.oid+'.DESC'})
 MERGE (DescriptionValue:ConceptValue:OdmDescriptionValue {language: row.language, name: row.name, description: row.description, instruction: COALESCE(row.instruction,'')})
-MERGE (ItemRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(ItemValue)
+MERGE (ItemRoot)-[r1:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(ItemValue)
 MERGE (ItemRoot)-[r2:LATEST]->(ItemValue)
 MERGE (ItemRoot)-[r3:HAS_DESCRIPTION]->(DescriptionRoot)
-MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', user_initials:'ndsj', version:'0.1'}]->(DescriptionValue)
+MERGE (DescriptionRoot)-[r4:LATEST_DRAFT {change_description:'Initial', start_date:datetime(), status:'Draft', author_id:'ndsj', version:'0.1'}]->(DescriptionValue)
 MERGE (Library)-[r5:CONTAINS_CONCEPT]->(DescriptionRoot)
 MERGE (DescriptionRoot)-[r6:LATEST]->(DescriptionValue);
 

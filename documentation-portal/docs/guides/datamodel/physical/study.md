@@ -598,7 +598,7 @@ Maintain the audit trail:
 - Properties: 
   - `date: String (Required, Unique)`: The date when the study was modified.
   - `status: String`: An optional status message describing the change.
-  - `user_initials: String (Required`: The user that made the edit to the study.
+  - `author_id: String (Required)`: The user that made the edit to the study.
 - Relationships:
   - `BEFORE (Outgoing, 0..*)`: links to all elements that were part of the study before the action took place.
   - `AFTER (Outgoing, 0..*)`:  links to all elements that are part of the study after the action took place.

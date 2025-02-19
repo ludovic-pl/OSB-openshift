@@ -1,6 +1,7 @@
 """
 Tests for /concepts/activities/activity-instances endpoints
 """
+
 import json
 import logging
 from functools import reduce
@@ -11,13 +12,13 @@ import yaml
 from fastapi.testclient import TestClient
 
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import Activity, CTTerm
 from clinical_mdr_api.models.biomedical_concepts.activity_instance_class import (
     ActivityInstanceClass,
 )
 from clinical_mdr_api.models.biomedical_concepts.activity_item_class import (
     ActivityItemClass,
 )
+from clinical_mdr_api.models.concepts.activities.activity import Activity
 from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
 from clinical_mdr_api.models.concepts.activities.activity_instance import (
     ActivityInstance,
@@ -26,12 +27,14 @@ from clinical_mdr_api.models.concepts.activities.activity_item import ActivityIt
 from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
     ActivitySubGroup,
 )
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import LIBRARY_NAME, TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.exceptions import BusinessLogicException
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -153,7 +156,15 @@ def test_data():
         {
             "activity_item_class_uid": activity_item_classes[0].uid,
             "ct_term_uids": [ct_terms[0].term_uid],
-            "unit_definition_uids": [],
+            "unit_definition_uids": [
+                TestUtils.create_unit_definition(
+                    name="test unit",
+                    unit_dimension=TestUtils.create_ct_term(
+                        codelist_uid=codelist.codelist_uid,
+                        sponsor_preferred_name="Unit Dimension term",
+                    ).term_uid,
+                ).uid
+            ],
         },
         {
             "activity_item_class_uid": activity_item_classes[1].uid,
@@ -172,8 +183,12 @@ def test_data():
         TestUtils.create_activity_instance(
             name="name A",
             activity_instance_class_uid=activity_instance_classes[0].uid,
+            nci_concept_id="NCIID",
+            nci_concept_name="NCINAME",
             name_sentence_case="name A",
             topic_code="topic code A",
+            is_research_lab=True,
+            molecular_weight=13,
             is_required_for_activity=True,
             activities=[activities[0].uid],
             activity_subgroups=[activity_subgroup.uid],
@@ -283,17 +298,18 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 ACTIVITY_INSTANCES_FIELDS_ALL = [
     "uid",
     "nci_concept_id",
+    "nci_concept_name",
     "name",
     "name_sentence_case",
     "definition",
     "abbreviation",
     "topic_code",
+    "is_research_lab",
+    "molecular_weight",
     "adam_param_code",
     "is_required_for_activity",
     "is_default_selected_for_activity",
@@ -311,7 +327,7 @@ ACTIVITY_INSTANCES_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
 ]
 
@@ -328,7 +344,7 @@ def test_get_activity_instance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVITY_INSTANCES_FIELDS_ALL)
@@ -337,9 +353,13 @@ def test_get_activity_instance(api_client):
 
     assert res["uid"] == activity_instances_all[0].uid
     assert res["name"] == "name A"
+    assert res["nci_concept_id"] == "NCIID"
+    assert res["nci_concept_name"] == "NCINAME"
     assert res["activity_name"] == activities[0].name
     assert res["name_sentence_case"] == "name A"
     assert res["topic_code"] == "topic code A"
+    assert res["is_research_lab"] is True
+    assert res["molecular_weight"] == 13
     assert len(res["activity_groupings"]) == 1
     assert res["activity_groupings"][0]["activity"]["uid"] == activities[0].uid
     assert res["activity_groupings"][0]["activity"]["name"] == activities[0].name
@@ -371,6 +391,10 @@ def test_get_activity_instance(api_client):
         unit["uid"] for unit in res["activity_items"][0]["unit_definitions"]
     )
     assert expected_unit_uids == actual_unit_uids
+    assert (
+        res["activity_items"][0]["unit_definitions"][0]["dimension_name"]
+        == "Unit Dimension term"
+    )
 
     assert res["library_name"] == "Sponsor"
     assert res["definition"] is None
@@ -440,7 +464,7 @@ def test_get_activity_instances(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -500,7 +524,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -566,7 +590,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -600,7 +624,7 @@ def test_get_activity_instances_versions(api_client):
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instances_all[0].uid}/versions"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get all versions of all activities
     response = api_client.get(
@@ -608,7 +632,7 @@ def test_get_activity_instances_versions(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(["items", "total", "page", "size"])
@@ -641,7 +665,7 @@ def test_filtering_versions_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -707,7 +731,7 @@ def test_filtering_versions_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -753,7 +777,7 @@ def test_edit_activity_instance(api_client):
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "Activity Instance"
     assert res["name_sentence_case"] == "activity instance"
     assert res["nci_concept_id"] == "C-123"
@@ -786,7 +810,7 @@ def test_edit_activity_instance(api_client):
             "change_description": "modifying activity instance",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Second Edit with more properties sent
     response = api_client.patch(
@@ -808,7 +832,7 @@ def test_edit_activity_instance(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "new name"
     assert res["name_sentence_case"] == "new name"
     assert res["nci_concept_id"] == "C-123NEW"
@@ -878,7 +902,7 @@ def test_post_activity_instance(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["name"] == "activity instance name"
     assert res["name_sentence_case"] == "activity instance name"
@@ -945,7 +969,7 @@ def test_activity_instance_versioning(api_client):
             "library_name": "Sponsor",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     activity_instance_uid = res["uid"]
 
@@ -953,7 +977,7 @@ def test_activity_instance_versioning(api_client):
         f"/concepts/activities/activity-instances/{activity_instance_uid}/versions"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     for item in res:
         assert set(list(item.keys())) == set(ACTIVITY_INSTANCES_FIELDS_ALL)
         for key in ACTIVITY_INSTANCES_FIELDS_NOT_NULL:
@@ -962,41 +986,41 @@ def test_activity_instance_versioning(api_client):
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/versions"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
     assert res["message"] == "New draft version can be created only for FINAL versions."
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/approvals"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert res["message"] == "The object is not in draft status."
+    assert res["message"] == "The object isn't in draft status."
 
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/activations"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
     assert res["message"] == "Only RETIRED version can be reactivated."
     response = api_client.delete(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance_uid}/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.delete(
         f"/concepts/activities/activity-instances/{activity_instance_uid}"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     res = response.json()
     assert res["message"] == "Object has been accepted"
 
@@ -1005,7 +1029,7 @@ def test_activity_instance_overview(api_client):
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instances_all[3].uid}/overview",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     verify_instance_overview_content(res=res)
 
@@ -1060,7 +1084,7 @@ def verify_instance_overview_content(res: dict):
     assert len(items[0]["ct_terms"]) == 1
     assert items[0]["ct_terms"][0]["uid"] == ct_terms[0].term_uid
     assert items[0]["ct_terms"][0]["name"] == ct_terms[0].sponsor_preferred_name
-    assert len(items[0]["unit_definitions"]) == 0
+    assert len(items[0]["unit_definitions"]) == 1
     assert items[0]["activity_item_class"]["name"] == "Activity Item Class name1"
     assert items[0]["activity_item_class"]["role_name"] == "Role"
     assert items[0]["activity_item_class"]["data_type_name"] == "Data type"
@@ -1070,7 +1094,7 @@ def verify_instance_overview_content(res: dict):
     assert len(items[0]["ct_terms"]) == 1
     assert items[1]["ct_terms"][0]["uid"] == ct_terms[1].term_uid
     assert items[1]["ct_terms"][0]["name"] == ct_terms[1].sponsor_preferred_name
-    assert len(items[0]["unit_definitions"]) == 0
+    assert len(items[0]["unit_definitions"]) == 1
     assert items[1]["activity_item_class"]["name"] == "Activity Item Class name2"
     assert items[1]["activity_item_class"]["role_name"] == "Role"
     assert items[1]["activity_item_class"]["data_type_name"] == "Data type"
@@ -1084,7 +1108,7 @@ def verify_instance_overview_content(res: dict):
     assert terms[0]["name"] == ct_terms[0].sponsor_preferred_name
     assert terms[1]["uid"] == ct_terms[1].term_uid
     assert terms[1]["name"] == ct_terms[1].sponsor_preferred_name
-    assert len(items[0]["unit_definitions"]) == 0
+    assert len(items[0]["unit_definitions"]) == 1
     assert items[2]["activity_item_class"]["name"] == "Activity Item Class name3"
     assert items[2]["activity_item_class"]["role_name"] == "Role"
     assert items[2]["activity_item_class"]["data_type_name"] == "Data type"
@@ -1098,7 +1122,7 @@ def test_activity_instance_overview_export_to_yaml(api_client):
     headers = {"Accept": export_format}
     response = api_client.get(url, headers=headers)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert export_format in response.headers["content-type"]
 
     res = yaml.load(response.text, Loader=yaml.SafeLoader)
@@ -1109,7 +1133,7 @@ def test_activity_instance_cosmos_overview(api_client):
     url = f"/concepts/activities/activity-instances/{activity_instances_all[3].uid}/overview.cosmos"
     response = api_client.get(url)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert "application/x-yaml" in response.headers["content-type"]
 
     res = yaml.load(response.text, Loader=yaml.SafeLoader)
@@ -1126,7 +1150,7 @@ def test_activity_overview(api_client):
     response = api_client.get(
         f"/concepts/activities/activities/{activities[1].uid}/overview",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     verify_activity_overview_content(res=res)
 
@@ -1179,7 +1203,7 @@ def test_activity_overview_export_to_yaml(api_client):
     headers = {"Accept": export_format}
     response = api_client.get(url, headers=headers)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert export_format in response.headers["content-type"]
 
     res = yaml.load(response.text, Loader=yaml.SafeLoader)
@@ -1211,7 +1235,7 @@ def test_cascade_edit_activities(api_client):
     )
 
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == "Cascade Activity Instance"
     assert len(res["activity_groupings"]) == 1
     assert res["activity_groupings"][0]["activity"]["uid"] == activity.uid
@@ -1237,7 +1261,7 @@ def test_cascade_edit_activities(api_client):
         f"/concepts/activities/activities/{activity.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity
     response = api_client.patch(
@@ -1248,20 +1272,20 @@ def test_cascade_edit_activities(api_client):
             "change_description": "test cascade edit",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity with cascade_edit_and_approve set to True
     response = api_client.post(
         f"/concepts/activities/activities/{activity.uid}/approvals",
         params={"cascade_edit_and_approve": True},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance and assert that it was updated
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res["version"] == "2.0"
@@ -1274,7 +1298,7 @@ def test_cascade_edit_activities(api_client):
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}/versions"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     unchanged_draft = _get_version_from_list(res, "1.1")
     updated_draft = _get_version_from_list(res, "1.2")
@@ -1300,7 +1324,7 @@ def test_cascade_edit_activities(api_client):
         f"/concepts/activities/activities/{activity.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity
     response = api_client.patch(
@@ -1311,20 +1335,20 @@ def test_cascade_edit_activities(api_client):
             "change_description": "test cascade edit again",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity with cascade_edit_and_approve set to False
     response = api_client.post(
         f"/concepts/activities/activities/{activity.uid}/approvals",
         params={"cascade_edit_and_approve": False},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance and assert that it was not updated
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res["version"] == "2.0"
@@ -1370,7 +1394,7 @@ def test_updating_parents(api_client):
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == original_instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1393,7 +1417,7 @@ def test_updating_parents(api_client):
         f"/concepts/activities/activity-groups/{group.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the group
     response = api_client.patch(
@@ -1404,7 +1428,7 @@ def test_updating_parents(api_client):
             "change_description": "patch group",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the group
     response = api_client.post(
@@ -1416,7 +1440,7 @@ def test_updating_parents(api_client):
         f"/concepts/activities/activity-sub-groups/{subgroup.uid}"
     )
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert len(res["activity_groups"]) == 1
@@ -1433,7 +1457,7 @@ def test_updating_parents(api_client):
         f"/concepts/activities/activity-sub-groups/{subgroup.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the group
     response = api_client.patch(
@@ -1444,7 +1468,7 @@ def test_updating_parents(api_client):
             "change_description": "patch subgroup",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the subgroup
     response = api_client.post(
@@ -1454,7 +1478,7 @@ def test_updating_parents(api_client):
     # === Assert that the activity was not affected by the subgroup update ===
     response = api_client.get(f"/concepts/activities/activities/{activity.uid}")
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res["activity_groupings"][0]["activity_subgroup_uid"] == subgroup.uid
@@ -1475,7 +1499,7 @@ def test_updating_parents(api_client):
         f"/concepts/activities/activities/{activity.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity
     response = api_client.patch(
@@ -1486,19 +1510,19 @@ def test_updating_parents(api_client):
             "change_description": "patch activity",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity
     response = api_client.post(
         f"/concepts/activities/activities/{activity.uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance by uid and assert that it was not affected by the activity update
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == original_instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1520,7 +1544,7 @@ def test_updating_parents(api_client):
     response = api_client.get(
         "/concepts/activities/activity-instances", params={"page_size": 0}
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     a_instance_to_compare = None
     for a_instance in res:
@@ -1565,7 +1589,7 @@ def test_updating_parents(api_client):
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}/overview"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["activity_instance"]["name"] == original_instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1626,7 +1650,7 @@ def test_updating_instance_to_new_activity(api_client):
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1647,7 +1671,7 @@ def test_updating_instance_to_new_activity(api_client):
         f"/concepts/activities/activities/{activity.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity
     response = api_client.patch(
@@ -1658,19 +1682,19 @@ def test_updating_instance_to_new_activity(api_client):
             "change_description": "patch activity",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity
     response = api_client.post(
         f"/concepts/activities/activities/{activity.uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance by uid and assert that it was not affected by the activity update
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1691,26 +1715,26 @@ def test_updating_instance_to_new_activity(api_client):
         f"/concepts/activities/activity-instances/{activity_instance.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity instance, no changes
     response = api_client.patch(
         f"/concepts/activities/activity-instances/{activity_instance.uid}",
         json={"change_description": "string"},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity instance
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance.uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance by uid and assert that it is not conncted to the new activity
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1731,7 +1755,7 @@ def test_updating_instance_to_new_activity(api_client):
         f"/concepts/activities/activity-instances/{activity_instance.uid}/versions",
         json={},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Patch the activity instance to another activity, no other changes
     response = api_client.patch(
@@ -1747,19 +1771,19 @@ def test_updating_instance_to_new_activity(api_client):
             "change_description": "string2",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Approve the activity instance
     response = api_client.post(
         f"/concepts/activities/activity-instances/{activity_instance.uid}/approvals"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get the instance by uid and assert that it is now connected to the other activity
     response = api_client.get(
         f"/concepts/activities/activity-instances/{activity_instance.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["name"] == instance_name
     assert len(res["activity_groupings"]) == 1
@@ -1773,3 +1797,38 @@ def test_updating_instance_to_new_activity(api_client):
 
     assert res["version"] == "3.0"
     assert res["status"] == "Final"
+
+
+def test_instance_to_activity_without_data_collection(api_client):
+    group_name = "group name"
+    subgroup_name = "subgroup name"
+    activity_name = "activity name"
+    instance_name = "instance name"
+
+    # ==== Create group, subgroup, activity and activity instance ====
+    group = TestUtils.create_activity_group(name=group_name)
+
+    subgroup = TestUtils.create_activity_subgroup(
+        name=subgroup_name, activity_groups=[group.uid]
+    )
+    activity = TestUtils.create_activity(
+        name=activity_name,
+        activity_subgroups=[subgroup.uid],
+        activity_groups=[group.uid],
+        approve=True,
+        is_data_collected=False,
+    )
+    with pytest.raises(BusinessLogicException) as exc:
+        _activity_instance = TestUtils.create_activity_instance(
+            name=instance_name,
+            activity_instance_class_uid=activity_instance_classes[0].uid,
+            name_sentence_case=instance_name,
+            nci_concept_id="C-1234",
+            topic_code="activity instance tc",
+            activities=[activity.uid],
+            activity_subgroups=[subgroup.uid],
+            activity_groups=[group.uid],
+            activity_items=[activity_items[0]],
+            approve=True,
+        )
+    assert "tried to connect to Activity without data collection" in exc.value.msg

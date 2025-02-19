@@ -1,7 +1,6 @@
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.active_substance import (
     ActiveSubstanceRoot,
     ActiveSubstanceValue,
@@ -25,6 +24,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
 )
 from clinical_mdr_api.models.concepts.active_substance import ActiveSubstance
+from common.utils import convert_to_datetime
 
 
 class ActiveSubstanceRepository(ConceptGenericRepository):
@@ -84,9 +84,11 @@ class ActiveSubstanceRepository(ConceptGenericRepository):
                 short_number=input_dict.get("short_number"),
                 long_number=input_dict.get("long_number"),
                 inn=input_dict.get("inn"),
-                unii_term_uid=input_dict.get("unii_data").get("unii_term_uid")
-                if input_dict.get("unii_data")
-                else None,
+                unii_term_uid=(
+                    input_dict.get("unii_data").get("unii_term_uid")
+                    if input_dict.get("unii_data")
+                    else None
+                ),
                 external_id=input_dict.get("external_id"),
             ),
             library=LibraryVO.from_input_values_2(
@@ -98,7 +100,8 @@ class ActiveSubstanceRepository(ConceptGenericRepository):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),

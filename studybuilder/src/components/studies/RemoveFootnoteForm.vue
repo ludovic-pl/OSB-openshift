@@ -13,7 +13,7 @@
         <v-checkbox
           v-for="item of footnotes" :key="item.uid"
           v-model="selectedFootnotes"
-          :label="item.footnote.name_plain"
+          :label="item.footnote ? item.footnote.name_plain : item.template.name_plain"
           :value="item.uid"
           density="compact"
         ></v-checkbox>

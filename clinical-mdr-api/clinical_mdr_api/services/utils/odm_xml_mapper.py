@@ -4,7 +4,7 @@ from xml.dom.minidom import Document
 
 from fastapi import UploadFile
 
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import BusinessLogicException
 
 MANDATORY_MAPPER_FIELDS = {
     "type",
@@ -36,15 +36,16 @@ def map_xml(xml_document: Document, mapper: UploadFile | None):
     if not mapper:
         return
 
-    if mapper.content_type != "text/csv":
-        raise BusinessLogicException("Only CSV format is supported.")
+    BusinessLogicException.raise_if(
+        mapper.content_type != "text/csv", msg="Only CSV format is supported."
+    )
 
     dict_reader = DictReader(iterdecode(mapper.file, "utf-8"))
 
-    if not MANDATORY_MAPPER_FIELDS.issubset(dict_reader.fieldnames):
-        raise BusinessLogicException(
-            f"These headers must be present: {sorted(MANDATORY_MAPPER_FIELDS)}"
-        )
+    BusinessLogicException.raise_if_not(
+        MANDATORY_MAPPER_FIELDS.issubset(dict_reader.fieldnames),
+        msg=f"These headers must be present: {sorted(MANDATORY_MAPPER_FIELDS)}",
+    )
 
     for mapping in dict_reader:
         parent = mapping["parent"] or "*"

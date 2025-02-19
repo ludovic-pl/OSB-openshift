@@ -9,7 +9,6 @@ from clinical_mdr_api.domains.study_selections.study_soa_group_selection import 
     StudySoAGroupAR,
     StudySoAGroupVO,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudySoAGroup,
     StudySoAGroupEditInput,
@@ -20,6 +19,7 @@ from clinical_mdr_api.services.studies.study_activity_selection_base import (
     StudyActivitySelectionBaseService,
     _VOType,
 )
+from common.exceptions import ValidationException
 
 
 class StudySoAGroupService(StudyActivitySelectionBaseService):
@@ -71,12 +71,16 @@ class StudySoAGroupService(StudyActivitySelectionBaseService):
     ) -> list[BaseModel]:
         pass
 
-    def update_study_activities(self, study_uid: str, study_selection_uid: str):
+    def update_dependent_objects(
+        self,
+        study_selection: StudySoAGroupVO,
+        previous_study_selection: StudySoAGroupVO,
+    ):
         study_activities = self._repos.study_activity_repository.get_all_study_activities_for_study_soa_group(
-            study_soa_group_uid=study_selection_uid
+            study_soa_group_uid=study_selection.study_selection_uid
         )
         study_activity_aggregate = self._repos.study_activity_repository.find_by_study(
-            study_uid,
+            study_selection.study_uid,
             for_update=True,
         )
         assert study_activity_aggregate is not None
@@ -101,19 +105,17 @@ class StudySoAGroupService(StudyActivitySelectionBaseService):
         request_object: StudySoAGroupEditInput,
         current_object: StudySoAGroupVO,
     ) -> StudySoAGroupVO:
-        if (
+        ValidationException.raise_if(
             request_object.show_soa_group_in_protocol_flowchart
-            == current_object.show_soa_group_in_protocol_flowchart
-        ):
-            raise ValidationException(
-                f"The StudySoAGroup is already set to be "
-                f"{'visible' if request_object.show_soa_group_in_protocol_flowchart else 'not visible'}' in the protocol flowchart"
-            )
+            == current_object.show_soa_group_in_protocol_flowchart,
+            msg=f"The StudySoAGroup is already set to be "
+            f"{'visible' if request_object.show_soa_group_in_protocol_flowchart else 'not visible'}' in the protocol flowchart",
+        )
 
         return StudySoAGroupVO.from_input_values(
             study_uid=current_object.study_uid,
             soa_group_term_uid=current_object.soa_group_term_uid,
             study_selection_uid=current_object.study_selection_uid,
             show_soa_group_in_protocol_flowchart=request_object.show_soa_group_in_protocol_flowchart,
-            user_initials=self.author,
+            author_id=self.author,
         )

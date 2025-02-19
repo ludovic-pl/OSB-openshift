@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -6,35 +6,17 @@ from clinical_mdr_api.models.utils import BaseModel
 
 
 class TopicCdDef(BaseModel):
-    lb: str = Field(None, title="lb", description="Label")
-    topic_cd: str = Field(None, title="topic_cd", description="Topic Code")
-    short_topic_cd: str = Field(
-        None, title="short_topic_cd", description="Short Topic Code"
-    )
-    description: str = Field(
-        None, title="description", description="Description", nullable=True
-    )
-    molecular_weight: float = Field(
-        None, title="molecular_weight", description="Molecular Weight", nullable=True
-    )
-    sas_display_format: str = Field(
-        None,
-        title="sas_display_format",
-        description="SAS Display Format",
-        nullable=True,
-    )
-    general_domain_class: str = Field(
-        None,
-        title="general_domain_class",
-        description="General Domain Class",
-        nullable=True,
-    )
-    sub_domain_class: str = Field(
-        None, title="sub_domain_class", description="Sub Domain Class", nullable=True
-    )
-    sub_domain_type: str = Field(
-        None, title="sub_domain_type", description="Sub Domain Type", nullable=True
-    )
+    lb: Annotated[str | None, Field(title="Label", nullable=True)] = None
+    topic_cd: Annotated[str | None, Field(title="Topic Code", nullable=True)] = None
+    short_topic_cd: Annotated[
+        str | None, Field(title="Short Topic Code", nullable=True)
+    ] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    molecular_weight: Annotated[float | None, Field(nullable=True)] = None
+    sas_display_format: Annotated[str | None, Field(nullable=True)] = None
+    general_domain_class: Annotated[str | None, Field(nullable=True)] = None
+    sub_domain_class: Annotated[str | None, Field(nullable=True)] = None
+    sub_domain_type: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:
@@ -52,18 +34,20 @@ class TopicCdDef(BaseModel):
 
 
 class MetaData(BaseModel):
-    dataset_name: str = Field(None, title="dataset_name", description="name of dataset")
-    dataset_label: str = Field(
-        None, title="dataset_label", description="label of dataset"
-    )
-    name: str = Field(None, title="name", description="name of variable")
-    type: str = Field(None, title="type", description="type of variable")
-    length: float = Field(None, title="length", description="length of variable")
-    label: str = Field(None, title="label", description="label of variable")
-    format: str = Field(None, title="format", description="SAS format of variable")
-    informat: str = Field(
-        None, title="informat", description="SAS informat of variable"
-    )
+    dataset_name: Annotated[str | None, Field(nullable=True)] = None
+    dataset_label: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field(title="name of variable", nullable=True)] = None
+    type: Annotated[str | None, Field(title="type of variable", nullable=True)] = None
+    length: Annotated[
+        float | None, Field(title="length of variable", nullable=True)
+    ] = None
+    label: Annotated[str | None, Field(title="label of variable", nullable=True)] = None
+    format: Annotated[
+        str | None, Field(title="SAS format of variable", nullable=True)
+    ] = None
+    informat: Annotated[
+        str | None, Field(title="SAS informat of variable", nullable=True)
+    ] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:
@@ -85,9 +69,9 @@ PACKAGE_NAME = "Package name"
 
 
 class CDISCCTVer(BaseModel):
-    ct_scope: str = Field(None, title=CT_SCOPE, description=CT_SCOPE)
-    ct_ver: str = Field(None, title="CT version", description=CT_VERSION)
-    pkg_nm: str = Field(None, title=PACKAGE_NAME, description=PACKAGE_NAME)
+    ct_scope: Annotated[str | None, Field(title=CT_SCOPE, nullable=True)] = None
+    ct_ver: Annotated[str | None, Field(title="CT version", nullable=True)] = None
+    pkg_nm: Annotated[str | None, Field(title=PACKAGE_NAME, nullable=True)] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:
@@ -99,8 +83,8 @@ class CDISCCTVer(BaseModel):
 
 
 class CDISCCTPkg(BaseModel):
-    pkg_scope: str = Field(None, title="Package scope", description=CT_SCOPE)
-    pkg_nm: str = Field(None, title=PACKAGE_NAME, description=PACKAGE_NAME)
+    pkg_scope: Annotated[str | None, Field(title="Package scope", nullable=True)] = None
+    pkg_nm: Annotated[str | None, Field(title=PACKAGE_NAME, nullable=True)] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:
@@ -108,27 +92,36 @@ class CDISCCTPkg(BaseModel):
 
 
 class CDISCCTList(BaseModel):
-    ct_cd_list_cd: str = Field(None, title="CT codelist", description="CT codelist")
+    ct_cd_list_cd: Annotated[str | None, Field(title="CT codelist", nullable=True)] = (
+        None
+    )
 
-    ct_cd_list_extensible: str = Field(
-        None, title="CT codelist extensible", description="Is CT codelist extensible"
-    )
-    ct_cd_list_nm: str = Field(
-        None, title="CT codelist name", description="Name of CT codelist"
-    )
-    ct_cd_list_submval: str = Field(
-        None,
-        title="CT codelist submission value",
-        description="CT codelist submission value",
-    )
-    ct_scope: str = Field(None, title=CT_SCOPE, description=CT_SCOPE)
-    ct_ver: str = Field(None, title=CT_VERSION, description=CT_VERSION)
-    definition: str = Field(None, title="definition", description="definition")
-    nci_pref_term: str = Field(
-        None, title="NCI preferred term", description="NCI preferred term"
-    )
-    pkg_nm: str = Field(None, title=PACKAGE_NAME, description=PACKAGE_NAME)
-    synonyms: str = Field(None, title="Synonyms", description="Synonyms")
+    ct_cd_list_extensible: Annotated[
+        str | None,
+        Field(
+            title="CT codelist extensible",
+            description="Is CT codelist extensible",
+            nullable=True,
+        ),
+    ] = None
+    ct_cd_list_nm: Annotated[
+        str | None, Field(title="CT codelist name", nullable=True)
+    ] = None
+    ct_cd_list_submval: Annotated[
+        str | None, Field(title="CT codelist submission value", nullable=True)
+    ] = None
+    ct_scope: Annotated[
+        str | None, Field(title=CT_SCOPE, description=CT_SCOPE, nullable=True)
+    ] = None
+    ct_ver: Annotated[
+        str | None, Field(title=CT_VERSION, description=CT_VERSION, nullable=True)
+    ] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
+    nci_pref_term: Annotated[
+        str | None, Field(title="NCI preferred term", nullable=True)
+    ] = None
+    pkg_nm: Annotated[str | None, Field(title=PACKAGE_NAME, nullable=True)] = None
+    synonyms: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:
@@ -147,23 +140,21 @@ class CDISCCTList(BaseModel):
 
 
 class CDISCCTVal(BaseModel):
-    ct_cd: str = Field(None, title="CT Code", description="CT Code")
-    ct_cd_list_submval: str = Field(
-        None,
-        title="CT codelist submission value",
-        description="CT codelist submission value",
-    )
-    ct_scope: str = Field(None, title=CT_SCOPE, description=CT_SCOPE)
-    ct_submval: str = Field(
-        None, title="CT code submission value", description="CT code submission value"
-    )
-    ct_ver: str = Field(None, title=CT_VERSION, description=CT_VERSION)
-    definition: str = Field(None, title="definition", description="definition")
-    nci_pref_term: str = Field(
-        None, title="NCI preferred term", description="NCI preferred term"
-    )
-    pkg_nm: str = Field(None, title=PACKAGE_NAME, description=PACKAGE_NAME)
-    synonyms: str = Field(None, title="Synonyms", description="Synonyms")
+    ct_cd: Annotated[str | None, Field(title="CT Code", nullable=True)] = None
+    ct_cd_list_submval: Annotated[
+        str | None, Field(title="CT codelist submission value", nullable=True)
+    ] = None
+    ct_scope: Annotated[str | None, Field(title=CT_SCOPE, nullable=True)] = None
+    ct_submval: Annotated[
+        str | None, Field(title="CT code submission value", nullable=True)
+    ] = None
+    ct_ver: Annotated[str | None, Field(title=CT_VERSION, nullable=True)] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
+    nci_pref_term: Annotated[
+        str | None, Field(title="NCI preferred term", nullable=True)
+    ] = None
+    pkg_nm: Annotated[str | None, Field(title=PACKAGE_NAME, nullable=True)] = None
+    synonyms: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_query(cls, query_result: dict) -> Self:

@@ -93,7 +93,7 @@ class Term:
             codelists = codelists.union(submission_value.get_codelists())
         return codelists
 
-    def get_inconsistencies(self, user_initials: str):
+    def get_inconsistencies(self, author_id: str):
         inconsistencies = []
 
         if len(self.__submission_values) == 0:
@@ -117,7 +117,7 @@ class Term:
             inconsistency = Inconsistency(
                 Inconsistency.inconsistent_term_submission_value_tagline,
                 message,
-                user_initials,
+                author_id,
             )
             inconsistency.set_affected_term(self)
             inconsistencies.append(inconsistency)
@@ -143,7 +143,7 @@ class Term:
             inconsistency = Inconsistency(
                 Inconsistency.inconsistent_term_attributes_tagline,
                 message,
-                user_initials,
+                author_id,
             )
             inconsistency.set_affected_term(self)
             inconsistencies.append(inconsistency)

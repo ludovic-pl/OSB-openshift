@@ -1,20 +1,18 @@
 <template>
   <div class="text-center mt-16">
-    <h1 class="text-h3">
-      {{ $t('HomeView.title') }}
-    </h1>
+    <h1 class="text-h3" v-html="$t('HomeView.title', appEnv ? { env: `<strong style='color: rgb(var(--v-theme-nnSeaBlue400)); font-size: 64px;'>${appEnv}</strong> <strong>environment</strong>` } : '')"></h1>
     <h2 class="text-h4 mt-2">
       {{ $t('HomeView.subtitle') }}
     </h2>
-
-    <div class="d-flex justify-center">
+    <div class="d-flex justify-center container">
       <v-img
         class="mt-16"
         :src="logoUrl"
         contain
         :transition="false"
-        max-width="80%"
+        max-width="1200"
       />
+      <div class="mt-6 env-center">{{ appEnv }}</div>
     </div>
 
     <div class="mt-16 d-flex justify-center text-h6">
@@ -64,6 +62,7 @@
 <script>
 import licenseContent from '../../LICENSE.md?raw'
 import AboutLicense from '@/components/layout/AboutLicense.vue'
+import { getAppEnv } from '@/utils/generalUtils'
 
 export default {
   components: {
@@ -74,8 +73,12 @@ export default {
       '../assets/study_builder_homepage_logo.png',
       import.meta.url
     ).href
+
+    const appEnv = getAppEnv()
+
     return {
       logoUrl,
+      appEnv,
     }
   },
   data() {
@@ -88,3 +91,18 @@ export default {
   },
 }
 </script>
+<style scoped>
+.container {
+  position: relative;
+  text-align: center;
+  color: white;
+}
+.env-center {
+  position: absolute;
+  top: 50%;
+  left: 60%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  font-size: 128px;
+}
+</style>

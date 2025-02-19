@@ -14,7 +14,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.216630",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -32,7 +32,7 @@
       "sponsor_preferred_name_sentence_case": "% B/T",
       "start_date": "2022-09-20T10:55:33.183900",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000250"
@@ -52,7 +52,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.088456",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -70,7 +70,7 @@
       "sponsor_preferred_name_sentence_case": "%-point",
       "start_date": "2022-09-20T10:55:33.052793",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000247"
@@ -90,7 +90,7 @@
       ],
       "start_date": "2022-09-20T10:55:34.916751",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -108,7 +108,7 @@
       "sponsor_preferred_name_sentence_case": "(pmol*h/L)/(U/kg)",
       "start_date": "2022-09-20T10:55:33.046674",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000248"
@@ -128,7 +128,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.114277",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -146,7 +146,7 @@
       "sponsor_preferred_name_sentence_case": "(pmol/L)/(U/kg)",
       "start_date": "2022-09-20T10:55:33.096024",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000249"
@@ -166,7 +166,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.471090",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -184,7 +184,7 @@
       "sponsor_preferred_name_sentence_case": "/regimen period",
       "start_date": "2022-09-20T10:55:34.802441",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000253"
@@ -204,7 +204,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.523556",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -222,7 +222,7 @@
       "sponsor_preferred_name_sentence_case": "0/00",
       "start_date": "2022-09-20T10:55:34.800243",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000251"
@@ -242,7 +242,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.387553",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -260,7 +260,7 @@
       "sponsor_preferred_name_sentence_case": "Arbitrary U/mL",
       "start_date": "2022-09-20T10:55:34.798601",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000252"
@@ -280,7 +280,7 @@
       ],
       "start_date": "2022-09-20T10:55:30.677810",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -298,7 +298,7 @@
       "sponsor_preferred_name_sentence_case": "Count",
       "start_date": "2022-09-20T10:55:30.091581",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000231"
@@ -318,7 +318,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.910725",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -336,7 +336,7 @@
       "sponsor_preferred_name_sentence_case": "DOSE STEP",
       "start_date": "2022-09-20T10:55:35.208663",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000255"
@@ -356,7 +356,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.072996",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -374,7 +374,7 @@
       "sponsor_preferred_name_sentence_case": "Fraction of 1",
       "start_date": "2022-09-20T10:55:35.335427",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000256"
@@ -394,7 +394,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.498549",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -412,7 +412,7 @@
       "sponsor_preferred_name_sentence_case": "IU/mL/IU/kg",
       "start_date": "2022-09-20T10:55:35.600429",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000258"
@@ -432,7 +432,7 @@
       ],
       "start_date": "2022-09-20T10:55:37.071067",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -450,7 +450,7 @@
       "sponsor_preferred_name_sentence_case": "Score",
       "start_date": "2022-09-20T10:55:36.662584",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000264"
@@ -470,7 +470,7 @@
       ],
       "start_date": "2022-09-20T10:55:37.098367",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -488,7 +488,7 @@
       "sponsor_preferred_name_sentence_case": "U/week",
       "start_date": "2022-09-20T10:55:36.725313",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000265"
@@ -508,7 +508,7 @@
       ],
       "start_date": "2022-09-20T10:55:35.797998",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -526,7 +526,7 @@
       "sponsor_preferred_name_sentence_case": "dB/m",
       "start_date": "2022-09-20T10:55:35.032669",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000254"
@@ -546,7 +546,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.295639",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -564,7 +564,7 @@
       "sponsor_preferred_name_sentence_case": "g/week",
       "start_date": "2022-09-20T10:55:35.534887",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000257"
@@ -584,7 +584,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.607835",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -602,7 +602,7 @@
       "sponsor_preferred_name_sentence_case": "kJ",
       "start_date": "2022-09-20T10:55:35.729157",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000259"
@@ -622,7 +622,7 @@
       ],
       "start_date": "2022-09-20T10:55:37.189541",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -640,7 +640,7 @@
       "sponsor_preferred_name_sentence_case": "kUA/L",
       "start_date": "2022-09-20T10:55:36.838425",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000266"
@@ -660,7 +660,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.727007",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -678,7 +678,7 @@
       "sponsor_preferred_name_sentence_case": "mL/Week",
       "start_date": "2022-09-20T10:55:35.852451",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000260"
@@ -698,7 +698,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.975939",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -716,7 +716,7 @@
       "sponsor_preferred_name_sentence_case": "mU/kg/min",
       "start_date": "2022-09-20T10:55:36.537349",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000263"
@@ -736,7 +736,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.876608",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -754,7 +754,7 @@
       "sponsor_preferred_name_sentence_case": "mU/kg/min",
       "start_date": "2022-09-20T10:55:36.444994",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000262"
@@ -774,7 +774,7 @@
       ],
       "start_date": "2022-09-20T10:55:36.777475",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -792,7 +792,7 @@
       "sponsor_preferred_name_sentence_case": "mm2/usec",
       "start_date": "2022-09-20T10:55:36.116414",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000261"
@@ -812,7 +812,7 @@
       ],
       "start_date": "2022-09-20T10:55:28.989104",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -830,7 +830,7 @@
       "sponsor_preferred_name_sentence_case": "no unit",
       "start_date": "2022-09-20T10:55:28.415720",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000216"
@@ -850,7 +850,7 @@
       ],
       "start_date": "2022-09-20T10:55:37.201584",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SDTM CT",
@@ -868,7 +868,7 @@
       "sponsor_preferred_name_sentence_case": "um2/sec",
       "start_date": "2022-09-20T10:55:36.974001",
       "status": "Final",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000267"

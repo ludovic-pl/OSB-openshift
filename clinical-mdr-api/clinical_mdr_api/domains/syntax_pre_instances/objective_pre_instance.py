@@ -65,7 +65,7 @@ class ObjectivePreInstanceAR(PreInstanceAR):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         template: ParametrizedTemplateVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -76,7 +76,9 @@ class ObjectivePreInstanceAR(PreInstanceAR):
         indications: list[SimpleTermModel] | None = None,
         categories: list[SimpleCTTermNameAndAttributes] | None = None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         generated_uid = generate_uid_callback()
 

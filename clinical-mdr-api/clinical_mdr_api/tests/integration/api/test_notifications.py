@@ -17,11 +17,11 @@ from fastapi.testclient import TestClient
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.notification import Notification
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -58,8 +58,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 NOTIFICATION_ALL = [
     "sn",
@@ -81,7 +79,7 @@ def test_get_all_notifications(api_client):
     response = api_client.get("/notifications")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 10
 
     for item in res:
@@ -93,14 +91,14 @@ def test_get_all_active_notifications(api_client):
     response = api_client.get("system/notifications")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 5
 
 
 def test_get_notification(api_client):
     response = api_client.get(f"/notifications/{notifications[0].sn}")
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
 
 def test_create_notification(api_client):
@@ -114,7 +112,7 @@ def test_create_notification(api_client):
     }
     response = api_client.post("/notifications", json=data)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["sn"]
     assert res["title"] == data["title"]
@@ -136,7 +134,7 @@ def test_update_notification(api_client):
     }
     response = api_client.patch("/notifications/11", json=data)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["sn"] == 11
     assert res["title"] == data["title"]
@@ -149,15 +147,15 @@ def test_update_notification(api_client):
 
 def test_delete_notification(api_client):
     response = api_client.delete(f"/notifications/{notifications[0].sn}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get(f"/notifications/{notifications[0].sn}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
     res = response.json()
 
     assert (
         res["message"]
-        == f"Couldn't find Notification with Serial Number ({notifications[0].sn})"
+        == f"Notification with Serial Number '{notifications[0].sn}' doesn't exist."
     )
 
 
@@ -168,10 +166,10 @@ def validate_serial_number_against_neo4j_max_and_min_int(api_client):
 
     # Test positive integer
     response = api_client.get(f"/notifications/{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.patch(
@@ -185,25 +183,25 @@ def validate_serial_number_against_neo4j_max_and_min_int(api_client):
             "published": False,
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.delete(f"/notifications/{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     # Test negative integer
     response = api_client.get(f"/notifications/-{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.patch(
@@ -217,15 +215,15 @@ def validate_serial_number_against_neo4j_max_and_min_int(api_client):
             "published": False,
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.delete(f"/notifications/-{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )

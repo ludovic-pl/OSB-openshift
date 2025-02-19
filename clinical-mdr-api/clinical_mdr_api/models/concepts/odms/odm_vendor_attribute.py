@@ -1,8 +1,7 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import Field, root_validator, validator
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.odms.vendor_attribute import (
     OdmVendorAttributeAR,
     OdmVendorAttributeRelationVO,
@@ -23,18 +22,24 @@ from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmVendorElementSimpleModel,
     OdmVendorNamespaceSimpleModel,
 )
+from clinical_mdr_api.models.utils import BaseModel
 from clinical_mdr_api.models.validators import (
     validate_name_only_contains_letters,
     validate_regex,
 )
+from common.exceptions import ValidationException
 
 
 class OdmVendorAttribute(ConceptModel):
-    compatible_types: list[str] = Field(..., is_json=True)
-    data_type: str | None = Field(None, nullable=True)
-    value_regex: str | None = Field(None, nullable=True)
-    vendor_namespace: OdmVendorNamespaceSimpleModel | None = Field(None, nullable=True)
-    vendor_element: OdmVendorElementSimpleModel | None = Field(None, nullable=True)
+    compatible_types: Annotated[list[str], Field(is_json=True)]
+    data_type: Annotated[str | None, Field(nullable=True)] = None
+    value_regex: Annotated[str | None, Field(nullable=True)] = None
+    vendor_namespace: Annotated[
+        OdmVendorNamespaceSimpleModel | None, Field(nullable=True)
+    ] = None
+    vendor_element: Annotated[
+        OdmVendorElementSimpleModel | None, Field(nullable=True)
+    ] = None
     possible_actions: list[str]
 
     @classmethod
@@ -56,7 +61,7 @@ class OdmVendorAttribute(ConceptModel):
             status=odm_vendor_attribute_ar.item_metadata.status.value,
             version=odm_vendor_attribute_ar.item_metadata.version,
             change_description=odm_vendor_attribute_ar.item_metadata.change_description,
-            user_initials=odm_vendor_attribute_ar.item_metadata.user_initials,
+            author_username=odm_vendor_attribute_ar.item_metadata.author_username,
             vendor_namespace=OdmVendorNamespaceSimpleModel.from_odm_vendor_namespace_uid(
                 uid=odm_vendor_attribute_ar.concept_vo.vendor_namespace_uid,
                 find_odm_vendor_namespace_by_uid=find_odm_vendor_namespace_by_uid,
@@ -109,14 +114,12 @@ class OdmVendorAttributeRelationModel(BaseModel):
             odm_vendor_element_ref_model = None
         return odm_vendor_element_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    data_type: str | None = Field(None, title="data_type", description="")
-    value_regex: str | None = Field(None, title="value_regex", description="")
-    value: str | None = Field(None, title="value", description="")
-    vendor_namespace_uid: str | None = Field(
-        None, title="vendor_namespace_uid", description=""
-    )
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    data_type: Annotated[str | None, Field(nullable=True)] = None
+    value_regex: Annotated[str | None, Field(nullable=True)] = None
+    value: Annotated[str | None, Field(nullable=True)] = None
+    vendor_namespace_uid: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmVendorElementAttributeRelationModel(BaseModel):
@@ -158,22 +161,20 @@ class OdmVendorElementAttributeRelationModel(BaseModel):
             odm_vendor_element_ref_model = None
         return odm_vendor_element_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    data_type: str | None = Field(None, title="data_type", description="")
-    value_regex: str | None = Field(None, title="value_regex", description="")
-    value: str | None = Field(None, title="value", description="")
-    vendor_element_uid: str | None = Field(
-        None, title="vendor_element_uid", description=""
-    )
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    data_type: Annotated[str | None, Field(nullable=True)] = None
+    value_regex: Annotated[str | None, Field(nullable=True)] = None
+    value: Annotated[str | None, Field(nullable=True)] = None
+    vendor_element_uid: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmVendorAttributePostInput(ConceptPostInput):
     compatible_types: list[VendorAttributeCompatibleType] = []
-    data_type: str = "string"
-    value_regex: str | None = None
-    vendor_namespace_uid: str | None = None
-    vendor_element_uid: str | None = None
+    data_type: Annotated[str, Field(min_length=1)] = "string"
+    value_regex: Annotated[str | None, Field(min_length=1)] = None
+    vendor_namespace_uid: Annotated[str | None, Field(min_length=1)] = None
+    vendor_element_uid: Annotated[str | None, Field(min_length=1)] = None
 
     _validate_regex = validator("value_regex", pre=True, allow_reuse=True)(
         validate_regex
@@ -185,20 +186,24 @@ class OdmVendorAttributePostInput(ConceptPostInput):
     @root_validator()
     @classmethod
     def one_and_only_one_of_the_two_uids_must_be_present(cls, values):
-        if (
-            not values["vendor_element_uid"] and not values["vendor_namespace_uid"]
-        ) or (values["vendor_element_uid"] and values["vendor_namespace_uid"]):
-            raise exceptions.ValidationException(
-                "Either vendor_namespace_uid or vendor_element_uid must be provided"
+        ValidationException.raise_if(
+            (
+                not values.get("vendor_element_uid")
+                and not values.get("vendor_namespace_uid")
             )
+            or (
+                values.get("vendor_element_uid") and values.get("vendor_namespace_uid")
+            ),
+            msg="Either vendor_namespace_uid or vendor_element_uid must be provided",
+        )
 
         return values
 
 
 class OdmVendorAttributePatchInput(ConceptPatchInput):
     compatible_types: list[VendorAttributeCompatibleType]
-    data_type: str | None
-    value_regex: str | None
+    data_type: Annotated[str | None, Field(min_length=1)]
+    value_regex: Annotated[str | None, Field(min_length=1)]
 
     _validate_regex = validator("value_regex", pre=True, allow_reuse=True)(
         validate_regex
@@ -210,11 +215,13 @@ class OdmVendorAttributeVersion(OdmVendorAttribute):
     Class for storing OdmVendorAttribute and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

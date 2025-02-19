@@ -1,17 +1,25 @@
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.listings.listings import (
+    CDISCCTList,
+    CDISCCTPkg,
+    CDISCCTVal,
+    CDISCCTVer,
+    MetaData,
+    TopicCdDef,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.listings.listings import ListingsService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/listings"
 router = APIRouter()
@@ -24,7 +32,7 @@ metadata_router = APIRouter()
     "/metadata",
     dependencies=[rbac.LIBRARY_READ],
     summary="Metadata for datasets",
-    response_model=CustomPage[models.MetaData],
+    response_model=CustomPage[MetaData],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -33,31 +41,40 @@ metadata_router = APIRouter()
     },
 )
 def get_metadata(
-    dataset_name: str
-    | None = Query(
-        None,
-        description="Optional parameter to specify which legacy dataset(s) to get metadata for."
-        " Multiple datasets are separated by commas",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    dataset_name: Annotated[
+        str | None,
+        Query(
+            description="Optional parameter to specify which legacy dataset(s) to get metadata for."
+            " Multiple datasets are separated by commas",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_metadata(
@@ -95,18 +112,25 @@ def get_metadata(
     },
 )
 def get_distinct_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -115,7 +139,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -124,7 +148,7 @@ def get_distinct_values_for_header(
     dependencies=[rbac.LIBRARY_READ],
     summary="List library metadata for Activities in the legacy format for CDW-MMA General Clinical Metadata",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.TopicCdDef],
+    response_model=CustomPage[TopicCdDef],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -155,31 +179,40 @@ def get_distinct_values_for_header(
 # pylint: disable=unused-argument
 def get_all_activities_report(
     request: Request,  # request is actually required by the allow_exports decorator
-    at_specified_date_time: datetime
-    | None = Query(
-        None,
-        description="Optional parameter to specify the retrieve the status of the MDR at a specific timepoint, "
-        "ISO Format with timezone, compatible with Neo4j e.g. 2021-01-01T09:00:00Z",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    at_specified_date_time: Annotated[
+        datetime | None,
+        Query(
+            description="Optional parameter to specify the retrieve the status of the MDR at a specific timepoint, "
+            "ISO Format with timezone, compatible with Neo4j e.g. 2021-01-01T09:00:00Z",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_topic_cd(
@@ -217,18 +250,25 @@ def get_all_activities_report(
     },
 )
 def get_distinct_topic_cd_def_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -237,7 +277,7 @@ def get_distinct_topic_cd_def_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -245,7 +285,7 @@ def get_distinct_topic_cd_def_values_for_header(
     "/libraries/all/gcmd/cdisc-ct-ver",
     dependencies=[rbac.LIBRARY_READ],
     summary="CDW-MMA legacy dataset cdisc_ct_ver",
-    response_model=CustomPage[models.CDISCCTVer],
+    response_model=CustomPage[CDISCCTVer],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -254,37 +294,47 @@ def get_distinct_topic_cd_def_values_for_header(
     },
 )
 def get_cdisc_ct_ver_data(
-    catalogue_name: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from given catalogue are returned."
-        " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
-    ),
-    after_specified_date: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from packages with effective date after this date are returned."
-        "Date must be in ISO format e.g. 2021-01-01",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    catalogue_name: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from given catalogue are returned."
+            " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
+        ),
+    ] = None,
+    after_specified_date: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from packages with effective date after this date are returned."
+            "Date must be in ISO format e.g. 2021-01-01",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_cdisc_ct_ver(
@@ -323,18 +373,25 @@ def get_cdisc_ct_ver_data(
     },
 )
 def get_distinct_cdisc_ct_ver_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -343,7 +400,7 @@ def get_distinct_cdisc_ct_ver_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -351,7 +408,7 @@ def get_distinct_cdisc_ct_ver_values_for_header(
     "/libraries/all/gcmd/cdisc-ct-pkg",
     dependencies=[rbac.LIBRARY_READ],
     summary="CDW-MMA legacy dataset cdisc_ct_pkg",
-    response_model=CustomPage[models.CDISCCTPkg],
+    response_model=CustomPage[CDISCCTPkg],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -360,37 +417,47 @@ def get_distinct_cdisc_ct_ver_values_for_header(
     },
 )
 def get_cdisc_ct_pkg_data(
-    catalogue_name: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from given catalogue are returned."
-        " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
-    ),
-    after_specified_date: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from packages with effective date after this date are returned."
-        "Date must be in ISO format e.g. 2021-01-01",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    catalogue_name: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from given catalogue are returned."
+            " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
+        ),
+    ] = None,
+    after_specified_date: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from packages with effective date after this date are returned."
+            "Date must be in ISO format e.g. 2021-01-01",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_cdisc_ct_pkg(
@@ -429,18 +496,25 @@ def get_cdisc_ct_pkg_data(
     },
 )
 def get_distinct_cdisc_ct_pkg_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -449,7 +523,7 @@ def get_distinct_cdisc_ct_pkg_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -457,7 +531,7 @@ def get_distinct_cdisc_ct_pkg_values_for_header(
     "/libraries/all/gcmd/cdisc-ct-list",
     dependencies=[rbac.LIBRARY_READ],
     summary="CDW-MMA legacy dataset cdisc_ct_list",
-    response_model=CustomPage[models.CDISCCTList],
+    response_model=CustomPage[CDISCCTList],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -466,43 +540,54 @@ def get_distinct_cdisc_ct_pkg_values_for_header(
     },
 )
 def get_cdisc_ct_list_data(
-    catalogue_name: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from given catalogue are returned."
-        " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
-    ),
-    package: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from given package are returned."
-        "Multiple packages are separated by commas e.g. SDTM CT 2021-06-25, SDTM CT 2021-09-24",
-    ),
-    after_specified_date: str
-    | None = Query(
-        None,
-        description="If specified, only codelists from packages with effective date after this date are returned."
-        "Date must be in ISO format e.g. 2021-01-01",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    catalogue_name: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from given catalogue are returned."
+            " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
+        ),
+    ] = None,
+    package: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from given package are returned."
+            "Multiple packages are separated by commas e.g. SDTM CT 2021-06-25, SDTM CT 2021-09-24",
+        ),
+    ] = None,
+    after_specified_date: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelists from packages with effective date after this date are returned."
+            "Date must be in ISO format e.g. 2021-01-01",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_cdisc_ct_list(
@@ -542,18 +627,25 @@ def get_cdisc_ct_list_data(
     },
 )
 def get_distinct_cdisc_ct_list_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -562,7 +654,7 @@ def get_distinct_cdisc_ct_list_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -570,7 +662,7 @@ def get_distinct_cdisc_ct_list_values_for_header(
     "/libraries/all/gcmd/cdisc-ct-val",
     dependencies=[rbac.LIBRARY_READ],
     summary="CDW-MMA legacy dataset cdisc_ct_val",
-    response_model=CustomPage[models.CDISCCTVal],
+    response_model=CustomPage[CDISCCTVal],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -579,43 +671,54 @@ def get_distinct_cdisc_ct_list_values_for_header(
     },
 )
 def get_cdisc_ct_val_data(
-    catalogue_name: str
-    | None = Query(
-        None,
-        description="If specified, only codelist values from given catalogue are returned."
-        " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
-    ),
-    package: str
-    | None = Query(
-        None,
-        description="If specified, only codelist values from given package are returned."
-        "Multiple packages are separated by commas e.g. SDTM CT 2021-06-25, SDTM CT 2021-09-24",
-    ),
-    after_specified_date: str
-    | None = Query(
-        None,
-        description="If specified, only codelist values from packages with effective date after this date are returned."
-        "Date must be in ISO format e.g. 2021-01-01",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    catalogue_name: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelist values from given catalogue are returned."
+            " Multiple catalogues are separated by commas e.g. ADAM CT, SDTM CT",
+        ),
+    ] = None,
+    package: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelist values from given package are returned."
+            "Multiple packages are separated by commas e.g. SDTM CT 2021-06-25, SDTM CT 2021-09-24",
+        ),
+    ] = None,
+    after_specified_date: Annotated[
+        str | None,
+        Query(
+            description="If specified, only codelist values from packages with effective date after this date are returned."
+            "Date must be in ISO format e.g. 2021-01-01",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ListingsService()
     all_items = service.list_cdisc_ct_val(
@@ -655,18 +758,25 @@ def get_cdisc_ct_val_data(
     },
 )
 def get_distinct_cdisc_ct_val_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = ListingsService()
     return service.get_distinct_values_for_header(
@@ -675,5 +785,5 @@ def get_distinct_cdisc_ct_val_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )

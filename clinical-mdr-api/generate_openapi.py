@@ -1,15 +1,15 @@
 import argparse
 import importlib
-import logging
 import json
-import sys
+import logging
 import os
+import sys
 
-from consumer_api.consumer_api import custom_openapi
 from clinical_mdr_api.utils.api_version import (
-    increment_version_number,
     increment_api_version_if_needed,
+    increment_version_number,
 )
+from consumer_api.consumer_api import custom_openapi
 
 log = logging.getLogger(__name__)
 

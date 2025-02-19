@@ -1,11 +1,11 @@
 """Study model."""
+
 from datetime import datetime
 from decimal import Decimal
-from typing import Callable, Collection, Iterable, Self
+from typing import Annotated, Callable, Collection, Iterable, Self
 
 from pydantic import Field
 
-from clinical_mdr_api import config, exceptions
 from clinical_mdr_api.domain_repositories.controlled_terminologies import (
     ct_term_generic_repository,
 )
@@ -38,7 +38,13 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleTermModel,
 )
 from clinical_mdr_api.models.study_selections.duration import DurationJsonModel
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
+from common import config
+from common.exceptions import (
+    BusinessLogicException,
+    NotFoundException,
+    ValidationException,
+)
 
 
 def update_study_subpart_properties(study: "Study | CompactStudy"):
@@ -54,64 +60,82 @@ class StudyPreferredTimeUnit(BaseModel):
     class Config:
         orm_mode = True
 
-    study_uid: str = Field(
-        ...,
-        description="Uid of study",
-        source="has_after.audit_trail.uid",
-    )
-    time_unit_uid: str = Field(
-        ...,
-        description="Uid of time unit",
-        source="has_unit_definition.uid",
-    )
-    time_unit_name: str = Field(
-        ...,
-        description="Name of time unit",
-        source="has_unit_definition.has_latest_value.name",
-    )
+    study_uid: Annotated[
+        str, Field(description="Uid of study", source="has_after.audit_trail.uid")
+    ]
+    time_unit_uid: Annotated[
+        str, Field(description="Uid of time unit", source="has_unit_definition.uid")
+    ]
+    time_unit_name: Annotated[
+        str,
+        Field(
+            description="Name of time unit",
+            source="has_unit_definition.has_latest_value.name",
+        ),
+    ]
 
 
-class StudyPreferredTimeUnitInput(BaseModel):
-    unit_definition_uid: str = Field(
-        ...,
-        description="Uid of preferred time unit",
-    )
+class StudyPreferredTimeUnitInput(PatchInputModel):
+    unit_definition_uid: Annotated[str, Field(description="Uid of preferred time unit")]
 
 
-class StudySoaPreferencesInput(BaseModel):
+class StudySoaPreferencesInput(PatchInputModel):
     class Config:
         allow_population_by_field_name = True
         title = "Study SoA Preferences input"
 
-    show_epochs: bool = Field(
-        True,
-        title="SoA shows epochs",
-        description="Show study epochs in detailed SoA",
-        alias=config.STUDY_FIELD_SOA_SHOW_EPOCHS,
-    )
-    show_milestones: bool = Field(
-        False,
-        title="SoA shows milestones",
-        description="Show study milestones in detailed SoA",
-        alias=config.STUDY_FIELD_SOA_SHOW_MILESTONES,
-    )
-    baseline_as_time_zero: bool = Field(
-        False,
-        title="Baseline shown as time 0",
-        description="Show the baseline visit as time 0 in all SoA layouts",
-        alias=config.STUDY_FIELD_SOA_BASELINE_AS_TIME_ZERO,
-    )
+    show_epochs: Annotated[
+        bool,
+        Field(
+            description="Show study epochs in detailed SoA",
+            alias=config.STUDY_FIELD_SOA_SHOW_EPOCHS,
+        ),
+    ] = True
+    show_milestones: Annotated[
+        bool,
+        Field(
+            description="Show study milestones in detailed SoA",
+            alias=config.STUDY_FIELD_SOA_SHOW_MILESTONES,
+        ),
+    ] = False
+    baseline_as_time_zero: Annotated[
+        bool,
+        Field(
+            title="Baseline shown as time 0",
+            description="Show the baseline visit as time 0 in all SoA layouts",
+            alias=config.STUDY_FIELD_SOA_BASELINE_AS_TIME_ZERO,
+        ),
+    ] = False
 
 
-class StudySoaPreferences(StudySoaPreferencesInput):
+class StudySoaPreferences(BaseModel):
     class Config:
         allow_population_by_field_name = True
         title = "Study SoA Preferences"
 
-    study_uid: str = Field(
-        ...,
-        description="Uid of study",
-    )
+    show_epochs: Annotated[
+        bool,
+        Field(
+            description="Show study epochs in detailed SoA",
+            alias=config.STUDY_FIELD_SOA_SHOW_EPOCHS,
+        ),
+    ] = True
+    show_milestones: Annotated[
+        bool,
+        Field(
+            description="Show study milestones in detailed SoA",
+            alias=config.STUDY_FIELD_SOA_SHOW_MILESTONES,
+        ),
+    ] = False
+    baseline_as_time_zero: Annotated[
+        bool,
+        Field(
+            title="Baseline shown as time 0",
+            description="Show the baseline visit as time 0 in all SoA layouts",
+            alias=config.STUDY_FIELD_SOA_BASELINE_AS_TIME_ZERO,
+        ),
+    ] = False
+    study_uid: Annotated[str, Field(description="Uid of study")]
 
 
 class RegistryIdentifiersJsonModel(BaseModel):
@@ -119,58 +143,74 @@ class RegistryIdentifiersJsonModel(BaseModel):
         title = "RegistryIdentifiersMetadata"
         description = "RegistryIdentifiersMetadata metadata for study definition."
 
-    ct_gov_id: str | None = Field(None, nullable=True)
-    ct_gov_id_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
+    ct_gov_id: Annotated[str | None, Field(nullable=True)] = None
+    ct_gov_id_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    eudract_id: Annotated[str | None, Field(nullable=True)] = None
+    eudract_id_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    universal_trial_number_utn: Annotated[str | None, Field(nullable=True)] = None
+    universal_trial_number_utn_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    japanese_trial_registry_id_japic: Annotated[str | None, Field(nullable=True)] = None
+    japanese_trial_registry_id_japic_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    investigational_new_drug_application_number_ind: Annotated[
+        str | None, Field(nullable=True)
+    ] = None
+    investigational_new_drug_application_number_ind_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    eu_trial_number: Annotated[str | None, Field(nullable=True)] = None
+    eu_trial_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    civ_id_sin_number: Annotated[str | None, Field(nullable=True)] = None
+    civ_id_sin_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    national_clinical_trial_number: Annotated[str | None, Field(nullable=True)] = None
+    national_clinical_trial_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    japanese_trial_registry_number_jrct: Annotated[str | None, Field(nullable=True)] = (
+        None
     )
-    eudract_id: str | None = Field(None, nullable=True)
-    eudract_id_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    universal_trial_number_utn: str | None = Field(None, nullable=True)
-    universal_trial_number_utn_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    japanese_trial_registry_id_japic: str | None = Field(None, nullable=True)
-    japanese_trial_registry_id_japic_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    investigational_new_drug_application_number_ind: str | None = Field(
-        None, nullable=True
-    )
-    investigational_new_drug_application_number_ind_null_value_code: (
-        SimpleCTTermNameWithConflictFlag | None
-    ) = Field(None, nullable=True)
-    eu_trial_number: str | None = Field(None, nullable=True)
-    eu_trial_number_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    civ_id_sin_number: str | None = Field(None, nullable=True)
-    civ_id_sin_number_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    national_clinical_trial_number: str | None = Field(None, nullable=True)
-    national_clinical_trial_number_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    japanese_trial_registry_number_jrct: str | None = Field(None, nullable=True)
-    japanese_trial_registry_number_jrct_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    national_medical_products_administration_nmpa_number: str | None = Field(
-        None, nullable=True
-    )
-    national_medical_products_administration_nmpa_number_null_value_code: (
-        SimpleCTTermNameWithConflictFlag | None
-    ) = Field(None, nullable=True)
-    eudamed_srn_number: str | None = Field(None, nullable=True)
-    eudamed_srn_number_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    investigational_device_exemption_ide_number: str | None = Field(None, nullable=True)
-    investigational_device_exemption_ide_number_null_value_code: (
-        SimpleCTTermNameWithConflictFlag | None
-    ) = Field(None, nullable=True)
+    japanese_trial_registry_number_jrct_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    national_medical_products_administration_nmpa_number: Annotated[
+        str | None, Field(nullable=True)
+    ] = None
+    national_medical_products_administration_nmpa_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    eudamed_srn_number: Annotated[str | None, Field(nullable=True)] = None
+    eudamed_srn_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
+    investigational_device_exemption_ide_number: Annotated[
+        str | None, Field(nullable=True)
+    ] = None
+    investigational_device_exemption_ide_number_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None,
+        Field(nullable=True),
+    ] = None
 
     @classmethod
     def from_study_registry_identifiers_vo(
@@ -219,66 +259,80 @@ class RegistryIdentifiersJsonModel(BaseModel):
                 for c_code in c_codes
             }
         return cls(
-            ct_gov_id_null_value_code=terms[
-                registry_identifiers_vo.ct_gov_id_null_value_code
-            ]
-            if registry_identifiers_vo.ct_gov_id_null_value_code
-            else None,
-            eudract_id_null_value_code=terms[
-                registry_identifiers_vo.eudract_id_null_value_code
-            ]
-            if registry_identifiers_vo.eudract_id_null_value_code
-            else None,
-            universal_trial_number_utn_null_value_code=terms[
-                registry_identifiers_vo.universal_trial_number_utn_null_value_code
-            ]
-            if registry_identifiers_vo.universal_trial_number_utn_null_value_code
-            else None,
-            japanese_trial_registry_id_japic_null_value_code=terms[
-                registry_identifiers_vo.japanese_trial_registry_id_japic_null_value_code
-            ]
-            if registry_identifiers_vo.japanese_trial_registry_id_japic_null_value_code
-            else None,
-            investigational_new_drug_application_number_ind_null_value_code=terms[
-                registry_identifiers_vo.investigational_new_drug_application_number_ind_null_value_code
-            ]
-            if registry_identifiers_vo.investigational_new_drug_application_number_ind_null_value_code
-            else None,
-            eu_trial_number_null_value_code=terms[
-                registry_identifiers_vo.eu_trial_number_null_value_code
-            ]
-            if registry_identifiers_vo.eu_trial_number_null_value_code
-            else None,
-            civ_id_sin_number_null_value_code=terms[
-                registry_identifiers_vo.civ_id_sin_number_null_value_code
-            ]
-            if registry_identifiers_vo.civ_id_sin_number_null_value_code
-            else None,
-            national_clinical_trial_number_null_value_code=terms[
-                registry_identifiers_vo.national_clinical_trial_number_null_value_code
-            ]
-            if registry_identifiers_vo.national_clinical_trial_number_null_value_code
-            else None,
-            japanese_trial_registry_number_jrct_null_value_code=terms[
-                registry_identifiers_vo.japanese_trial_registry_number_jrct_null_value_code
-            ]
-            if registry_identifiers_vo.japanese_trial_registry_number_jrct_null_value_code
-            else None,
-            national_medical_products_administration_nmpa_number_null_value_code=terms[
-                registry_identifiers_vo.national_medical_products_administration_nmpa_number_null_value_code
-            ]
-            if registry_identifiers_vo.national_medical_products_administration_nmpa_number_null_value_code
-            else None,
-            eudamed_srn_number_null_value_code=terms[
-                registry_identifiers_vo.eudamed_srn_number_null_value_code
-            ]
-            if registry_identifiers_vo.eudamed_srn_number_null_value_code
-            else None,
-            investigational_device_exemption_ide_number_null_value_code=terms[
-                registry_identifiers_vo.investigational_device_exemption_ide_number_null_value_code
-            ]
-            if registry_identifiers_vo.investigational_device_exemption_ide_number_null_value_code
-            else None,
+            ct_gov_id_null_value_code=(
+                terms[registry_identifiers_vo.ct_gov_id_null_value_code]
+                if registry_identifiers_vo.ct_gov_id_null_value_code
+                else None
+            ),
+            eudract_id_null_value_code=(
+                terms[registry_identifiers_vo.eudract_id_null_value_code]
+                if registry_identifiers_vo.eudract_id_null_value_code
+                else None
+            ),
+            universal_trial_number_utn_null_value_code=(
+                terms[
+                    registry_identifiers_vo.universal_trial_number_utn_null_value_code
+                ]
+                if registry_identifiers_vo.universal_trial_number_utn_null_value_code
+                else None
+            ),
+            japanese_trial_registry_id_japic_null_value_code=(
+                terms[
+                    registry_identifiers_vo.japanese_trial_registry_id_japic_null_value_code
+                ]
+                if registry_identifiers_vo.japanese_trial_registry_id_japic_null_value_code
+                else None
+            ),
+            investigational_new_drug_application_number_ind_null_value_code=(
+                terms[
+                    registry_identifiers_vo.investigational_new_drug_application_number_ind_null_value_code
+                ]
+                if registry_identifiers_vo.investigational_new_drug_application_number_ind_null_value_code
+                else None
+            ),
+            eu_trial_number_null_value_code=(
+                terms[registry_identifiers_vo.eu_trial_number_null_value_code]
+                if registry_identifiers_vo.eu_trial_number_null_value_code
+                else None
+            ),
+            civ_id_sin_number_null_value_code=(
+                terms[registry_identifiers_vo.civ_id_sin_number_null_value_code]
+                if registry_identifiers_vo.civ_id_sin_number_null_value_code
+                else None
+            ),
+            national_clinical_trial_number_null_value_code=(
+                terms[
+                    registry_identifiers_vo.national_clinical_trial_number_null_value_code
+                ]
+                if registry_identifiers_vo.national_clinical_trial_number_null_value_code
+                else None
+            ),
+            japanese_trial_registry_number_jrct_null_value_code=(
+                terms[
+                    registry_identifiers_vo.japanese_trial_registry_number_jrct_null_value_code
+                ]
+                if registry_identifiers_vo.japanese_trial_registry_number_jrct_null_value_code
+                else None
+            ),
+            national_medical_products_administration_nmpa_number_null_value_code=(
+                terms[
+                    registry_identifiers_vo.national_medical_products_administration_nmpa_number_null_value_code
+                ]
+                if registry_identifiers_vo.national_medical_products_administration_nmpa_number_null_value_code
+                else None
+            ),
+            eudamed_srn_number_null_value_code=(
+                terms[registry_identifiers_vo.eudamed_srn_number_null_value_code]
+                if registry_identifiers_vo.eudamed_srn_number_null_value_code
+                else None
+            ),
+            investigational_device_exemption_ide_number_null_value_code=(
+                terms[
+                    registry_identifiers_vo.investigational_device_exemption_ide_number_null_value_code
+                ]
+                if registry_identifiers_vo.investigational_device_exemption_ide_number_null_value_code
+                else None
+            ),
             ct_gov_id=registry_identifiers_vo.ct_gov_id,
             eudract_id=registry_identifiers_vo.eudract_id,
             universal_trial_number_utn=registry_identifiers_vo.universal_trial_number_utn,
@@ -299,18 +353,18 @@ class StudyIdentificationMetadataJsonModel(BaseModel):
         title = "StudyIdentificationMetadata"
         description = "Identification metadata for study definition."
 
-    study_number: str | None = Field(None, nullable=True)
-    subpart_id: str | None = Field(None, nullable=True)
-    study_acronym: str | None = Field(None, nullable=True)
-    study_subpart_acronym: str | None = Field(None, nullable=True)
-    project_number: str | None = Field(None, nullable=True)
-    project_name: str | None = Field(None, nullable=True)
-    description: str | None = Field(None, nullable=True)
-    clinical_programme_name: str | None = Field(None, nullable=True)
-    study_id: str | None = Field(None, nullable=True)
-    registry_identifiers: RegistryIdentifiersJsonModel | None = Field(
-        None, nullable=True
-    )
+    study_number: Annotated[str | None, Field(nullable=True)] = None
+    subpart_id: Annotated[str | None, Field(nullable=True)] = None
+    study_acronym: Annotated[str | None, Field(nullable=True)] = None
+    study_subpart_acronym: Annotated[str | None, Field(nullable=True)] = None
+    project_number: Annotated[str | None, Field(nullable=True)] = None
+    project_name: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    clinical_programme_name: Annotated[str | None, Field(nullable=True)] = None
+    study_id: Annotated[str | None, Field(nullable=True)] = None
+    registry_identifiers: Annotated[
+        RegistryIdentifiersJsonModel | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_identification_vo(
@@ -326,10 +380,10 @@ class StudyIdentificationMetadataJsonModel(BaseModel):
         project_ar = find_project_by_project_number(
             study_identification_o.project_number
         )
-        if not project_ar:
-            raise exceptions.ValidationException(
-                f"There is no project identified by provided project_number ({study_identification_o.project_number})"
-            )
+        BusinessLogicException.raise_if_not(
+            project_ar,
+            msg=f"There is no Project with Project Number '{study_identification_o.project_number}'.",
+        )
         return cls(
             study_number=study_identification_o.study_number,
             subpart_id=study_identification_o.subpart_id,
@@ -355,15 +409,15 @@ class CompactStudyIdentificationMetadataJsonModel(BaseModel):
         title = "CompactStudyIdentificationMetadata"
         description = "Identification metadata for study definition."
 
-    study_number: str | None = Field(None, nullable=True)
-    subpart_id: str | None = Field(None, nullable=True)
-    study_acronym: str | None = Field(None, nullable=True)
-    study_subpart_acronym: str | None = Field(None, nullable=True)
-    project_number: str | None = Field(None, nullable=True)
-    project_name: str | None = Field(None, nullable=True)
-    description: str | None = Field(None, nullable=True)
-    clinical_programme_name: str | None = Field(None, nullable=True)
-    study_id: str | None = Field(None, nullable=True)
+    study_number: Annotated[str | None, Field(nullable=True)] = None
+    subpart_id: Annotated[str | None, Field(nullable=True)] = None
+    study_acronym: Annotated[str | None, Field(nullable=True)] = None
+    study_subpart_acronym: Annotated[str | None, Field(nullable=True)] = None
+    project_number: Annotated[str | None, Field(nullable=True)] = None
+    project_name: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    clinical_programme_name: Annotated[str | None, Field(nullable=True)] = None
+    study_id: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_identification_vo(
@@ -385,11 +439,11 @@ class CompactStudyIdentificationMetadataJsonModel(BaseModel):
             project_number=study_identification_o.project_number,
             project_name=project_ar.name if project_ar else None,
             description=study_identification_o.description,
-            clinical_programme_name=find_clinical_programme_by_uid(
-                project_ar.clinical_programme_uid
-            ).name
-            if project_ar
-            else None,
+            clinical_programme_name=(
+                find_clinical_programme_by_uid(project_ar.clinical_programme_uid).name
+                if project_ar
+                else None
+            ),
             study_id=study_identification_o.study_id,
         )
 
@@ -399,11 +453,13 @@ class StudyVersionMetadataJsonModel(BaseModel):
         title = "StudyVersionMetadata"
         description = "Version metadata for study definition."
 
-    study_status: str | None = Field(None, nullable=True)
-    version_number: Decimal | None = Field(None, nullable=True)
-    version_timestamp: datetime | None = Field(None, remove_from_wildcard=True)
-    version_author: str | None = Field(None, nullable=True)
-    version_description: str | None = Field(None, nullable=True)
+    study_status: Annotated[str | None, Field(nullable=True)] = None
+    version_number: Annotated[Decimal | None, Field(nullable=True)] = None
+    version_timestamp: Annotated[
+        datetime | None, Field(remove_from_wildcard=True, nullable=True)
+    ] = None
+    version_author: Annotated[str | None, Field(nullable=True)] = None
+    version_description: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_version_metadata_vo(
@@ -425,53 +481,53 @@ class HighLevelStudyDesignJsonModel(BaseModel):
         title = "high_level_study_design"
         description = "High level study design parameters for study definition."
 
-    study_type_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    study_type_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    study_type_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    study_type_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    trial_type_codes: list[SimpleCTTermNameWithConflictFlag] | None = Field(
-        None, nullable=True
-    )
-    trial_type_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    trial_type_codes: Annotated[
+        list[SimpleCTTermNameWithConflictFlag] | None, Field(nullable=True)
+    ] = None
+    trial_type_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    trial_phase_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    trial_phase_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    trial_phase_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    trial_phase_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    is_extension_trial: bool | None = Field(None, nullable=True)
-    is_extension_trial_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    is_extension_trial: Annotated[bool | None, Field(nullable=True)] = None
+    is_extension_trial_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    is_adaptive_design: bool | None = Field(None, nullable=True)
-    is_adaptive_design_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    is_adaptive_design: Annotated[bool | None, Field(nullable=True)] = None
+    is_adaptive_design_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    study_stop_rules: str | None = Field(None, nullable=True)
-    study_stop_rules_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    study_stop_rules: Annotated[str | None, Field(nullable=True)] = None
+    study_stop_rules_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    confirmed_response_minimum_duration: DurationJsonModel | None = Field(
-        None, nullable=True
-    )
-    confirmed_response_minimum_duration_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    confirmed_response_minimum_duration: Annotated[
+        DurationJsonModel | None, Field(nullable=True)
+    ] = None
+    confirmed_response_minimum_duration_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    post_auth_indicator: bool | None = Field(None, nullable=True)
-    post_auth_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    post_auth_indicator: Annotated[bool | None, Field(nullable=True)] = None
+    post_auth_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_high_level_study_design_vo(
@@ -523,55 +579,61 @@ class HighLevelStudyDesignJsonModel(BaseModel):
                 for c_code in c_codes
             }
         return cls(
-            study_type_code=terms[high_level_study_design_vo.study_type_code]
-            if high_level_study_design_vo.study_type_code
-            else None,
-            study_type_null_value_code=terms[
-                high_level_study_design_vo.study_type_null_value_code
-            ]
-            if high_level_study_design_vo.study_type_null_value_code
-            else None,
+            study_type_code=(
+                terms[high_level_study_design_vo.study_type_code]
+                if high_level_study_design_vo.study_type_code
+                else None
+            ),
+            study_type_null_value_code=(
+                terms[high_level_study_design_vo.study_type_null_value_code]
+                if high_level_study_design_vo.study_type_null_value_code
+                else None
+            ),
             trial_type_codes=[
                 terms[i_code] for i_code in high_level_study_design_vo.trial_type_codes
             ],
-            trial_type_null_value_code=terms[
-                high_level_study_design_vo.trial_type_null_value_code
-            ]
-            if high_level_study_design_vo.trial_type_null_value_code
-            else None,
-            trial_phase_code=terms[high_level_study_design_vo.trial_phase_code]
-            if high_level_study_design_vo.trial_phase_code
-            else None,
-            trial_phase_null_value_code=terms[
-                high_level_study_design_vo.trial_phase_null_value_code
-            ]
-            if high_level_study_design_vo.trial_phase_null_value_code
-            else None,
-            is_extension_trial_null_value_code=terms[
-                high_level_study_design_vo.is_extension_trial_null_value_code
-            ]
-            if high_level_study_design_vo.is_extension_trial_null_value_code
-            else None,
-            is_adaptive_design_null_value_code=terms[
-                high_level_study_design_vo.is_adaptive_design_null_value_code
-            ]
-            if high_level_study_design_vo.is_adaptive_design_null_value_code
-            else None,
-            study_stop_rules_null_value_code=terms[
-                high_level_study_design_vo.study_stop_rules_null_value_code
-            ]
-            if high_level_study_design_vo.study_stop_rules_null_value_code
-            else None,
-            confirmed_response_minimum_duration_null_value_code=terms[
-                high_level_study_design_vo.confirmed_response_minimum_duration_null_value_code
-            ]
-            if high_level_study_design_vo.confirmed_response_minimum_duration_null_value_code
-            else None,
-            post_auth_indicator_null_value_code=terms[
-                high_level_study_design_vo.post_auth_indicator_null_value_code
-            ]
-            if high_level_study_design_vo.post_auth_indicator_null_value_code
-            else None,
+            trial_type_null_value_code=(
+                terms[high_level_study_design_vo.trial_type_null_value_code]
+                if high_level_study_design_vo.trial_type_null_value_code
+                else None
+            ),
+            trial_phase_code=(
+                terms[high_level_study_design_vo.trial_phase_code]
+                if high_level_study_design_vo.trial_phase_code
+                else None
+            ),
+            trial_phase_null_value_code=(
+                terms[high_level_study_design_vo.trial_phase_null_value_code]
+                if high_level_study_design_vo.trial_phase_null_value_code
+                else None
+            ),
+            is_extension_trial_null_value_code=(
+                terms[high_level_study_design_vo.is_extension_trial_null_value_code]
+                if high_level_study_design_vo.is_extension_trial_null_value_code
+                else None
+            ),
+            is_adaptive_design_null_value_code=(
+                terms[high_level_study_design_vo.is_adaptive_design_null_value_code]
+                if high_level_study_design_vo.is_adaptive_design_null_value_code
+                else None
+            ),
+            study_stop_rules_null_value_code=(
+                terms[high_level_study_design_vo.study_stop_rules_null_value_code]
+                if high_level_study_design_vo.study_stop_rules_null_value_code
+                else None
+            ),
+            confirmed_response_minimum_duration_null_value_code=(
+                terms[
+                    high_level_study_design_vo.confirmed_response_minimum_duration_null_value_code
+                ]
+                if high_level_study_design_vo.confirmed_response_minimum_duration_null_value_code
+                else None
+            ),
+            post_auth_indicator_null_value_code=(
+                terms[high_level_study_design_vo.post_auth_indicator_null_value_code]
+                if high_level_study_design_vo.post_auth_indicator_null_value_code
+                else None
+            ),
             confirmed_response_minimum_duration=(
                 DurationJsonModel.from_duration_object(
                     duration=high_level_study_design_vo.confirmed_response_minimum_duration,
@@ -593,85 +655,93 @@ class StudyPopulationJsonModel(BaseModel):
         title = "study_population"
         description = "Study population parameters for study definition."
 
-    therapeutic_area_codes: list[SimpleTermModel] | None = Field(None, nullable=True)
-    therapeutic_area_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    therapeutic_area_codes: Annotated[
+        list[SimpleTermModel] | None, Field(nullable=True)
+    ] = None
+    therapeutic_area_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    disease_condition_or_indication_codes: list[SimpleTermModel] | None = Field(
-        None, nullable=True
-    )
-    disease_condition_or_indication_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    disease_condition_or_indication_codes: Annotated[
+        list[SimpleTermModel] | None, Field(nullable=True)
+    ] = None
+    disease_condition_or_indication_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    diagnosis_group_codes: list[SimpleTermModel] | None = Field(None, nullable=True)
-    diagnosis_group_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    diagnosis_group_codes: Annotated[
+        list[SimpleTermModel] | None, Field(nullable=True)
+    ] = None
+    diagnosis_group_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    sex_of_participants_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    sex_of_participants_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    sex_of_participants_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    sex_of_participants_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    rare_disease_indicator: bool | None = Field(None, nullable=True)
-    rare_disease_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    rare_disease_indicator: Annotated[bool | None, Field(nullable=True)] = None
+    rare_disease_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    healthy_subject_indicator: bool | None = Field(None, nullable=True)
-    healthy_subject_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    healthy_subject_indicator: Annotated[bool | None, Field(nullable=True)] = None
+    healthy_subject_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    planned_minimum_age_of_subjects: DurationJsonModel | None = Field(
-        None, nullable=True
-    )
-    planned_minimum_age_of_subjects_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    planned_minimum_age_of_subjects: Annotated[
+        DurationJsonModel | None, Field(nullable=True)
+    ] = None
+    planned_minimum_age_of_subjects_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    planned_maximum_age_of_subjects: DurationJsonModel | None = Field(
-        None, nullable=True
-    )
-    planned_maximum_age_of_subjects_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    planned_maximum_age_of_subjects: Annotated[
+        DurationJsonModel | None, Field(nullable=True)
+    ] = None
+    planned_maximum_age_of_subjects_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    stable_disease_minimum_duration: DurationJsonModel | None = Field(
-        None, nullable=True
-    )
-    stable_disease_minimum_duration_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    stable_disease_minimum_duration: Annotated[
+        DurationJsonModel | None, Field(nullable=True)
+    ] = None
+    stable_disease_minimum_duration_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    pediatric_study_indicator: bool | None = Field(None, nullable=True)
-    pediatric_study_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    pediatric_study_indicator: Annotated[bool | None, Field(nullable=True)] = None
+    pediatric_study_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    pediatric_postmarket_study_indicator: bool | None = Field(None, nullable=True)
-    pediatric_postmarket_study_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    pediatric_postmarket_study_indicator: Annotated[
+        bool | None, Field(nullable=True)
+    ] = None
+    pediatric_postmarket_study_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    pediatric_investigation_plan_indicator: bool | None = Field(None, nullable=True)
-    pediatric_investigation_plan_indicator_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    pediatric_investigation_plan_indicator: Annotated[
+        bool | None, Field(nullable=True)
+    ] = None
+    pediatric_investigation_plan_indicator_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    relapse_criteria: str | None = Field(None, nullable=True)
-    relapse_criteria_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    relapse_criteria: Annotated[str | None, Field(nullable=True)] = None
+    relapse_criteria_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    number_of_expected_subjects: int | None = Field(None, nullable=True)
-    number_of_expected_subjects_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    number_of_expected_subjects: Annotated[int | None, Field(nullable=True)] = None
+    number_of_expected_subjects_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_population_vo(
@@ -728,79 +798,93 @@ class StudyPopulationJsonModel(BaseModel):
                 for c_code in c_codes
             }
         return cls(
-            therapeutic_area_null_value_code=terms[
-                study_population_vo.therapeutic_area_null_value_code
-            ]
-            if study_population_vo.therapeutic_area_null_value_code
-            else None,
-            diagnosis_group_null_value_code=terms[
-                study_population_vo.diagnosis_group_null_value_code
-            ]
-            if study_population_vo.diagnosis_group_null_value_code
-            else None,
-            disease_condition_or_indication_null_value_code=terms[
-                study_population_vo.disease_condition_or_indication_null_value_code
-            ]
-            if study_population_vo.disease_condition_or_indication_null_value_code
-            else None,
-            sex_of_participants_code=terms[study_population_vo.sex_of_participants_code]
-            if study_population_vo.sex_of_participants_code
-            else None,
-            sex_of_participants_null_value_code=terms[
-                study_population_vo.sex_of_participants_null_value_code
-            ]
-            if study_population_vo.sex_of_participants_null_value_code
-            else None,
-            rare_disease_indicator_null_value_code=terms[
-                study_population_vo.rare_disease_indicator_null_value_code
-            ]
-            if study_population_vo.rare_disease_indicator_null_value_code
-            else None,
-            healthy_subject_indicator_null_value_code=terms[
-                study_population_vo.healthy_subject_indicator_null_value_code
-            ]
-            if study_population_vo.healthy_subject_indicator_null_value_code
-            else None,
-            planned_minimum_age_of_subjects_null_value_code=terms[
-                study_population_vo.planned_minimum_age_of_subjects_null_value_code
-            ]
-            if study_population_vo.planned_minimum_age_of_subjects_null_value_code
-            else None,
-            planned_maximum_age_of_subjects_null_value_code=terms[
-                study_population_vo.planned_maximum_age_of_subjects_null_value_code
-            ]
-            if study_population_vo.planned_maximum_age_of_subjects_null_value_code
-            else None,
-            stable_disease_minimum_duration_null_value_code=terms[
-                study_population_vo.stable_disease_minimum_duration_null_value_code
-            ]
-            if study_population_vo.stable_disease_minimum_duration_null_value_code
-            else None,
-            pediatric_study_indicator_null_value_code=terms[
-                study_population_vo.pediatric_study_indicator_null_value_code
-            ]
-            if study_population_vo.pediatric_study_indicator_null_value_code
-            else None,
-            pediatric_postmarket_study_indicator_null_value_code=terms[
-                study_population_vo.pediatric_postmarket_study_indicator_null_value_code
-            ]
-            if study_population_vo.pediatric_postmarket_study_indicator_null_value_code
-            else None,
-            pediatric_investigation_plan_indicator_null_value_code=terms[
-                study_population_vo.pediatric_investigation_plan_indicator_null_value_code
-            ]
-            if study_population_vo.pediatric_investigation_plan_indicator_null_value_code
-            else None,
-            relapse_criteria_null_value_code=terms[
-                study_population_vo.relapse_criteria_null_value_code
-            ]
-            if study_population_vo.relapse_criteria_null_value_code
-            else None,
-            number_of_expected_subjects_null_value_code=terms[
-                study_population_vo.number_of_expected_subjects_null_value_code
-            ]
-            if study_population_vo.number_of_expected_subjects_null_value_code
-            else None,
+            therapeutic_area_null_value_code=(
+                terms[study_population_vo.therapeutic_area_null_value_code]
+                if study_population_vo.therapeutic_area_null_value_code
+                else None
+            ),
+            diagnosis_group_null_value_code=(
+                terms[study_population_vo.diagnosis_group_null_value_code]
+                if study_population_vo.diagnosis_group_null_value_code
+                else None
+            ),
+            disease_condition_or_indication_null_value_code=(
+                terms[
+                    study_population_vo.disease_condition_or_indication_null_value_code
+                ]
+                if study_population_vo.disease_condition_or_indication_null_value_code
+                else None
+            ),
+            sex_of_participants_code=(
+                terms[study_population_vo.sex_of_participants_code]
+                if study_population_vo.sex_of_participants_code
+                else None
+            ),
+            sex_of_participants_null_value_code=(
+                terms[study_population_vo.sex_of_participants_null_value_code]
+                if study_population_vo.sex_of_participants_null_value_code
+                else None
+            ),
+            rare_disease_indicator_null_value_code=(
+                terms[study_population_vo.rare_disease_indicator_null_value_code]
+                if study_population_vo.rare_disease_indicator_null_value_code
+                else None
+            ),
+            healthy_subject_indicator_null_value_code=(
+                terms[study_population_vo.healthy_subject_indicator_null_value_code]
+                if study_population_vo.healthy_subject_indicator_null_value_code
+                else None
+            ),
+            planned_minimum_age_of_subjects_null_value_code=(
+                terms[
+                    study_population_vo.planned_minimum_age_of_subjects_null_value_code
+                ]
+                if study_population_vo.planned_minimum_age_of_subjects_null_value_code
+                else None
+            ),
+            planned_maximum_age_of_subjects_null_value_code=(
+                terms[
+                    study_population_vo.planned_maximum_age_of_subjects_null_value_code
+                ]
+                if study_population_vo.planned_maximum_age_of_subjects_null_value_code
+                else None
+            ),
+            stable_disease_minimum_duration_null_value_code=(
+                terms[
+                    study_population_vo.stable_disease_minimum_duration_null_value_code
+                ]
+                if study_population_vo.stable_disease_minimum_duration_null_value_code
+                else None
+            ),
+            pediatric_study_indicator_null_value_code=(
+                terms[study_population_vo.pediatric_study_indicator_null_value_code]
+                if study_population_vo.pediatric_study_indicator_null_value_code
+                else None
+            ),
+            pediatric_postmarket_study_indicator_null_value_code=(
+                terms[
+                    study_population_vo.pediatric_postmarket_study_indicator_null_value_code
+                ]
+                if study_population_vo.pediatric_postmarket_study_indicator_null_value_code
+                else None
+            ),
+            pediatric_investigation_plan_indicator_null_value_code=(
+                terms[
+                    study_population_vo.pediatric_investigation_plan_indicator_null_value_code
+                ]
+                if study_population_vo.pediatric_investigation_plan_indicator_null_value_code
+                else None
+            ),
+            relapse_criteria_null_value_code=(
+                terms[study_population_vo.relapse_criteria_null_value_code]
+                if study_population_vo.relapse_criteria_null_value_code
+                else None
+            ),
+            number_of_expected_subjects_null_value_code=(
+                terms[study_population_vo.number_of_expected_subjects_null_value_code]
+                if study_population_vo.number_of_expected_subjects_null_value_code
+                else None
+            ),
             therapeutic_area_codes=[
                 SimpleTermModel.from_ct_code(
                     c_code=therapeutic_area_code,
@@ -864,60 +948,62 @@ class StudyInterventionJsonModel(BaseModel):
         title = "study_intervention"
         description = "Study interventions parameters for study definition."
 
-    intervention_type_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    intervention_type_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    intervention_type_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    intervention_type_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    add_on_to_existing_treatments: bool | None = Field(None, nullable=True)
-    add_on_to_existing_treatments_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    add_on_to_existing_treatments: Annotated[bool | None, Field(nullable=True)] = None
+    add_on_to_existing_treatments_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    control_type_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    control_type_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    control_type_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    control_type_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    intervention_model_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    intervention_model_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    intervention_model_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    intervention_model_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    is_trial_randomised: bool | None = Field(None, nullable=True)
-    is_trial_randomised_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    is_trial_randomised: Annotated[bool | None, Field(nullable=True)] = None
+    is_trial_randomised_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    stratification_factor: str | None = Field(None, nullable=True)
-    stratification_factor_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    stratification_factor: Annotated[str | None, Field(nullable=True)] = None
+    stratification_factor_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    trial_blinding_schema_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
-    trial_blinding_schema_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
-    )
+    trial_blinding_schema_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
+    trial_blinding_schema_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    planned_study_length: DurationJsonModel | None = Field(None, nullable=True)
-    planned_study_length_null_value_code: SimpleCTTermNameWithConflictFlag | None = (
-        Field(None, nullable=True)
+    planned_study_length: Annotated[DurationJsonModel | None, Field(nullable=True)] = (
+        None
     )
+    planned_study_length_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
-    trial_intent_types_codes: list[SimpleCTTermNameWithConflictFlag] | None = Field(
-        None, nullable=True
-    )
-    trial_intent_types_null_value_code: SimpleCTTermNameWithConflictFlag | None = Field(
-        None, nullable=True
-    )
+    trial_intent_types_codes: Annotated[
+        list[SimpleCTTermNameWithConflictFlag] | None, Field(nullable=True)
+    ] = None
+    trial_intent_types_null_value_code: Annotated[
+        SimpleCTTermNameWithConflictFlag | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_intervention_vo(
@@ -970,69 +1056,80 @@ class StudyInterventionJsonModel(BaseModel):
                 for c_code in c_codes
             }
         return cls(
-            intervention_type_code=terms[study_intervention_vo.intervention_type_code]
-            if study_intervention_vo.intervention_type_code
-            else None,
-            intervention_type_null_value_code=terms[
-                study_intervention_vo.intervention_type_null_value_code
-            ]
-            if study_intervention_vo.intervention_type_null_value_code
-            else None,
-            add_on_to_existing_treatments_null_value_code=terms[
-                study_intervention_vo.add_on_to_existing_treatments_null_value_code
-            ]
-            if study_intervention_vo.add_on_to_existing_treatments_null_value_code
-            else None,
-            control_type_code=terms[study_intervention_vo.control_type_code]
-            if study_intervention_vo.control_type_code
-            else None,
-            control_type_null_value_code=terms[
-                study_intervention_vo.control_type_null_value_code
-            ]
-            if study_intervention_vo.control_type_null_value_code
-            else None,
-            intervention_model_code=terms[study_intervention_vo.intervention_model_code]
-            if study_intervention_vo.intervention_model_code
-            else None,
-            intervention_model_null_value_code=terms[
-                study_intervention_vo.intervention_model_null_value_code
-            ]
-            if study_intervention_vo.intervention_model_null_value_code
-            else None,
-            is_trial_randomised_null_value_code=terms[
-                study_intervention_vo.is_trial_randomised_null_value_code
-            ]
-            if study_intervention_vo.is_trial_randomised_null_value_code
-            else None,
-            stratification_factor_null_value_code=terms[
-                study_intervention_vo.stratification_factor_null_value_code
-            ]
-            if study_intervention_vo.stratification_factor_null_value_code
-            else None,
-            trial_blinding_schema_code=terms[
-                study_intervention_vo.trial_blinding_schema_code
-            ]
-            if study_intervention_vo.trial_blinding_schema_code
-            else None,
-            trial_blinding_schema_null_value_code=terms[
-                study_intervention_vo.trial_blinding_schema_null_value_code
-            ]
-            if study_intervention_vo.trial_blinding_schema_null_value_code
-            else None,
-            planned_study_length_null_value_code=terms[
-                study_intervention_vo.planned_study_length_null_value_code
-            ]
-            if study_intervention_vo.planned_study_length_null_value_code
-            else None,
+            intervention_type_code=(
+                terms[study_intervention_vo.intervention_type_code]
+                if study_intervention_vo.intervention_type_code
+                else None
+            ),
+            intervention_type_null_value_code=(
+                terms[study_intervention_vo.intervention_type_null_value_code]
+                if study_intervention_vo.intervention_type_null_value_code
+                else None
+            ),
+            add_on_to_existing_treatments=study_intervention_vo.add_on_to_existing_treatments,
+            add_on_to_existing_treatments_null_value_code=(
+                terms[
+                    study_intervention_vo.add_on_to_existing_treatments_null_value_code
+                ]
+                if study_intervention_vo.add_on_to_existing_treatments_null_value_code
+                else None
+            ),
+            control_type_code=(
+                terms[study_intervention_vo.control_type_code]
+                if study_intervention_vo.control_type_code
+                else None
+            ),
+            control_type_null_value_code=(
+                terms[study_intervention_vo.control_type_null_value_code]
+                if study_intervention_vo.control_type_null_value_code
+                else None
+            ),
+            intervention_model_code=(
+                terms[study_intervention_vo.intervention_model_code]
+                if study_intervention_vo.intervention_model_code
+                else None
+            ),
+            intervention_model_null_value_code=(
+                terms[study_intervention_vo.intervention_model_null_value_code]
+                if study_intervention_vo.intervention_model_null_value_code
+                else None
+            ),
+            is_trial_randomised=study_intervention_vo.is_trial_randomised,
+            is_trial_randomised_null_value_code=(
+                terms[study_intervention_vo.is_trial_randomised_null_value_code]
+                if study_intervention_vo.is_trial_randomised_null_value_code
+                else None
+            ),
+            stratification_factor=study_intervention_vo.stratification_factor,
+            stratification_factor_null_value_code=(
+                terms[study_intervention_vo.stratification_factor_null_value_code]
+                if study_intervention_vo.stratification_factor_null_value_code
+                else None
+            ),
+            trial_blinding_schema_code=(
+                terms[study_intervention_vo.trial_blinding_schema_code]
+                if study_intervention_vo.trial_blinding_schema_code
+                else None
+            ),
+            trial_blinding_schema_null_value_code=(
+                terms[study_intervention_vo.trial_blinding_schema_null_value_code]
+                if study_intervention_vo.trial_blinding_schema_null_value_code
+                else None
+            ),
+            planned_study_length_null_value_code=(
+                terms[study_intervention_vo.planned_study_length_null_value_code]
+                if study_intervention_vo.planned_study_length_null_value_code
+                else None
+            ),
             trial_intent_types_codes=[
                 terms[i_code]
                 for i_code in study_intervention_vo.trial_intent_types_codes
             ],
-            trial_intent_types_null_value_code=terms[
-                study_intervention_vo.trial_intent_type_null_value_code
-            ]
-            if study_intervention_vo.trial_intent_type_null_value_code
-            else None,
+            trial_intent_types_null_value_code=(
+                terms[study_intervention_vo.trial_intent_type_null_value_code]
+                if study_intervention_vo.trial_intent_type_null_value_code
+                else None
+            ),
             planned_study_length=(
                 DurationJsonModel.from_duration_object(
                     duration=study_intervention_vo.planned_study_length,
@@ -1049,8 +1146,8 @@ class StudyDescriptionJsonModel(BaseModel):
         title = "study_description"
         description = "Study description for the study definition."
 
-    study_title: str | None = Field(None, nullable=True)
-    study_short_title: str | None = Field(None, nullable=True)
+    study_title: Annotated[str | None, Field(nullable=True)] = None
+    study_short_title: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_description_vo(
@@ -1069,11 +1166,15 @@ class CompactStudyMetadataJsonModel(BaseModel):
         title = "StudyMetadata"
         description = "Study metadata"
 
-    identification_metadata: CompactStudyIdentificationMetadataJsonModel | None = Field(
-        None, nullable=True
-    )
-    version_metadata: StudyVersionMetadataJsonModel | None = Field(None, nullable=True)
-    study_description: StudyDescriptionJsonModel | None = Field(None, nullable=True)
+    identification_metadata: Annotated[
+        CompactStudyIdentificationMetadataJsonModel | None, Field(nullable=True)
+    ] = None
+    version_metadata: Annotated[
+        StudyVersionMetadataJsonModel | None, Field(nullable=True)
+    ] = None
+    study_description: Annotated[
+        StudyDescriptionJsonModel | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_metadata_vo(
@@ -1102,16 +1203,24 @@ class StudyMetadataJsonModel(BaseModel):
         title = "StudyMetadata"
         description = "Study metadata"
 
-    identification_metadata: StudyIdentificationMetadataJsonModel | None = Field(
-        None, nullable=True
-    )
-    version_metadata: StudyVersionMetadataJsonModel | None = Field(None, nullable=True)
-    high_level_study_design: HighLevelStudyDesignJsonModel | None = Field(
-        None, nullable=True
-    )
-    study_population: StudyPopulationJsonModel | None = Field(None, nullable=True)
-    study_intervention: StudyInterventionJsonModel | None = Field(None, nullable=True)
-    study_description: StudyDescriptionJsonModel | None = Field(None, nullable=True)
+    identification_metadata: Annotated[
+        StudyIdentificationMetadataJsonModel | None, Field(nullable=True)
+    ] = None
+    version_metadata: Annotated[
+        StudyVersionMetadataJsonModel | None, Field(nullable=True)
+    ] = None
+    high_level_study_design: Annotated[
+        HighLevelStudyDesignJsonModel | None, Field(nullable=True)
+    ] = None
+    study_population: Annotated[
+        StudyPopulationJsonModel | None, Field(nullable=True)
+    ] = None
+    study_intervention: Annotated[
+        StudyInterventionJsonModel | None, Field(nullable=True)
+    ] = None
+    study_description: Annotated[
+        StudyDescriptionJsonModel | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_metadata_vo(
@@ -1160,25 +1269,28 @@ class StudyMetadataJsonModel(BaseModel):
         )
 
 
-class StudyPatchRequestJsonModel(BaseModel):
+class StudyPatchRequestJsonModel(PatchInputModel):
     class Config:
         title = "StudyPatchRequest"
         description = "Identification metadata for study definition."
 
-    study_parent_part_uid: str | None = Field(
-        title="study_parent_part_uid", description="UID of the Study Parent Part"
+    study_parent_part_uid: Annotated[
+        str | None,
+        Field(description="UID of the Study Parent Part"),
+    ]
+    current_metadata: Annotated[StudyMetadataJsonModel | None, Field(nullable=True)] = (
+        None
     )
-    current_metadata: StudyMetadataJsonModel | None = Field(None, nullable=True)
 
 
 class StudyParentPart(BaseModel):
     uid: str
-    study_number: str | None
-    study_acronym: str | None
-    project_number: str | None
-    description: str | None
-    study_id: str | None
-    study_title: str | None
+    study_number: Annotated[str | None, Field(nullable=True)] = None
+    study_acronym: Annotated[str | None, Field(nullable=True)] = None
+    project_number: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    study_id: Annotated[str | None, Field(nullable=True)] = None
+    study_title: Annotated[str | None, Field(nullable=True)] = None
     registry_identifiers: RegistryIdentifiersJsonModel
 
     @classmethod
@@ -1191,57 +1303,67 @@ class StudyParentPart(BaseModel):
         if not study_uid:
             return None
 
-        if rs := find_study_parent_part_by_uid(study_uid):
-            return cls(
-                uid=rs.uid,
-                study_number=rs.current_metadata.id_metadata.study_number,
-                study_acronym=rs.current_metadata.id_metadata.study_acronym,
-                project_number=rs.current_metadata.id_metadata.project_number,
-                description=rs.current_metadata.id_metadata.description,
-                study_id=rs.current_metadata.id_metadata.study_id,
-                study_title=rs.current_metadata.study_description.study_title,
-                registry_identifiers=RegistryIdentifiersJsonModel.from_study_registry_identifiers_vo(
-                    rs.current_metadata.id_metadata.registry_identifiers,
-                    find_term_by_uids,
-                ),
-            )
+        NotFoundException.raise_if_not(
+            rs := find_study_parent_part_by_uid(study_uid),
+            "Study Parent Part",
+            study_uid,
+        )
 
-        raise exceptions.NotFoundException(
-            f"Study Parent Part with uid ({study_uid}) not found."
+        return cls(
+            uid=rs.uid,
+            study_number=rs.current_metadata.id_metadata.study_number,
+            study_acronym=rs.current_metadata.id_metadata.study_acronym,
+            project_number=rs.current_metadata.id_metadata.project_number,
+            description=rs.current_metadata.id_metadata.description,
+            study_id=rs.current_metadata.id_metadata.study_id,
+            study_title=rs.current_metadata.study_description.study_title,
+            registry_identifiers=RegistryIdentifiersJsonModel.from_study_registry_identifiers_vo(
+                rs.current_metadata.id_metadata.registry_identifiers,
+                find_term_by_uids,
+            ),
         )
 
 
 class StudyStructureOverview(BaseModel):
-    uid: str = Field(title="Study UID")
-    study_id: str | None = Field(title="Study ID", nullable=True)
-    arms: int = Field(title="Number of Study Arm")
-    pre_treatment_epochs: int = Field(title="Number of Study Arm")
-    treatment_epochs: int = Field(title="Number of Pre Treatment Epoch")
-    no_treatment_epochs: int = Field(title="Number of Treatment Epoch")
-    post_treatment_epochs: int = Field(title="Number of No Treatment Epoch")
-    treatment_elements: int = Field(title="Number of Post Treatment Element")
-    no_treatment_elements: int = Field(title="Number of Treatment Element")
-    cohorts_in_study: str = Field(title="Cohorts in Study")
+    study_ids: Annotated[list[str], Field()]
+    arms: Annotated[int, Field(title="Number of Study Arms")]
+    pre_treatment_epochs: Annotated[
+        int, Field(title="Number of Study Pre Treatment Epochs")
+    ]
+    treatment_epochs: Annotated[int, Field(title="Number of Treatment Epochs")]
+    no_treatment_epochs: Annotated[int, Field(title="Number of No Treatment Epochs")]
+    post_treatment_epochs: Annotated[
+        int, Field(title="Number of Post Treatment Epochs")
+    ]
+    treatment_elements: Annotated[int, Field(title="Number of Treatment Elements")]
+    no_treatment_elements: Annotated[
+        int, Field(title="Number of No Treatment Elements")
+    ]
+    cohorts_in_study: Annotated[str, Field()]
 
 
 class CompactStudy(BaseModel):
-    uid: str = Field(
-        title="uid",
-        description="The unique id of the study.",
-        remove_from_wildcard=True,
-    )
-    study_parent_part: StudyParentPart | None = Field(
-        title="study_parent_part", description=""
-    )
-    study_subpart_uids: list[str] = Field(title="study_subpart_uids", description="")
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on the ActivityInstances. "
-            "Actions are: 'lock', 'release', 'unlock', 'delete'."
+    uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the study.",
+            remove_from_wildcard=True,
         ),
-    )
-    current_metadata: CompactStudyMetadataJsonModel | None = Field(None, nullable=True)
+    ]
+    study_parent_part: Annotated[StudyParentPart | None, Field(nullable=True)] = None
+    study_subpart_uids: Annotated[list[str], Field()]
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the ActivityInstances. "
+                "Actions are: 'lock', 'release', 'unlock', 'delete'."
+            )
+        ),
+    ]
+    current_metadata: Annotated[
+        CompactStudyMetadataJsonModel | None, Field(nullable=True)
+    ] = None
 
     @classmethod
     def from_study_definition_ar(
@@ -1276,24 +1398,24 @@ class CompactStudy(BaseModel):
 
 
 class Study(BaseModel):
-    uid: str = Field(
-        title="uid",
-        description="The unique id of the study.",
-    )
-    study_parent_part: StudyParentPart | None = Field(
-        title="study_parent_part",
-        description="",
-        nullable=True,
-    )
-    study_subpart_uids: list[str] = Field(title="study_subpart_uids", description="")
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on the ActivityInstances. "
-            "Actions are: 'lock', 'release', 'unlock', 'delete'."
+    uid: Annotated[str, Field(description="The unique id of the study.")]
+    study_parent_part: Annotated[
+        StudyParentPart | None,
+        Field(nullable=True),
+    ]
+    study_subpart_uids: Annotated[list[str], Field()]
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the ActivityInstances. "
+                "Actions are: 'lock', 'release', 'unlock', 'delete'."
+            )
         ),
+    ]
+    current_metadata: Annotated[StudyMetadataJsonModel | None, Field(nullable=True)] = (
+        None
     )
-    current_metadata: StudyMetadataJsonModel | None = Field(None, nullable=True)
 
     @classmethod
     def from_study_definition_ar(
@@ -1325,10 +1447,10 @@ class Study(BaseModel):
         else:
             current_metadata = study_definition_ar.current_metadata
         if current_metadata is None:
-            if not history_endpoint:
-                raise exceptions.ValidationException(
-                    f"Study {study_definition_ar.uid} doesn't have a version for status={status} version={study_value_version}"
-                )
+            ValidationException.raise_if_not(
+                history_endpoint,
+                msg=f"Study with UID '{study_definition_ar.uid}' doesn't have a version for status '{status}' and version '{study_value_version}'.",
+            )
             return None
         is_metadata_the_last_one = bool(
             study_definition_ar.current_metadata == current_metadata
@@ -1362,101 +1484,73 @@ class Study(BaseModel):
         return study
 
 
-class StudyCreateInput(BaseModel):
-    study_number: str | None = Field(
-        # ...,
-        title="study_number",
-        description="",
-    )
+class StudyCreateInput(PostInputModel):
+    study_number: Annotated[str | None, Field()]
 
-    study_acronym: str | None = Field(
-        # ...,
-        title="study_acronym",
-        description="",
-    )
+    study_acronym: Annotated[str | None, Field()]
 
-    project_number: str = Field(
-        # ...,
-        title="project_number",
-        description="",
-    )
+    project_number: Annotated[str, Field(min_length=1)]
 
-    description: str | None = Field(title="description", description="")
+    description: Annotated[str | None, Field()]
 
 
-class StudySubpartCreateInput(BaseModel):
-    study_acronym: str | None = Field(None, title="study_acronym", description="")
-    study_subpart_acronym: str = Field(title="study_subpart_acronym", description="")
+class StudySubpartCreateInput(PostInputModel):
+    study_subpart_acronym: Annotated[str, Field(min_length=1)]
 
-    description: str | None = Field(title="description", description="")
+    description: Annotated[str | None, Field()]
 
-    study_parent_part_uid: str = Field(title="study_parent_part_uid", description="")
+    study_parent_part_uid: Annotated[str, Field(min_length=1)]
 
 
 class StatusChangeDescription(BaseModel):
-    change_description: str = Field(
-        ...,
-        title="Change description",
-        description="The description of the Study status change.",
-    )
+    change_description: Annotated[
+        str, Field(description="The description of the Study status change.")
+    ]
 
 
 class StudyFieldAuditTrailAction(BaseModel):
-    section: str = Field(
-        None,
-        title="section",
-        description="The section that the modified study field is in.",
-    )
+    section: Annotated[
+        str, Field(description="The section that the modified study field is in.")
+    ]
 
-    field: str = Field(
-        None,
-        title="field",
-        description="The name of the study field that was changed.",
-    )
+    field: Annotated[
+        str, Field(description="The name of the study field that was changed.")
+    ]
 
-    before_value: SimpleTermModel = Field(
-        None,
-        title="before_value",
-        description="The value of the field before the edit.",
-    )
+    before_value: Annotated[
+        SimpleTermModel | None,
+        Field(description="The value of the field before the edit.", nullable=True),
+    ] = None
 
-    after_value: SimpleTermModel = Field(
-        None,
-        title="after_value",
-        description="The value of the field after the edit.",
-    )
+    after_value: Annotated[
+        SimpleTermModel, Field(description="The value of the field after the edit.")
+    ]
 
-    action: str = Field(
-        None,
-        title="action",
-        description="The action taken on the study field. One of (Create, edit, delete...)",
-    )
+    action: Annotated[
+        str,
+        Field(
+            description="The action taken on the study field. One of (Create, edit, delete...)"
+        ),
+    ]
 
 
 class StudyFieldAuditTrailEntry(BaseModel):
-    study_uid: str = Field(
-        None,
-        title="study_uid",
-        description="The unique id of the study.",
-    )
+    study_uid: Annotated[
+        str | None, Field(description="The unique id of the study.", nullable=True)
+    ] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
 
-    user_initials: str = Field(
-        None,
-        title="user_initials",
-        description="The initials of the user that made the edit.",
-    )
+    date: Annotated[
+        str | None, Field(description="The date that the edit was made.", nullable=True)
+    ] = None
 
-    date: str = Field(
-        None,
-        title="date",
-        description="The date that the edit was made.",
-    )
-
-    actions: list[StudyFieldAuditTrailAction] = Field(
-        None,
-        title="actions",
-        description="The actions that took place as part of this audit trial entry.",
-    )
+    actions: Annotated[
+        list[StudyFieldAuditTrailAction] | None,
+        Field(
+            description="The actions that took place as part of this audit trial entry.",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_study_field_audit_trail_vo(
@@ -1483,24 +1577,22 @@ class StudyFieldAuditTrailEntry(BaseModel):
         return cls(
             study_uid=study_field_audit_trail_vo.study_uid,
             actions=actions,
-            user_initials=study_field_audit_trail_vo.user_initials,
+            author_username=study_field_audit_trail_vo.author_username,
             date=study_field_audit_trail_vo.date,
         )
 
 
 class StudyProtocolTitle(BaseModel):
-    study_uid: str = Field(
-        None,
-        title="study_uid",
-        description="The unique id of the study.",
-    )
-    study_title: str | None = Field(None, nullable=True)
-    study_short_title: str | None = Field(None, nullable=True)
-    eudract_id: str | None = Field(None, nullable=True)
-    universal_trial_number_utn: str | None = Field(None, nullable=True)
-    trial_phase_code: SimpleTermModel | None = Field(None, nullable=True)
-    ind_number: str | None = Field(None, nullable=True)
-    substance_name: str | None = Field(None, nullable=True)
+    study_uid: Annotated[
+        str | None, Field(description="The unique id of the study.", nullable=True)
+    ] = None
+    study_title: Annotated[str | None, Field(nullable=True)] = None
+    study_short_title: Annotated[str | None, Field(nullable=True)] = None
+    eudract_id: Annotated[str | None, Field(nullable=True)] = None
+    universal_trial_number_utn: Annotated[str | None, Field(nullable=True)] = None
+    trial_phase_code: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    ind_number: Annotated[str | None, Field(nullable=True)] = None
+    substance_name: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_study_definition_ar(
@@ -1527,30 +1619,34 @@ class StudyProtocolTitle(BaseModel):
         )
 
 
-class StudySubpartReorderingInput(BaseModel):
-    uid: str = Field(title="uid", description="UID of the Study Subpart.")
-    subpart_id: str = Field(
-        title="subpart_id",
-        description="A single lowercase letter from 'a' to 'z' representing the Subpart ID.",
-        max_length=1,
-        regex="[a-z]",
-    )
+class StudySubpartReorderingInput(PatchInputModel):
+    uid: Annotated[str, Field(description="UID of the Study Subpart.")]
+    subpart_id: Annotated[
+        str,
+        Field(
+            description="A single lowercase letter from 'a' to 'z' representing the Subpart ID.",
+            max_length=1,
+            regex="[a-z]",
+        ),
+    ]
 
 
 class StudySubpartAuditTrail(BaseModel):
-    subpart_uid: str | None
-    subpart_id: str | None
-    study_acronym: str | None
-    study_subpart_acronym: str | None
-    start_date: datetime | None
-    end_date: datetime | None
-    user_initials: str | None
+    subpart_uid: Annotated[str | None, Field(nullable=True)] = None
+    subpart_id: Annotated[str | None, Field(nullable=True)] = None
+    study_acronym: Annotated[str | None, Field(nullable=True)] = None
+    study_subpart_acronym: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
     change_type: str
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

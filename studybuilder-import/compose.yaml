@@ -4,7 +4,6 @@ services:
   import:
     build:
       args:
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.11.3-slim}
         UID: "${UID:-1000}"
       context: ./
       dockerfile: Dockerfile

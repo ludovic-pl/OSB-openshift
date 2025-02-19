@@ -1,4 +1,4 @@
-from typing import VT, Callable, Iterator
+from typing import VT, Annotated, Callable, Iterator
 
 from pydantic import Field
 
@@ -69,27 +69,36 @@ class TableDimension(dict):
 
 
 class Table(BaseModel):
-    data: TableDimension = Field(
-        ...,
-        title="Table data matrix",
-        description="Table data, rows and columns, including headers. Data can be text or any.",
-    )
-    meta: TableDimension = Field(
-        ...,
-        title="Table metadata matrix",
-        description="Metadata for each cell as dict.",
-    )
+    data: Annotated[
+        TableDimension,
+        Field(
+            title="Table data matrix",
+            description="Table data, rows and columns, including headers. Data can be text or any.",
+        ),
+    ]
+    meta: Annotated[
+        TableDimension,
+        Field(
+            title="Table metadata matrix", description="Metadata for each cell as dict."
+        ),
+    ]
 
-    num_header_rows: int | None = Field(
-        0,
-        title="Number of header rows",
-        description="Number of rows from the beginning of the table used as column headers",
-    )
-    num_header_columns: int | None = Field(
-        0,
-        title="Number of header columns",
-        description="Number of columns from the beginning of each row used as row headers",
-    )
+    num_header_rows: Annotated[
+        int | None,
+        Field(
+            title="Number of header rows",
+            description="Number of rows from the beginning of the table used as column headers",
+            nullable=True,
+        ),
+    ] = 0
+    num_header_columns: Annotated[
+        int | None,
+        Field(
+            title="Number of header columns",
+            description="Number of columns from the beginning of each row used as row headers",
+            nullable=True,
+        ),
+    ] = 0
 
     @classmethod
     def new(cls):

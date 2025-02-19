@@ -1,29 +1,30 @@
 """active_substances router"""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.concepts.active_substance import (
     ActiveSubstance,
     ActiveSubstanceCreateInput,
     ActiveSubstanceEditInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.active_substances_service import (
     ActiveSubstanceService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts"
 router = APIRouter()
 
-ActiveSubstanceUID = Path(None, description="The unique id of the active substance")
+ActiveSubstanceUID = Path(description="The unique id of the active substance")
 
 
 @router.get(
@@ -76,30 +77,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_active_substances(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description=_generic_descriptions.LIBRARY_NAME),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     active_substance_service = ActiveSubstanceService()
     results = active_substance_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -130,7 +139,7 @@ State after:
 Possible errors:
  - Invalid library name specified.
 
-{_generic_descriptions.DATA_EXPORTS_HEADER}  
+{_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
     response_model=CustomPage[ActiveSubstance],
     response_model_exclude_unset=True,
@@ -166,29 +175,35 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_active_substances_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = ActiveSubstanceService()
     results = service.get_all_concept_versions(
-        library=library,
+        library=library_name,
         sort_by={"start_date": False},
         page_number=page_number,
         page_size=page_size,
@@ -218,28 +233,35 @@ def get_active_substances_versions(
     },
 )
 def get_distinct_values_for_header(
-    library: str | None = Query(None, description=_generic_descriptions.LIBRARY_NAME),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.get_distinct_values_for_header(
-        library=library,
+        library=library_name,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -258,7 +280,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_activity(active_substance_uid: str = ActiveSubstanceUID):
+def get_activity(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.get_by_uid(uid=active_substance_uid)
 
@@ -291,7 +313,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(active_substance_uid: str = ActiveSubstanceUID):
+def get_versions(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.get_version_history(uid=active_substance_uid)
 
@@ -329,14 +351,14 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    active_substance_create_input: ActiveSubstanceCreateInput = Body(description=""),
+    active_substance_create_input: Annotated[ActiveSubstanceCreateInput, Body()],
 ):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.create(concept_input=active_substance_create_input)
@@ -373,7 +395,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The active substance is not in draft status.\n"
             "- The active substance had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -383,8 +405,8 @@ Possible errors:
     },
 )
 def edit(
-    active_substance_uid: str = ActiveSubstanceUID,
-    active_substance_edit_input: ActiveSubstanceEditInput = Body(description=""),
+    active_substance_uid: Annotated[str, ActiveSubstanceUID],
+    active_substance_edit_input: Annotated[ActiveSubstanceEditInput, Body()],
 ):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.edit_draft(
@@ -421,7 +443,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The active substance is not in draft status.\n"
-            "- The library does not allow active substance approval.\n",
+            "- The library doesn't allow active substance approval.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -430,7 +452,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(active_substance_uid: str = ActiveSubstanceUID):
+def approve(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.approve(uid=active_substance_uid)
 
@@ -460,7 +482,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create active_substances.\n",
+            "- The library doesn't allow to create active_substances.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -471,7 +493,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_new_version(active_substance_uid: str = ActiveSubstanceUID):
+def create_new_version(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.create_new_version(uid=active_substance_uid)
 
@@ -513,7 +535,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(active_substance_uid: str = ActiveSubstanceUID):
+def inactivate(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.inactivate_final(uid=active_substance_uid)
 
@@ -555,7 +577,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(active_substance_uid: str = ActiveSubstanceUID):
+def reactivate(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     return active_substance_service.reactivate_retired(uid=active_substance_uid)
 
@@ -590,7 +612,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The active substance is not in draft status.\n"
             "- The active substance was already in final state or is in use.\n"
-            "- The library does not allow to delete active_substance.",
+            "- The library doesn't allow to delete active_substance.",
         },
         404: {
             "model": ErrorResponse,
@@ -599,6 +621,6 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(active_substance_uid: str = ActiveSubstanceUID):
+def delete(active_substance_uid: Annotated[str, ActiveSubstanceUID]):
     active_substance_service = ActiveSubstanceService()
     active_substance_service.soft_delete(uid=active_substance_uid)

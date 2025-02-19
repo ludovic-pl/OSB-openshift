@@ -1,23 +1,27 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.syntax_pre_instances.criteria_pre_instance import (
+    CriteriaPreInstance,
+    CriteriaPreInstanceEditInput,
+    CriteriaPreInstanceIndexingsInput,
+    CriteriaPreInstanceVersion,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.syntax_pre_instances.criteria_pre_instances import (
     CriteriaPreInstanceService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
-CriteriaPreInstanceUID = Path(
-    None, description="The unique id of the Criteria Pre-Instance."
-)
+CriteriaPreInstanceUID = Path(description="The unique id of the Criteria Pre-Instance.")
 
 # Prefixed with "/criteria-pre-instances"
 router = APIRouter()
@@ -30,7 +34,7 @@ Service = CriteriaPreInstanceService
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all Syntax Pre-Instances in their latest/newest version.",
     description="Allowed parameters include : filter on fields, sort by field name with sort direction, pagination",
-    response_model=CustomPage[models.CriteriaPreInstance],
+    response_model=CustomPage[CriteriaPreInstance],
     status_code=200,
     responses={
         500: {"model": ErrorResponse, "description": "Internal Server Error"},
@@ -53,7 +57,7 @@ Service = CriteriaPreInstanceService
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -66,33 +70,42 @@ Service = CriteriaPreInstanceService
 # pylint: disable=unused-argument
 def criteria_pre_instances(
     request: Request,  # request is actually required by the allow_exports decorator
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those Syntax Pre-Instances will be returned that are currently in the specified status. "
-        "This may be particularly useful if the Criteria Pre-Instance has "
-        "a 'Draft' and a 'Final' status or and you are interested in the 'Final' status.\n"
-        "Valid values are: 'Final' or 'Draft'.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those Syntax Pre-Instances will be returned that are currently in the specified status. "
+            "This may be particularly useful if the Criteria Pre-Instance has "
+            "a 'Draft' and a 'Final' status or and you are interested in the 'Final' status.\n"
+            "Valid values are: 'Final' or 'Draft'.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = CriteriaPreInstanceService().get_all(
         status=status,
@@ -127,26 +140,34 @@ def criteria_pre_instances(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those Syntax Pre-Instances will be returned that are currently in the specified status. "
-        "This may be particularly useful if the Criteria Pre-Instance has "
-        "a 'Draft' and a 'Final' status or and you are interested in the 'Final' status.\n"
-        "Valid values are: 'Final' or 'Draft'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those Syntax Pre-Instances will be returned that are currently in the specified status. "
+            "This may be particularly useful if the Criteria Pre-Instance has "
+            "a 'Draft' and a 'Final' status or and you are interested in the 'Final' status.\n"
+            "Valid values are: 'Final' or 'Draft'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -154,16 +175,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.CriteriaPreInstance],
+    response_model=CustomPage[CriteriaPreInstance],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -171,24 +190,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -210,7 +235,7 @@ def retrieve_audit_trail(
     summary="Returns the latest/newest version of a specific criteria pre-instance identified by 'criteria_pre_instance_uid'.",
     description="""If multiple request query parameters are used, then they need to
     match all at the same time (they are combined with the AND operation).""",
-    response_model=models.CriteriaPreInstance | None,
+    response_model=CriteriaPreInstance | None,
     status_code=200,
     responses={
         404: {
@@ -221,7 +246,7 @@ def retrieve_audit_trail(
     },
 )
 def get(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return CriteriaPreInstanceService().get_by_uid(uid=criteria_pre_instance_uid)
 
@@ -239,7 +264,7 @@ If the request succeeds:
 * The status will remain in 'Draft'.
 * The link to the criteria will remain as is.
 """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -249,7 +274,7 @@ If the request succeeds:
             "- The Criteria Pre-Instance is not in draft status.\n"
             "- The Criteria Pre-Instance had been in 'Final' status before.\n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The Criteria Pre-Instance does already exist.",
         },
         404: {
@@ -260,11 +285,13 @@ If the request succeeds:
     },
 )
 def edit(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
-    criteria_pre_instance: models.CriteriaPreInstanceEditInput = Body(
-        None,
-        description="The new parameter terms for the Criteria Pre-Instance, its indexings and the change description.",
-    ),
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
+    criteria_pre_instance: Annotated[
+        CriteriaPreInstanceEditInput,
+        Body(
+            description="The new parameter terms for the Criteria Pre-Instance, its indexings and the change description.",
+        ),
+    ] = None,
 ):
     return Service().edit_draft(
         uid=criteria_pre_instance_uid, template=criteria_pre_instance
@@ -280,7 +307,7 @@ def edit(
     
     This is version independent : it won't trigger a status or a version change.
     """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=200,
     responses={
         200: {
@@ -294,12 +321,14 @@ def edit(
     },
 )
 def patch_indexings(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
-    indexings: models.CriteriaPreInstanceIndexingsInput = Body(
-        None,
-        description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
-    ),
-) -> models.CriteriaPreInstance:
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
+    indexings: Annotated[
+        CriteriaPreInstanceIndexingsInput,
+        Body(
+            description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
+        ),
+    ] = None,
+) -> CriteriaPreInstance:
     return Service().patch_indexings(uid=criteria_pre_instance_uid, indexings=indexings)
 
 
@@ -312,7 +341,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.CriteriaPreInstanceVersion],
+    response_model=list[CriteriaPreInstanceVersion],
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -336,7 +365,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "text/xml": [
             "library=library.name",
@@ -350,7 +379,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
             "library=library.name",
@@ -363,14 +392,14 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
     }
 )
 # pylint: disable=unused-argument
 def get_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return Service().get_version_history(criteria_pre_instance_uid)
 
@@ -391,7 +420,7 @@ If the request succeeds:
 Parameters in the 'name' property cannot be changed with this request.
 Only the surrounding text (excluding the parameters) can be changed.
 """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -400,7 +429,7 @@ Only the surrounding text (excluding the parameters) can be changed.
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The Criteria Pre-Instance is not in final or retired status or has a draft status.\n"
             "- The Criteria Pre-Instance name is not valid.\n"
-            "- The library does not allow to create a new version.",
+            "- The library doesn't allow to create a new version.",
         },
         404: {
             "model": ErrorResponse,
@@ -410,7 +439,7 @@ Only the surrounding text (excluding the parameters) can be changed.
     },
 )
 def create_new_version(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return Service().create_new_version(uid=criteria_pre_instance_uid)
 
@@ -427,7 +456,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -444,7 +473,7 @@ If the request succeeds:
     },
 )
 def inactivate(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return CriteriaPreInstanceService().inactivate_final(criteria_pre_instance_uid)
 
@@ -461,7 +490,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -478,7 +507,7 @@ If the request succeeds:
     },
 )
 def reactivate(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return CriteriaPreInstanceService().reactivate_retired(criteria_pre_instance_uid)
 
@@ -511,7 +540,7 @@ def reactivate(
     },
 )
 def delete(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     Service().soft_delete(criteria_pre_instance_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
@@ -530,7 +559,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.CriteriaPreInstance,
+    response_model=CriteriaPreInstance,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -538,7 +567,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The Criteria Pre-Instance is not in draft status.\n"
-            "- The library does not allow to approve Criteria Pre-Instances.\n",
+            "- The library doesn't allow to approve Criteria Pre-Instances.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -548,6 +577,6 @@ If the request succeeds:
     },
 )
 def approve(
-    criteria_pre_instance_uid: str = CriteriaPreInstanceUID,
+    criteria_pre_instance_uid: Annotated[str, CriteriaPreInstanceUID],
 ):
     return Service().approve(criteria_pre_instance_uid)

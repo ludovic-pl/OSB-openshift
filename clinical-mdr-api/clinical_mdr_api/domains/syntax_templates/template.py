@@ -1,20 +1,16 @@
 from dataclasses import dataclass
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api.domains._utils import (
-    extract_parameters,
-    is_syntax_of_template_name_correct,
-    strip_html,
-)
+from clinical_mdr_api.domains._utils import is_syntax_of_template_name_correct
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
     LibraryItemStatus,
     LibraryVO,
     ObjectAction,
-    VersioningException,
 )
-from clinical_mdr_api.exceptions import ValidationException
+from clinical_mdr_api.utils import extract_parameters, strip_html
+from common.exceptions import BusinessLogicException, ValidationException
 
 
 @dataclass(frozen=True)
@@ -47,20 +43,20 @@ class TemplateVO:
         parameter_name_exists_callback: Callable[[str], bool],
         guidance_text: str | None = None,
     ) -> Self:
-        if not is_syntax_of_template_name_correct(template_name):
-            raise ValidationException(
-                f"Template string syntax incorrect: {template_name}"
-            )
+        ValidationException.raise_if_not(
+            is_syntax_of_template_name_correct(template_name),
+            msg=f"Template string syntax incorrect: {template_name}",
+        )
         result = cls(
             name=template_name,
             name_plain=strip_html(template_name),
             guidance_text=guidance_text,
         )
         for parameter_name in result.parameter_names:
-            if not parameter_name_exists_callback(parameter_name):
-                raise ValidationException(
-                    f"Unknown parameter name in template string: {parameter_name}"
-                )
+            ValidationException.raise_if_not(
+                parameter_name_exists_callback(parameter_name),
+                msg=f"Unknown parameter name in template string: {parameter_name}",
+            )
         return result
 
     @classmethod
@@ -183,7 +179,7 @@ class TemplateAggregateRootBase(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         template: TemplateVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -191,11 +187,13 @@ class TemplateAggregateRootBase(LibraryItemAggregateRootBase):
             [str, LibraryVO | None], str | None
         ] = lambda uid, library: None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
-        if not library.is_editable:
-            raise ValidationException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
+        ValidationException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         generated_uid = generate_uid_callback()
 
@@ -215,7 +213,7 @@ class TemplateAggregateRootBase(LibraryItemAggregateRootBase):
         return self._template
 
     def edit_draft(
-        self, author: str, change_description: str, template: TemplateVO
+        self, author_id: str, change_description: str, template: TemplateVO
     ) -> None:
         """
         Creates a new draft version for the object.
@@ -225,22 +223,24 @@ class TemplateAggregateRootBase(LibraryItemAggregateRootBase):
         ) != extract_parameters(template.name):
             self._raise_versioning_exception()
         if self._template != template:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._template = template
 
     def _raise_versioning_exception(self):
-        raise VersioningException(
-            "You cannot change number or order of template parameters for a previously approved template."
+        raise BusinessLogicException(
+            msg="You cannot change number or order of template parameters for a previously approved template."
         )
 
     def create_new_version(
-        self, author: str, change_description: str, template: TemplateVO
+        self, author_id: str, change_description: str, template: TemplateVO
     ) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
         super()._create_new_version(
-            change_description=change_description, author=author
+            change_description=change_description, author_id=author_id
         )
         self._template = template
 

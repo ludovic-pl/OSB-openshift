@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -9,28 +9,21 @@ from clinical_mdr_api.domains.comments.comments import (
     CommentThreadStatus,
     CommentTopicAR,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class CommentReply(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="Unique id of comment reply",
-    )
-    comment_thread_uid: str = Field(
-        ...,
-        description="Unique id of comment thread that this comment replies to",
-    )
+    uid: Annotated[str, Field(description="Unique id of comment reply")]
+    comment_thread_uid: Annotated[
+        str,
+        Field(description="Unique id of comment thread that this comment replies to"),
+    ]
 
-    text: str = Field(...)
-    author: str = Field(...)
-    author_display_name: str = Field(...)
-    created_at: datetime = Field(...)
-    modified_at: datetime | None = Field(
-        None,
-        nullable=True,
-    )
+    text: Annotated[str, Field()]
+    author_id: Annotated[str, Field()]
+    author_display_name: Annotated[str, Field()]
+    created_at: Annotated[datetime, Field()]
+    modified_at: Annotated[datetime | None, Field(nullable=True)] = None
 
     @classmethod
     def from_uid(
@@ -53,50 +46,40 @@ class CommentReply(BaseModel):
             uid=comment_thread_ar.uid,
             comment_thread_uid=comment_thread_ar.comment_thread_uid,
             text=comment_thread_ar.text,
-            author=comment_thread_ar.author,
+            author_id=comment_thread_ar.author_id,
             author_display_name=comment_thread_ar.author_display_name,
             created_at=comment_thread_ar.created_at,
             modified_at=comment_thread_ar.modified_at,
         )
 
 
-class CommentReplyCreateInput(BaseModel):
-    text: str = Field(..., description="", min_length=1)
-    thread_status: CommentThreadStatus | None = Field(
-        None, description="New comment thread status after reply"
-    )
+class CommentReplyCreateInput(PostInputModel):
+    text: Annotated[str, Field(min_length=1)]
+    thread_status: Annotated[
+        CommentThreadStatus | None,
+        Field(description="New comment thread status after reply"),
+    ] = None
 
 
-class CommentReplyEditInput(BaseModel):
-    text: str | None = Field(None, description="Updated reply text", min_length=1)
+class CommentReplyEditInput(PatchInputModel):
+    text: Annotated[
+        str | None, Field(description="Updated reply text", min_length=1)
+    ] = None
 
 
 class CommentThread(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="Unique id of comment thread",
-    )
+    uid: Annotated[str, Field(description="Unique id of comment thread")]
 
-    text: str = Field(...)
-    topic_path: str = Field(...)
-    author: str = Field(...)
-    author_display_name: str = Field(...)
-    status: CommentThreadStatus = Field(...)
-    created_at: datetime = Field(...)
-    modified_at: datetime | None = Field(
-        None,
-        nullable=True,
-    )
-    status_modified_at: datetime | None = Field(
-        None,
-        nullable=True,
-    )
-    status_modified_by: str | None = Field(
-        None,
-        nullable=True,
-    )
-    replies: list[CommentReply] = Field([])
+    text: Annotated[str, Field()]
+    topic_path: Annotated[str, Field()]
+    author_id: Annotated[str, Field()]
+    author_display_name: Annotated[str, Field()]
+    status: Annotated[CommentThreadStatus, Field()]
+    created_at: Annotated[datetime, Field()]
+    modified_at: Annotated[datetime | None, Field(nullable=True)] = None
+    status_modified_at: Annotated[datetime | None, Field(nullable=True)] = None
+    status_modified_by: Annotated[str | None, Field(nullable=True)] = None
+    replies: Annotated[list[CommentReply], Field()] = []
 
     @classmethod
     def from_uid(
@@ -120,7 +103,7 @@ class CommentThread(BaseModel):
             text=comment_thread_ar.text,
             topic_path=comment_thread_ar.topic_path,
             status=comment_thread_ar.status,
-            author=comment_thread_ar.author,
+            author_id=comment_thread_ar.author_id,
             author_display_name=comment_thread_ar.author_display_name,
             created_at=comment_thread_ar.created_at,
             modified_at=comment_thread_ar.modified_at,
@@ -132,28 +115,26 @@ class CommentThread(BaseModel):
         )
 
 
-class CommentThreadCreateInput(BaseModel):
-    text: str = Field(..., description="", min_length=1)
-    topic_path: str = Field(..., min_length=1)
+class CommentThreadCreateInput(PostInputModel):
+    text: Annotated[str, Field(min_length=1)]
+    topic_path: Annotated[str, Field(min_length=1)]
 
 
-class CommentThreadEditInput(BaseModel):
-    text: str | None = Field(None, description="Updated thread text", min_length=1)
-    status: CommentThreadStatus | None = Field(
-        None, description="Updated thread status"
-    )
+class CommentThreadEditInput(PatchInputModel):
+    text: Annotated[
+        str | None, Field(description="Updated thread text", min_length=1)
+    ] = None
+    status: Annotated[
+        CommentThreadStatus | None, Field(description="Updated thread status")
+    ] = None
 
 
 class CommentTopic(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="Unique id of comment topic",
-    )
+    uid: Annotated[str, Field(description="Unique id of comment topic")]
 
-    topic_path: str = Field(...)
-    threads_active_count: int = Field(...)
-    threads_resolved_count: int = Field(...)
+    topic_path: Annotated[str, Field()]
+    threads_active_count: Annotated[int, Field()]
+    threads_resolved_count: Annotated[int, Field()]
 
     @classmethod
     def from_uid(

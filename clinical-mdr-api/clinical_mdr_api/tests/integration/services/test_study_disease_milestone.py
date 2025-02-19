@@ -2,8 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import SDTM_CT_CATALOGUE_NAME
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.models.study_selections.study_disease_milestone import (
     StudyDiseaseMilestone,
@@ -19,12 +17,15 @@ from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_CT_CATALOGUE_CYPHER,
     STARTUP_STUDY_LIST_CYPHER,
+    fix_study_preferred_time_unit,
 )
 from clinical_mdr_api.tests.integration.utils.method_library import (
     create_study_disease_milestone,
     create_study_disease_milestone_codelists_ret_cat_and_lib,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common import exceptions
+from common.config import SDTM_CT_CATALOGUE_NAME
 
 
 class TestStudyDiseaseMilestoneManagement(unittest.TestCase):
@@ -42,6 +43,8 @@ class TestStudyDiseaseMilestoneManagement(unittest.TestCase):
         )
 
         create_study_disease_milestone_codelists_ret_cat_and_lib()
+
+        fix_study_preferred_time_unit("study_root")
 
     def test__list_disease_milestone_studies(self):
         disease_milestone_service = StudyDiseaseMilestoneService()
@@ -90,10 +93,10 @@ class TestStudyDiseaseMilestoneManagement(unittest.TestCase):
         self.assertEqual(dm2.order, 2)
         self.assertEqual(dm3.order, 3)
 
-        with self.assertRaises(exceptions.ValidationException):
+        with self.assertRaises(exceptions.BusinessLogicException):
             disease_milestone_service.reorder(dm3.uid, 0)
 
-        with self.assertRaises(exceptions.ValidationException):
+        with self.assertRaises(exceptions.BusinessLogicException):
             disease_milestone_service.reorder(dm3.uid, 4)
 
         disease_milestone_service.reorder(dm3.uid, 1)
@@ -137,7 +140,7 @@ class TestStudyDiseaseMilestoneManagement(unittest.TestCase):
             search_string="",
             filter_by="",
             filter_operator=FilterOperator.from_str("and"),
-            result_count=10,
+            page_size=10,
         )
         self.assertEqual(header[-1], "Disease_Milestone_Type_0005")
 
@@ -324,7 +327,7 @@ class TestStudyDiseaseMilestoneManagement(unittest.TestCase):
             disease_milestone_type="Disease_Milestone_Type_0001"
         )
 
-        with self.assertRaises(exceptions.ValidationException):
+        with self.assertRaises(exceptions.BusinessLogicException):
             create_study_disease_milestone(
                 disease_milestone_type="Disease_Milestone_Type_0001"
             )

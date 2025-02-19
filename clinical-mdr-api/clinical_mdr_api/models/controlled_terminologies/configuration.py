@@ -1,4 +1,5 @@
-from typing import Self
+from enum import Enum
+from typing import Annotated, Self
 
 from pydantic import Field, validator
 
@@ -7,30 +8,30 @@ from clinical_mdr_api.models.concepts.concept import (
     NoLibraryConceptModelNoName,
     VersionProperties,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
+
+
+class StudyFieldType(Enum):
+    INT = "int"
+    TEXT = "text"
+    CODELIST_SELECT = "codelist_select"
+    CODELIST_MULTISELECT = "multiselect"
+    TIME = "time"
+    DATE = "date"
+    BOOL = "bool"
+    REGISTRY = "registry"
+    PROJECT = "project"
 
 
 class CTConfigBaseModel(BaseModel):
     study_field_name: str
-    study_field_data_type: str
-    study_field_null_value_code: str | None = Field(
-        None,
-        nullable=True,
-    )
+    study_field_data_type: StudyFieldType
+    study_field_null_value_code: Annotated[str | None, Field(nullable=True)] = None
 
-    configured_codelist_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
-    configured_term_uid: str | None = Field(
-        None,
-        nullable=True,
-    )
+    configured_codelist_uid: Annotated[str | None, Field(nullable=True)] = None
+    configured_term_uid: Annotated[str | None, Field(nullable=True)] = None
 
-    study_field_grouping: str | None = Field(
-        None,
-        nullable=True,
-    )
+    study_field_grouping: Annotated[str | None, Field(nullable=True)] = None
     study_field_name_api: str
     is_dictionary_term: bool
 
@@ -39,37 +40,38 @@ class CTConfigOGM(VersionProperties):
     class Config:
         orm_mode = True
 
-    uid: str = Field(..., source="uid")
-    study_field_name: str = Field(..., source="has_latest_value.study_field_name")
-    study_field_data_type: str | None = Field(
-        None, source="has_latest_value.study_field_data_type", nullable=True
-    )
-    study_field_null_value_code: str | None = Field(
-        None,
-        source="has_latest_value.study_field_null_value_code",
-        nullable=True,
-    )
+    uid: Annotated[str, Field(source="uid")]
+    study_field_name: Annotated[str, Field(source="has_latest_value.study_field_name")]
+    study_field_data_type: Annotated[
+        StudyFieldType | None,
+        Field(source="has_latest_value.study_field_data_type", nullable=True),
+    ] = None
+    study_field_null_value_code: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.study_field_null_value_code",
+            nullable=True,
+        ),
+    ] = None
 
-    configured_codelist_uid: str | None = Field(
-        None,
-        source="has_latest_value.has_configured_codelist.uid",
-        nullable=True,
-    )
-    configured_term_uid: str | None = Field(
-        None,
-        source="has_latest_value.has_configured_term.uid",
-        nullable=True,
-    )
+    configured_codelist_uid: Annotated[
+        str | None,
+        Field(source="has_latest_value.has_configured_codelist.uid", nullable=True),
+    ] = None
+    configured_term_uid: Annotated[
+        str | None,
+        Field(source="has_latest_value.has_configured_term.uid", nullable=True),
+    ] = None
 
-    study_field_grouping: str | None = Field(
-        None,
-        source="has_latest_value.study_field_grouping",
-        nullable=True,
-    )
-    study_field_name_api: str | None = Field(
-        None, source="has_latest_value.study_field_name_api", nullable=True
-    )
-    is_dictionary_term: bool = Field(..., source="has_latest_value.is_dictionary_term")
+    study_field_grouping: Annotated[
+        str | None, Field(source="has_latest_value.study_field_grouping", nullable=True)
+    ] = None
+    study_field_name_api: Annotated[
+        str | None, Field(source="has_latest_value.study_field_name_api", nullable=True)
+    ] = None
+    is_dictionary_term: Annotated[
+        bool, Field(source="has_latest_value.is_dictionary_term")
+    ]
 
 
 class CTConfigModel(CTConfigBaseModel, NoLibraryConceptModelNoName):
@@ -88,14 +90,24 @@ class CTConfigModel(CTConfigBaseModel, NoLibraryConceptModelNoName):
             start_date=ct_config_definition_ar.item_metadata.start_date,
             status=ct_config_definition_ar.item_metadata.status.value,
             version=ct_config_definition_ar.item_metadata.version,
-            user_initials=ct_config_definition_ar.item_metadata.user_initials,
+            author_username=ct_config_definition_ar.item_metadata.author_username,
             change_description=ct_config_definition_ar.item_metadata.change_description,
         )
 
 
-class CTConfigPostInput(CTConfigBaseModel):
+class CTConfigPostInput(PostInputModel):
+    study_field_name: Annotated[str, Field(min_length=1)]
+    study_field_data_type: StudyFieldType
+    study_field_null_value_code: Annotated[str | None, Field(min_length=1)] = None
+
+    configured_codelist_uid: Annotated[str | None, Field(min_length=1)] = None
+    configured_term_uid: Annotated[str | None, Field(min_length=1)] = None
+
+    study_field_grouping: Annotated[str | None, Field(min_length=1)] = None
+    study_field_name_api: Annotated[str, Field(min_length=1)]
+    is_dictionary_term: bool
     # field used to create a configuration based on codelist name
-    configured_codelist_name: str | None
+    configured_codelist_name: Annotated[str | None, Field(min_length=1)]
 
     @validator("*")
     # pylint: disable=no-self-argument
@@ -105,5 +117,15 @@ class CTConfigPostInput(CTConfigBaseModel):
         return field
 
 
-class CTConfigPatchInput(CTConfigBaseModel):
-    change_description: str
+class CTConfigPatchInput(PatchInputModel):
+    study_field_name: Annotated[str, Field(min_length=1)]
+    study_field_data_type: StudyFieldType
+    study_field_null_value_code: Annotated[str | None, Field(min_length=1)] = None
+
+    configured_codelist_uid: Annotated[str | None, Field(min_length=1)] = None
+    configured_term_uid: Annotated[str | None, Field(min_length=1)] = None
+
+    study_field_grouping: Annotated[str | None, Field(min_length=1)] = None
+    study_field_name_api: Annotated[str, Field(min_length=1)]
+    is_dictionary_term: bool
+    change_description: Annotated[str, Field(min_length=1)]

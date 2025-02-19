@@ -1,12 +1,12 @@
 import unittest
 
-from clinical_mdr_api.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 from clinical_mdr_api.domains.study_definition_aggregates.study_configuration import (
     from_database,
     from_file,
 )
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import inject_base_data
+from common.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 
 
 class TestConfigurationReaders(unittest.TestCase):

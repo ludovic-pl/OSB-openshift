@@ -419,11 +419,16 @@ class BaseImporter:
                 retry_delay = 2 * retry_delay
 
     @lru_cache(maxsize=10000)
-    def lookup_concept_uid(self, name, endpoint, subset=None, library=None):
+    def lookup_concept_uid(self, name, endpoint, subset=None, library=None, only_final=False):
         self.log.info(f"Looking up concept {endpoint} with name '{name}'")
         filt = {"name": {"v": [name], "op": "eq"}}
-        if library:
-            filt["library_name"] = {"v": [library], "op": "eq"}
+        if library is not None:
+            if isinstance(library, tuple):
+                filt["library_name"] = {"v": list(library), "op": "eq"}
+            else:
+                filt["library_name"] = {"v": [library], "op": "eq"}
+        if only_final:
+            filt["status"] = {"v": ["Final"], "op": "eq"}
         path = f"/concepts/{endpoint}"
         params = {"filters": json.dumps(filt)}
         if subset:
@@ -497,7 +502,7 @@ class BaseImporter:
     @lru_cache(maxsize=10000)
     def lookup_codelist_term_uid(self, codelist_name, sponsor_preferred_name):
         self.log.info(
-            f"Looking up term with name '{sponsor_preferred_name}' from dictionary '{codelist_name}'"
+            f"Looking up term with name '{sponsor_preferred_name}' from codelist '{codelist_name}'"
         )
         terms = self.fetch_codelist_terms(codelist_name)
         if terms is not None:
@@ -570,7 +575,7 @@ class BaseImporter:
     def lookup_dictionary_uid(self, name):
         self.log.info(f"Looking up dictionary with name '{name}'")
         items = self.api.get_all_from_api(
-            f"/dictionaries/codelists", params={"library": name}
+            f"/dictionaries/codelists", params={"library_name": name}
         )
         if items is not None and len(items) > 0:
             uid = items[0].get("codelist_uid", None)

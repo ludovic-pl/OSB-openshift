@@ -1,9 +1,10 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
 from clinical_mdr_api.domains.concepts.odms.vendor_attribute import OdmVendorAttributeAR
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
 
 
 class OdmElementWithParentUid(BaseModel):
@@ -12,23 +13,23 @@ class OdmElementWithParentUid(BaseModel):
     parent_uids: list[str]
 
 
-class OdmVendorRelationPostInput(BaseModel):
-    uid: str
-    value: str
+class OdmVendorRelationPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    value: Annotated[str, Field(min_length=1)]
 
 
-class OdmVendorElementRelationPostInput(BaseModel):
-    uid: str
-    value: str | None
+class OdmVendorElementRelationPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    value: Annotated[str | None, Field(min_length=1)]
 
 
-class OdmVendorsPostInput(BaseModel):
+class OdmVendorsPostInput(PostInputModel):
     elements: list[OdmVendorElementRelationPostInput]
     element_attributes: list[OdmVendorRelationPostInput]
     attributes: list[OdmVendorRelationPostInput]
 
 
-class OdmRefVendorPostInput(BaseModel):
+class OdmRefVendorPostInput(PostInputModel):
     attributes: list[OdmVendorRelationPostInput]
 
 
@@ -64,14 +65,12 @@ class OdmRefVendorAttributeModel(BaseModel):
             odm_vendor_element_ref_model = None
         return odm_vendor_element_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    data_type: str | None = Field(None, title="data_type", description="")
-    value_regex: str | None = Field(None, title="value_regex", description="")
-    value: str | None = Field(None, title="value", description="")
-    vendor_namespace_uid: str | None = Field(
-        None, title="vendor_namespace_uid", description=""
-    )
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    data_type: Annotated[str | None, Field(nullable=True)] = None
+    value_regex: Annotated[str | None, Field(nullable=True)] = None
+    value: Annotated[str | None, Field(nullable=True)] = None
+    vendor_namespace_uid: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmRefVendor(BaseModel):
@@ -114,13 +113,13 @@ class OdmVendorNamespaceSimpleModel(BaseModel):
             simple_odm_vendor_namespace_model = None
         return simple_odm_vendor_namespace_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    prefix: str | None = Field(None, title="prefix", description="")
-    url: str | None = Field(None, title="url", description="")
-    status: str | None = Field(None, title="status", description="")
-    version: str | None = Field(None, title="version", description="")
-    possible_actions: list[str] = Field(None, title="possible_actions", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    prefix: Annotated[str | None, Field(nullable=True)] = None
+    url: Annotated[str | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[list[str] | None, Field(nullable=True)] = None
 
 
 class OdmVendorAttributeSimpleModel(BaseModel):
@@ -153,15 +152,13 @@ class OdmVendorAttributeSimpleModel(BaseModel):
             simple_odm_vendor_attribute_model = None
         return simple_odm_vendor_attribute_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    data_type: str | None = Field(None, title="data_type", description="")
-    compatible_types: list | None = Field(
-        None, title="compatible_types", description=""
-    )
-    status: str | None = Field(None, title="status", description="")
-    version: str | None = Field(None, title="version", description="")
-    possible_actions: list[str] = Field(None, title="possible_actions", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    data_type: Annotated[str | None, Field(nullable=True)] = None
+    compatible_types: Annotated[list, Field()]
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[list[str] | None, Field(nullable=True)] = None
 
 
 class OdmVendorElementSimpleModel(BaseModel):
@@ -193,11 +190,9 @@ class OdmVendorElementSimpleModel(BaseModel):
             simple_odm_vendor_element_model = None
         return simple_odm_vendor_element_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    compatible_types: list | None = Field(
-        None, title="compatible_types", description=""
-    )
-    status: str | None = Field(None, title="status", description="")
-    version: str | None = Field(None, title="version", description="")
-    possible_actions: list[str] = Field(None, title="possible_actions", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    compatible_types: Annotated[list, Field()]
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[list[str] | None, Field(nullable=True)] = None

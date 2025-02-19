@@ -22,7 +22,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.tests.unit.domain.simple_concept_aggregates.test_numeric_value import (
     create_random_numeric_value_ar,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 class MockObject:
@@ -76,7 +76,7 @@ def create_random_time_point_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
 
     return random_time_point_ar

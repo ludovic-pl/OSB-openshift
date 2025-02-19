@@ -28,7 +28,7 @@
             "status": "Final",
             "version": "1.0",
             "change_description": "Approved version",
-            "user_initials": "unknown-user",
+            "author_username": "unknown-user@example.com",
             "uid": "Activity_000131",
             "name": "Activity Placeholder for new draft",
             "name_sentence_case": "Activity Placeholder for new draft",
@@ -53,7 +53,7 @@
             "is_data_collected": false
         },
         "start_date": "2023-10-03T08:07:01.973030+00:00",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "latest_activity": null,
         "accepted_version": false
     }

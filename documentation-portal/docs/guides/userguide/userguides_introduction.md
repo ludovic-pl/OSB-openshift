@@ -108,7 +108,7 @@ The audit trail provides users with the appropriate permissions to view a table 
 | Change description | Reason for change |
 | Status | Draft, Final, Retired |
 | Version | Version number |
-| User | Containing the initials of the person who made the last modification |
+| User | Containing the username of the person who made the last modification |
 | From | Containing date and timepoint of the from modification |
 | To | Containing date and timepoint of the to modification, missing mean lates |
 

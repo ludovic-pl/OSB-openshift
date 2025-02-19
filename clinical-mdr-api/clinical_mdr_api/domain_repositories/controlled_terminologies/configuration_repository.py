@@ -1,11 +1,15 @@
 from typing import cast
 
+from neomodel.sync_.match import (
+    Collect,
+    Last,
+    Optional,
+    RawCypher,
+    RelationNameResolver,
+)
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    LATEST_VERSION_ORDER_BY,
-    to_relation_trees,
 )
 from clinical_mdr_api.domain_repositories.models.configuration import (
     CTConfigRoot,
@@ -50,18 +54,32 @@ class CTConfigRepository(LibraryItemRepositoryImplBase[CTConfigAR]):
     ) -> list[CTConfigOGM]:
         all_configurations = [
             CTConfigOGM.from_orm(sas_node)
-            for sas_node in to_relation_trees(
-                self.root_class.nodes.fetch_relations("has_latest_value")
-                .fetch_optional_relations(
-                    "has_latest_value__has_configured_codelist",
-                    "has_latest_value__has_configured_term",
+            for sas_node in (
+                self.root_class.nodes.fetch_relations(
+                    "has_latest_value",
+                    Optional("has_latest_value__has_configured_codelist"),
+                    Optional("has_latest_value__has_configured_term"),
                 )
-                .fetch_optional_single_relation_of_type(
-                    {
-                        "has_version": ("latest_version", LATEST_VERSION_ORDER_BY),
-                    }
+                .subquery(
+                    self.root_class.nodes.traverse_relations(has_version="has_version")
+                    .intermediate_transform(
+                        {
+                            "has_version": {
+                                "source": RelationNameResolver("has_version")
+                            }
+                        },
+                        ordering=[
+                            RawCypher("toInteger(split(has_version.version, '.')[0])"),
+                            RawCypher("toInteger(split(has_version.version, '.')[1])"),
+                            "has_version.end_date",
+                            "has_version.start_date",
+                        ],
+                    )
+                    .annotate(latest_version=Last(Collect("has_version"))),
+                    ["latest_version"],
                 )
                 .order_by("uid")
+                .resolve_subgraph()
             )
         ]
         return all_configurations

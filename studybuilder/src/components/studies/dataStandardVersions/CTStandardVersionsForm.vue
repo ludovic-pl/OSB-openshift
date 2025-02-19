@@ -186,7 +186,6 @@ async function submit() {
       form.value.ct_package_uid = selectedPackage.value.uid
     }
     if (!props.standardVersion) {
-      console.log('CREATE')
       await studyApi.createStudyStandardVersions(
         studiesGeneralStore.selectedStudy.uid,
         form.value

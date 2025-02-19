@@ -4,10 +4,7 @@ from dataclasses import dataclass
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
-    to_relation_trees,
-)
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivityInstanceRoot,
     ActivityInstanceValue,
@@ -26,6 +23,7 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_instance
     StudySelectionActivityInstanceAR,
     StudySelectionActivityInstanceVO,
 )
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -40,7 +38,7 @@ class SelectionHistory:
     activity_instance_name: str | None
     activity_instance_version: str | None
     show_activity_instance_in_protocol_flowchart: bool
-    user_initials: str
+    author_id: str
     change_type: str
     start_date: datetime.datetime
     end_date: datetime.datetime | None
@@ -57,29 +55,31 @@ class StudySelectionActivityInstanceRepository(
     def _create_value_object_from_repository(
         self, selection: dict, acv: bool
     ) -> StudySelectionActivityInstanceVO:
+        activity = selection.get("activity", {})
+        activity_instance = selection.get("activity_instance", {})
         return StudySelectionActivityInstanceVO.from_input_values(
             study_uid=selection["study_uid"],
             study_selection_uid=selection["study_selection_uid"],
             study_activity_uid=selection["study_activity_uid"],
-            activity_uid=selection.get("activity", {}).get("uid"),
-            activity_name=selection.get("activity", {}).get("name"),
-            activity_version=selection.get("activity", {}).get("activity_version"),
-            activity_instance_uid=selection.get("activity_instance", {}).get("uid")
-            if selection.get("activity_instance")
-            else None,
-            activity_instance_name=selection.get("activity_instance", {}).get("name")
-            if selection.get("activity_instance")
-            else None,
-            activity_instance_version=selection.get("activity_instance", {}).get(
-                "activity_instance_version"
-            )
-            if selection.get("activity_instance")
-            else None,
+            activity_uid=activity.get("uid"),
+            activity_name=activity.get("name"),
+            activity_version=f"{activity.get('major_version')}.{activity.get('minor_version')}",
+            activity_instance_uid=(
+                activity_instance.get("uid") if activity_instance else None
+            ),
+            activity_instance_name=(
+                activity_instance.get("name") if activity_instance else None
+            ),
+            activity_instance_version=(
+                f"{activity_instance.get('major_version')}.{activity_instance.get('minor_version')}"
+                if activity_instance
+                else None
+            ),
             show_activity_instance_in_protocol_flowchart=selection[
                 "show_activity_instance_in_protocol_flowchart"
             ],
             start_date=convert_to_datetime(value=selection["start_date"]),
-            user_initials=selection["user_initials"],
+            author_id=selection["author_id"],
             accepted_version=acv,
             study_activity_subgroup_uid=selection.get(
                 "study_activity_subgroup", {}
@@ -177,20 +177,22 @@ class StudySelectionActivityInstanceRepository(
                 sa.uid AS study_selection_uid,
                 coalesce(sa.show_activity_instance_in_protocol_flowchart, false) AS show_activity_instance_in_protocol_flowchart,
                 study_activity.uid AS study_activity_uid,
-                head([(study_activity)-[:HAS_SELECTED_ACTIVITY]->(activity_value:ActivityValue)<-[has_version:HAS_VERSION]
+                head(apoc.coll.sortMulti([(study_activity)-[:HAS_SELECTED_ACTIVITY]->(activity_value:ActivityValue)<-[has_version:HAS_VERSION]
                 -(activity_root:ActivityRoot) WHERE has_version.status IN ['Final', 'Retired'] | 
                     {
                         uid: activity_root.uid,
                         name: activity_value.name,
-                        activity_version: has_version.version
-                    }]) AS activity,
-                head([(sa)-[:HAS_SELECTED_ACTIVITY_INSTANCE]->(activity_instance_name:ActivityInstanceValue)<-[has_version:HAS_VERSION]
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version'])) AS activity,
+                head(apoc.coll.sortMulti([(sa)-[:HAS_SELECTED_ACTIVITY_INSTANCE]->(activity_instance_name:ActivityInstanceValue)<-[has_version:HAS_VERSION]
                 -(activity_instance_root:ActivityInstanceRoot) WHERE has_version.status IN ['Final', 'Retired'] |  
                     { 
                         uid: activity_instance_root.uid, 
-                        name:activity_instance_name.name, 
-                        activity_instance_version: has_version.version
-                    }]) AS activity_instance,
+                        name:activity_instance_name.name,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version'])) AS activity_instance,
                 head([(study_activity)-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_SUBGROUP]->(study_activity_subgroup_selection)
                     -[:HAS_SELECTED_ACTIVITY_SUBGROUP]->(activity_subgroup_value:ActivitySubGroupValue)<-[:HAS_VERSION]-(activity_subgroup_root:ActivitySubGroupRoot) | 
                     {
@@ -213,30 +215,30 @@ class StudySelectionActivityInstanceRepository(
                         soa_group_name: flowchart_value.name
                     }]) AS study_soa_group,
                 sac.date AS start_date,
-                sac.user_initials AS user_initials"""
+                sac.author_id AS author_id"""
 
     def get_selection_history(
         self, selection: dict, change_type: str, end_date: datetime
     ):
+        study_activity = selection.get("study_activity", {})
+        activity_instance = selection.get("activity_instance", {})
         return SelectionHistory(
             study_selection_uid=selection["study_selection_uid"],
-            study_activity_uid=selection.get("study_activity", {}).get("uid"),
-            activity_uid=selection.get("study_activity", {}).get("activity_uid"),
-            activity_version=selection.get("study_activity", {}).get(
-                "activity_version"
+            study_activity_uid=study_activity.get("uid"),
+            activity_uid=study_activity.get("activity_uid"),
+            activity_version=f"{study_activity.get('major_version')}.{study_activity.get('minor_version')}",
+            activity_instance_uid=(
+                activity_instance.get("uid") if activity_instance else None
             ),
-            activity_instance_uid=selection.get("activity_instance", {}).get("uid")
-            if selection.get("activity_instance")
-            else None,
-            activity_instance_name=selection.get("activity_instance", {}).get("name")
-            if selection.get("activity_instance")
-            else None,
-            activity_instance_version=selection.get("activity_instance", {}).get(
-                "activity_instance_version"
-            )
-            if selection.get("activity_instance")
-            else None,
-            user_initials=selection["user_initials"],
+            activity_instance_name=(
+                activity_instance.get("name") if activity_instance else None
+            ),
+            activity_instance_version=(
+                f"{activity_instance.get('major_version')}.{activity_instance.get('minor_version')}"
+                if activity_instance
+                else None
+            ),
+            author_id=selection["author_id"],
             change_type=change_type,
             start_date=convert_to_datetime(value=selection["start_date"]),
             show_activity_instance_in_protocol_flowchart=selection[
@@ -268,15 +270,25 @@ class StudySelectionActivityInstanceRepository(
                     ORDER BY all_sa.uid, asa.date DESC
                     RETURN
                         all_sa.uid AS study_selection_uid,
-                        head([(all_sa)<-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_INSTANCE]-(study_activity:StudyActivity)
+                        head(apoc.coll.sortMulti([(all_sa)<-[:STUDY_ACTIVITY_HAS_STUDY_ACTIVITY_INSTANCE]-(study_activity:StudyActivity)
                         -[:HAS_SELECTED_ACTIVITY]->(activity_value:ActivityValue)<-[has_version:HAS_VERSION]-(activity_root:ActivityRoot) | 
-                            {uid: study_activity.uid, activity_uid: activity_root.uid, activity_version: has_version.version}]) AS study_activity,
-                        head([(all_sa)-[:HAS_SELECTED_ACTIVITY_INSTANCE]->(activity_instance_value:ActivityInstanceValue)
+                            {
+                                uid: study_activity.uid,
+                                activity_uid: activity_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version'])) AS study_activity,
+                        head(apoc.coll.sortMulti([(all_sa)-[:HAS_SELECTED_ACTIVITY_INSTANCE]->(activity_instance_value:ActivityInstanceValue)
                             <-[has_version:HAS_VERSION]-(activity_instance_root:ActivityInstanceRoot) | 
-                            {uid: activity_instance_root.uid, name:activity_instance_value.name, activity_instance_version: has_version.version}]) AS activity_instance,
+                            {
+                                uid: activity_instance_root.uid,
+                                name:activity_instance_value.name,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version'])) AS activity_instance,
                         coalesce(all_sa.show_activity_instance_in_protocol_flowchart, false) AS show_activity_instance_in_protocol_flowchart,
                         asa.date AS start_date,
-                        asa.user_initials AS user_initials,
+                        asa.author_id AS author_id,
                         labels(asa) AS change_type,
                         bsa.date AS end_date
                     """
@@ -361,10 +373,13 @@ class StudySelectionActivityInstanceRepository(
     def get_all_study_activity_instances_for_study_activity(
         self, study_uid: str, study_activity_uid
     ) -> list[StudyActivityInstance]:
-        study_activity_instances = to_relation_trees(
+        study_activity_instances = ListDistinct(
             StudyActivityInstance.nodes.filter(
+                has_study_activity_instance__latest_value__uid=study_uid,
                 study_activity_has_study_activity_instance__has_study_activity__latest_value__uid=study_uid,
                 study_activity_has_study_activity_instance__uid=study_activity_uid,
-            ).has(has_before=False)
+            )
+            .has(has_before=False)
+            .resolve_subgraph()
         ).distinct()
         return study_activity_instances

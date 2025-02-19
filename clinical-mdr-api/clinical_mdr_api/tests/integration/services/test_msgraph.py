@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.models.integrations.msgraph import GraphGroup, GraphUser
 from clinical_mdr_api.services.integrations import msgraph
+from common import exceptions
 
 # pylint: disable=redefined-outer-name
 

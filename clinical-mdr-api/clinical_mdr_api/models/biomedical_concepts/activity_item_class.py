@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field, validator
 
@@ -12,125 +12,103 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     ObjectAction,
 )
-from clinical_mdr_api.models import Library
 from clinical_mdr_api.models.concepts.concept import VersionProperties
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.libraries.library import Library
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
+from common import config
 
 
 class CompactActivityInstanceClass(BaseModel):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        ...,
-        title="parent_class",
-        description="",
-        source="has_activity_instance_class.uid",
-    )
-    name: str = Field(
-        ...,
-        title="parent_class",
-        description="",
-        source="has_activity_instance_class.has_latest_value.name",
-    )
+    uid: Annotated[str, Field(source="has_activity_instance_class.uid")]
+    name: Annotated[
+        str, Field(source="has_activity_instance_class.has_latest_value.name")
+    ]
 
 
 class SimpleDataTypeTerm(BaseModel):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        ...,
-        title="parent_class",
-        description="",
-        source="has_latest_value.has_data_type.uid",
-    )
-    name: str | None = Field(
-        None,
-        title="parent_class",
-        description="",
-        source="has_latest_value.has_data_type.has_name_root.has_latest_value.name",
-    )
+    uid: Annotated[str, Field(source="has_latest_value.has_data_type.uid")]
+    name: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.has_data_type.has_name_root.has_latest_value.name",
+            nullable=True,
+        ),
+    ] = None
 
 
 class SimpleRoleTerm(BaseModel):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        ...,
-        title="parent_class",
-        description="",
-        source="has_latest_value.has_role.uid",
-    )
-    name: str | None = Field(
-        None,
-        title="parent_class",
-        description="",
-        source="has_latest_value.has_role.has_name_root.has_latest_value.name",
-    )
+    uid: Annotated[str, Field(source="has_latest_value.has_role.uid")]
+    name: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.has_role.has_name_root.has_latest_value.name",
+            nullable=True,
+        ),
+    ] = None
 
 
 class SimpleVariableClass(BaseModel):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        ...,
-        title="mapped_variable_class",
-        description="",
-        source="maps_variable_class.uid",
-    )
+    uid: Annotated[
+        str,
+        Field(
+            source="maps_variable_class.uid",
+        ),
+    ]
 
 
 class ActivityItemClass(VersionProperties):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    name: str = Field(
-        None, title="name", description="", source="has_latest_value.name"
-    )
-    definition: str | None = Field(
-        None, title="definition", description="", source="has_latest_value.definition"
-    )
-    order: int = Field(
-        ..., title="order", description="", source="has_latest_value.order"
-    )
-    mandatory: bool = Field(
-        ...,
-        title="is_domain_specific",
-        description="",
-        source="has_latest_value.mandatory",
-    )
-    data_type: SimpleDataTypeTerm = Field(...)
-    role: SimpleRoleTerm = Field(...)
-    activity_instance_classes: list[CompactActivityInstanceClass] = Field(...)
-    variable_classes: list[SimpleVariableClass] | None = Field(None)
-    library_name: str = Field(
-        ...,
-        title="library_name",
-        description="",
-        source="has_library.name",
-    )
-    nci_concept_id: str | None = Field(
-        None,
-        title="nci_concept_id",
-        description="",
-        source="has_latest_value.nci_concept_id",
-    )
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on the ActivityItemClasses. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    uid: Annotated[str | None, Field(source="uid", nullable=True)] = None
+    name: Annotated[
+        str | None, Field(source="has_latest_value.name", nullable=True)
+    ] = None
+    definition: Annotated[
+        str | None, Field(source="has_latest_value.definition", nullable=True)
+    ] = None
+    order: Annotated[int, Field(source="has_latest_value.order")]
+    mandatory: Annotated[
+        bool,
+        Field(
+            source="has_latest_value.mandatory",
         ),
-    )
+    ]
+    data_type: Annotated[SimpleDataTypeTerm, Field()]
+    role: Annotated[SimpleRoleTerm, Field()]
+    activity_instance_classes: Annotated[list[CompactActivityInstanceClass], Field()]
+    variable_classes: Annotated[
+        list[SimpleVariableClass] | None, Field(nullable=True)
+    ] = None
+    library_name: Annotated[str, Field(source="has_library.name")]
+    nci_concept_id: Annotated[
+        str | None,
+        Field(
+            nullable=True,
+            source="has_latest_value.nci_concept_id",
+        ),
+    ] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the ActivityItemClasses. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
+        ),
+    ]
 
     @validator("possible_actions", pre=True, always=True)
     # pylint: disable=no-self-argument,unused-argument
@@ -187,30 +165,32 @@ class ActivityItemClass(VersionProperties):
                 uid=activity_item_class_ar.activity_item_class_vo.role_uid,
                 name=activity_item_class_ar.activity_item_class_vo.role_name,
             ),
-            variable_classes=[
-                SimpleVariableClass(uid=variable_class_uid)
-                for variable_class_uid in activity_item_class_ar.activity_item_class_vo.variable_class_uids
-            ]
-            if activity_item_class_ar.activity_item_class_vo.variable_class_uids
-            else [],
+            variable_classes=(
+                [
+                    SimpleVariableClass(uid=variable_class_uid)
+                    for variable_class_uid in activity_item_class_ar.activity_item_class_vo.variable_class_uids
+                ]
+                if activity_item_class_ar.activity_item_class_vo.variable_class_uids
+                else []
+            ),
             library_name=Library.from_library_vo(activity_item_class_ar.library).name,
             start_date=activity_item_class_ar.item_metadata.start_date,
             end_date=activity_item_class_ar.item_metadata.end_date,
             status=activity_item_class_ar.item_metadata.status.value,
             version=activity_item_class_ar.item_metadata.version,
             change_description=activity_item_class_ar.item_metadata.change_description,
-            user_initials=activity_item_class_ar.item_metadata.user_initials,
+            author_username=activity_item_class_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in activity_item_class_ar.get_possible_actions()]
             ),
         )
 
 
-class ActivityItemClassCreateInput(BaseModel):
+class ActivityItemClassCreateInput(PostInputModel):
     name: str
-    definition: str | None
-    nci_concept_id: str | None
-    order: int
+    definition: Annotated[str | None, Field(min_length=1)]
+    nci_concept_id: Annotated[str | None, Field(min_length=1)]
+    order: Annotated[int, Field(gt=0, lt=config.MAX_INT_NEO4J)]
     mandatory: bool
     activity_instance_class_uids: list[str]
     role_uid: str
@@ -218,20 +198,20 @@ class ActivityItemClassCreateInput(BaseModel):
     library_name: str
 
 
-class ActivityItemClassEditInput(ActivityItemClassCreateInput):
-    name: str | None = None
-    definition: str | None = None
-    nci_concept_id: str | None = None
-    order: int | None = None
+class ActivityItemClassEditInput(PatchInputModel):
+    name: Annotated[str | None, Field(min_length=1)] = None
+    definition: Annotated[str | None, Field(min_length=1)] = None
+    nci_concept_id: Annotated[str | None, Field(min_length=1)] = None
+    order: Annotated[int | None, Field(gt=0, lt=config.MAX_INT_NEO4J)] = None
     mandatory: bool | None = None
     activity_instance_class_uids: list[str] = []
-    library_name: str | None = None
-    change_description: str | None = None
-    role_uid: str | None = None
-    data_type_uid: str | None = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
+    change_description: Annotated[str | None, Field(min_length=1)] = None
+    role_uid: Annotated[str | None, Field(min_length=1)] = None
+    data_type_uid: Annotated[str | None, Field(min_length=1)] = None
 
 
-class ActivityItemClassMappingInput(BaseModel):
+class ActivityItemClassMappingInput(PatchInputModel):
     variable_class_uids: list[str] = []
 
 
@@ -240,11 +220,13 @@ class ActivityItemClassVersion(ActivityItemClass):
     Class for storing ActivityItemClass and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

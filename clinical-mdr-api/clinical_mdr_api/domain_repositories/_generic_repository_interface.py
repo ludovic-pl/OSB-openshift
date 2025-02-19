@@ -40,12 +40,12 @@ class GenericRepository(Generic[_AggregateRootType], abc.ABC):
 
     @property
     @abc.abstractmethod
-    def user_initials(self) -> str | None:
+    def author_id(self) -> str | None:
         raise NotImplementedError()
 
-    @user_initials.setter
+    @author_id.setter
     @abc.abstractmethod
-    def user_initials(self, user_initials: str) -> None:
+    def author_id(self, author_id: str) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod

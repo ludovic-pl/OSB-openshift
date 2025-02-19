@@ -2,13 +2,12 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.concepts.medicinal_product import MedicinalProductAR
-from clinical_mdr_api.exceptions import BusinessLogicException
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
-def _raise(exc: Exception) -> Any:
+def _raise(exc: ValueError) -> Any:
     raise exc
 
 
@@ -21,7 +20,8 @@ class StudyCompoundDosingVO:
 
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
 
     # Optional information
     compound_uid: str | None = None
@@ -37,7 +37,7 @@ class StudyCompoundDosingVO:
         study_element_uid: str | None,
         dose_value_uid: str | None,
         dose_frequency_uid: str | None,
-        user_initials: str,
+        author_id: str,
         study_uid: str | None = None,
         compound_uid: str | None = None,
         compound_alias_uid: str | None = None,
@@ -66,7 +66,7 @@ class StudyCompoundDosingVO:
             study_element_uid=normalize_string(study_element_uid),
             dose_value_uid=normalize_string(dose_value_uid),
             dose_frequency_uid=normalize_string(dose_frequency_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
             start_date=start_date,
         )
 
@@ -78,28 +78,30 @@ class StudyCompoundDosingVO:
         ),
     ) -> None:
         """
-        Raises ValueError or BusinessLogicException if values do not comply with relevant business rules.
+        Raises ValueError or exceptions.BusinessLogicException if values do not comply with relevant business rules.
 
         """
         # Find a compound dosing selection with the same medicinal product, dose value, dose frequency
         existing_uid = selection_uid_by_compound_dose_and_frequency_callback(self)
-        if existing_uid and self.study_selection_uid != existing_uid:
-            raise BusinessLogicException(
-                "Compound dosing selection with the specified compound, dose value and dose frequency already exists."
-            )
+        exceptions.AlreadyExistsException.raise_if(
+            existing_uid and self.study_selection_uid != existing_uid,
+            msg="Compound dosing selection with the specified compound, dose value and dose frequency already exists.",
+        )
 
         # Validate that each of these selections is actually defined on the selected library compound (i.e. medicinal product):
         #   - dose value
         medicinal_product: MedicinalProductAR = medicinal_product_callback(
             self.medicinal_product_uid
         )
-        if medicinal_product and (
-            self.dose_value_uid is not None
-            and self.dose_value_uid not in medicinal_product.concept_vo.dose_value_uids
-        ):
-            raise BusinessLogicException(
-                f"Selected dose value is not valid for medicinal product '{medicinal_product.concept_vo.name}'."
-            )
+        exceptions.BusinessLogicException.raise_if(
+            medicinal_product
+            and (
+                self.dose_value_uid is not None
+                and self.dose_value_uid
+                not in medicinal_product.concept_vo.dose_value_uids
+            ),
+            msg=f"Selected dose value is not valid for medicinal product '{medicinal_product.concept_vo.name}'.",
+        )
 
 
 @dataclass
@@ -132,7 +134,7 @@ class StudySelectionCompoundDosingsAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the compound dosing '{study_selection_uid}' and the study"
+            msg=f"There is no selection between the Compound Dosing with UID '{study_selection_uid}' and the study."
         )
 
     def add_compound_dosing_selection(

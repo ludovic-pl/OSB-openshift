@@ -1,7 +1,6 @@
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivityGroupRoot,
     ActivitySubGroupRoot,
@@ -28,6 +27,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
     ActivitySubGroup,
 )
+from common.utils import convert_to_datetime
 
 
 class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
@@ -51,9 +51,7 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
                         activity_group_uid=activity_group.get("activity_group").get(
                             "uid"
                         ),
-                        activity_group_version=activity_group.get("activity_group").get(
-                            "version"
-                        ),
+                        activity_group_version=f"{activity_group.get('activity_group').get('major_version')}.{activity_group.get('activity_group').get('minor_version')}",
                     )
                     for activity_group in input_dict.get("activity_groups")
                 ],
@@ -67,7 +65,8 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),
@@ -93,7 +92,7 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
                 activity_groups=[
                     SimpleActivityGroupVO(
                         activity_group_uid=activity_group.get("uid"),
-                        activity_group_version=activity_group.get("version"),
+                        activity_group_version=f"{activity_group.get('major_version')}.{activity_group.get('minor_version')}",
                     )
                     for activity_group in _kwargs["activity_subgroups_root"][
                         "activity_groups"
@@ -161,8 +160,9 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
                     {
                      uid:activity_group_root.uid,
                      name:activity_group_value.name,
-                     version:has_version.version
-                    }], ['has_version.version']))
+                     major_version: toInteger(split(has_version.version,'.')[0]),
+                     minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version']))
             }] AS activity_groups
         """
 
@@ -248,6 +248,18 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
                 activity_valid_group.in_group.get().has_version.single().uid
             )
             activity_groups_uid.append(activity_group_uid)
+
+        # Is this a final or retired version? If yes, we skip the check for updated groups
+        # to avoid creating new values nodes when just creating a new draft.
+        root_for_final_value = value.has_version.match(
+            status__in=[LibraryItemStatus.FINAL.value, LibraryItemStatus.RETIRED.value],
+            end_date__isnull=True,
+        )
+        if not root_for_final_value:
+            groups_updated = self._any_group_updated(value)
+        else:
+            groups_updated = False
+
         are_rels_changed = sorted(
             [
                 activity_group.activity_group_uid
@@ -255,7 +267,16 @@ class ActivitySubGroupRepository(ConceptGenericRepository[ActivitySubGroupAR]):
             ]
         ) != sorted(activity_groups_uid)
 
-        return are_concept_properties_changed or are_rels_changed
+        return are_concept_properties_changed or are_rels_changed or groups_updated
+
+    def _any_group_updated(self, subgroup_value):
+        for grouping_node in subgroup_value.has_group.all():
+            if not grouping_node.in_group.get().has_latest_value.single():
+                # The linked group is not the latest.
+                # We need to return True, so that the subgroup value
+                # gets updated to use the new group value.
+                return True
+        return False
 
     def generic_match_clause_all_versions(self):
         return """

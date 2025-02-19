@@ -38,7 +38,7 @@
     "terms": [],
     "uid": "OdmItem_000001",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -80,7 +80,7 @@
     "terms": [],
     "uid": "OdmItem_000002",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -122,7 +122,7 @@
     "terms": [],
     "uid": "OdmItem_000003",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -164,7 +164,7 @@
     "terms": [],
     "uid": "OdmItem_000004",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -206,7 +206,7 @@
     "terms": [],
     "uid": "OdmItem_000005",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -248,7 +248,7 @@
     "terms": [],
     "uid": "OdmItem_000006",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -290,7 +290,7 @@
     "terms": [],
     "uid": "OdmItem_000007",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -332,7 +332,7 @@
     "terms": [],
     "uid": "OdmItem_000008",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -374,7 +374,7 @@
     "terms": [],
     "uid": "OdmItem_000009",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -434,7 +434,7 @@
     ],
     "uid": "OdmItem_000010",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -494,7 +494,7 @@
     ],
     "uid": "OdmItem_000011",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -554,7 +554,7 @@
     ],
     "uid": "OdmItem_000012",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -632,7 +632,7 @@
     ],
     "uid": "OdmItem_000013",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -691,7 +691,7 @@
         "uid": "UnitDefinition_000358"
       }
     ],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -733,7 +733,7 @@
     "terms": [],
     "uid": "OdmItem_000015",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -775,7 +775,7 @@
     "terms": [],
     "uid": "OdmItem_000016",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -817,7 +817,7 @@
     "terms": [],
     "uid": "OdmItem_000017",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -859,7 +859,7 @@
     "terms": [],
     "uid": "OdmItem_000018",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -918,7 +918,7 @@
         "uid": "UnitDefinition_000160"
       }
     ],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -977,7 +977,7 @@
         "uid": "UnitDefinition_000160"
       }
     ],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -1019,7 +1019,7 @@
     "terms": [],
     "uid": "OdmItem_000021",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -1085,7 +1085,7 @@
     ],
     "uid": "OdmItem_000022",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -1145,7 +1145,7 @@
     ],
     "uid": "OdmItem_000023",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -1199,7 +1199,7 @@
     ],
     "uid": "OdmItem_000024",
     "unit_definitions": [],
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   }
 ]

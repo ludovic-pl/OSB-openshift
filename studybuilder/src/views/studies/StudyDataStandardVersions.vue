@@ -3,25 +3,25 @@
     <div class="page-title d-flex align-center">
       {{ $t('StudyDataStandardVersionsView.title') }}
     </div>
+    <v-tabs v-model="tab" bg-color="white">
+      <v-tab v-for="item of tabs" :key="item.tab" :value="item.tab">
+        {{ item.name }}
+      </v-tab>
+    </v-tabs>
+    <v-window v-model="tab">
+      <v-window-item value="controlled_terminology">
+        <CTStandardVersionsTable
+          :key="`controlled_terminology-${tabKeys.controlled_terminology}`"
+        />
+      </v-window-item>
+      <v-window-item value="dictionaries">
+        <UnderConstruction />
+      </v-window-item>
+      <v-window-item value="data_exchange">
+        <UnderConstruction />
+      </v-window-item>
+    </v-window>
   </div>
-  <v-tabs v-model="tab" bg-color="white">
-    <v-tab v-for="item of tabs" :key="item.tab" :value="item.tab">
-      {{ item.name }}
-    </v-tab>
-  </v-tabs>
-  <v-window v-model="tab">
-    <v-window-item value="controlled_terminology">
-      <CTStandardVersionsTable
-        :key="`controlled_terminology-${tabKeys.controlled_terminology}`"
-      />
-    </v-window-item>
-    <v-window-item value="dictionaries">
-      <UnderConstruction />
-    </v-window-item>
-    <v-window-item value="data_exchange">
-      <UnderConstruction />
-    </v-window-item>
-  </v-window>
 </template>
 
 <script setup>

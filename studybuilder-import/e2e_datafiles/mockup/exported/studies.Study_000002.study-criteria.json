@@ -17,7 +17,7 @@
         "status": "Final",
         "version": "1.0",
         "change_description": "Initial import from CDISC",
-        "user_initials": "TEST",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "inactivate",
             "newVersion"
@@ -32,7 +32,7 @@
         "status": "Final",
         "version": "1.0",
         "change_description": "Approved version",
-        "user_initials": "unknown-user",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "inactivate"
         ],
@@ -50,7 +50,7 @@
         "study_count": null
     },
     "start_date": "2022-06-27T15:13:57.084679",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "latest_criteria": null,
     "accepted_version": false
 }]

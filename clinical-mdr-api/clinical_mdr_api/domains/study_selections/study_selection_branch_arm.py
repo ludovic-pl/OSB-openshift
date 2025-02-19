@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -23,16 +24,17 @@ class StudySelectionBranchArmVO:
     number_of_subjects: int | None
     arm_root_uid: str | None
     start_date: datetime.datetime
-    user_initials: str
+    author_id: str
     end_date: datetime.datetime | None
     status: str | None
     change_type: str | None
     accepted_version: bool = False
+    author_username: str | None = None
 
     @classmethod
     def from_input_values(
         cls,
-        user_initials: str,
+        author_id: str,
         study_selection_uid: str | None = None,
         study_uid: str | None = None,
         name: str | None = None,
@@ -62,7 +64,7 @@ class StudySelectionBranchArmVO:
         :param randomization_group
         :param number_of_subjects
         :param start_date
-        :param user_initials
+        :param author_id
         :param end_date
         :param status
         :param change_type
@@ -89,7 +91,8 @@ class StudySelectionBranchArmVO:
             number_of_subjects=number_of_subjects,
             arm_root_uid=arm_root_uid,
             start_date=start_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             end_date=end_date,
             status=status,
             change_type=change_type,
@@ -111,49 +114,50 @@ class StudySelectionBranchArmVO:
         :return:
         """
         # Checks whether a BranchArm that has connected StudyDesignCells is not trying to change StudyArm
-        if self.arm_root_uid and study_branch_arm_study_arm_update_conflict_callback(
-            branch_arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f"Cannot change StudyArm when the specific BranchArm ({self.study_selection_uid}) has connected StudyDesignCells"
-            )
+        exceptions.ValidationException.raise_if(
+            self.arm_root_uid
+            and study_branch_arm_study_arm_update_conflict_callback(branch_arm_vo=self),
+            msg=f"Cannot change StudyArm when the BranchArm with UID '{self.study_selection_uid}' has connected StudyDesignCells.",
+        )
         # Check if there exist a StudyArm with the selected uid
-        if not study_arm_exists_callback(self.arm_root_uid):
-            raise exceptions.ValidationException(
-                f"There is no approved arm level identified by provided arm uid ({self.arm_root_uid})"
-            )
+        exceptions.ValidationException.raise_if_not(
+            study_arm_exists_callback(self.arm_root_uid),
+            msg=f"There is no approved Arm Level with UID '{self.arm_root_uid}'.",
+        )
 
         # check if the specified name is already used with the callback
-        if self.name and branch_arm_exists_callback_by(
-            "name", "name", branch_arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.name}" in field Branch Arm Name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.name
+            and branch_arm_exists_callback_by("name", "name", branch_arm_vo=self),
+            msg=f"Value '{self.name}' in field Branch Arm Name is not unique for the study.",
+        )
 
         # check if the specified Short name is already used with the callback
-        if self.short_name and branch_arm_exists_callback_by(
-            "short_name", "short_name", branch_arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.short_name}" in field Branch Arm Short Name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.short_name
+            and branch_arm_exists_callback_by(
+                "short_name", "short_name", branch_arm_vo=self
+            ),
+            msg=f"Value '{self.short_name}' in field Branch Arm Short Name is not unique for the study.",
+        )
 
         # check if the specified code is already used with the callback
-        if self.code and branch_arm_exists_callback_by(
-            "branch_arm_code", "code", branch_arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.code}" in field Branch Arm Code is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.code
+            and branch_arm_exists_callback_by(
+                "branch_arm_code", "code", branch_arm_vo=self
+            ),
+            msg=f"Value '{self.code}' in field Branch Arm Code is not unique for the study.",
+        )
 
         # check if the specified randomization group is already used with the callback
-        if self.randomization_group and branch_arm_exists_callback_by(
-            "randomization_group", "randomization_group", branch_arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.randomization_group}" in field Branch Arm Randomization code is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.randomization_group
+            and branch_arm_exists_callback_by(
+                "randomization_group", "randomization_group", branch_arm_vo=self
+            ),
+            msg=f"Value '{self.randomization_group}' in field Branch Arm Randomization code is not unique for the study.",
+        )
 
 
 @dataclass
@@ -174,7 +178,7 @@ class StudySelectionBranchArmAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"The study selection {study_selection_uid} does not exist for study {self._study_uid}"
+            msg=f"The Study Selection with UID '{study_selection_uid}' doesn't exist for Study with UID '{self._study_uid}'."
         )
 
     @property
@@ -189,12 +193,12 @@ class StudySelectionBranchArmAR:
         self, study_branch_arm_uid: str, arm_root_uid: str | None = None
     ) -> tuple[StudySelectionBranchArmVO, int] | None:
         # the study branch arm must be in any parent arm
-        if study_branch_arm_uid not in [
-            x.study_selection_uid for x in self.study_branch_arms_selection
-        ]:
-            raise exceptions.NotFoundException(
-                f"There is no selection '{study_branch_arm_uid}'"
-            )
+        exceptions.NotFoundException.raise_if(
+            study_branch_arm_uid
+            not in [x.study_selection_uid for x in self.study_branch_arms_selection],
+            "Study Branch Arm",
+            study_branch_arm_uid,
+        )
 
         # First, filter on branch_arm selection with the same parent arm
         # to get the order in the context of the parent arm
@@ -222,9 +226,8 @@ class StudySelectionBranchArmAR:
         ):
             if selection.study_selection_uid == study_branch_arm_uid:
                 return selection, order
-        raise exceptions.ValidationException(
-            f"The study branch arm with provided uid does not exist ({study_branch_arm_uid})"
-        )
+
+        raise exceptions.NotFoundException("Study Branch Arm", study_branch_arm_uid)
 
     def _add_selection(self, study_branch_arm_selection) -> None:
         new_selections = self._study_branch_arms_selection + (

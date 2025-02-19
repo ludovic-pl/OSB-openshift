@@ -3,12 +3,12 @@ import random
 import unittest
 from copy import copy
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_selections.study_selection_objective import (
     StudySelectionObjectivesAR,
     StudySelectionObjectiveVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
+from common import exceptions
 
 uid_list = ["uid_1", "uid_2", "uid_3", "ctterm_1", "ctterm_2"]
 obj_level = [None, "", "Primary", "Secondary"]
@@ -37,7 +37,7 @@ def create_random_valid_vo(
         objective_level_uid=uid2,
         objective_level_order=objective_order,
         start_date=datetime.datetime.now(datetime.timezone.utc),
-        user_initials=random_str(),
+        author_id=random_str(),
     )
     study_selection_objective_vo.validate(
         _check_uid_exists_callback, _check_uid_exists_callback
@@ -50,10 +50,10 @@ class TestStudySelectionObjectiveVO(unittest.TestCase):
     def test__validate__success(self):
         start_datetime = datetime.datetime.now(datetime.timezone.utc)
         test_tuples = [
-            ["uid_1", "ctterm_1", start_datetime, "1.0", "todo user initials", 1],
-            [" uid_2", "ctterm_2", start_datetime, " 2.0 ", "todo user initials", 2],
-            ["uid_3 ", None, start_datetime, " 3.0", "todo user initials", None],
-            [" uid_3 ", "", start_datetime, "4.0", "todo user initials", None],
+            ["uid_1", "ctterm_1", start_datetime, "1.0", "unknown-user", 1],
+            [" uid_2", "ctterm_2", start_datetime, " 2.0 ", "unknown-user", 2],
+            ["uid_3 ", None, start_datetime, " 3.0", "unknown-user", None],
+            [" uid_3 ", "", start_datetime, "4.0", "unknown-user", None],
         ]
         for test_tuple in test_tuples:
             with self.subTest(test_tuple=test_tuple):
@@ -64,7 +64,7 @@ class TestStudySelectionObjectiveVO(unittest.TestCase):
                     objective_level_uid=test_tuple[1],
                     objective_level_order=test_tuple[5],
                     start_date=test_tuple[2],
-                    user_initials=test_tuple[4],
+                    author_id=test_tuple[4],
                 )
                 study_selection_objective.validate(
                     _check_uid_exists_callback, _check_uid_exists_callback
@@ -73,11 +73,11 @@ class TestStudySelectionObjectiveVO(unittest.TestCase):
     def test__validate__failure(self):
         start_datetime = datetime.datetime.now(datetime.timezone.utc)
         test_tuples = [
-            ["uid_1_200", "uid_1", start_datetime, "1.0", "todo user initials", None],
-            ["", None, start_datetime, "2.0", "todo user initials", 1],
-            ["____////", "", start_datetime, "3.0", "todo user initials", 3],
-            ["uid_1", "Primary", start_datetime, "3.0", "todo user initials", 1],
-            ["uid_1", "_uid_1", start_datetime, "3.0", "todo user initials", 2],
+            ["uid_1_200", "uid_1", start_datetime, "1.0", "unknown-user", None],
+            ["", None, start_datetime, "2.0", "unknown-user", 1],
+            ["____////", "", start_datetime, "3.0", "unknown-user", 3],
+            ["uid_1", "Primary", start_datetime, "3.0", "unknown-user", 1],
+            ["uid_1", "_uid_1", start_datetime, "3.0", "unknown-user", 2],
         ]
         for test_tuple in test_tuples:
             with self.subTest(test_tuple=test_tuple):
@@ -87,10 +87,10 @@ class TestStudySelectionObjectiveVO(unittest.TestCase):
                     objective_level_uid=test_tuple[1],
                     objective_level_order=test_tuple[5],
                     start_date=test_tuple[2],
-                    user_initials=test_tuple[4],
+                    author_id=test_tuple[4],
                     objective_version=test_tuple[3],
                 )
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     study_selection_objective.validate(
                         _check_uid_exists_callback, _check_uid_exists_callback
                     )
@@ -384,7 +384,7 @@ class TestStudySelectionObjectivesAR(unittest.TestCase):
                 study_selection_objective_ar.set_new_order_for_selection(
                     study_selection_uid=new_vo.study_selection_uid,
                     new_order=new_order,
-                    user_initials="TODO user initials",
+                    author_id=AUTHOR_ID,
                 )
 
                 (
@@ -399,7 +399,7 @@ class TestStudySelectionObjectivesAR(unittest.TestCase):
                 study_selection_objective_ar.set_new_order_for_selection(
                     study_selection_uid=new_vo.study_selection_uid,
                     new_order=999,
-                    user_initials="TODO user initials",
+                    author_id=AUTHOR_ID,
                 )
                 (
                     selection,
@@ -416,7 +416,7 @@ class TestStudySelectionObjectivesAR(unittest.TestCase):
                 study_selection_objective_ar.set_new_order_for_selection(
                     study_selection_uid=new_vo.study_selection_uid,
                     new_order=-99,
-                    user_initials="TODO user initials",
+                    author_id=AUTHOR_ID,
                 )
                 (
                     selection,
@@ -482,6 +482,6 @@ class TestStudySelectionObjectivesAR(unittest.TestCase):
                 study_selection_objective_ar.add_objective_selection(new_vo)
 
                 # validate we cannot add the same v0 again
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.AlreadyExistsException):
                     study_selection_objective_ar.add_objective_selection(new_vo)
                     study_selection_objective_ar.validate()

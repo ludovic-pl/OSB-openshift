@@ -5,8 +5,6 @@ from typing import Callable
 from fastapi import status
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
-from clinical_mdr_api.config import REQUESTED_LIBRARY_NAME
 from clinical_mdr_api.domain_repositories.concepts.activities.activity_repository import (
     ActivityRepository,
 )
@@ -36,21 +34,37 @@ from clinical_mdr_api.domains.study_selections.study_selection_activity_instance
 from clinical_mdr_api.domains.study_selections.study_selection_activity_subgroup import (
     StudySelectionActivitySubGroupVO,
 )
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
 from clinical_mdr_api.domains.study_selections.study_soa_group_selection import (
     StudySoAGroupVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models import DetailedSoAHistory
 from clinical_mdr_api.models.concepts.activities.activity import (
     ActivityForStudyActivity,
     ActivityHierarchySimpleModel,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term_name import CTTermName
 from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import (
+    DetailedSoAHistory,
+    StudyActivityReplaceActivityInput,
+    StudySelectionActivity,
+    StudySelectionActivityBatchInput,
+    StudySelectionActivityBatchOutput,
+    StudySelectionActivityCore,
+    StudySelectionActivityCreateInput,
+    StudySelectionActivityInput,
+    StudySelectionActivityInSoACreateInput,
+    StudySelectionActivityRequestEditInput,
+    StudySoAEditBatchInput,
+    StudySoAEditBatchOutput,
+    UpdateActivityPlaceholderToSponsorActivity,
+)
 from clinical_mdr_api.models.utils import BaseModel, GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
+    ensure_transaction,
     fill_missing_values_in_base_model_from_reference_base_model,
 )
 from clinical_mdr_api.services.concepts.activities.activity_group_service import (
@@ -72,6 +86,14 @@ from clinical_mdr_api.services.studies.study_activity_selection_base import (
     StudyActivitySelectionBaseService,
 )
 from clinical_mdr_api.services.studies.study_soa_footnote import StudySoAFootnoteService
+from common.config import REQUESTED_LIBRARY_NAME
+from common.exceptions import (
+    BusinessLogicException,
+    MDRApiBaseException,
+    MethodNotAllowedException,
+    NotFoundException,
+    ValidationException,
+)
 
 
 class StudyActivitySelectionService(StudyActivitySelectionBaseService):
@@ -85,7 +107,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         "study_activity_group.activity_group_name": "activity_group_name",
         "study_activity_subgroup.activity_subgroup_name": "activity_subgroup_name",
         "start_date": "start_date",
-        "user_initials": "user_initials",
+        "author_id": "author_id",
         "activity.library_name": "activity_library_name",
     }
 
@@ -102,8 +124,8 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         study_value_version: str | None = None,
         soa_groups: list[CTTermName] | None = None,
         activity_for_study_activities: list[ActivityForStudyActivity] | None = None,
-    ) -> models.StudySelectionActivity:
-        return models.StudySelectionActivity.from_study_selection_activity_vo_and_order(
+    ) -> StudySelectionActivity:
+        return StudySelectionActivity.from_study_selection_activity_vo_and_order(
             study_uid=study_uid,
             specific_selection=specific_selection,
             activity_order=order,
@@ -117,13 +139,22 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_for_study_activities=activity_for_study_activities,
         )
 
-    def update_study_activities(self, study_uid: str, study_selection_uid: str):
-        pass
+    def update_dependent_objects(
+        self,
+        study_selection: StudySelectionActivityVO,
+        previous_study_selection: StudySelectionActivityVO,
+    ):
+        # If Activity selected by StudyActivity was changed we need to recreate StudyActivityInstances
+        if study_selection.activity_uid != previous_study_selection.activity_uid:
+            self._recreate_study_activity_instances_after_activity_replacement(
+                study_uid=study_selection.study_uid,
+                study_activity_selection=study_selection,
+            )
 
     def _create_value_object(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionActivityCreateInput,
+        selection_create_input: StudySelectionActivityCreateInput,
         **kwargs,
     ):
         study_soa_group_selection_uid = kwargs.get("study_soa_group_selection_uid")
@@ -139,50 +170,47 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         activity_ar = activity_service.repository.find_by_uid_2(
             activity_uid, for_update=True
         )
-        if not activity_ar:
-            raise exceptions.NotFoundException(
-                f"There is no activity identified by provided uid ({activity_uid})"
-            )
-        if activity_ar.library.name != REQUESTED_LIBRARY_NAME and (
-            selection_create_input.activity_subgroup_uid is None
-            or selection_create_input.activity_group_uid is None
-        ):
-            raise exceptions.BusinessLogicException(
-                "Only StudyActivity placeholder can link to None ActivitySubGroup or None ActivityGroup"
-            )
-        if activity_ar.item_metadata.status in [
-            LibraryItemStatus.DRAFT,
-            LibraryItemStatus.RETIRED,
-        ]:
-            raise exceptions.BusinessLogicException(
-                f"There is no approved activity identified by provided uid ({activity_uid})"
-            )
-        if (
+
+        NotFoundException.raise_if_not(activity_ar, "Activity", activity_uid)
+
+        BusinessLogicException.raise_if(
+            activity_ar.library.name != REQUESTED_LIBRARY_NAME
+            and (
+                selection_create_input.activity_subgroup_uid is None
+                or selection_create_input.activity_group_uid is None
+            ),
+            msg="Only StudyActivity placeholder can link to None ActivitySubGroup or None ActivityGroup",
+        )
+        BusinessLogicException.raise_if(
+            activity_ar.item_metadata.status
+            in [
+                LibraryItemStatus.DRAFT,
+                LibraryItemStatus.RETIRED,
+            ],
+            msg=f"There is no approved Activity with UID '{activity_uid}'.",
+        )
+        BusinessLogicException.raise_if(
             selection_create_input.activity_subgroup_uid
             and selection_create_input.activity_subgroup_uid
             not in [
                 grouping.activity_subgroup_uid
                 for grouping in activity_ar.concept_vo.activity_groupings
-            ]
-        ):
-            raise exceptions.BusinessLogicException(
-                f"The specified subgroup ({selection_create_input.activity_subgroup_uid}) is not linked with ({activity_ar.name}) Activity"
-            )
-        if (
+            ],
+            msg=f"The specified Subgroup with UID '{selection_create_input.activity_subgroup_uid}' is not linked with Activity with Name '{activity_ar.name}'.",
+        )
+        BusinessLogicException.raise_if(
             selection_create_input.activity_group_uid
             and selection_create_input.activity_group_uid
             not in [
                 grouping.activity_group_uid
                 for grouping in activity_ar.concept_vo.activity_groupings
-            ]
-        ):
-            raise exceptions.BusinessLogicException(
-                f"The specified group ({selection_create_input.activity_group_uid}) is not linked with ({activity_ar.name}) Activity"
-            )
+            ],
+            msg=f"The specified Group with UID '{selection_create_input.activity_group_uid}' is not linked with Activity with Name '{activity_ar.name}'.",
+        )
         # create new VO to add
         new_selection = StudySelectionActivityVO.from_input_values(
             study_uid=study_uid,
-            user_initials=self.author,
+            author_id=self.author,
             activity_uid=activity_uid,
             activity_name=activity_ar.name,
             activity_version=activity_ar.item_metadata.version,
@@ -202,7 +230,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         self,
         study_selection: StudySelectionActivityAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionActivity]:
+    ) -> list[StudySelectionActivity]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -326,11 +354,11 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         study_selection_history: list[SelectionHistory],
         study_uid: str,
         effective_dates: datetime | None = None,
-    ) -> list[models.StudySelectionActivityCore]:
+    ) -> list[StudySelectionActivityCore]:
         result = []
         for history, effective_date in zip(study_selection_history, effective_dates):
             result.append(
-                models.StudySelectionActivityCore.from_study_selection_history(
+                StudySelectionActivityCore.from_study_selection_history(
                     study_selection_history=history,
                     study_uid=study_uid,
                     get_activity_by_uid_version_callback=self._transform_activity_model,
@@ -347,7 +375,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             try:
                 selection_history = self.repository.find_selection_history(study_uid)
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise NotFoundException(msg=value_error.args[0]) from value_error
             # Extract start dates from the selection history
             start_dates = [history.start_date for history in selection_history]
 
@@ -365,7 +393,6 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         finally:
             repos.close()
 
-    @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
     ) -> list[BaseModel]:
@@ -376,7 +403,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
                     study_uid, study_selection_uid
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise NotFoundException(msg=value_error.args[0]) from value_error
 
             # Extract start dates from the selection history
             start_dates = [history.start_date for history in selection_history]
@@ -409,7 +436,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         # create new VO to add
         new_selection = StudySelectionActivitySubGroupVO.from_input_values(
             study_uid=study_uid,
-            user_initials=self.author,
+            author_id=self.author,
             activity_subgroup_uid=activity_subgroup_uid,
             activity_subgroup_version=activity_subgroup_ar.item_metadata.version,
             generate_uid_callback=self._repos.study_activity_subgroup_repository.generate_uid,
@@ -424,22 +451,21 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         activity_subgroup_ar = activity_subgroup_service.repository.find_by_uid_2(
             activity_subgroup_uid, for_update=True
         )
-        if not activity_subgroup_uid:
-            raise exceptions.NotFoundException(
-                f"There is no activity subgroup identified by provided uid ({activity_subgroup_uid})"
-            )
+        NotFoundException.raise_if_not(
+            activity_subgroup_uid, "Activity Subgroup", activity_subgroup_uid
+        )
 
-        if (
+        NotFoundException.raise_if(
             activity_subgroup_ar.item_metadata.status
             in [
                 LibraryItemStatus.DRAFT,
                 LibraryItemStatus.RETIRED,
             ]
-            and perform_subgroup_validation
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no approved activity subgroup identified by provided uid ({activity_subgroup_uid})"
-            )
+            and perform_subgroup_validation,
+            msg=f"Activity Subgroup '{activity_subgroup_ar.concept_vo.name}' with UID '{activity_subgroup_uid}' has status {activity_subgroup_ar.item_metadata.status.value}."
+            " Only Final subgroups can be added to a study."
+            " Contact StudyBuilder library responsible for updates.",
+        )
         return activity_subgroup_ar
 
     def _patch_study_activity_subgroup_selection_value_object(
@@ -447,9 +473,9 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         study_uid: str,
         current_study_activity: StudySelectionActivityVO,
         selection_create_input: (
-            models.StudySelectionActivityInput
-            | models.StudySelectionActivityRequestEditInput
-            | models.UpdateActivityPlaceholderToSponsorActivity
+            StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
         ),
     ):
         activity_subgroup_uid = selection_create_input.activity_subgroup_uid
@@ -498,22 +524,22 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         activity_group_ar = activity_group_service.repository.find_by_uid_2(
             activity_group_uid, for_update=True
         )
-        if not activity_group_uid:
-            raise exceptions.NotFoundException(
-                f"There is no activity group identified by provided uid ({activity_group_uid})"
-            )
 
-        if (
+        NotFoundException.raise_if_not(
+            activity_group_uid, "Activity Group", activity_group_uid
+        )
+
+        NotFoundException.raise_if(
             activity_group_ar.item_metadata.status
             in [
                 LibraryItemStatus.DRAFT,
                 LibraryItemStatus.RETIRED,
             ]
-            and perform_group_validation
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no approved activity group identified by provided uid ({activity_group_uid})"
-            )
+            and perform_group_validation,
+            msg=f"Activity Group '{activity_group_ar.concept_vo.name}' with UID '{activity_group_uid}' has status {activity_group_ar.item_metadata.status.value}."
+            " Only Final groups can be added to a study."
+            " Contact StudyBuilder library responsible for updates.",
+        )
         return activity_group_ar
 
     def _create_activity_group_selection_value_object(
@@ -529,7 +555,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         # create new VO to add
         new_selection = StudySelectionActivityGroupVO.from_input_values(
             study_uid=study_uid,
-            user_initials=self.author,
+            author_id=self.author,
             activity_group_uid=activity_group_uid,
             activity_group_version=activity_group_ar.item_metadata.version,
             generate_uid_callback=self._repos.study_activity_group_repository.generate_uid,
@@ -541,9 +567,9 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         study_uid: str,
         current_study_activity: StudySelectionActivityVO,
         selection_create_input: (
-            models.StudySelectionActivityInput
-            | models.StudySelectionActivityRequestEditInput
-            | models.UpdateActivityPlaceholderToSponsorActivity
+            StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
         ),
     ):
         activity_subgroup_uid = selection_create_input.activity_subgroup_uid
@@ -582,25 +608,28 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
     def _patch_selected_activity(
         self,
         current_object: StudySelectionActivityVO,
-        request_object: models.StudySelectionActivityRequestEditInput,
+        request_object: StudySelectionActivityRequestEditInput,
     ) -> ActivityAR:
         activity_service = ActivityService()
         activity_ar = activity_service.repository.find_by_uid_2(
             current_object.activity_uid, for_update=True
         )
-        if not activity_ar:
-            raise exceptions.ValidationException(
-                f"The Activity with the following uid ({current_object.activity_uid}) doesn't exist"
-            )
-        if activity_ar.item_metadata.status not in [
-            LibraryItemStatus.FINAL,
-            LibraryItemStatus.DRAFT,
-        ]:
-            raise exceptions.BusinessLogicException(
-                f"The underlying Activity ({current_object.activity_uid}) must be in Draft or Final status."
-            )
+
+        NotFoundException.raise_if_not(
+            activity_ar, "Activity", current_object.activity_uid
+        )
+
+        BusinessLogicException.raise_if(
+            activity_ar.item_metadata.status
+            not in [
+                LibraryItemStatus.FINAL,
+                LibraryItemStatus.DRAFT,
+            ],
+            msg=f"The underlying Activity with UID '{current_object.activity_uid}' must be in Draft or Final status.",
+        )
         if activity_ar.item_metadata.status == LibraryItemStatus.FINAL:
-            activity_ar.create_new_version(author=self.author)
+            activity_ar.create_new_version(author_id=self.author)
+            self._repos.activity_repository.save(activity_ar)
         if request_object.activity_name:
             activity_name = request_object.activity_name
         else:
@@ -631,28 +660,30 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             )
             activity_groupings.append(activity_grouping)
         activity_ar.edit_draft(
-            author=self.author,
+            author_id=self.author,
             change_description=None,
             concept_vo=ActivityVO.from_repository_values(
                 nci_concept_id=activity_ar.concept_vo.nci_concept_id,
+                nci_concept_name=activity_ar.concept_vo.nci_concept_name,
                 name=activity_name,
                 name_sentence_case=activity_name.lower(),
+                synonyms=activity_ar.concept_vo.synonyms,
                 definition=activity_ar.concept_vo.definition,
                 abbreviation=activity_ar.concept_vo.abbreviation,
                 activity_groupings=activity_groupings,
                 request_rationale=(
                     request_object.request_rationale
-                    if request_object.request_rationale
+                    if request_object.request_rationale is not None
                     else activity_ar.concept_vo.request_rationale
                 ),
                 is_request_final=(
                     request_object.is_request_final
-                    if request_object.is_request_final
+                    if request_object.is_request_final is not None
                     else activity_ar.concept_vo.is_request_final
                 ),
                 is_data_collected=(
                     request_object.is_data_collected
-                    if request_object.is_data_collected
+                    if request_object.is_data_collected is not None
                     else activity_ar.concept_vo.is_data_collected
                 ),
                 is_multiple_selection_allowed=activity_ar.concept_vo.is_multiple_selection_allowed,
@@ -661,8 +692,9 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_subgroup_exists=self._repos.activity_subgroup_repository.final_concept_exists,
             activity_group_exists=self._repos.activity_group_repository.final_concept_exists,
         )
+        self._repos.activity_repository.save(activity_ar)
         activity_ar.approve(
-            author=self.author,
+            author_id=self.author,
             change_description="Created new version from the StudyActivityRequest Edit",
         )
         self._repos.activity_repository.save(activity_ar)
@@ -672,7 +704,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         self,
         study_uid: str,
         current_study_activity: StudySelectionActivityVO,
-        selection_create_input: models.StudySelectionActivityInput,
+        selection_create_input: StudySelectionActivityInput,
         is_soa_group_changed: bool,
     ):
         soa_group_term_uid = selection_create_input.soa_group_term_uid
@@ -687,18 +719,19 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             ct_term_ar = self._repos.ct_term_name_repository.find_by_uid(
                 soa_group_term_uid
             )
-            if not ct_term_ar:
-                raise exceptions.NotFoundException(
-                    f"There is no SoAGroup CTTerm identified by provided uid ({soa_group_term_uid})"
-                )
 
-            if ct_term_ar.item_metadata.status in [
-                LibraryItemStatus.DRAFT,
-                LibraryItemStatus.RETIRED,
-            ]:
-                raise exceptions.BusinessLogicException(
-                    f"There is no approved SoAGroup CTTerm identified by provided uid ({soa_group_term_uid})"
-                )
+            NotFoundException.raise_if_not(
+                ct_term_ar, "SoA Group CT Term", soa_group_term_uid
+            )
+
+            NotFoundException.raise_if(
+                ct_term_ar.item_metadata.status
+                in [
+                    LibraryItemStatus.DRAFT,
+                    LibraryItemStatus.RETIRED,
+                ],
+                msg=f"There is no approved SoAGroup CTTerm with UID '{soa_group_term_uid}'.",
+            )
             # get VO if possible or create it
             new_selection = self._get_or_create_study_soa_group(
                 study_uid=study_uid, soa_group_term_uid=soa_group_term_uid
@@ -710,23 +743,24 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         self, study_uid: str, soa_group_term_uid: str
     ):
         ct_term_ar = self._repos.ct_term_name_repository.find_by_uid(soa_group_term_uid)
-        if not ct_term_ar:
-            raise exceptions.NotFoundException(
-                f"There is no SoAGroup CTTerm identified by provided uid ({soa_group_term_uid})"
-            )
 
-        if ct_term_ar.item_metadata.status in [
-            LibraryItemStatus.DRAFT,
-            LibraryItemStatus.RETIRED,
-        ]:
-            raise exceptions.BusinessLogicException(
-                f"There is no approved SoAGroup CTTerm identified by provided uid ({soa_group_term_uid})"
-            )
+        NotFoundException.raise_if_not(
+            ct_term_ar, "SoA Group CT Term", soa_group_term_uid
+        )
+
+        NotFoundException.raise_if(
+            ct_term_ar.item_metadata.status
+            in [
+                LibraryItemStatus.DRAFT,
+                LibraryItemStatus.RETIRED,
+            ],
+            msg=f"There is no approved SoAGroup CTTerm with UID '{soa_group_term_uid}'.",
+        )
 
         # create new VO to add
         new_selection = StudySoAGroupVO.from_input_values(
             study_uid=study_uid,
-            user_initials=self.author,
+            author_id=self.author,
             soa_group_term_uid=soa_group_term_uid,
             generate_uid_callback=self._repos.study_soa_group_repository.generate_uid,
         )
@@ -875,136 +909,179 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
                 )
         return study_activity_group_selection
 
+    def _create_study_activity_instances(
+        self, study_uid: str, study_activity_selection: StudySelectionActivityVO
+    ):
+        # Find ActivityInstances linked to the ActivityGroupings referenced by StudyActivity
+        related_activity_instances = self._repos.activity_instance_repository.get_all_activity_instances_for_activity_grouping(
+            activity_uid=study_activity_selection.activity_uid,
+            activity_subgroup_uid=study_activity_selection.activity_subgroup_uid,
+            activity_group_uid=study_activity_selection.activity_group_uid,
+            filter_by_boolean_flags=True,
+        )
+        linked_activity_instances = []
+        for activity_instance in related_activity_instances:
+            if activity_instance.uid not in linked_activity_instances:
+                linked_activity_instances.append(activity_instance.uid)
+
+        # If there is no ActivityInstances linked to selected Activity
+        # we create a 'placeholder' StudyActivityInstance that can link to ActivityInstance later
+        if len(linked_activity_instances) == 0:
+            linked_activity_instances.append(None)
+        for activity_instance_uid in linked_activity_instances:
+            activity_instance_selection = StudySelectionActivityInstanceVO.from_input_values(
+                study_uid=study_uid,
+                author_id=self.author,
+                activity_instance_uid=activity_instance_uid,
+                activity_uid=study_activity_selection.activity_uid,
+                activity_subgroup_uid=study_activity_selection.activity_subgroup_uid,
+                activity_group_uid=study_activity_selection.activity_group_uid,
+                study_activity_uid=study_activity_selection.study_selection_uid,
+                generate_uid_callback=self._repos.study_activity_instance_repository.generate_uid,
+            )  # add VO to aggregate
+
+            study_activity_instance_aggregate = (
+                self._repos.study_activity_instance_repository.find_by_study(
+                    study_uid=study_uid, for_update=True
+                )
+            )
+            assert study_activity_instance_aggregate is not None
+            study_activity_instance_aggregate.add_object_selection(
+                activity_instance_selection,
+                self._repos.activity_instance_repository.check_exists_final_version,
+            )
+            study_activity_instance_aggregate.validate()
+            # sync with DB and save the update
+            self._repos.study_activity_instance_repository.save(
+                study_activity_instance_aggregate, self.author
+            )
+
+    def _recreate_study_activity_instances_after_activity_replacement(
+        self, study_uid: str, study_activity_selection: StudySelectionActivityVO
+    ):
+        # Remove related Study activity instances
+        study_activity_instances = self._repos.study_activity_instance_repository.get_all_study_activity_instances_for_study_activity(
+            study_uid=study_uid,
+            study_activity_uid=study_activity_selection.study_selection_uid,
+        )
+        for study_activity_instance in study_activity_instances:
+            # delete study activity instance
+            (
+                study_activity_instance_ar,
+                _,
+                _,
+            ) = self._get_specific_activity_instance_selection_by_uids(
+                study_uid=study_uid,
+                study_selection_uid=study_activity_instance.uid,
+                for_update=True,
+            )
+            study_activity_instance_ar.remove_object_selection(
+                study_activity_instance.uid
+            )
+            self._repos.study_activity_instance_repository.save(
+                study_activity_instance_ar, self.author
+            )
+        self._create_study_activity_instances(
+            study_uid=study_uid, study_activity_selection=study_activity_selection
+        )
+
+    @ensure_transaction(db)
     def make_selection(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionActivityCreateInput,
-    ) -> models.StudySelectionActivity:
+        selection_create_input: StudySelectionActivityCreateInput,
+    ) -> StudySelectionActivity:
         repos = self._repos
         try:
-            with db.transaction:
-                study_soa_group_selection_uid = self._get_or_create_study_soa_group(
-                    study_uid=study_uid,
-                    soa_group_term_uid=selection_create_input.soa_group_term_uid,
-                ).study_selection_uid
+            study_soa_group_selection_uid = self._get_or_create_study_soa_group(
+                study_uid=study_uid,
+                soa_group_term_uid=selection_create_input.soa_group_term_uid,
+            ).study_selection_uid
 
-                study_activity_subgroup_selection = self._get_or_create_study_activity_subgroup(
-                    study_uid=study_uid,
-                    soa_group_term_uid=selection_create_input.soa_group_term_uid,
-                    activity_group_uid=selection_create_input.activity_group_uid,
-                    activity_subgroup_uid=selection_create_input.activity_subgroup_uid,
-                )
-                study_activity_subgroup_selection_uid = (
-                    study_activity_subgroup_selection.study_selection_uid
-                    if study_activity_subgroup_selection
-                    else None
-                )
-
-                study_activity_group_selection = self._get_or_create_study_activity_group(
+            study_activity_subgroup_selection = (
+                self._get_or_create_study_activity_subgroup(
                     study_uid=study_uid,
                     soa_group_term_uid=selection_create_input.soa_group_term_uid,
                     activity_group_uid=selection_create_input.activity_group_uid,
                     activity_subgroup_uid=selection_create_input.activity_subgroup_uid,
                 )
-                study_activity_group_selection_uid = (
-                    study_activity_group_selection.study_selection_uid
-                    if study_activity_group_selection
-                    else None
-                )
+            )
+            study_activity_subgroup_selection_uid = (
+                study_activity_subgroup_selection.study_selection_uid
+                if study_activity_subgroup_selection
+                else None
+            )
 
-                # StudyActivitySelection
-                # create new VO to add
-                study_activity_selection = self._create_value_object(
+            study_activity_group_selection = self._get_or_create_study_activity_group(
+                study_uid=study_uid,
+                soa_group_term_uid=selection_create_input.soa_group_term_uid,
+                activity_group_uid=selection_create_input.activity_group_uid,
+                activity_subgroup_uid=selection_create_input.activity_subgroup_uid,
+            )
+            study_activity_group_selection_uid = (
+                study_activity_group_selection.study_selection_uid
+                if study_activity_group_selection
+                else None
+            )
+
+            # StudyActivitySelection
+            # create new VO to add
+            study_activity_selection = self._create_value_object(
+                study_uid=study_uid,
+                selection_create_input=selection_create_input,
+                study_soa_group_selection_uid=study_soa_group_selection_uid,
+                study_activity_subgroup_selection_uid=study_activity_subgroup_selection_uid,
+                study_activity_group_selection_uid=study_activity_group_selection_uid,
+            )
+            # add VO to aggregate
+            study_activity_aggregate = self.repository.find_by_study(
+                study_uid=study_uid, for_update=True
+            )
+            assert study_activity_aggregate is not None
+            study_activity_aggregate.add_object_selection(
+                study_activity_selection,
+                self.selected_object_repository.check_exists_final_version,
+                self._repos.ct_term_name_repository.term_specific_exists_by_uid,
+            )
+            study_activity_aggregate.validate()
+            # sync with DB and save the update
+            self.repository.save(study_activity_aggregate, self.author)
+
+            # create StudyActivityInstance selection
+            if (
+                # We are not creating a StudyActivityInstance selection for Activity placeholders
+                study_activity_selection.activity_library_name
+                != REQUESTED_LIBRARY_NAME
+            ):
+                self._create_study_activity_instances(
                     study_uid=study_uid,
-                    selection_create_input=selection_create_input,
-                    study_soa_group_selection_uid=study_soa_group_selection_uid,
-                    study_activity_subgroup_selection_uid=study_activity_subgroup_selection_uid,
-                    study_activity_group_selection_uid=study_activity_group_selection_uid,
+                    study_activity_selection=study_activity_selection,
                 )
-                # add VO to aggregate
-                study_activity_aggregate = self.repository.find_by_study(
-                    study_uid=study_uid, for_update=True
-                )
-                assert study_activity_aggregate is not None
-                study_activity_aggregate.add_object_selection(
-                    study_activity_selection,
-                    self.selected_object_repository.check_exists_final_version,
-                    self._repos.ct_term_name_repository.term_specific_exists_by_uid,
-                )
-                study_activity_aggregate.validate()
-                # sync with DB and save the update
-                self.repository.save(study_activity_aggregate, self.author)
 
-                # create StudyActivityInstance selection
-                if (
-                    # We are not creating a StudyActivityInstance selection for Activity placeholders
-                    study_activity_selection.activity_library_name
-                    != REQUESTED_LIBRARY_NAME
-                ):
-                    related_activity_instances = self._repos.activity_instance_repository.get_all_activity_instances_for_activity_grouping(
-                        activity_uid=study_activity_selection.activity_uid,
-                        activity_subgroup_uid=study_activity_selection.activity_subgroup_uid,
-                        activity_group_uid=study_activity_selection.activity_group_uid,
-                        filter_by_boolean_flags=True,
-                    )
-                    linked_activity_instances = []
-                    for activity_instance in related_activity_instances:
-                        if activity_instance.uid not in linked_activity_instances:
-                            linked_activity_instances.append(activity_instance.uid)
-
-                    # If there is no ActivityInstances linked to selected Activity
-                    # we create a 'placeholder' StudyActivityInstance that can link to ActivityInstance later
-                    if len(linked_activity_instances) == 0:
-                        linked_activity_instances.append(None)
-                    for activity_instance_uid in linked_activity_instances:
-                        activity_instance_selection = StudySelectionActivityInstanceVO.from_input_values(
-                            study_uid=study_uid,
-                            user_initials=self.author,
-                            activity_instance_uid=activity_instance_uid,
-                            activity_uid=study_activity_selection.activity_uid,
-                            activity_subgroup_uid=study_activity_selection.activity_subgroup_uid,
-                            activity_group_uid=study_activity_selection.activity_group_uid,
-                            study_activity_uid=study_activity_selection.study_selection_uid,
-                            generate_uid_callback=self._repos.study_activity_instance_repository.generate_uid,
-                        )  # add VO to aggregate
-                        study_activity_instance_aggregate = self._repos.study_activity_instance_repository.find_by_study(
-                            study_uid=study_uid, for_update=True
-                        )
-                        assert study_activity_instance_aggregate is not None
-                        study_activity_instance_aggregate.add_object_selection(
-                            activity_instance_selection,
-                            self._repos.activity_instance_repository.check_exists_final_version,
-                        )
-                        study_activity_instance_aggregate.validate()
-                        # sync with DB and save the update
-                        self._repos.study_activity_instance_repository.save(
-                            study_activity_instance_aggregate, self.author
-                        )
-
-                study_activity_aggregate = self.repository.find_by_study(
-                    study_uid=study_uid, for_update=True
-                )
-                # Fetch the new selection which was just added
-                (
-                    new_selection,
-                    order,
-                ) = study_activity_aggregate.get_specific_object_selection(
-                    study_activity_selection.study_selection_uid
-                )
-                terms_at_specific_datetime = (
-                    self._extract_study_standards_effective_date(study_uid=study_uid)
-                )
-                # add the activity and return
-                return self._transform_from_vo_to_response_model(
-                    study_uid=study_activity_aggregate.study_uid,
-                    specific_selection=new_selection,
-                    order=order,
-                    terms_at_specific_datetime=terms_at_specific_datetime,
-                )
+            study_activity_aggregate = self.repository.find_by_study(
+                study_uid=study_uid, for_update=True
+            )
+            # Fetch the new selection which was just added
+            (
+                new_selection,
+                order,
+            ) = study_activity_aggregate.get_specific_object_selection(
+                study_activity_selection.study_selection_uid
+            )
+            terms_at_specific_datetime = self._extract_study_standards_effective_date(
+                study_uid=study_uid
+            )
+            # add the activity and return
+            return self._transform_from_vo_to_response_model(
+                study_uid=study_activity_aggregate.study_uid,
+                specific_selection=new_selection,
+                order=order,
+                terms_at_specific_datetime=terms_at_specific_datetime,
+            )
         finally:
             repos.close()
 
-    @db.transaction
+    @ensure_transaction(db)
     def delete_selection(self, study_uid: str, study_selection_uid: str):
         # StudyActivitySchedule and StudyActivityInstruction Services for cascade delete if any
         study_activity_schedules_service = StudyActivityScheduleService()
@@ -1030,15 +1107,15 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
                 and not activity_ar.concept_vo.is_finalized
                 and activity_ar.concept_vo.is_request_final
             ):
-                if not activity_ar:
-                    raise exceptions.ValidationException(
-                        f"The Activity with the following uid ({study_activity_selection.activity_uid}) doesn't exist"
-                    )
+                ValidationException.raise_if_not(
+                    activity_ar,
+                    msg=f"The Activity with UID '{study_activity_selection.activity_uid}' doesn't exist.",
+                )
                 if activity_ar.item_metadata.status == LibraryItemStatus.DRAFT:
-                    activity_ar.approve(author=self.author)
-                    activity_ar.inactivate(author=self.author)
+                    activity_ar.approve(author_id=self.author)
+                    activity_ar.inactivate(author_id=self.author)
                 if activity_ar.item_metadata.status == LibraryItemStatus.FINAL:
-                    activity_ar.inactivate(author=self.author)
+                    activity_ar.inactivate(author_id=self.author)
                 repos.activity_repository.save(activity_ar)
 
             # Remove related Study activity schedules
@@ -1157,132 +1234,104 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         finally:
             repos.close()
 
-    def _patch_prepare_new_value_object(
+    def _update_underlying_activity_if_needed(
         self,
-        request_object: (
-            models.StudySelectionActivityInput
-            | models.StudySelectionActivityRequestEditInput
-            | models.UpdateActivityPlaceholderToSponsorActivity
-        ),
         current_object: StudySelectionActivityVO,
-    ) -> StudySelectionActivityVO:
-        # transform current to input model
-        transformed_current = models.StudySelectionActivityInput(
-            show_activity_group_in_protocol_flowchart=current_object.show_activity_group_in_protocol_flowchart,
-            show_activity_subgroup_in_protocol_flowchart=current_object.show_activity_subgroup_in_protocol_flowchart,
-            show_activity_in_protocol_flowchart=current_object.show_activity_in_protocol_flowchart,
-            show_soa_group_in_protocol_flowchart=current_object.show_soa_group_in_protocol_flowchart,
-            soa_group_term_uid=current_object.soa_group_term_uid,
-        )
-
-        # fill the missing from the inputs
-        fill_missing_values_in_base_model_from_reference_base_model(
-            base_model_with_missing_values=request_object,
-            reference_base_model=transformed_current,
-        )
-
+        request_object: (
+            StudyActivityReplaceActivityInput
+            | StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
+        ),
+    ):
         # update underlying Activity
         activity_service = ActivityService()
-        activity_ver = current_object.activity_version
-        activity_name = current_object.activity_name
-        if isinstance(
-            request_object, models.StudySelectionActivityRequestEditInput
-        ) and any(
-            [
-                request_object.request_rationale,
-                request_object.is_request_final,
-                request_object.is_data_collected,
-                request_object.activity_name,
-                request_object.activity_subgroup_uid,
-                request_object.activity_group_uid,
-            ]
-        ):
+
+        if isinstance(request_object, StudySelectionActivityRequestEditInput):
             activity_ar = self._patch_selected_activity(
                 current_object=current_object,
                 request_object=request_object,
             )
-            activity_name = activity_ar.name
-            activity_ver = activity_ar.item_metadata.version
         elif (
             isinstance(
-                request_object, models.UpdateActivityPlaceholderToSponsorActivity
+                request_object,
+                (
+                    UpdateActivityPlaceholderToSponsorActivity,
+                    StudyActivityReplaceActivityInput,
+                ),
             )
             and request_object.activity_uid
         ):
             activity_ar = activity_service.repository.find_by_uid_2(
-                request_object.activity_uid, for_update=True
+                request_object.activity_uid
             )
-            if not activity_ar:
-                raise exceptions.ValidationException(
-                    f"The Activity with the following uid ({current_object.activity_uid}) doesn't exist"
-                )
-            activity_name = activity_ar.name
-            activity_ver = activity_ar.item_metadata.version
+            ValidationException.raise_if_not(
+                activity_ar,
+                msg=f"The Activity with UID '{current_object.activity_uid}' doesn't exist.",
+            )
         else:
             activity_ar = activity_service.repository.find_by_uid_2(
-                current_object.activity_uid, for_update=True
+                current_object.activity_uid,
+                version=current_object.activity_version,
             )
+        return activity_ar
 
-        is_soa_group_changed = (
-            current_object.soa_group_term_uid != request_object.soa_group_term_uid
-        )
-        # update StudySoAGroup selection
-        updated_soa_selection = self._patch_soa_group_selection_value_object(
-            study_uid=current_object.study_uid,
-            current_study_activity=current_object,
-            selection_create_input=request_object,
-            is_soa_group_changed=is_soa_group_changed,
-        )
-
-        if (
+    def _validate_new_activity_groupings(
+        self,
+        request_object: (
+            StudyActivityReplaceActivityInput
+            | StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
+        ),
+        activity_ar: ActivityAR,
+        current_object: StudySelectionActivityVO,
+    ):
+        ValidationException.raise_if(
             request_object.activity_group_uid is None
             and request_object.activity_subgroup_uid is not None
-            and activity_ar.library.name != "Requested"
-        ):
-            raise exceptions.ValidationException(
-                "An activity group is required for the selection"
-            )
-        if (
+            and activity_ar.library.name != "Requested",
+            msg="An activity group is required for the selection",
+        )
+        ValidationException.raise_if(
             request_object.activity_subgroup_uid is None
             and request_object.activity_group_uid is not None
-            and activity_ar.library.name != "Requested"
-        ):
-            raise exceptions.ValidationException(
-                "An activity subgroup is required for the selection"
-            )
-        if (
+            and activity_ar.library.name != "Requested",
+            msg="An activity subgroup is required for the selection",
+        )
+        ValidationException.raise_if(
             request_object.activity_group_uid
             and request_object.activity_group_uid
             not in [
                 activity_grouping.activity_group_uid
                 for activity_grouping in activity_ar.concept_vo.activity_groupings
-            ]
-        ):
-            raise exceptions.ValidationException(
-                f"Provided activity group is not included in {current_object.activity_uid} activity groupings"
-            )
-        if request_object.activity_subgroup_uid and not any(
-            activity_grouping.activity_subgroup_uid
-            == request_object.activity_subgroup_uid
-            and activity_grouping.activity_group_uid
-            == request_object.activity_group_uid
-            for activity_grouping in activity_ar.concept_vo.activity_groupings
-        ):
-            raise exceptions.ValidationException(
-                f"Provided activity subgroup is not part of a grouping with {request_object.activity_group_uid} group in the {current_object.activity_uid} activity groupings"
-            )
-        # update StudyActivityGroup
-        if (
-            isinstance(
-                request_object,
-                (
-                    models.StudySelectionActivityInput,
-                    models.StudySelectionActivityRequestEditInput,
-                    models.UpdateActivityPlaceholderToSponsorActivity,
-                ),
-            )
-            and request_object.activity_group_uid
-        ):
+            ],
+            msg=f"Provided Activity Group is not included in '{current_object.activity_uid}' Activity Groupings.",
+        )
+        ValidationException.raise_if(
+            request_object.activity_subgroup_uid
+            and not any(
+                activity_grouping.activity_subgroup_uid
+                == request_object.activity_subgroup_uid
+                and activity_grouping.activity_group_uid
+                == request_object.activity_group_uid
+                for activity_grouping in activity_ar.concept_vo.activity_groupings
+            ),
+            msg=f"Provided Activity Subgroup is not part of a Grouping with UID '{request_object.activity_group_uid}' Group in the '{current_object.activity_uid}' Activity Groupings.",
+        )
+
+    def _patch_or_get_study_activity_group(
+        self,
+        request_object: (
+            StudyActivityReplaceActivityInput
+            | StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
+        ),
+        current_object: StudySelectionActivityVO,
+        is_soa_group_changed: bool,
+    ):
+        if request_object.activity_group_uid:
             activity_group_uid = request_object.activity_group_uid
             activity_group_name = None  # This gets filled in later
             study_activity_group = (
@@ -1315,22 +1364,21 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_group_uid = current_object.activity_group_uid
             activity_group_name = current_object.activity_group_name
             study_activity_group_uid = current_object.study_activity_group_uid
+        return activity_group_uid, activity_group_name, study_activity_group_uid
 
-        is_study_activity_group_changed = (
-            study_activity_group_uid != current_object.study_activity_group_uid
-        )
-        # update StudyActivitySubGroup
-        if (
-            isinstance(
-                request_object,
-                (
-                    models.StudySelectionActivityInput,
-                    models.StudySelectionActivityRequestEditInput,
-                    models.UpdateActivityPlaceholderToSponsorActivity,
-                ),
-            )
-            and request_object.activity_subgroup_uid
-        ):
+    def _patch_or_get_study_activity_subgroup(
+        self,
+        request_object: (
+            StudyActivityReplaceActivityInput
+            | StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
+        ),
+        current_object: StudySelectionActivityVO,
+        is_soa_group_changed: bool,
+        is_study_activity_group_changed: bool,
+    ):
+        if request_object.activity_subgroup_uid:
             activity_subgroup_uid = request_object.activity_subgroup_uid
             activity_subgroup_name = None  # This gets filled in later
             study_activity_subgroup = (
@@ -1363,20 +1411,88 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_subgroup_uid = current_object.activity_subgroup_uid
             activity_subgroup_name = current_object.activity_subgroup_name
             study_activity_subgroup_uid = current_object.study_activity_subgroup_uid
+        return (
+            activity_subgroup_uid,
+            activity_subgroup_name,
+            study_activity_subgroup_uid,
+        )
 
-        return StudySelectionActivityVO.from_input_values(
+    def _patch_prepare_new_value_object(
+        self,
+        request_object: (
+            StudyActivityReplaceActivityInput
+            | StudySelectionActivityInput
+            | StudySelectionActivityRequestEditInput
+            | UpdateActivityPlaceholderToSponsorActivity
+        ),
+        current_object: StudySelectionActivityVO,
+    ) -> StudySelectionActivityVO:
+        # transform current to input model
+        transformed_current = StudySelectionActivityInput(
+            show_activity_in_protocol_flowchart=current_object.show_activity_in_protocol_flowchart,
+            soa_group_term_uid=current_object.soa_group_term_uid,
+        )
+
+        # fill the missing from the inputs
+        fill_missing_values_in_base_model_from_reference_base_model(
+            base_model_with_missing_values=request_object,
+            reference_base_model=transformed_current,
+        )
+
+        # update underlying Activity
+        activity_ar = self._update_underlying_activity_if_needed(
+            request_object=request_object, current_object=current_object
+        )
+
+        is_soa_group_changed = (
+            current_object.soa_group_term_uid != request_object.soa_group_term_uid
+        )
+        # update StudySoAGroup selection
+        updated_soa_selection = self._patch_soa_group_selection_value_object(
             study_uid=current_object.study_uid,
-            activity_uid=(
-                request_object.activity_uid
-                if isinstance(
-                    request_object, models.UpdateActivityPlaceholderToSponsorActivity
-                )
-                and request_object.activity_uid
-                else current_object.activity_uid
-            ),
-            activity_version=activity_ver,
+            current_study_activity=current_object,
+            selection_create_input=request_object,
+            is_soa_group_changed=is_soa_group_changed,
+        )
+
+        # make validation of the new activity grouping properties if passed
+        self._validate_new_activity_groupings(
+            request_object=request_object,
+            activity_ar=activity_ar,
+            current_object=current_object,
+        )
+
+        # update StudyActivityGroup
+        (
+            activity_group_uid,
+            activity_group_name,
+            study_activity_group_uid,
+        ) = self._patch_or_get_study_activity_group(
+            request_object=request_object,
+            current_object=current_object,
+            is_soa_group_changed=is_soa_group_changed,
+        )
+
+        is_study_activity_group_changed = (
+            study_activity_group_uid != current_object.study_activity_group_uid
+        )
+        # update StudyActivitySubGroup
+        (
+            activity_subgroup_uid,
+            activity_subgroup_name,
+            study_activity_subgroup_uid,
+        ) = self._patch_or_get_study_activity_subgroup(
+            request_object=request_object,
+            current_object=current_object,
+            is_soa_group_changed=is_soa_group_changed,
+            is_study_activity_group_changed=is_study_activity_group_changed,
+        )
+        updated_study_activity_vo = StudySelectionActivityVO.from_input_values(
+            study_uid=current_object.study_uid,
+            activity_uid=activity_ar.uid,
+            activity_version=activity_ar.item_metadata.version,
+            activity_name=activity_ar.name,
             activity_order=current_object.activity_order,
-            activity_name=activity_name,
             soa_group_term_uid=updated_soa_selection.soa_group_term_uid,
             study_soa_group_uid=updated_soa_selection.study_selection_uid,
             study_selection_uid=current_object.study_selection_uid,
@@ -1387,14 +1503,17 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_group_uid=activity_group_uid,
             activity_group_name=activity_group_name,
             show_activity_in_protocol_flowchart=request_object.show_activity_in_protocol_flowchart,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
+        return updated_study_activity_vo
+
+    @ensure_transaction(db)
     def handle_batch_operations(
         self,
         study_uid: str,
-        operations: list[models.StudySelectionActivityBatchInput],
-    ) -> list[models.StudySelectionActivityBatchOutput]:
+        operations: list[StudySelectionActivityBatchInput],
+    ) -> list[StudySelectionActivityBatchOutput]:
         results = []
         for operation in operations:
             result = {}
@@ -1412,17 +1531,83 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
                         study_uid, operation.content.study_activity_uid
                     )
                     response_code = status.HTTP_204_NO_CONTENT
-                else:
+                elif operation.method == "POST":
                     item = self.make_selection(study_uid, operation.content)
                     response_code = status.HTTP_201_CREATED
-            except exceptions.MDRApiBaseException as error:
-                result["response_code"] = error.status_code
-                result["content"] = BatchErrorResponse(message=str(error))
-            else:
+                else:
+                    raise MethodNotAllowedException(method=operation.method)
                 result["response_code"] = response_code
                 result["content"] = item
-            finally:
-                results.append(models.StudySelectionActivityBatchOutput(**result))
+                results.append(StudySelectionActivityBatchOutput(**result))
+            except MDRApiBaseException as error:
+                results.append(
+                    StudySelectionActivityBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
+        all_soa_footnotes = (
+            self._repos.study_soa_footnote_repository.find_all_footnotes(
+                study_uids=study_uid
+            )
+        )
+        StudySoAFootnoteService().synchronize_footnotes(
+            study_uid=study_uid, all_soa_footnotes=all_soa_footnotes
+        )
+        return results
+
+    @ensure_transaction(db)
+    def handle_soa_edit_batch_operations(
+        self,
+        study_uid: str,
+        operations: list[StudySoAEditBatchInput],
+    ) -> list[StudySoAEditBatchOutput]:
+        study_activity_schedules_service = StudyActivityScheduleService()
+        results = []
+        for operation in operations:
+            result = {}
+            item = None
+            try:
+                if (
+                    operation.method == "PATCH"
+                    and operation.object == SoAItemType.STUDY_ACTIVITY.value
+                ):
+                    item = self.patch_selection(
+                        study_uid,
+                        operation.content.study_activity_uid,
+                        operation.content.content,
+                    )
+                    response_code = status.HTTP_200_OK
+                elif operation.method == "POST":
+                    if operation.object == SoAItemType.STUDY_ACTIVITY.value:
+                        item = self.make_selection(study_uid, operation.content)
+                    elif operation.object == SoAItemType.STUDY_ACTIVITY_SCHEDULE.value:
+                        item = study_activity_schedules_service.create(
+                            study_uid, operation.content
+                        )
+                    response_code = status.HTTP_201_CREATED
+                elif operation.method == "DELETE":
+                    if operation.object == SoAItemType.STUDY_ACTIVITY.value:
+                        self.delete_selection(
+                            study_uid, operation.content.study_activity_uid
+                        )
+                    elif operation.object == SoAItemType.STUDY_ACTIVITY_SCHEDULE.value:
+                        item = study_activity_schedules_service.delete(
+                            study_uid, operation.content.uid
+                        )
+                    response_code = status.HTTP_204_NO_CONTENT
+                else:
+                    raise MethodNotAllowedException(method=operation.method)
+                result["response_code"] = response_code
+                result["content"] = item
+                results.append(StudySoAEditBatchOutput(**result))
+            except MDRApiBaseException as error:
+                results.append(
+                    StudySoAEditBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
         all_soa_footnotes = (
             self._repos.study_soa_footnote_repository.find_all_footnotes(
                 study_uids=study_uid
@@ -1438,7 +1623,7 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         self,
         study_uid: str,
         study_selection_uid: str,
-    ) -> models.StudySelectionActivity:
+    ) -> StudySelectionActivity:
         repos = self._repos
         # Load aggregate
         selection_aggregate = repos.study_activity_repository.find_by_study(
@@ -1456,10 +1641,10 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
         replaced_activity_ar = self._repos.activity_repository.find_by_uid_2(
             activity_ar.concept_vo.replaced_by_activity
         )
-        updated_study_activity = self.patch_selection_non_transactional(
+        updated_study_activity = self.patch_selection(
             study_uid=study_uid,
             study_selection_uid=study_selection_uid,
-            selection_update_input=models.UpdateActivityPlaceholderToSponsorActivity(
+            selection_update_input=UpdateActivityPlaceholderToSponsorActivity(
                 activity_uid=replaced_activity_ar.uid,
                 # It is safe to access activity_groupings by [0] as it's a required to pass just exactly one
                 # set of groupings when creating a Sponsor activity out of Activity Request
@@ -1471,58 +1656,19 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
                 ].activity_group_uid,
             ),
         )
-        related_activity_instances = self._repos.activity_instance_repository.get_all_activity_instances_for_activity_grouping(
-            activity_uid=current_vo.activity_uid,
-            activity_subgroup_uid=current_vo.activity_subgroup_uid,
-            activity_group_uid=current_vo.activity_group_uid,
-            filter_by_boolean_flags=True,
-        )
-        linked_activity_instances = []
-        for activity_instance in related_activity_instances:
-            if activity_instance.uid not in linked_activity_instances:
-                linked_activity_instances.append(activity_instance.uid)
-
-        # If there is no ActivityInstances linked to selected Activity
-        # we create a 'placeholder' StudyActivityInstance that can link to ActivityInstance later
-        if len(linked_activity_instances) == 0:
-            linked_activity_instances.append(None)
-        for activity_instance_uid in linked_activity_instances:
-            activity_instance_selection = StudySelectionActivityInstanceVO.from_input_values(
-                study_uid=study_uid,
-                user_initials=self.author,
-                activity_instance_uid=activity_instance_uid,
-                activity_uid=current_vo.activity_uid,
-                activity_subgroup_uid=current_vo.activity_subgroup_uid,
-                activity_group_uid=current_vo.activity_group_uid,
-                study_activity_uid=current_vo.study_selection_uid,
-                generate_uid_callback=self._repos.study_activity_instance_repository.generate_uid,
-            )  # add VO to aggregate
-            study_activity_instance_aggregate = (
-                self._repos.study_activity_instance_repository.find_by_study(
-                    study_uid=study_uid, for_update=True
-                )
-            )
-            assert study_activity_instance_aggregate is not None
-            study_activity_instance_aggregate.add_object_selection(
-                activity_instance_selection,
-                self._repos.activity_instance_repository.check_exists_final_version,
-            )
-            study_activity_instance_aggregate.validate()
-            # sync with DB and save the update
-            self._repos.study_activity_instance_repository.save(
-                study_activity_instance_aggregate, self.author
-            )
         return updated_study_activity
 
     def get_detailed_soa_history(
         self, study_uid: str, page_number: int, page_size: int, total_count: bool
     ) -> GenericFilteringReturn[DetailedSoAHistory]:
-        if not self._repos.study_definition_repository.study_exists_by_uid(
-            study_uid=study_uid
-        ):
-            raise exceptions.NotFoundException(
-                f"Study with specified uid '{study_uid}' was not found."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.study_definition_repository.study_exists_by_uid(
+                study_uid=study_uid
+            ),
+            "Study",
+            study_uid,
+        )
+
         (
             detailed_soa_history,
             amount_of_history_items,
@@ -1562,8 +1708,8 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             activity_ar.approve(self.author)
             self._repos.activity_repository.save(activity_ar)
         elif activity_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(
-                "Cannot add retired activity as selection. Please reactivate."
+            raise BusinessLogicException(
+                msg="Cannot add retired activity as selection. Please reactivate."
             )
         new_selection: StudySelectionActivityVO = selection.update_version(
             activity_version=activity_ar.item_metadata.version
@@ -1578,4 +1724,26 @@ class StudyActivitySelectionService(StudyActivitySelectionBaseService):
             specific_selection=new_selection,
             order=order,
             terms_at_specific_datetime=terms_at_specific_datetime,
+        )
+
+    @ensure_transaction(db)
+    def create_study_activity_directly_in_soa(
+        self,
+        study_uid: str,
+        selection_create_input: StudySelectionActivityInSoACreateInput,
+    ):
+        new_study_activity = self.make_selection(
+            study_uid=study_uid,
+            selection_create_input=StudySelectionActivityCreateInput(
+                soa_group_term_uid=selection_create_input.soa_group_term_uid,
+                activity_uid=selection_create_input.activity_uid,
+                activity_subgroup_uid=selection_create_input.activity_subgroup_uid,
+                activity_group_uid=selection_create_input.activity_group_uid,
+                activity_instance_uid=selection_create_input.activity_instance_uid,
+            ),
+        )
+        return self.set_new_order(
+            study_uid=study_uid,
+            study_selection_uid=new_study_activity.study_activity_uid,
+            new_order=selection_create_input.order,
         )

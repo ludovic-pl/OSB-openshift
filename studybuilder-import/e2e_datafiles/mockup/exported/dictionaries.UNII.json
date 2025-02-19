@@ -15,7 +15,7 @@
     "start_date": "2022-09-20T10:53:23.919167",
     "status": "Final",
     "term_uid": "DictionaryTerm_000918",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -34,7 +34,7 @@
     "start_date": "2022-09-20T10:53:23.817292",
     "status": "Final",
     "term_uid": "DictionaryTerm_000917",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -53,7 +53,7 @@
     "start_date": "2022-09-20T10:53:23.687130",
     "status": "Final",
     "term_uid": "DictionaryTerm_000916",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

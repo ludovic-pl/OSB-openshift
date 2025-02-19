@@ -25,11 +25,11 @@ from clinical_mdr_api.models.syntax_templates.timeframe_template import (
     TimeframeTemplate,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -130,8 +130,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 TIMEFRAME_TEMPLATE_FIELDS_ALL = [
     "name",
@@ -144,7 +142,7 @@ TIMEFRAME_TEMPLATE_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameters",
     "library",
@@ -161,7 +159,7 @@ def test_get_timeframe_template(api_client):
     response = api_client.get(f"{URL}/{timeframe_templates[1].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(TIMEFRAME_TEMPLATE_FIELDS_ALL)
@@ -241,7 +239,7 @@ def test_get_timeframe_templates(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -273,7 +271,7 @@ def test_get_all_parameters_of_timeframe_template(api_client):
     response = api_client.get(f"{URL}/{timeframe_templates[0].uid}/parameters")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["name"] == "TextValue"
     assert not res[0]["terms"]
@@ -283,7 +281,7 @@ def test_get_versions_of_timeframe_template(api_client):
     response = api_client.get(f"{URL}/{timeframe_templates[1].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == timeframe_templates[1].uid
@@ -321,7 +319,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -360,7 +358,7 @@ def test_filtering_exact(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -382,10 +380,10 @@ def test_filtering_exact(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for timeframe_template in timeframe_templates:
         value = getattr(timeframe_template, field_name)
@@ -407,7 +405,7 @@ def test_pre_validate_timeframe_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Timeframe Template name: %s", res)
 
-    assert response.status_code == 202
+    assert_response_status_code(response, 202)
 
 
 def test_create_timeframe_template(api_client):
@@ -420,7 +418,7 @@ def test_create_timeframe_template(api_client):
     res = response.json()
     log.info("Created Timeframe Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "default_name [TextValue]"
@@ -446,7 +444,7 @@ def test_create_new_version_of_timeframe_template(api_client):
     res = response.json()
     log.info("Created new version of Timeframe Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "new test name"
@@ -462,7 +460,7 @@ def test_get_specific_version_of_timeframe_template(api_client):
     response = api_client.get(f"{URL}/{timeframe_templates[4].uid}/versions/1.1")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == timeframe_templates[4].uid
     assert res["sequence_id"] == "T5"
@@ -477,7 +475,7 @@ def test_delete_timeframe_template(api_client):
         timeframe_templates[2].uid,
     )
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_timeframe_template(api_client):
@@ -485,7 +483,7 @@ def test_approve_timeframe_template(api_client):
     res = response.json()
     log.info("Approved Timeframe Template: %s", timeframe_templates[3].uid)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == timeframe_templates[3].uid
     assert res["sequence_id"] == "T4"
     assert res["name"] == "Default-XXX name with [TextValue]"
@@ -530,7 +528,7 @@ def test_cascade_approve_timeframe_template(api_client):
     res = response.json()
     log.info("Approved Timeframe Template: %s", timeframe_templates[5].uid)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == timeframe_templates[5].uid
     assert res["sequence_id"] == "T6"
     assert res["name"] == "cascade check [TextValue]"
@@ -551,7 +549,7 @@ def test_inactivate_timeframe_template(api_client):
     response = api_client.delete(f"{URL}/{timeframe_templates[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == timeframe_templates[3].uid
     assert res["sequence_id"] == "T4"
     assert res["version"] == "1.0"
@@ -563,14 +561,14 @@ def test_current_final_timeframe_template(api_client):
         f"""{URL}?status=Final&filters={{"sequence_id": {{"v": ["T4"], "op": "eq"}}}}"""
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res["items"]
 
     response = api_client.get(
         f"""{URL}/headers?field_name=sequence_id&status=Final&filters={{"sequence_id": {{"v": ["T4"], "op": "eq"}}}}"""
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res
 
 
@@ -578,7 +576,7 @@ def test_reactivate_timeframe_template(api_client):
     response = api_client.post(f"{URL}/{timeframe_templates[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == timeframe_templates[3].uid
     assert res["sequence_id"] == "T4"
     assert res["version"] == "1.0"
@@ -590,7 +588,7 @@ def test_timeframe_template_audit_trail(api_client):
     res = response.json()
     log.info("TimeframeTemplate Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 54
     expected_uids = [
         "TimeframeTemplate_000004",
@@ -663,7 +661,7 @@ def test_timeframe_template_sequence_id_generation(api_client):
     res = response.json()
     log.info("Created Timeframe Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"] == "U-T1"
     assert res["name"] == "user defined [TextValue]"
@@ -687,11 +685,8 @@ def test_cannot_create_timeframe_template_with_existing_name(api_client):
     res = response.json()
     log.info("Didn't Create Timeframe Template: %s", res)
 
-    assert response.status_code == 400
-    assert (
-        res["message"]
-        == f"Duplicate templates not allowed - template exists: {data['name']}"
-    )
+    assert_response_status_code(response, 409)
+    assert res["message"] == f"Resource with Name '{data['name']}' already exists."
 
 
 def test_cannot_update_timeframe_template_to_an_existing_name(api_client):
@@ -703,11 +698,8 @@ def test_cannot_update_timeframe_template_to_an_existing_name(api_client):
     res = response.json()
     log.info("Didn't Update Timeframe Template: %s", res)
 
-    assert response.status_code == 400
-    assert (
-        res["message"]
-        == f"Duplicate templates not allowed - template exists: {data['name']}"
-    )
+    assert_response_status_code(response, 409)
+    assert res["message"] == f"Resource with Name '{data['name']}' already exists."
 
 
 def test_cannot_update_timeframe_template_without_change_description(
@@ -718,7 +710,7 @@ def test_cannot_update_timeframe_template_without_change_description(
     res = response.json()
     log.info("Didn't Update Timeframe Template: %s", res)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert res["detail"] == [
         {
             "loc": ["body", "change_description"],
@@ -737,8 +729,8 @@ def test_cannot_update_timeframe_template_in_final_status(api_client):
     res = response.json()
     log.info("Didn't Update Timeframe Template: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == "The object is not in draft status."
+    assert_response_status_code(response, 400)
+    assert res["message"] == "The object isn't in draft status."
 
 
 def test_cannot_change_parameter_numbers_of_timeframe_template_after_approval(
@@ -752,7 +744,7 @@ def test_cannot_change_parameter_numbers_of_timeframe_template_after_approval(
     res = response.json()
     log.info("Didn't Change Timeframe Template parameter numbers: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
         == "The template parameters cannot be modified after being a final version, only the plain text can be modified"
@@ -765,7 +757,7 @@ def test_pre_validate_invalid_timeframe_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Criteria Temaplate name: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert res["message"] == f"Template string syntax incorrect: {data['name']}"
 
     data = {"name": "Lacking closing bracket ["}
@@ -773,7 +765,7 @@ def test_pre_validate_invalid_timeframe_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Timeframe Template name: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert res["message"] == f"Template string syntax incorrect: {data['name']}"
 
     data = {"name": " "}
@@ -781,8 +773,17 @@ def test_pre_validate_invalid_timeframe_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Timeframe Template name: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == f"Template string syntax incorrect: {data['name']}"
+    assert_response_status_code(response, 422)
+    assert res == {
+        "detail": [
+            {
+                "loc": ["body", "name"],
+                "msg": "ensure this value has at least 1 characters",
+                "type": "value_error.any_str.min_length",
+                "ctx": {"limit_value": 1},
+            }
+        ]
+    }
 
 
 @pytest.mark.parametrize(

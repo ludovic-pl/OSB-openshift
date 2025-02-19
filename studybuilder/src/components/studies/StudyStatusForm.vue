@@ -19,7 +19,7 @@
           <v-col cols="12">
             <v-textarea
               v-model="form.change_description"
-              :label="$t('Study.release_description')"
+              :label="descriptionLabel"
               data-cy="release-description"
               :rules="[formRules.required]"
               hide-details
@@ -97,6 +97,11 @@ export default {
       return this.action === 'release'
         ? this.$t('StudyStatusForm.release_title')
         : this.$t('StudyStatusForm.lock_title')
+    },
+    descriptionLabel() {
+      return this.action === 'release'
+        ? this.$t('StudyStatusForm.release_description')
+        : this.$t('StudyStatusForm.lock_description')
     },
     items() {
       return [this.studiesGeneralStore.selectedStudy]

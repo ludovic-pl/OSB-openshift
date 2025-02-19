@@ -5,7 +5,7 @@ from clinical_mdr_api.domains.concepts.simple_concepts.text_value import (
     TextValueAR,
     TextValueVO,
 )
-from clinical_mdr_api.models.concepts.concept import TextValue, TextValueInput
+from clinical_mdr_api.models.concepts.concept import TextValue, TextValuePostInput
 from clinical_mdr_api.services.concepts.simple_concepts.simple_concept_generic import (
     SimpleConceptGenericService,
 )
@@ -22,10 +22,10 @@ class TextValueService(SimpleConceptGenericService[TextValueAR]):
         return TextValue.from_concept_ar(text_value=item_ar)
 
     def _create_aggregate_root(
-        self, concept_input: TextValueInput, library
+        self, concept_input: TextValuePostInput, library
     ) -> TextValueAR:
         return self.aggregate_class.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             simple_concept_vo=self.value_object_class.from_repository_values(
                 name=concept_input.name,
                 name_sentence_case=concept_input.name_sentence_case,
@@ -38,9 +38,7 @@ class TextValueService(SimpleConceptGenericService[TextValueAR]):
             find_uid_by_name_callback=self.repository.find_uid_by_name,
         )
 
-    def _edit_aggregate(
-        self, item: TextValueAR, concept_edit_input: TextValueInput
-    ) -> TextValueAR:
+    def _edit_aggregate(self, item: TextValueAR, concept_edit_input) -> TextValueAR:
         raise AttributeError(
             "_edit_aggregate function is not defined for TextValueService"
         )

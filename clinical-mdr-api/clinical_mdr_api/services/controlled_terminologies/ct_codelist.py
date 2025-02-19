@@ -3,7 +3,6 @@ from typing import TypeVar
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_attributes import (
     CTCodelistAttributesAR,
     CTCodelistAttributesVO,
@@ -13,27 +12,33 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_name import (
     CTCodelistNameVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
-from clinical_mdr_api.models import (
+from clinical_mdr_api.models.controlled_terminologies.ct_codelist import (
     CTCodelist,
     CTCodelistCreateInput,
     CTCodelistNameAndAttributes,
 )
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
-from clinical_mdr_api.services._utils import is_library_editable, normalize_string
+from clinical_mdr_api.services._utils import is_library_editable
+from clinical_mdr_api.utils import normalize_string
+from common.auth.user import user
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    NotFoundException,
+)
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
 
 class CTCodelistService:
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
-        self._repos = MetaRepository(self.user_initials)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     def __del__(self):
         self._repos.close()
@@ -57,12 +62,12 @@ class CTCodelistService:
         :return codelist:CTCodelist
         """
 
-        if not self._repos.library_repository.library_exists(
-            normalize_string(codelist_input.library_name)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({codelist_input.library_name})"
-            )
+        BusinessLogicException.raise_if_not(
+            self._repos.library_repository.library_exists(
+                normalize_string(codelist_input.library_name)
+            ),
+            msg=f"Library with Name '{codelist_input.library_name}' doesn't exist.",
+        )
 
         library_vo = LibraryVO.from_input_values_2(
             library_name=codelist_input.library_name,
@@ -70,7 +75,7 @@ class CTCodelistService:
         )
 
         ct_codelist_attributes_ar = CTCodelistAttributesAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             ct_codelist_attributes_vo=CTCodelistAttributesVO.from_input_values(
                 name=codelist_input.name,
                 parent_codelist_uid=codelist_input.parent_codelist_uid,
@@ -92,12 +97,12 @@ class CTCodelistService:
         )
 
         if codelist_input.terms:
-            ct_codelist_attributes_ar.approve(author=self.user_initials)
+            ct_codelist_attributes_ar.approve(author_id=self.author_id)
 
         self._repos.ct_codelist_attribute_repository.save(ct_codelist_attributes_ar)
 
         ct_codelist_name_ar = CTCodelistNameAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             ct_codelist_name_vo=CTCodelistNameVO.from_input_values(
                 name=codelist_input.sponsor_preferred_name,
                 catalogue_name=codelist_input.catalogue_name,
@@ -126,14 +131,14 @@ class CTCodelistService:
                     )
                 )
 
-                if sub_codelist_with_given_terms.items:
-                    raise exceptions.BusinessLogicException(
-                        f"""Sub codelists with these terms already exist.
-                        Codelist UIDs ({[item.codelist_uid for item in sub_codelist_with_given_terms.items]})"""
-                    )
+                AlreadyExistsException.raise_if(
+                    sub_codelist_with_given_terms.items,
+                    msg=f"""Sub codelists with these terms already exist.
+                        Codelist UIDs ({[item.codelist_uid for item in sub_codelist_with_given_terms.items]})""",
+                )
 
             for term in codelist_input.terms:
-                if (
+                BusinessLogicException.raise_if(
                     parent_codelist_uid
                     and len(
                         self._repos.ct_term_aggregated_repository.find_all_aggregated_result(
@@ -146,11 +151,9 @@ class CTCodelistService:
                             }
                         ).items
                     )
-                    <= 0
-                ):
-                    raise exceptions.BusinessLogicException(
-                        f"The term identified by ({term.term_uid}) is not in use by parent codelist identified by ({parent_codelist_uid})"
-                    )
+                    <= 0,
+                    msg=f"Term with UID '{term.term_uid}' isn't in use by Parent Codelist with UID '{parent_codelist_uid}'.",
+                )
 
                 ct_codelist_name_ar = (
                     self._repos.ct_codelist_name_repository.find_by_uid(
@@ -161,7 +164,7 @@ class CTCodelistService:
                 self._repos.ct_codelist_attribute_repository.add_term(
                     codelist_uid=ct_codelist_attributes_ar.uid,
                     term_uid=term.term_uid,
-                    author=self.user_initials,
+                    author_id=self.author_id,
                     order=term.order,
                 )
 
@@ -287,7 +290,7 @@ class CTCodelistService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         self.enforce_catalogue_library_package(catalogue_name, library, package)
 
@@ -301,7 +304,7 @@ class CTCodelistService:
                 search_string=search_string,
                 filter_by=filter_by,
                 filter_operator=filter_operator,
-                result_count=result_count,
+                page_size=page_size,
             )
         )
 
@@ -317,18 +320,16 @@ class CTCodelistService:
         )
 
         if ct_codelist_attributes_ar is not None:
-            if (
+            BusinessLogicException.raise_if(
                 not ct_codelist_attributes_ar.library.is_editable
-                and not ct_codelist_attributes_ar.ct_codelist_vo.extensible
-            ):
-                raise exceptions.BusinessLogicException(
-                    f"Codelist identified by {codelist_uid} is not extensible"
-                )
+                and not ct_codelist_attributes_ar.ct_codelist_vo.extensible,
+                msg=f"Codelist with UID '{codelist_uid}' isn't extensible.",
+            )
 
             parent_codelist_uid = (
                 ct_codelist_attributes_ar.ct_codelist_vo.parent_codelist_uid
             )
-            if (
+            BusinessLogicException.raise_if(
                 parent_codelist_uid
                 and len(
                     self._repos.ct_term_aggregated_repository.find_all_aggregated_result(
@@ -341,11 +342,9 @@ class CTCodelistService:
                         }
                     ).items
                 )
-                <= 0
-            ):
-                raise exceptions.BusinessLogicException(
-                    f"The term identified by ({term_uid}) is not in use by parent codelist identified by ({parent_codelist_uid})"
-                )
+                <= 0,
+                msg=f"Term with UID '{term_uid}' isn't in use by Parent Codelist with UID '{parent_codelist_uid}'.",
+            )
 
         ct_codelist_name_ar = self._repos.ct_codelist_name_repository.find_by_uid(
             codelist_uid=codelist_uid
@@ -353,7 +352,7 @@ class CTCodelistService:
         self._repos.ct_codelist_attribute_repository.add_term(
             codelist_uid=codelist_uid,
             term_uid=term_uid,
-            author=self.user_initials,
+            author_id=self.author_id,
             order=order,
         )
 
@@ -373,13 +372,11 @@ class CTCodelistService:
             )
         )
         if ct_codelist_attributes_ar is not None:
-            if (
+            BusinessLogicException.raise_if(
                 not ct_codelist_attributes_ar.library.is_editable
-                and not ct_codelist_attributes_ar.ct_codelist_vo.extensible
-            ):
-                raise exceptions.BusinessLogicException(
-                    f"Codelist identified by {codelist_uid} is not extensible"
-                )
+                and not ct_codelist_attributes_ar.ct_codelist_vo.extensible,
+                msg=f"Codelist with UID '{codelist_uid}' isn't extensible.",
+            )
 
             child_codelist_uids = (
                 ct_codelist_attributes_ar.ct_codelist_vo.child_codelist_uids
@@ -394,17 +391,17 @@ class CTCodelistService:
                         "term_uid": {"v": [term_uid], "op": "eq"},
                     }
                 ).items
-                if len(terms) > 0:
-                    raise exceptions.BusinessLogicException(
-                        f"The term identified by ({term_uid}) is in use by child codelists"
-                        f" identified by {[term[1]._ct_term_attributes_vo.codelist_uid for term in terms]}"
-                    )
+                BusinessLogicException.raise_if(
+                    len(terms) > 0,
+                    msg=f"The term with UID '{term_uid}' is in use by child codelists"
+                    f" with UIDs {[term[1]._ct_term_attributes_vo.codelist_uid for term in terms]}",
+                )
         ct_codelist_name_ar = self._repos.ct_codelist_name_repository.find_by_uid(
             codelist_uid=codelist_uid
         )
 
         self._repos.ct_codelist_attribute_repository.remove_term(
-            codelist_uid=codelist_uid, term_uid=term_uid, author=self.user_initials
+            codelist_uid=codelist_uid, term_uid=term_uid, author_id=self.author_id
         )
 
         return CTCodelist.from_ct_codelist_ar(
@@ -417,27 +414,30 @@ class CTCodelistService:
         library: str | None,
         package: str | None,
     ):
-        if (
+        NotFoundException.raise_if(
             catalogue_name is not None
             and not self._repos.ct_catalogue_repository.catalogue_exists(
                 normalize_string(catalogue_name)
-            )
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no catalogue identified by provided catalogue name ({catalogue_name})"
-            )
-        if library is not None and not self._repos.library_repository.library_exists(
-            normalize_string(library)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({library})"
-            )
-        if (
+            ),
+            "Catalogue",
+            catalogue_name,
+            "Name",
+        )
+        NotFoundException.raise_if(
+            library is not None
+            and not self._repos.library_repository.library_exists(
+                normalize_string(library)
+            ),
+            "Library",
+            library,
+            "Name",
+        )
+        NotFoundException.raise_if(
             package is not None
             and not self._repos.ct_package_repository.package_exists(
                 normalize_string(package)
-            )
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no package identified by provided package name ({package})"
-            )
+            ),
+            "Package",
+            package,
+            "Name",
+        )

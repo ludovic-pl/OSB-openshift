@@ -1,5 +1,7 @@
-from clinical_mdr_api.models.study_selections.study_pharma_cm import StudyPharmaCM
-from clinical_mdr_api.oauth.user import user
+from clinical_mdr_api.models.study_selections.study_pharma_cm import (
+    StudyPharmaCM,
+    StudyPharmaCMXML,
+)
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services.studies.study_criteria_selection import (
     StudyCriteriaSelectionService,
@@ -7,6 +9,7 @@ from clinical_mdr_api.services.studies.study_criteria_selection import (
 from clinical_mdr_api.services.studies.study_endpoint_selection import (
     StudyEndpointSelectionService,
 )
+from common.auth.user import user
 
 
 class StudyPharmaCMService:
@@ -66,3 +69,11 @@ class StudyPharmaCMService:
             find_dictionary_term_by_uid=self._repos.dictionary_term_generic_repository.find_by_uid,
             find_all_units=self._repos.unit_definition_repository.find_all,
         )
+
+    def get_pharma_cm_xml(
+        self, study_uid: str, study_value_version: str | None
+    ) -> StudyPharmaCM:
+        study_pharma_cm: StudyPharmaCM = self.get_pharma_cm_representation(
+            study_uid=study_uid, study_value_version=study_value_version
+        )
+        return StudyPharmaCMXML.from_pharma_cm_data(study_pharma_cm=study_pharma_cm)

@@ -1,23 +1,30 @@
 """Activity instruction templates router."""
 
 # Prefixed with "/activity-instruction-templates"
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.syntax_pre_instances.activity_instruction_pre_instance import (
+    ActivityInstructionPreInstance,
     ActivityInstructionPreInstanceCreateInput,
 )
 from clinical_mdr_api.models.syntax_templates.activity_instruction_template import (
+    ActivityInstructionTemplate,
+    ActivityInstructionTemplateCreateInput,
+    ActivityInstructionTemplateEditIndexingsInput,
+    ActivityInstructionTemplateEditInput,
+    ActivityInstructionTemplatePreValidateInput,
+    ActivityInstructionTemplateVersion,
     ActivityInstructionTemplateWithCount,
 )
+from clinical_mdr_api.models.syntax_templates.template_parameter import (
+    TemplateParameter,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.syntax_pre_instances.activity_instruction_pre_instances import (
@@ -26,6 +33,9 @@ from clinical_mdr_api.services.syntax_pre_instances.activity_instruction_pre_ins
 from clinical_mdr_api.services.syntax_templates.activity_instruction_templates import (
     ActivityInstructionTemplateService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 router = APIRouter()
 
@@ -33,7 +43,7 @@ Service = ActivityInstructionTemplateService
 
 # Argument definitions
 ActivityInstructionTemplateUID = Path(
-    None, description="The unique id of the activity instruction template."
+    description="The unique id of the activity instruction template."
 )
 
 PARAMETERS_NOTE = """**Parameters in the 'name' property**:
@@ -62,14 +72,14 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.ActivityInstructionTemplate],
+    response_model=CustomPage[ActivityInstructionTemplate],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -85,7 +95,7 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Test</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
   </data>
 </root>
@@ -115,7 +125,7 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -128,36 +138,45 @@ Allowed parameters include : filter on fields, sort by field name with sort dire
 # pylint: disable=unused-argument
 def get_activity_instruction_templates(
     request: Request,  # request is actually required by the allow_exports decorator
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those activity instruction templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the activity instruction template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.ActivityInstructionTemplate]:
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those activity instruction templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the activity instruction template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[ActivityInstructionTemplate]:
     results = Service().get_all(
         status=status,
         return_study_count=True,
@@ -191,28 +210,36 @@ def get_activity_instruction_templates(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those activity instruction templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the activity instruction template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those activity instruction templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the activity instruction template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -220,16 +247,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.ActivityInstructionTemplate],
+    response_model=CustomPage[ActivityInstructionTemplate],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -237,24 +262,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -288,7 +319,7 @@ def retrieve_audit_trail(
     },
 )
 def get_activity_instruction_template(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().get_by_uid(uid=activity_instruction_template_uid)
 
@@ -302,14 +333,14 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.ActivityInstructionTemplateVersion],
+    response_model=list[ActivityInstructionTemplateVersion],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -325,7 +356,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Test</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
         <item type="dict">
             <name type="str">First  [ComparatorIntervention]</name>
@@ -334,7 +365,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             <status type="str">Draft</status>
             <version type="str">0.1</version>
             <change_description type="str">Initial version</change_description>
-            <user_initials type="str">TODO user initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
     </data>
 </root>
@@ -360,7 +391,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "version",
             "start_date",
             "end_date",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -373,7 +404,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 # pylint: disable=unused-argument
 def get_activity_instruction_template_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().get_version_history(uid=activity_instruction_template_uid)
 
@@ -387,7 +418,7 @@ def get_activity_instruction_template_versions(
     "This is due to the fact, that the version number remains the same when inactivating or reactivating an activity instruction template "
     "(switching between 'Final' and 'Retired' status). \n\n"
     "In that case the latest/newest representation is returned.",
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=200,
     responses={
         404: {
@@ -398,13 +429,15 @@ def get_activity_instruction_template_versions(
     },
 )
 def get_activity_instruction_template_version(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
-    version: str = Path(
-        None,
-        description="A specific version number of the activity instruction template. "
-        "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
-        "E.g. '0.1', '0.2', '1.0', ...",
-    ),
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
+    version: Annotated[
+        str,
+        Path(
+            description="A specific version number of the activity instruction template. "
+            "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
+            "E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ],
 ):
     return Service().get_specific_version(
         uid=activity_instruction_template_uid, version=version
@@ -415,8 +448,7 @@ def get_activity_instruction_template_version(
     "/{activity_instruction_template_uid}/releases",
     dependencies=[rbac.LIBRARY_READ],
     summary="List all final versions of a template identified by 'activity_instruction_template_uid', including number of studies using a specific version",
-    description="",
-    response_model=list[models.ActivityInstructionTemplate],
+    response_model=list[ActivityInstructionTemplate],
     status_code=200,
     responses={
         404: {
@@ -427,7 +459,7 @@ def get_activity_instruction_template_version(
     },
 )
 def get_activity_instruction_template_releases(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().get_releases(
         uid=activity_instruction_template_uid, return_study_count=False
@@ -449,7 +481,7 @@ If the request succeeds:
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=201,
     responses={
         201: {
@@ -459,19 +491,21 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template name is not valid.\n"
-            "- The library does not allow to create activity instruction templates.",
+            "- The library doesn't allow to create activity instruction templates.",
         },
         404: {
             "model": ErrorResponse,
             "description": "Not Found - The library with the specified 'library_name' could not be found.",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create_activity_instruction_template(
-    activity_instruction_template: models.ActivityInstructionTemplateCreateInput = Body(
-        description="The activity instruction template that shall be created."
-    ),
+    activity_instruction_template: Annotated[
+        ActivityInstructionTemplateCreateInput,
+        Body(description="The activity instruction template that shall be created."),
+    ],
 ):
     return Service().create(activity_instruction_template)
 
@@ -493,7 +527,7 @@ Once the activity instruction template has been approved, only the surrounding t
 
 """
     + PARAMETERS_NOTE,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -502,7 +536,7 @@ Once the activity instruction template has been approved, only the surrounding t
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template is not in draft status.\n"
             "- The activity instruction template name is not valid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The change of parameters of previously approved activity instruction templates.",
         },
         404: {
@@ -513,10 +547,13 @@ Once the activity instruction template has been approved, only the surrounding t
     },
 )
 def edit(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
-    activity_instruction_template: models.ActivityInstructionTemplateEditInput = Body(
-        description="The new content of the activity instruction template including the change description.",
-    ),
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
+    activity_instruction_template: Annotated[
+        ActivityInstructionTemplateEditInput,
+        Body(
+            description="The new content of the activity instruction template including the change description.",
+        ),
+    ],
 ):
     return Service().edit_draft(
         uid=activity_instruction_template_uid, template=activity_instruction_template
@@ -532,7 +569,7 @@ def edit(
     
     This is version independent : it won't trigger a status or a version change.
     """,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=200,
     responses={
         200: {
@@ -546,11 +583,14 @@ def edit(
     },
 )
 def patch_indexings(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
-    indexings: models.ActivityInstructionTemplateEditIndexingsInput = Body(
-        description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
-    ),
-) -> models.ActivityInstructionTemplate:
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
+    indexings: Annotated[
+        ActivityInstructionTemplateEditIndexingsInput,
+        Body(
+            description="The lists of UIDs for the new indexings to be set, grouped by indexings to be updated.",
+        ),
+    ],
+) -> ActivityInstructionTemplate:
     return Service().patch_indexings(
         uid=activity_instruction_template_uid, indexings=indexings
     )
@@ -572,7 +612,7 @@ If the request succeeds:
 Parameters in the 'name' property cannot be changed with this request.
 Only the surrounding text (excluding the parameters) can be changed.
 """,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -581,7 +621,7 @@ Only the surrounding text (excluding the parameters) can be changed.
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template is not in final or retired status or has a draft status.\n"
             "- The activity instruction template name is not valid.\n"
-            "- The library does not allow to create a new version.",
+            "- The library doesn't allow to create a new version.",
         },
         404: {
             "model": ErrorResponse,
@@ -591,10 +631,13 @@ Only the surrounding text (excluding the parameters) can be changed.
     },
 )
 def create_new_version(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
-    activity_instruction_template: models.ActivityInstructionTemplateEditInput = Body(
-        description="The content of the activity instruction template for the new 'Draft' version including the change description.",
-    ),
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
+    activity_instruction_template: Annotated[
+        ActivityInstructionTemplateEditInput,
+        Body(
+            description="The content of the activity instruction template for the new 'Draft' version including the change description.",
+        ),
+    ],
 ):
     return Service().create_new_version(
         uid=activity_instruction_template_uid, template=activity_instruction_template
@@ -614,7 +657,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -622,7 +665,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template is not in draft status.\n"
-            "- The library does not allow to approve drafts.",
+            "- The library doesn't allow to approve drafts.",
         },
         404: {
             "model": ErrorResponse,
@@ -636,7 +679,7 @@ If the request succeeds:
     },
 )
 def approve(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
     cascade: bool = False,
 ):
     """
@@ -660,7 +703,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -677,7 +720,7 @@ If the request succeeds:
     },
 )
 def inactivate(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().inactivate_final(uid=activity_instruction_template_uid)
 
@@ -694,7 +737,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.ActivityInstructionTemplate,
+    response_model=ActivityInstructionTemplate,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -711,7 +754,7 @@ If the request succeeds:
     },
 )
 def reactivate(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().reactivate_retired(uid=activity_instruction_template_uid)
 
@@ -736,7 +779,7 @@ def reactivate(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template is not in draft status.\n"
             "- The activity instruction template was already in final state or is in use.\n"
-            "- The library does not allow to delete activity instruction templates.",
+            "- The library doesn't allow to delete activity instruction templates.",
         },
         404: {
             "model": ErrorResponse,
@@ -746,7 +789,7 @@ def reactivate(
     },
 )
 def delete_activity_instruction_template(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     Service().soft_delete(activity_instruction_template_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
@@ -767,7 +810,7 @@ Per parameter, the parameter.terms are ordered by
 Note that parameters may be used multiple times in templates.
 In that case, the same parameter (with the same terms) is included multiple times in the response.
     """,
-    response_model=list[models.TemplateParameter],
+    response_model=list[TemplateParameter],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -775,9 +818,7 @@ In that case, the same parameter (with the same terms) is included multiple time
     },
 )
 def get_parameters(
-    activity_instruction_template_uid: str = Path(
-        None, description="The unique id of the activity instruction template."
-    ),
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
 ):
     return Service().get_parameters(uid=activity_instruction_template_uid)
 
@@ -808,9 +849,12 @@ with the same content will succeed.
     },
 )
 def pre_validate(
-    activity_instruction_template: models.ActivityInstructionTemplateNameInput = Body(
-        description="The content of the activity instruction template that shall be validated.",
-    ),
+    activity_instruction_template: Annotated[
+        ActivityInstructionTemplatePreValidateInput,
+        Body(
+            description="The content of the activity instruction template that shall be validated.",
+        ),
+    ],
 ):
     Service().validate_template_syntax(activity_instruction_template.name)
 
@@ -819,8 +863,7 @@ def pre_validate(
     "/{activity_instruction_template_uid}/pre-instances",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Create a Pre-Instance",
-    description="",
-    response_model=models.ActivityInstructionPreInstance,
+    response_model=ActivityInstructionPreInstance,
     status_code=201,
     responses={
         201: {
@@ -831,7 +874,7 @@ def pre_validate(
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instruction template is not in draft status.\n"
             "- The activity instruction template name is not valid.\n"
-            "- The library does not allow to edit draft versions.",
+            "- The library doesn't allow to edit draft versions.",
         },
         404: {
             "model": ErrorResponse,
@@ -841,9 +884,9 @@ def pre_validate(
     },
 )
 def create_pre_instance(
-    activity_instruction_template_uid: str = ActivityInstructionTemplateUID,
-    pre_instance: ActivityInstructionPreInstanceCreateInput = Body(description=""),
-) -> models.ActivityInstructionTemplate:
+    activity_instruction_template_uid: Annotated[str, ActivityInstructionTemplateUID],
+    pre_instance: Annotated[ActivityInstructionPreInstanceCreateInput, Body()],
+) -> ActivityInstructionTemplate:
     return ActivityInstructionPreInstanceService().create(
         template=pre_instance,
         template_uid=activity_instruction_template_uid,

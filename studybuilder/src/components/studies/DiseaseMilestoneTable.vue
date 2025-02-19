@@ -144,7 +144,7 @@ export default {
         { title: '#', key: 'order', width: '5%' },
         {
           title: this.$t('DiseaseMilestone.disease_milestone_type'),
-          key: 'disease_milestone_type_named',
+          key: 'disease_milestone_type_name',
         },
         {
           title: this.$t('_global.definition'),
@@ -155,7 +155,7 @@ export default {
           key: 'repetition_indicator',
         },
         { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
       ],
       historyItems: [],
       selectedDiseaseMilestone: null,
@@ -222,7 +222,7 @@ export default {
     },
     async deleteDiseaseMilestone(item) {
       const options = { type: 'warning' }
-      const context = { name: item.disease_milestone_type_named }
+      const context = { name: item.disease_milestone_type_name }
       const msg = this.$t('DiseaseMilestoneTable.confirm_delete', context)
       if (!(await this.$refs.confirm.open(msg, options))) {
         return

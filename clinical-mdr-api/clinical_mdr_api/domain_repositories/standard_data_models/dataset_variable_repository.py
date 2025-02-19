@@ -5,10 +5,10 @@ from clinical_mdr_api.domain_repositories.models.standard_data_model import (
 from clinical_mdr_api.domain_repositories.standard_data_models.standard_data_model_repository import (
     StandardDataModelRepository,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.standard_data_models.dataset_variable import (
     DatasetVariable as DatasetVariableAPIModel,
 )
+from common.exceptions import ValidationException
 
 
 class DatasetVariableRepository(StandardDataModelRepository):
@@ -58,29 +58,31 @@ class DatasetVariableRepository(StandardDataModelRepository):
                 "dataset_scenario_uid"
             )
 
-        if kwargs.get("data_model_ig_name") and kwargs.get("data_model_ig_version"):
-            data_model_ig_name = kwargs.get("data_model_ig_name")
-            data_model_ig_version = kwargs.get("data_model_ig_version")
+        ValidationException.raise_if(
+            not kwargs.get("data_model_ig_name")
+            or not kwargs.get("data_model_ig_version"),
+            msg="Please provide data_model_ig_name and data_model_ig_version params",
+        )
 
-            filter_by_data_model_ig_uid = "data_model_ig_root.uid = $data_model_ig_name"
-            filter_parameters.append(filter_by_data_model_ig_uid)
+        data_model_ig_name = kwargs.get("data_model_ig_name")
+        data_model_ig_version = kwargs.get("data_model_ig_version")
 
-            filter_by_data_model_ig_version = (
-                "data_model_ig_value.version_number = $data_model_ig_version"
-            )
-            filter_parameters.append(filter_by_data_model_ig_version)
+        filter_by_data_model_ig_uid = "data_model_ig_root.uid = $data_model_ig_name"
+        filter_parameters.append(filter_by_data_model_ig_uid)
 
-            filter_by_has_dataset_variable_version = (
-                "has_dataset_variable_rel.version_number = $data_model_ig_version"
-            )
-            filter_parameters.append(filter_by_has_dataset_variable_version)
+        filter_by_data_model_ig_version = (
+            "data_model_ig_value.version_number = $data_model_ig_version"
+        )
+        filter_parameters.append(filter_by_data_model_ig_version)
 
-            filter_query_parameters["data_model_ig_name"] = data_model_ig_name
-            filter_query_parameters["data_model_ig_version"] = data_model_ig_version
-        else:
-            raise ValidationException(
-                "Please provide data_model_ig_name and data_model_ig_version params"
-            )
+        filter_by_has_dataset_variable_version = (
+            "has_dataset_variable_rel.version_number = $data_model_ig_version"
+        )
+        filter_parameters.append(filter_by_has_dataset_variable_version)
+
+        filter_query_parameters["data_model_ig_name"] = data_model_ig_name
+        filter_query_parameters["data_model_ig_version"] = data_model_ig_version
+
         extended_filter_statements = " AND ".join(filter_parameters)
         if filter_statements_from_standard != "":
             if len(extended_filter_statements) > 0:

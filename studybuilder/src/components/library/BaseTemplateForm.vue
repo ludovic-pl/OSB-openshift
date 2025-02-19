@@ -45,6 +45,7 @@
           color="white"
           variant="outlined"
           elevation="2"
+          rounded="xl"
           @click="verifySyntax"
         >
           {{ $t('_global.verify_syntax') }}

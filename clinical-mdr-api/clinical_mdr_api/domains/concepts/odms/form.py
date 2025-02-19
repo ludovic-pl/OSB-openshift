@@ -10,8 +10,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.utils import booltostr
+from common.exceptions import AlreadyExistsException, BusinessLogicException
+from common.utils import booltostr
 
 
 @dataclass(frozen=True)
@@ -68,7 +68,9 @@ class OdmFormVO(ConceptVO):
         odm_object_exists_callback: Callable,
         find_term_callback: Callable[[str], CTTermAttributesAR | None],
         odm_description_exists_by_callback: Callable[[str, str, bool], bool],
+        get_odm_description_parent_uids_callback: Callable[[list[str]], dict],
         odm_alias_exists_by_callback: Callable[[str, str, bool], bool],
+        odm_uid: str | None = None,
     ) -> None:
         data = {
             "description_uids": self.description_uids,
@@ -80,9 +82,10 @@ class OdmFormVO(ConceptVO):
             "repeating": bool(self.repeating),
         }
         if uids := odm_object_exists_callback(**data):
-            raise BusinessLogicException(
-                f"ODM Form already exists with UID ({uids[0]}) and data {data}"
-            )
+            if uids[0] != odm_uid:
+                raise AlreadyExistsException(
+                    msg=f"ODM Form already exists with UID ({uids[0]}) and data {data}"
+                )
 
         self.check_concepts_exist(
             [
@@ -100,10 +103,16 @@ class OdmFormVO(ConceptVO):
             "ODM Form",
         )
 
-        if self.scope_uid is not None and not find_term_callback(self.scope_uid):
-            raise BusinessLogicException(
-                f"ODM Form tried to connect to non-existent Scope identified by uid ({self.scope_uid})."
-            )
+        BusinessLogicException.raise_if(
+            self.scope_uid is not None and not find_term_callback(self.scope_uid),
+            msg=f"ODM Form tried to connect to non-existent Scope with UID '{self.scope_uid}'.",
+        )
+
+        if uids := get_odm_description_parent_uids_callback(self.description_uids):
+            if odm_uid not in uids:
+                raise BusinessLogicException(
+                    msg=f"ODM Descriptions are already used: {dict(uids)}."
+                )
 
 
 @dataclass
@@ -136,7 +145,7 @@ class OdmFormAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmFormVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -145,16 +154,22 @@ class OdmFormAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             odm_object_exists_callback=odm_object_exists_callback,
             find_term_callback=find_term_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
         )
 
@@ -167,7 +182,7 @@ class OdmFormAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmFormVO,
         concept_exists_by_callback: Callable[
@@ -178,6 +193,9 @@ class OdmFormAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
@@ -189,11 +207,15 @@ class OdmFormAR(OdmARBase):
             odm_object_exists_callback=odm_object_exists_callback,
             find_term_callback=find_term_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
+            odm_uid=self.uid,
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo
 
 

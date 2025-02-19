@@ -43,9 +43,12 @@ export default {
       `${resource}/${studyUid}/anchor-visits-in-group-of-subvisits`
     )
   },
-  getAnchorVisitsForSpecialVisit(studyUid) {
+  getAnchorVisitsForSpecialVisit(studyUid, epochUid) {
+    const params = {
+      study_epoch_uid: epochUid
+    }
     return repository.get(
-      `${resource}/${studyUid}/anchor-visits-for-special-visit`
+      `${resource}/${studyUid}/anchor-visits-for-special-visit`, { params }
     )
   },
   addStudyVisit(studyUid, data) {

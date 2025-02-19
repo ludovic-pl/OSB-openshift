@@ -1,5 +1,5 @@
 ARG NGINX_IMAGE=nginx:alpine
-ARG NODE_IMAGE=node:lts-alpine3.14
+ARG NODE_IMAGE=node:lts-alpine
 
 ## Build stage
 FROM $NODE_IMAGE as build-stage

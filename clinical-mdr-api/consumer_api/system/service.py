@@ -1,39 +1,50 @@
 import os
 import urllib.parse
+from typing import Annotated
 
 from neomodel.sync_.core import db
 from pydantic import BaseModel, Field
 
 
 class SystemInformation(BaseModel):
-    api_version: str = Field(
-        ..., title="API version", description="Version of the API specification"
-    )
-    db_version: str | None = Field(
-        None,
-        title="Database version",
-        description="Version information from the Neo4j database the application is using",
-    )
-    db_name: str | None = Field(
-        None,
-        title="Database name",
-        description="Name of the database the application is using",
-    )
-    build_id: str = Field(
-        ...,
-        title="Build identifier",
-        description="The Build.BuildNumber identifier from the pipeline run",
-    )
-    commit_id: str | None = Field(
-        None,
-        title="VCS commit identifier",
-        description="The reference to the repository state: the id of the last commit to the branch at build",
-    )
-    branch_name: str | None = Field(
-        None,
-        title="Repository branch name",
-        description="Name of the VCS repository branch the app was built from",
-    )
+    api_version: Annotated[
+        str, Field(title="API version", description="Version of the API specification")
+    ]
+    db_version: Annotated[
+        str | None,
+        Field(
+            title="Database version",
+            description="Version information from the Neo4j database the application is using",
+        ),
+    ] = None
+    db_name: Annotated[
+        str | None,
+        Field(
+            title="Database name",
+            description="Name of the database the application is using",
+        ),
+    ] = None
+    build_id: Annotated[
+        str,
+        Field(
+            title="Build identifier",
+            description="The Build.BuildNumber identifier from the pipeline run",
+        ),
+    ]
+    commit_id: Annotated[
+        str | None,
+        Field(
+            title="VCS commit identifier",
+            description="The reference to the repository state: the id of the last commit to the branch at build",
+        ),
+    ] = None
+    branch_name: Annotated[
+        str | None,
+        Field(
+            title="Repository branch name",
+            description="Name of the VCS repository branch the app was built from",
+        ),
+    ] = None
 
 
 def get_system_information():

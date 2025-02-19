@@ -12,16 +12,14 @@ Tests for /listings/studies/all/adam/ endpoints
 import logging
 
 import pytest
-from fastapi.testclient import TestClient
 from neomodel import db
 
-from clinical_mdr_api.config import CDISC_LIBRARY_NAME, SDTM_CT_CATALOGUE_NAME
-from clinical_mdr_api.main import app
 from clinical_mdr_api.models.listings.listings_adam import StudyVisitAdamListing
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_CT_CATALOGUE_CYPHER,
     STARTUP_STUDY_LIST_CYPHER,
+    fix_study_preferred_time_unit,
 )
 from clinical_mdr_api.tests.integration.utils.method_library import (
     create_library_data,
@@ -29,17 +27,12 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     generate_study_root,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common.config import CDISC_LIBRARY_NAME, SDTM_CT_CATALOGUE_NAME
 
 study_uid: str
 
 log = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="module")
-def api_client(test_data):
-    """Create FastAPI test client
-    using the database name set in the `test_data` fixture"""
-    yield TestClient(app)
 
 
 @pytest.fixture(scope="module")
@@ -61,13 +54,14 @@ def test_data():
     )
     TestUtils.create_ct_codelists_using_cypher()
     TestUtils.set_study_standard_version(study_uid=study_uid)
+    fix_study_preferred_time_unit(study_uid)
 
 
-def test_adam_listing_mdvisit(api_client):
+def test_adam_listing_mdvisit(api_client, test_data):
     response = api_client.get(
         "/listings/studies/study_root/adam/mdvisit/",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
     res_visits = response.json()["items"]
@@ -93,10 +87,10 @@ def test_adam_listing_mdvisit(api_client):
         if value:
             expected_result.append(value)
     url = "/listings/studies/study_root/adam/mdvisit"
-    response = api_client.get(f"{url}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{url}/headers?field_name={field_name}&page_size=100")
     res_headers = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     log.info("Expected result is %s", expected_result)
     log.info("Returned %s", res_headers)
     if expected_result:
@@ -107,25 +101,25 @@ def test_adam_listing_mdvisit(api_client):
         assert len(res_headers) == 0
 
 
-def test_adam_listing_mdvisit_versioning(api_client):
+def test_adam_listing_mdvisit_versioning(api_client, test_data):
     # update study title to be able to lock it
     response = api_client.patch(
         f"/studies/{study_uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study_uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         f"/listings/studies/{study_uid}/adam/mdvisit/",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
     md_visit_before_unlock = res
@@ -135,19 +129,19 @@ def test_adam_listing_mdvisit_versioning(api_client):
         f"/listings/studies/{study_uid}/adam/mdvisit/headers?field_name=VISTPCD",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     md_visit_headers_before_unlock = res
 
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study_uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all visits
     response = api_client.get(
         f"/studies/{study_uid}/study-visit/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # edit study visit
@@ -168,7 +162,7 @@ def test_adam_listing_mdvisit_versioning(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["visit_type_uid"] == "VisitType_0002"
 
     # get all study visits of a specific study version
@@ -176,7 +170,7 @@ def test_adam_listing_mdvisit_versioning(api_client):
         f"/listings/studies/{study_uid}/adam/mdvisit?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"] == md_visit_before_unlock
     assert res["items"][0]["VISTPCD"] == "BASELINE"
 
@@ -185,5 +179,5 @@ def test_adam_listing_mdvisit_versioning(api_client):
         f"/listings/studies/{study_uid}/adam/mdvisit/headers?field_name=VISTPCD&study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == md_visit_headers_before_unlock

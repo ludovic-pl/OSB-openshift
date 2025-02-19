@@ -52,7 +52,8 @@ const NNCustomLightTheme = {
     nnLightBlue100: '#F4F5F8',
     nnLightBlue200: '#D7EAF8',
     nnFadedBlue200: '#DEE1EB',
-    nnGoldenSun200: '#FAEECC'
+    nnGoldenSun200: '#FAEECC',
+    nnGraniteGrey1: "#f4f5f6"
   },
 }
 

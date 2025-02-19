@@ -10,9 +10,11 @@
                 : `${formatDate(data[0])} - ${formatDate(data.length - 1)}`
             "
             prepend-inner-icon="mdi-calendar-outline"
+            data-cy="filter-field"
             readonly
-            class="select filterAutocompleteLabel ml-2"
+            class="select filterAutocompleteLabel ml-1"
             density="compact"
+            rounded="lg"
             hide-details
             single-line
             clearable
@@ -24,6 +26,7 @@
         <v-date-picker
           v-model="data"
           multiple="range"
+          data-cy="filter-field-datepicker"
           :selected-items-text="$t('FilterAutocomplete.range_selected')"
           @update:model-value="filterDate()"
         >
@@ -39,6 +42,7 @@
         variant="outlined"
         :label="item.title"
         data-cy="filter-field"
+        rounded="lg"
         color="nnBaseBlue"
         bg-color="nnWhite"
         :items="items"
@@ -82,8 +86,8 @@
               variant="text"
               size="small"
               icon="mdi-close"
-              class="mr-3 mt-2"
-              @click="close()"
+              class="mr-3 mt-3"
+              @click="searchString = ''"
             />
           </v-row>
         </template>
@@ -190,13 +194,9 @@ watch(
   }
 )
 
-function close() {
-  searchString.value = ''
-  select.value.blur()
-}
-
 function clear() {
   data.value = []
+  searchString.value = ''
   filterTable()
 }
 
@@ -228,7 +228,7 @@ function getColumnData(value) {
         ? props.item.filteringName
         : value,
     search_string: searchString.value,
-    result_count: 50,
+    page_size: 50,
   }
   if (props.parameters) {
     params = Object.assign(params, props.parameters)
@@ -249,7 +249,7 @@ function getColumnData(value) {
     params.codelist_uid = props.resource[1]
   }
   if (props.library) {
-    params.library = props.library
+    params.library_name = props.library
   }
   let externalFilter = props.resource[0]
   if (props.item.externalFilterSource) {

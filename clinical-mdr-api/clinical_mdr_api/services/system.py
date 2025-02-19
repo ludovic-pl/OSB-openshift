@@ -1,7 +1,9 @@
 import os
 import urllib.parse
 
-from clinical_mdr_api import config, models
+from neomodel import config as neomodel_config
+
+from clinical_mdr_api.models.system import SystemInformation
 from clinical_mdr_api.repositories import system as repository
 
 
@@ -9,7 +11,7 @@ def get_system_information():
     # avoid circular import
     from clinical_mdr_api.main import app
 
-    return models.SystemInformation(
+    return SystemInformation(
         api_version=app.version,
         db_version=repository.get_neo4j_version(),
         db_name=get_database_name(),
@@ -25,4 +27,4 @@ def get_build_id() -> str:
 
 def get_database_name() -> str:
     """Returns database name part of neomodel config database URL"""
-    return urllib.parse.urlparse(config.config.DATABASE_URL).path.split("/", 1)[-1]
+    return urllib.parse.urlparse(neomodel_config.DATABASE_URL).path.split("/", 1)[-1]

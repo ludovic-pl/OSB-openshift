@@ -2,7 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api.config import SDTM_CT_CATALOGUE_NAME
 from clinical_mdr_api.domain_repositories.models.generic import Library
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.domain_repositories.models.syntax import (
@@ -73,8 +72,10 @@ from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_PARAMETERS_CYPHER,
     STARTUP_STUDY_ENDPOINT_CYPHER,
+    fix_study_preferred_time_unit,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common.config import SDTM_CT_CATALOGUE_NAME
 
 
 class TestStudyEndpointUpversion(unittest.TestCase):
@@ -100,6 +101,7 @@ class TestStudyEndpointUpversion(unittest.TestCase):
         TestUtils.set_study_standard_version(
             study_uid="study_root", create_codelists_and_terms_for_package=False
         )
+        fix_study_preferred_time_unit(study_uid="study_root")
 
         self.lib = Library(name="LibraryName", is_editable=True)
         self.lib.save()
@@ -121,7 +123,7 @@ class TestStudyEndpointUpversion(unittest.TestCase):
             name_plain=self.default_template_name,
         )
         self.item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
-            author="Test"
+            author_id="Test"
         )
         self.ot_ar = ObjectiveTemplateAR(
             _uid=self.otr.root_class.get_next_free_uid_and_increment_counter(),
@@ -135,16 +137,16 @@ class TestStudyEndpointUpversion(unittest.TestCase):
         self.ot_ar: ObjectiveTemplateAR = self.otr.find_by_uid(
             self.ot_ar.uid, for_update=True
         )
-        self.ot_ar.approve(author="TEST")
+        self.ot_ar.approve(author_id="TEST")
         self.otr.save(self.ot_ar)
 
         self.ot_ar: ObjectiveTemplateAR = self.otr.find_by_uid(
             self.ot_ar.uid, for_update=True
         )
         self.ot_ar.create_new_version(
-            author="TEST", change_description="Change", template=self.template_vo
+            author_id="TEST", change_description="Change", template=self.template_vo
         )
-        self.ot_ar.approve(author="TEST")
+        self.ot_ar.approve(author_id="TEST")
         self.otr.save(self.ot_ar)
 
         self.et_ar = EndpointTemplateAR(
@@ -159,16 +161,16 @@ class TestStudyEndpointUpversion(unittest.TestCase):
         self.et_ar: EndpointTemplateAR = self.etr.find_by_uid(
             self.et_ar.uid, for_update=True
         )
-        self.et_ar.approve(author="TEST")
+        self.et_ar.approve(author_id="TEST")
         self.etr.save(self.et_ar)
 
         self.et_ar: EndpointTemplateAR = self.etr.find_by_uid(
             self.et_ar.uid, for_update=True
         )
         self.et_ar.create_new_version(
-            author="TEST", change_description="Change", template=self.template_vo
+            author_id="TEST", change_description="Change", template=self.template_vo
         )
-        self.et_ar.approve(author="TEST")
+        self.et_ar.approve(author_id="TEST")
         self.etr.save(self.et_ar)
 
         self.tt_ar = TimeframeTemplateAR(
@@ -183,14 +185,14 @@ class TestStudyEndpointUpversion(unittest.TestCase):
         self.tt_ar: TimeframeTemplateAR = self.ttr.find_by_uid(
             self.tt_ar.uid, for_update=True
         )
-        self.tt_ar.approve(author="TEST")
+        self.tt_ar.approve(author_id="TEST")
         self.ttr.save(self.tt_ar)
 
         self.tt_ar: TimeframeTemplateAR = self.ttr.find_by_uid(
             self.tt_ar.uid, for_update=True
         )
         self.tt_ar.create_new_version(
-            author="TEST", change_description="Change", template=self.template_vo
+            author_id="TEST", change_description="Change", template=self.template_vo
         )
         self.ttr.save(self.tt_ar)
 
@@ -202,9 +204,9 @@ class TestStudyEndpointUpversion(unittest.TestCase):
             name_plain=self.changed_template_name,
         )
         self.tt_ar.edit_draft(
-            author="TEST", change_description="Change", template=self.ntv
+            author_id="TEST", change_description="Change", template=self.ntv
         )
-        self.tt_ar.approve(author="TEST")
+        self.tt_ar.approve(author_id="TEST")
         self.ttr.save(self.tt_ar)
 
         self.create_template_parameters(count=14)
@@ -224,7 +226,7 @@ class TestStudyEndpointUpversion(unittest.TestCase):
             self.ot_ar.uid, for_update=True
         )
         self.ot_ar.create_new_version(
-            author="TEST", change_description="Change", template=self.ntv
+            author_id="TEST", change_description="Change", template=self.ntv
         )
         self.otr.save(self.ot_ar)
 
@@ -233,7 +235,7 @@ class TestStudyEndpointUpversion(unittest.TestCase):
             self.et_ar.uid, for_update=True
         )
         self.et_ar.create_new_version(
-            author="TEST", change_description="Change", template=self.ntv
+            author_id="TEST", change_description="Change", template=self.ntv
         )
         self.etr.save(self.et_ar)
 

@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.pharmaceutical_product_repository import (
     PharmaceuticalProductRepository,
 )
@@ -10,7 +9,6 @@ from clinical_mdr_api.domains.concepts.pharmaceutical_product import (
     PharmaceuticalProductAR,
     PharmaceuticalProductVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.pharmaceutical_product import (
     Formulation,
     PharmaceuticalProduct,
@@ -47,7 +45,7 @@ class PharmaceuticalProductService(ConceptGenericService[PharmaceuticalProductAR
         self, concept_input: PharmaceuticalProductCreateInput, library
     ) -> _AggregateRootType:
         return PharmaceuticalProductAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=PharmaceuticalProductVO.from_repository_values(
                 external_id=concept_input.external_id,
                 dosage_form_uids=concept_input.dosage_form_uids,
@@ -85,35 +83,41 @@ class PharmaceuticalProductService(ConceptGenericService[PharmaceuticalProductAR
         concept_edit_input: PharmaceuticalProductEditInput,
     ) -> PharmaceuticalProductAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=PharmaceuticalProductVO.from_repository_values(
                 external_id=concept_edit_input.external_id,
                 dosage_form_uids=concept_edit_input.dosage_form_uids,
                 route_of_administration_uids=concept_edit_input.route_of_administration_uids,
-                formulations=[
-                    FormulationVO.from_repository_values(
-                        external_id=getattr(x, "external_id", None),
-                        ingredients=[
-                            IngredientVO.from_repository_values(
-                                active_substance_uid=getattr(
-                                    y, "active_substance_uid", None
-                                ),
-                                formulation_name=getattr(y, "formulation_name", None),
-                                external_id=getattr(y, "external_id", None),
-                                strength_uid=getattr(y, "strength_uid", None),
-                                half_life_uid=getattr(y, "half_life_uid", None),
-                                lag_time_uids=getattr(y, "lag_time_uids", []),
-                            )
-                            for y in x.ingredients
-                        ]
-                        if x.ingredients
-                        else [],
-                    )
-                    for x in concept_edit_input.formulations
-                ]
-                if concept_edit_input.formulations
-                else [],
+                formulations=(
+                    [
+                        FormulationVO.from_repository_values(
+                            external_id=getattr(x, "external_id", None),
+                            ingredients=(
+                                [
+                                    IngredientVO.from_repository_values(
+                                        active_substance_uid=getattr(
+                                            y, "active_substance_uid", None
+                                        ),
+                                        formulation_name=getattr(
+                                            y, "formulation_name", None
+                                        ),
+                                        external_id=getattr(y, "external_id", None),
+                                        strength_uid=getattr(y, "strength_uid", None),
+                                        half_life_uid=getattr(y, "half_life_uid", None),
+                                        lag_time_uids=getattr(y, "lag_time_uids", []),
+                                    )
+                                    for y in x.ingredients
+                                ]
+                                if x.ingredients
+                                else []
+                            ),
+                        )
+                        for x in concept_edit_input.formulations
+                    ]
+                    if concept_edit_input.formulations
+                    else []
+                ),
             ),
             concept_exists_by_callback=self.repository.get_uid_by_property_value,
             ct_term_exists_callback=self._repos.ct_term_name_repository.term_exists,
@@ -125,14 +129,11 @@ class PharmaceuticalProductService(ConceptGenericService[PharmaceuticalProductAR
 
     @db.transaction
     def soft_delete(self, uid: str) -> None:
-        try:
-            pharmaceutical_product = self._find_by_uid_or_raise_not_found(
-                uid, for_update=True
-            )
-            pharmaceutical_product.soft_delete()
-            self.repository.save(pharmaceutical_product)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        pharmaceutical_product = self._find_by_uid_or_raise_not_found(
+            uid, for_update=True
+        )
+        pharmaceutical_product.soft_delete()
+        self.repository.save(pharmaceutical_product)
 
     @staticmethod
     def fill_in_additional_fields(

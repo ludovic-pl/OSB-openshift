@@ -10,11 +10,11 @@ from authlib.integrations.starlette_client import StarletteOAuth2App
 from cachetools import TTLCache
 from opencensus.trace import execution_context
 
-from clinical_mdr_api import config
-from clinical_mdr_api.exceptions import BusinessLogicException, ValidationException
 from clinical_mdr_api.models.integrations.msgraph import GraphGroup, GraphUser
-from clinical_mdr_api.oauth import config as oauth_config
-from clinical_mdr_api.oauth.dependencies import oauth
+from common import config
+from common.auth import config as oauth_config
+from common.auth.dependencies import oauth
+from common.exceptions import BusinessLogicException, ValidationException
 
 CACHE_TIMEOUT_SEC = 60 * 60  # Cache timeout in seconds
 FETCH_MAX_PAGES = 0  # Fetches maximum N pages of group members (0 to disable)
@@ -84,15 +84,17 @@ class MsGraphClientService:
                 method=method, url=url, token=self.token, **kwargs
             )
 
-        if resp.status_code != 200:
-            raise BusinessLogicException(
-                f"Graph request failed: {resp.status_code} {resp.reason_phrase} {resp.request.url} {resp.text[:1024]}"
-            )
+        BusinessLogicException.raise_if(
+            resp.status_code != 200,
+            msg=f"Graph request failed: {resp.status_code} {resp.reason_phrase} {resp.request.url} {resp.text[:1024]}",
+        )
 
         try:
             payload = resp.json()
         except json.JSONDecodeError as exc:
-            raise BusinessLogicException(f"Can't decode response: {exc.msg}") from exc
+            raise BusinessLogicException(
+                msg=f"Can't decode response: {exc.msg}"
+            ) from exc
 
         return payload
 
@@ -109,7 +111,7 @@ class MsGraphClientService:
         if odata_context == GROUP_ENTRY_CONTEXT:
             return [GraphGroup(**payload)]
 
-        raise BusinessLogicException(f"Unknown OData Context {odata_context}")
+        raise BusinessLogicException(msg=f"Unknown OData Context {odata_context}")
 
     async def fetch_group_direct_member_users(self, group_id: str) -> list[GraphUser]:
         """
@@ -183,7 +185,7 @@ class MsGraphClientService:
             search_re = re.compile(pattern, re.I) if pattern else None
         except re.error as e:
             raise ValidationException(
-                f"Invalid regular expression in pattern: {e.msg}"
+                msg=f"Invalid regular expression in pattern: {e.msg}"
             ) from e
 
         users = []

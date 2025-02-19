@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -25,16 +26,17 @@ class StudySelectionElementVO:
     element_subtype_uid: str | None
     study_compound_dosing_count: int | None
     start_date: datetime.datetime
-    user_initials: str
+    author_id: str
     end_date: datetime.datetime | None
     status: str | None
     change_type: str | None
     accepted_version: bool = False
+    author_username: str | None = None
 
     @classmethod
     def from_input_values(
         cls,
-        user_initials: str,
+        author_id: str,
         study_selection_uid: str | None = None,
         study_uid: str | None = None,
         name: str | None = None,
@@ -68,7 +70,7 @@ class StudySelectionElementVO:
         :param element_colour
         :param element_subtype_uid
         :param start_date
-        :param user_initials
+        :param author_id
         :param end_date
         :param status
         :param change_type
@@ -97,7 +99,8 @@ class StudySelectionElementVO:
             element_subtype_uid=element_subtype_uid,
             study_compound_dosing_count=study_compound_dosing_count,
             start_date=start_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             end_date=end_date,
             status=status,
             change_type=change_type,
@@ -113,12 +116,11 @@ class StudySelectionElementVO:
         :return:
         """
         # Check if there exist a Term with the selected uid
-        if self.element_subtype_uid and not ct_term_exists_callback(
+        exceptions.ValidationException.raise_if(
             self.element_subtype_uid
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved element level identified by provided term uid ({self.element_subtype_uid})"
-            )
+            and not ct_term_exists_callback(self.element_subtype_uid),
+            msg=f"There is no approved Element Level with UID '{self.element_subtype_uid}'.",
+        )
 
 
 @dataclass
@@ -145,7 +147,7 @@ class StudySelectionElementAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"The study selection {study_selection_uid} does not exist for study {self._study_uid}"
+            msg=f"The Study Selection with UID '{study_selection_uid}' doesn't exist for Study with UID '{self._study_uid}'."
         )
 
     def get_specific_element_selection(
@@ -160,7 +162,7 @@ class StudySelectionElementAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the study element '{study_selection_uid}' and the study"
+            msg=f"There is no selection between the Study Element with UID '{study_selection_uid}' and the study."
         )
 
     def _add_selection(self, study_element_selection) -> None:

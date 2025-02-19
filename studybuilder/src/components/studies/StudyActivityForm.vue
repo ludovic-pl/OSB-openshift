@@ -1,12 +1,12 @@
 <template>
   <HorizontalStepperForm
     ref="stepper"
-    :title="$t('StudyActivityForm.add_title')"
+    :title="title"
     :steps="steps"
     :form-observer-getter="getObserver"
     :help-text="$t('_help.StudyActivityTable.general')"
     :reset-loading="resetLoading"
-    @close="cancel"
+    @close="close"
     @save="submit"
   >
     <template #[`step.creationMode`]>
@@ -22,6 +22,7 @@
           data-cy="select-from-library"
         />
         <v-radio
+          v-if="!order"
           :label="$t('StudyActivityForm.create_placeholder_for_activity')"
           value="createPlaceholder"
           data-cy="create-placeholder"
@@ -39,9 +40,13 @@
               return-object
               :rules="[formRules.required]"
               clearable
+              rounded="lg"
+              variant="outlined"
+              color="nnBaseBlue"
+              density="compact"
             />
           </v-col>
-          <div class="mt-8">
+          <div class="mt-5">
             {{ $t('_global.and_or') }}
           </div>
           <v-col cols="3">
@@ -59,58 +64,24 @@
               return-object
               :rules="[formRules.required]"
               clearable
-            />
-          </v-col>
-        </v-row>
-      </v-form>
-    </template>
-    <template #[`step.selectFlowchartGroup`]>
-      <v-form ref="flowchartGroupForm">
-        <v-row>
-          <v-col cols="4">
-            <v-autocomplete
-              v-model="currentFlowchartGroup"
-              :label="$t('StudyActivityForm.flowchart_group')"
-              data-cy="flowchart-group"
-              :items="flowchartGroups"
-              item-title="name.sponsor_preferred_name"
-              return-object
-              :rules="[formRules.required]"
-              :hint="$t('_help.StudyActivityForm.flowchart_group')"
-              persistent-hint
-              clearable
+              rounded="lg"
+              variant="outlined"
+              color="nnBaseBlue"
+              density="compact"
             />
           </v-col>
         </v-row>
       </v-form>
     </template>
     <template #[`step.selectFromStudies`]>
-      <v-data-table
-        key="fromStudiesSelection"
-        :headers="selectionFromStudiesHeaders"
-        :items="selectedActivities"
-      >
-        <template #[`item.name`]="{ item }">
-          {{ item.activity.name }}
-        </template>
-        <template #[`item.actions`]="{ item }">
-          <v-btn
-            icon="mdi-delete-outline"
-            color="red"
-            variant="text"
-            @click="unselectActivity(item)"
-          />
-        </template>
-      </v-data-table>
-    </template>
-    <template #[`step.selectFromStudies.after`]>
-      <div class="mt-4 mx-4 text-subtitle-1 text-grey font-italic">
-        {{ $t('StudyActivityForm.copy_activity_instructions') }}
-      </div>
       <v-col cols="12">
         <NNTable
           v-if="selectedStudy"
+          key="studyActivityTable"
           ref="selectionTable"
+          v-model="selectedActivities"
+          item-value="uid"
+          show-select
           :headers="studyActivityHeaders"
           :items="activities"
           hide-default-switches
@@ -118,37 +89,50 @@
           show-filter-bar-by-default
           :items-per-page="15"
           elevation="0"
+          table-height="50vh"
+          data-cy="activities-table"
           :items-length="activitiesTotal"
           :column-data-resource="`studies/${selectedStudy.uid}/study-activities`"
           :filters-modify-function="modifyFilters"
           @filter="getActivities"
         >
-          <template #[`header.actions`]>
-            <div class="row">
-              <v-btn
-                icon="mdi-content-copy"
-                color="nnWhite"
-                :title="$t('StudyActivityForm.copy_all_activities')"
-                variant="text"
-                @click="selectAllStudyActivities()"
-              />
-            </div>
-          </template>
-          <template #[`item.actions`]="{ item }">
-            <v-btn
-              icon="mdi-content-copy"
-              :color="getCopyButtonColor(item)"
-              :disabled="
-                isStudyActivitySelected(item) ||
-                isStudyActivityRequested(item) ||
-                !isGroupingValid(item)
-              "
-              data-cy="copy-activity"
-              :title="$t('StudyActivityForm.copy_activity')"
-              variant="text"
-              @click="selectStudyActivity(item)"
-            />
-          </template>
+        <template #beforeSwitches="">
+          <v-switch
+            v-model="selectedOnly"
+            color="primary"
+            :label="$t('StudyActivityForm.show_selected')"
+            data-cy="show-selected"
+            class="mt-4"
+            @update:model-value="switchTableItems"
+          />
+        </template>
+        <template #[`header.data-table-select`] >
+          <v-btn
+            :disabled="exchangeMode"
+            data-cy="copy-all-activities"
+            icon="mdi-content-copy"
+            color="nnWhite"
+            :title="$t('StudyActivityForm.copy_all_activities')"
+            variant="text"
+            @click="selectAllStudyActivities()"
+          />
+        </template>
+        <template
+          #[`item.data-table-select`]="{ internalItem, isSelected, toggleSelect }"
+        >
+          <v-checkbox-btn
+            :model-value="isSelected(internalItem)"
+            color="primary"
+            data-cy="select-activity"
+            :disabled="
+              isStudyActivitySelected(internalItem.raw) ||
+              isStudyActivityRequested(internalItem.raw) ||
+              !isGroupingValid(internalItem.raw) ||
+              multipleSelectedInExchangeMode(internalItem.raw)
+            "
+            @update:model-value="toggleSelect(internalItem)"
+          ></v-checkbox-btn>
+        </template>
           <template #[`item.activity.is_data_collected`]="{ item }">
             <div v-if="item.activity">
               {{ $filters.yesno(item.activity.is_data_collected) }}
@@ -158,28 +142,13 @@
       </v-col>
     </template>
     <template #[`step.selectFromLibrary`]>
-      <v-data-table
-        key="fromLibrarySelection"
-        :headers="selectionFromLibraryHeaders"
-        :items="selectedActivities"
-      >
-        <template #[`item.actions`]="{ item }">
-          <v-btn
-            icon="mdi-delete-outline"
-            color="red"
-            variant="text"
-            @click="unselectActivity(item)"
-          />
-        </template>
-      </v-data-table>
-    </template>
-    <template #[`step.selectFromLibrary.after`]>
-      <div class="mt-4 mx-4 text-subtitle-1 text-grey font-italic">
-        {{ $t('StudyActivityForm.copy_activity_instructions') }}
-      </div>
       <v-col cols="12">
         <NNTable
           key="activityTable"
+          ref="selectionLibraryTable"
+          v-model="selectedActivities"
+          item-value="item_key"
+          show-select
           :headers="activityHeaders"
           :items="activities"
           hide-default-switches
@@ -187,38 +156,73 @@
           show-filter-bar-by-default
           :items-per-page="15"
           elevation="0"
+          table-height="50vh"
           :items-length="activitiesTotal"
           :initial-filters="initialFilters"
           column-data-resource="concepts/activities/activities"
           :filters-modify-function="modifyFilters"
           @filter="getActivities"
         >
-          <template #[`item.actions`]="{ item }">
-            <v-btn
-              icon="mdi-content-copy"
-              :color="getCopyButtonColor(item)"
-              :disabled="
-                isActivitySelected(item) ||
-                isActivityNotFinal(item) ||
-                isActivityRequested(item)
-              "
-              data-cy="copy-activity"
-              :title="$t('StudyActivityForm.copy_activity')"
-              variant="text"
-              @click="selectActivity(item)"
-            />
-          </template>
-          <template #[`header.actions`]>
-            <div class="row">
-              <v-btn
-                icon="mdi-content-copy"
-                color="nnWhite"
-                :title="$t('StudyActivityForm.copy_all_activities')"
-                variant="text"
-                @click="selectAllActivities()"
-              />
-            </div>
-          </template>
+        <template #beforeSwitches="">
+          <v-switch
+            v-model="selectedOnly"
+            color="primary"
+            :label="$t('StudyActivityForm.show_selected')"
+            data-cy="show-selected"
+            class="mt-4"
+            @update:model-value="switchTableItems"
+          />
+        </template>
+        <template #[`item.soa_group`]="{ item }">
+          <v-autocomplete
+            v-model="item.flowchart_group"
+            :label="$t('StudyActivityForm.flowchart_group_title')"
+            data-cy="flowchart-group"
+            :items="flowchartGroups"
+            item-title="name.sponsor_preferred_name"
+            style="min-width: 250px;"
+            class="mt-2 mb-n4"
+            rounded="lg"
+            variant="outlined"
+            color="nnBaseBlue"
+            density="compact"
+            return-object
+            clearable
+            :disabled="
+              isActivitySelected(item) ||
+              isActivityNotFinal(item) ||
+              isActivityRequested(item) ||
+              multipleSelectedInExchangeMode(item)
+            "
+          />
+        </template>
+        <template #[`header.data-table-select`] >
+          <v-btn
+            :disabled="exchangeMode"
+            icon="mdi-content-copy"
+            color="nnWhite"
+            data-cy="copy-all-activities"
+            :title="$t('StudyActivityForm.copy_all_activities')"
+            variant="text"
+            @click="selectAllActivities()"
+          />
+        </template>
+        <template
+          #[`item.data-table-select`]="{ internalItem, isSelected, toggleSelect }"
+        >
+          <v-checkbox-btn
+            :model-value="isSelected(internalItem)"
+            color="primary"
+            data-cy="select-activity"
+            :disabled="
+              isActivitySelected(internalItem.raw) ||
+              isActivityNotFinal(internalItem.raw) ||
+              isActivityRequested(internalItem.raw) ||
+              multipleSelectedInExchangeMode(internalItem.raw)
+            "
+            @update:model-value="toggleSelect(internalItem)"
+          ></v-checkbox-btn>
+        </template>
           <template #[`item.is_data_collected`]="{ item }">
             {{ $filters.yesno(item.is_data_collected) }}
           </template>
@@ -227,91 +231,178 @@
     </template>
     <template #[`step.createPlaceholder`]>
       <v-form ref="createPlaceholderForm">
-        <v-row>
-          <v-col cols="5">
+        <ChoiceField
+          v-model="form.is_request_final"
+          :choices="requestTypes"
+          inline
+          width="400"
+        />
+        <div v-if="form.is_request_final !== undefined">
+          <v-row>
+            <v-col cols="3">
+              <v-autocomplete
+                v-model="form.activity_groupings[0].activity_group_uid"
+                :label="$t('ActivityForms.activity_group')"
+                data-cy="activity-group"
+                :items="groups"
+                item-title="name"
+                item-value="uid"
+                rounded="lg"
+                variant="outlined"
+                color="nnBaseBlue"
+                density="compact"
+                clearable
+              />
+            </v-col>
+            <v-col cols="3">
+              <v-autocomplete
+                v-model="form.activity_groupings[0].activity_subgroup_uid"
+                :label="$t('ActivityForms.activity_subgroup')"
+                data-cy="activity-subgroup"
+                :items="filteredSubGroups"
+                item-title="name"
+                item-value="uid"
+                rounded="lg"
+                variant="outlined"
+                color="nnBaseBlue"
+                density="compact"
+                clearable
+                :rules="form.activity_groupings[0].activity_group_uid ? [formRules.required] : []"
+                :disabled="
+                  form.activity_groupings[0].activity_group_uid ? false : true
+                "
+              />
+            </v-col>
+            <v-col cols="3">
+              <v-text-field
+                v-model="form.name"
+                :label="$t('ActivityFormsRequested.name')"
+                data-cy="instance-name"
+                rounded="lg"
+                variant="outlined"
+                color="nnBaseBlue"
+                density="compact"
+                clearable
+                :rules="[formRules.required]"
+                @input="placeholderSearch"
+              />
+            </v-col>
+            <v-col cols="3">
             <v-autocomplete
-              v-model="form.activity_groupings[0].activity_group_uid"
-              :label="$t('ActivityForms.activity_group')"
-              data-cy="activity-group"
-              :items="groups"
-              item-title="name"
-              item-value="uid"
-              density="compact"
-              clearable
-            />
-            <v-autocomplete
-              v-model="form.activity_groupings[0].activity_subgroup_uid"
-              :label="$t('ActivityForms.activity_subgroup')"
-              data-cy="activity-subgroup"
-              :items="filteredSubGroups"
-              item-title="name"
-              item-value="uid"
-              density="compact"
-              clearable
-              :disabled="
-                form.activity_groupings[0].activity_group_uid ? false : true
-              "
-            />
-            <v-text-field
-              v-model="form.name"
-              :label="$t('ActivityFormsRequested.name')"
-              data-cy="instance-name"
-              density="compact"
-              clearable
+              v-model="form.flowchart_group"
+              :label="$t('StudyActivityForm.flowchart_group_title')"
+              data-cy="flowchart-group"
+              :items="flowchartGroups"
               :rules="[formRules.required]"
-              @input="getActivities"
-            />
-            <v-textarea
-              v-model="form.request_rationale"
-              :label="$t('ActivityFormsRequested.rationale_for_request')"
-              data-cy="activity-rationale"
+              item-title="name.sponsor_preferred_name"
+              rounded="lg"
+              variant="outlined"
+              color="nnBaseBlue"
               density="compact"
+              return-object
               clearable
-              auto-grow
-              rows="1"
-              :rules="[formRules.required]"
             />
-            <v-row>
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-col cols="3">
+              <v-textarea
+                v-model="form.request_rationale"
+                :label="$t('ActivityFormsRequested.rationale_for_request')"
+                data-cy="activity-rationale"
+                rounded="lg"
+                variant="outlined"
+                color="nnBaseBlue"
+                density="compact"
+                clearable
+                auto-grow
+                rows="1"
+                :rules="[formRules.required]"
+              />
+            </v-col>
+            <v-col cols="3">
               <v-checkbox
                 v-model="form.is_data_collected"
-                class="mt-2"
+                class="mt-n2"
+                color="nnBaseBlue"
                 :label="$t('ActivityForms.is_data_collected')"
               />
-              <v-spacer />
-              <v-switch
-                v-model="form.is_request_final"
-                :label="$t('ActivityForms.submit_request')"
-                hide-details
-                color="primary"
-              />
-            </v-row>
-          </v-col>
-          <v-col cols="7">
+            </v-col>
+          </v-row>
+          <div v-if="activities.length > 0">
+            <span class="dialog-title">{{ $t('ActivityForms.similar_activity_title') }}</span>
+            <v-alert
+              color="nnGoldenSun200"
+              icon="mdi-information-outline"
+              class="text-nnTrueBlue my-4"
+            >
+              {{ $t('ActivityForms.similar_activity_alert') }}
+            </v-alert>
             <v-data-table
+              v-model="selectedActivities"
+              item-value="item_key"
+              show-select
               :headers="activityHeaders"
               :items="activities"
               :items-length="activitiesTotal"
               :items-per-page="5"
+              return-object
               @pagination="getActivities()"
             >
-              <template #[`item.actions`]="{ item }">
-                <v-btn
-                  icon="mdi-content-copy"
-                  :color="getCopyButtonColor(item)"
+              <template #[`item.soa_group`]="{ item }">
+                <v-autocomplete
+                  v-model="item.flowchart_group"
+                  :label="$t('StudyActivityForm.flowchart_group_title')"
+                  data-cy="flowchart-group"
+                  :items="flowchartGroups"
+                  item-title="name.sponsor_preferred_name"
+                  style="min-width: 250px;"
+                  class="mt-2 mb-n4"
+                  rounded="lg"
+                  variant="outlined"
+                  color="nnBaseBlue"
+                  density="compact"
+                  return-object
+                  clearable
                   :disabled="
                     isActivitySelected(item) ||
                     isActivityNotFinal(item) ||
-                    isActivityRequested(item)
+                    isActivityRequested(item) ||
+                    multipleSelectedInExchangeMode(item)
                   "
-                  data-cy="copy-activity"
-                  :title="$t('StudyActivityForm.copy_activity')"
-                  variant="text"
-                  @click="selectActivityFromPlaceholder(item)"
                 />
               </template>
+              <template #[`header.data-table-select`] >
+                <v-btn
+                  :disabled="exchangeMode"
+                  icon="mdi-content-copy"
+                  color="nnWhite"
+                  :title="$t('StudyActivityForm.copy_all_activities')"
+                  variant="text"
+                  @click="selectAllActivities()"
+                />
+              </template>
+              <template
+                #[`item.data-table-select`]="{ internalItem, isSelected, toggleSelect }"
+              >
+                <v-checkbox-btn
+                  :model-value="isSelected(internalItem)"
+                  color="primary"
+                  :disabled="
+                    isActivitySelected(internalItem.raw) ||
+                    isActivityNotFinal(internalItem.raw) ||
+                    isActivityRequested(internalItem.raw) ||
+                    multipleSelectedInExchangeMode(internalItem.raw)
+                  "
+                  @update:model-value="toggleSelect(internalItem)"
+                ></v-checkbox-btn>
+              </template>
+              <template #[`item.is_data_collected`]="{ item }">
+                {{ $filters.yesno(item.is_data_collected) }}
+              </template>
             </v-data-table>
-          </v-col>
-        </v-row>
+          </div>
+        </div>
       </v-form>
     </template>
   </HorizontalStepperForm>
@@ -332,12 +423,28 @@ import _isEmpty from 'lodash/isEmpty'
 import _isEqual from 'lodash/isEqual'
 import libConstants from '@/constants/libraries'
 import { useStudiesGeneralStore } from '@/stores/studies-general'
+import ChoiceField from '@/components/ui/ChoiceField.vue'
 
 const eventBusEmit = inject('eventBusEmit')
 const formRules = inject('formRules')
 const { t } = useI18n()
 const emit = defineEmits(['close', 'added'])
 const studiesGeneralStore = useStudiesGeneralStore()
+
+const props = defineProps({
+  exchangeMode: {
+    type: Boolean,
+    default: false
+  },
+  exchangeActivityUid: {
+    type: String,
+    default: null
+  },
+  order: {
+    type: Number,
+    default: null
+  }
+})
 
 const creationMode = ref('selectFromLibrary')
 const activities = ref([])
@@ -364,10 +471,26 @@ const flowchartGroupForm = ref()
 const selectStudiesForm = ref()
 const createPlaceholderForm = ref()
 const selectionTable = ref()
+const selectionLibraryTable = ref()
+const selectedOnly = ref(false)
+const timeout = ref(null)
+
+const requestTypes = [
+  {
+    value: true,
+    title: t('StudyActivityForm.request_radio_title'),
+    help: t('StudyActivityForm.request_radio_text'),
+  },
+  {
+    value: false,
+    title: t('StudyActivityForm.placeholder_radio_title'),
+    help: t('StudyActivityForm.placeholder_radio_text'),
+  },
+]
 
 const activityHeaders = [
-  { title: '', key: 'actions', width: '1%' },
   { title: t('_global.library'), key: 'library_name', noFilter: true },
+  { title: t('StudyActivityForm.flowchart_group'), key: 'soa_group', noFilter: true },
   {
     title: t('StudyActivity.activity_group'),
     key: 'activity_group.name',
@@ -384,6 +507,7 @@ const activityHeaders = [
   { title: t('StudyActivity.data_collection'), key: 'is_data_collected' },
   { title: t('_global.status'), key: 'status' },
 ]
+
 const selectFromStudiesSteps = [
   { name: 'creationMode', title: t('StudyActivityForm.creation_mode_title') },
   {
@@ -394,10 +518,6 @@ const selectFromStudiesSteps = [
 const selectFromLibrarySteps = [
   { name: 'creationMode', title: t('StudyActivityForm.creation_mode_title') },
   {
-    name: 'selectFlowchartGroup',
-    title: t('StudyActivityForm.flowchart_group_title'),
-  },
-  {
     name: 'selectFromLibrary',
     title: t('StudyActivityForm.select_from_library_title'),
   },
@@ -405,49 +525,16 @@ const selectFromLibrarySteps = [
 const createPlaceholderSteps = [
   { name: 'creationMode', title: t('StudyActivityForm.creation_mode_title') },
   {
-    name: 'selectFlowchartGroup',
-    title: t('StudyActivityForm.flowchart_group_title'),
-  },
-  {
     name: 'createPlaceholder',
     title: t('StudyActivityForm.create_placeholder'),
-    belowDisplay: true,
   },
-]
-const selectionFromLibraryHeaders = [
-  { title: '', key: 'actions', width: '1%' },
-  { title: t('_global.library'), key: 'library_name' },
-  { title: t('StudyActivity.activity_group'), key: 'activity_group.name' },
-  {
-    title: t('StudyActivity.activity_sub_group'),
-    key: 'activity_subgroup.name',
-  },
-  { title: t('StudyActivity.activity'), key: 'name' },
-]
-const selectionFromStudiesHeaders = [
-  { title: '', key: 'actions', width: '1%' },
-  { title: t('_global.library'), key: 'activity.library_name' },
-  {
-    title: t('StudyActivityForm.flowchart_group'),
-    key: 'study_soa_group.soa_group_name',
-  },
-  {
-    title: t('StudyActivity.activity_group'),
-    key: 'study_activity_group.activity_group_name',
-  },
-  {
-    title: t('StudyActivity.activity_sub_group'),
-    key: 'study_activity_subgroup.activity_subgroup_name',
-  },
-  { title: t('StudyActivity.activity'), key: 'name' },
 ]
 const studyActivityHeaders = [
-  { title: '', key: 'actions', width: '1%' },
   { title: t('StudyActivityForm.study_id'), key: 'study_id', noFilter: true },
   { title: t('_global.library'), key: 'activity.library_name', noFilter: true },
   {
     title: t('StudyActivityForm.flowchart_group'),
-    key: 'study_soa_group.soa_group_name',
+    key: 'study_soa_group.soa_group_term_name',
   },
   {
     title: t('StudyActivity.activity_group'),
@@ -479,6 +566,20 @@ const filteredSubGroups = computed(() => {
   )
 })
 
+const title = computed(() => {
+  if (props.exchangeMode) {
+    return t('DetailedFlowchart.exchange_study_activity')
+  }
+  return t('StudyActivityForm.add_title')
+})
+
+const successMessage = computed(() => {
+  if (props.exchangeMode) {
+    return t('DetailedFlowchart.exchange_success')
+  }
+  return t('StudyActivityForm.add_success')
+})
+
 watch(filteredSubGroups, (value) => {
   if (value.length === 1) {
     form.value.activity_groupings[0].activity_subgroup_uid = value[0].uid
@@ -486,6 +587,7 @@ watch(filteredSubGroups, (value) => {
     form.value.activity_groupings[0].activity_subgroup_uid = null
   }
 })
+
 watch(creationMode, (value) => {
   if (value === 'selectFromStudies') {
     steps.value = selectFromStudiesSteps
@@ -494,8 +596,11 @@ watch(creationMode, (value) => {
   } else {
     steps.value = createPlaceholderSteps
   }
+  selectedOnly.value = false
   selectedActivities.value = []
+  activities.value = []
 })
+
 watch(selectedStudy, () => {
   if (selectionTable.value) {
     selectionTable.value.filterTable()
@@ -521,18 +626,11 @@ onMounted(() => {
     })
 })
 
-async function cancel() {
-  if (!_isEmpty(selectedActivities.value)) {
-    const options = {
-      type: 'warning',
-      cancelLabel: t('_global.cancel'),
-      agreeLabel: t('_global.continue'),
-    }
-    if (await confirm.value.open(t('_global.cancel_changes'), options)) {
-      close()
-    }
+function switchTableItems() {
+  if (selectedOnly.value) {
+    activities.value = selectedActivities.value
   } else {
-    close()
+    creationMode.value === 'selectFromLibrary' ?  selectionLibraryTable.value.filterTable() : selectionTable.value.filterTable()
   }
 }
 
@@ -560,14 +658,13 @@ function getObserver(step) {
   }
 }
 
-function selectActivityFromPlaceholder(activity) {
-  creationMode.value = 'selectFromLibrary'
-  if (!currentFlowchartGroup.value) {
-    return
+function placeholderSearch(filters) {
+  if (filters.target._value.length >= 3) {
+    if (timeout.value) clearTimeout(timeout.value)
+    timeout.value = setTimeout(() => {
+      getActivities(filters)
+    }, 500)
   }
-  const activityCopy = { ...activity }
-  activityCopy.flowchart_group = { ...currentFlowchartGroup.value }
-  selectedActivities.value.push(activityCopy)
 }
 
 function getActivities(filters, options) {
@@ -576,7 +673,7 @@ function getActivities(filters, options) {
       page_number: options && options.page ? options.page : 1,
       page_size: options && options.itemsPerPage ? options.itemsPerPage : 50,
       total_count: true,
-      library: libConstants.LIBRARY_SPONSOR,
+      library_name: libConstants.LIBRARY_SPONSOR,
       filters: `{"*":{"v":["${form.value.name}"]}}`,
     }
     activitiesApi.get(params, 'activities').then((resp) => {
@@ -685,6 +782,11 @@ function getActivities(filters, options) {
         }
       }
       activities.value = result
+      if (selectedActivities.value.length > 0) {
+        for (const sa of selectedActivities.value) {
+          activities.value[activities.value.indexOf(activities.value.find(ac => ac.item_key === sa.item_key))] = sa
+        }
+      }
       activitiesTotal.value = resp.data.total
     })
     return
@@ -696,8 +798,26 @@ function getActivities(filters, options) {
   const params = {
     page_number: options ? options.page : 1,
     page_size: options ? options.itemsPerPage : 15,
-    library: libConstants.LIBRARY_SPONSOR,
+    library_name: libConstants.LIBRARY_SPONSOR,
     total_count: true,
+  }
+  if (options && options.sortBy && options.sortBy.length) {
+    const ascending = options.sortBy[0].order === 'asc'
+    params.sort_by = `{"${options.sortBy[0].key}":${ascending}}`
+  }
+  if (options.sortBy[0] && options.sortBy[0].key === 'activity_group.name') {
+    params.sort_by = JSON.stringify({
+      'activity_groupings[0].activity_group_name':
+        options.sortBy[0].order === 'desc' ? false : true,
+    })
+  } else if (
+    options.sortBy[0] &&
+    options.sortBy[0].key === 'activity_subgroup.name'
+  ) {
+    params.sort_by = JSON.stringify({
+      'activity_groupings[0].activity_subgroup_name':
+        options.sortBy[0].order === 'desc' ? false : true,
+    })
   }
   if (savedFilters.value && savedFilters.value !== undefined) {
     const filtersObj = JSON.parse(savedFilters.value)
@@ -764,6 +884,11 @@ function getActivities(filters, options) {
       }
     }
     activities.value = items
+    if (selectedActivities.value.length > 0) {
+      for (const sa of selectedActivities.value) {
+        activities.value[activities.value.indexOf(activities.value.find(ac => ac.item_key === sa.item_key))] = sa
+      }
+    }
     activitiesTotal.value = resp.data.total
   })
 }
@@ -809,28 +934,14 @@ function modifyFilters(jsonFilter, params, externalFilterSource) {
   return filters
 }
 
-function selectActivity(activity) {
-  if (!currentFlowchartGroup.value) {
-    return
-  }
-  const activityCopy = { ...activity }
-  activityCopy.flowchart_group = { ...currentFlowchartGroup.value }
-  selectedActivities.value.push(activityCopy)
-}
-
 function selectAllActivities() {
-  if (!currentFlowchartGroup.value) {
-    return
-  }
   for (const activity of activities.value) {
     if (
       !isActivitySelected(activity) &&
       !isActivityNotFinal(activity) &&
       !isActivityRequested(activity)
     ) {
-      const activityCopy = { ...activity }
-      activityCopy.flowchart_group = { ...currentFlowchartGroup.value }
-      selectedActivities.value.push(activityCopy)
+      selectedActivities.value.push(activity)
     }
   }
 }
@@ -854,9 +965,14 @@ function isGroupingValid(studyActivity) {
   return found
 }
 
-function selectStudyActivity(studyActivity) {
-  const copy = { ...studyActivity }
-  selectedActivities.value.push(copy)
+function multipleSelectedInExchangeMode(item) {
+  if (selectedActivities.value.length > 0 && props.exchangeMode) {
+    if(item && selectedActivities.value[0].uid === item.uid) {
+      return false
+    }
+    return true
+  }
+  return false
 }
 
 async function selectAllStudyActivities() {
@@ -872,61 +988,10 @@ async function selectAllStudyActivities() {
   }
 }
 
-function unselectActivity(activity) {
-  if (creationMode.value === 'selectFromLibrary') {
-    selectedActivities.value = selectedActivities.value.filter(
-      (item) =>
-        !(
-          item.uid === activity.uid &&
-          item.activity_group.uid === activity.activity_group.uid &&
-          item.activity_subgroup.uid === activity.activity_subgroup.uid
-        )
-    )
-  } else {
-    selectedActivities.value = selectedActivities.value.filter(
-      (item) =>
-        !(
-          item.activity.uid === activity.activity.uid &&
-          item.study_activity_group.activity_group_uid ===
-            activity.study_activity_group.activity_group_uid &&
-          item.study_activity_subgroup.activity_subgroup_uid ===
-            activity.study_activity_subgroup.activity_subgroup_uid
-        )
-    )
-  }
-}
-
-function getCopyButtonColor(activity) {
-  let selected = false
-  if (creationMode.value === 'selectFromLibrary') {
-    selected = selectedActivities.value.find(
-      (item) =>
-        item.uid === activity.uid &&
-        item.activity_group.uid === activity.activity_group.uid &&
-        item.activity_subgroup.uid === activity.activity_subgroup.uid
-    )
-  } else {
-    selected = selectedActivities.value.find(
-      (item) =>
-        item.study_activity_uid === activity.study_activity_uid &&
-        item.study_activity_group.activity_group_uid ===
-          activity.study_activity_group.activity_group_uid &&
-        item.study_activity_subgroup.activity_subgroup_uid ===
-          activity.study_activity_subgroup.activity_subgroup_uid
-    )
-  }
-  return !selected ? 'primary' : ''
-}
-
 function isActivitySelected(activity) {
   if (studyActivities.value) {
-    let selected = selectedActivities.value.find(
-      (item) =>
-        item.uid === activity.uid &&
-        item.activity_group.uid === activity.activity_group.uid &&
-        item.activity_subgroup.uid === activity.activity_subgroup.uid
-    )
-    if (!selected && studyActivities.value.length) {
+    let selected
+    if (studyActivities.value.length) {
       selected = studyActivities.value.find(
         (item) =>
           item.activity.uid === activity.uid &&
@@ -936,7 +1001,7 @@ function isActivitySelected(activity) {
             activity.activity_subgroup.uid
       )
     }
-    return !currentFlowchartGroup.value || selected !== undefined
+    return selected !== undefined
   }
   return false
 }
@@ -954,9 +1019,7 @@ function isStudyActivityRequested(activity) {
 }
 
 function isStudyActivitySelected(studyActivity) {
-  let selected = selectedActivities.value.find(
-    (item) => item.activity.uid === studyActivity.activity.uid
-  )
+  let selected
   if (!selected && studyActivities.value.length) {
     selected = studyActivities.value.find(
       (item) => item.activity.uid === studyActivity.activity.uid
@@ -968,7 +1031,8 @@ function isStudyActivitySelected(studyActivity) {
 async function submit() {
   if (
     creationMode.value !== 'selectFromLibrary' &&
-    creationMode.value !== 'selectFromStudies'
+    creationMode.value !== 'selectFromStudies' &&
+    selectedActivities.value.length === 0
   ) {
     form.value.library_name = libConstants.LIBRARY_REQUESTED
     form.value.name_sentence_case = form.value.name.toLowerCase()
@@ -1000,16 +1064,31 @@ async function submit() {
             resp.data.activity_groupings[0].activity_group_uid +
             resp.data.activity_groupings[0].activity_subgroup_uid
         }
-        selectActivity(activity)
+        activity.flowchart_group = { ...form.value.flowchart_group }
+        selectedActivities.value.push(activity)
       })
   }
-  if (!selectedActivities.value.length) {
+  if (!selectedActivities.value.length && creationMode.value !== 'createPlaceholder') {
     eventBusEmit('notification', {
       type: 'info',
       msg: t('StudyActivityForm.select_activities_info'),
     })
     resetLoading.value += 1
     return
+  }
+
+  // Check if every activity has SoA group selected
+  if (['createPlaceholder', 'selectFromLibrary'].indexOf(creationMode.value) !== -1) {
+    for(const activity of selectedActivities.value) {
+      if (!activity.flowchart_group) {
+        eventBusEmit('notification', {
+          type: 'info',
+          msg: t('StudyActivityForm.soa_group_required_info'),
+        })
+        resetLoading.value += 1
+        return
+      }
+    }
   }
   try {
     for (const item of selectedActivities.value) {
@@ -1021,6 +1100,7 @@ async function submit() {
         payload = {
           soa_group_term_uid: item.flowchart_group.term_uid,
           activity_uid: item.uid,
+          order: props.order,
         }
         if (form.value.activity_groupings) {
           payload.activity_group_uid = item.activity_group.uid
@@ -1033,12 +1113,22 @@ async function submit() {
           activity_group_uid: item.study_activity_group.activity_group_uid,
           activity_subgroup_uid:
             item.study_activity_subgroup.activity_subgroup_uid,
+          order: props.order,
         }
       }
-      await study.createStudyActivity(
-        studiesGeneralStore.selectedStudy.uid,
-        payload
-      )
+      if (!props.exchangeMode) {
+        await study.createStudyActivity(
+          studiesGeneralStore.selectedStudy.uid,
+          payload
+        )
+      } else {
+        payload.show_activity_in_protocol_flowchart = true
+        await study.exchangeStudyActivity(
+          studiesGeneralStore.selectedStudy.uid,
+          props.exchangeActivityUid,
+          payload
+        )
+      }
     }
   } catch (error) {
     stepper.value.loading = false
@@ -1046,7 +1136,7 @@ async function submit() {
   }
   eventBusEmit('notification', {
     type: 'success',
-    msg: t('StudyActivityForm.add_success'),
+    msg: successMessage,
   })
   emit('added')
   close()
@@ -1075,5 +1165,30 @@ function getGroups() {
 
 .step-title {
   color: rgb(var(--v-theme-secondary)) !important;
+}
+.choice {
+  border: 1px solid #dbdddf;
+  cursor: pointer;
+  height: 120px;
+  padding: 14px 16px;
+
+  &--selected {
+    background-color: rgb(var(--v-theme-nnSeaBlue100));
+  }
+
+  &--disabled {
+    cursor: unset;
+    opacity: 0.5;
+  }
+
+  .title {
+    font-size: 14px;
+  }
+  .text {
+    font-size: 14px;
+  }
+}
+.label--disabled {
+  opacity: 0.5;
 }
 </style>

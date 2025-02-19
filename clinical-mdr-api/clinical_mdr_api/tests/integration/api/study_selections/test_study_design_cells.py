@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from neomodel import db
 
 from clinical_mdr_api import main
-from clinical_mdr_api.models import CTTerm
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudyDesignCell,
@@ -25,7 +25,6 @@ from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionBranchArm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -43,6 +42,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -145,8 +145,6 @@ def test_data():
     )
     yield
 
-    drop_db(db_name)
-
 
 def test_design_cell_modify_actions_on_locked_study(api_client):
     global study_element_uid
@@ -160,7 +158,7 @@ def test_design_cell_modify_actions_on_locked_study(api_client):
     )
     res = response.json()
     study_element_uid = res["element_uid"]
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-design-cells",
@@ -171,14 +169,14 @@ def test_design_cell_modify_actions_on_locked_study(api_client):
             "transition_rule": "Transition_Rule_1",
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all design-cell
     response = api_client.get(
         f"/studies/{study.uid}/study-design-cells/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     design_cell_uid = res[0]["study_design_cell_uid"]
 
@@ -187,14 +185,14 @@ def test_design_cell_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-design-cells",
@@ -205,9 +203,9 @@ def test_design_cell_modify_actions_on_locked_study(api_client):
             "transition_rule": "Transition_Rule_1",
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # edit epoch
     response = api_client.post(
@@ -225,27 +223,24 @@ def test_design_cell_modify_actions_on_locked_study(api_client):
             }
         ],
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-design-cells/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-design-cells/{design_cell_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_design_cell_with_study_epoch_relationship(api_client):
@@ -278,7 +273,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
 
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # preparing all objects before locking
     api_client.post(
@@ -296,7 +291,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
         f"/studies/{study.uid}/study-design-cells",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock = res
 
     # get all
@@ -323,10 +318,10 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     # Unlock -- Study remain unlocked
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit arm
     response = api_client.patch(
@@ -335,7 +330,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
             "name": "New_Arm_Name_1",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit arm
     response = api_client.patch(
@@ -344,7 +339,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
             "name": "New_Arm_Name_2",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit branch arm
     response = api_client.patch(
@@ -353,7 +348,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
             "name": "New_Branch_Arm_Name_1",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit element
     response = api_client.patch(
@@ -362,7 +357,7 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
             "name": "New_Element_Name_1",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit epoch
     response = api_client.patch(
@@ -373,20 +368,20 @@ def test_study_design_cell_with_study_epoch_relationship(api_client):
             "change_description": "this is a changing test",
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # delete design cell
     response = api_client.delete(
         f"/studies/{study.uid}/study-design-cells/{before_unlock[0]['design_cell_uid']}"
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # get all study design cells of a specific study version
     response = api_client.get(
         f"/studies/{study.uid}/study-design-cells?study_value_version=2",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     for i, _ in enumerate(before_unlock):
         before_unlock[i]["study_version"] = mock.ANY
     assert res == before_unlock

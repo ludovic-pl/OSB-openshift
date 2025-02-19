@@ -1,18 +1,20 @@
+import datetime
 import json
 import re
 from copy import copy
-from datetime import datetime
 from typing import Any, Callable, Generic, Iterable, Self, Type, TypeVar
 
 from pydantic import BaseModel as PydanticBaseModel
-from pydantic import conint
+from pydantic import conint, root_validator
+from pydantic.fields import Undefined
 from pydantic.generics import GenericModel
 from starlette.responses import Response
 
-from clinical_mdr_api.config import STUDY_TIME_UNIT_SUBSET
 from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
     UnitDefinitionAR,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.config import STUDY_TIME_UNIT_SUBSET
 
 EXCLUDE_PROPERTY_ATTRIBUTES_FROM_SCHEMA = {
     "remove_from_wildcard",
@@ -52,7 +54,7 @@ def from_duration_object_to_value_and_unit(
 
 
 def get_latest_on_datetime_str():
-    return f"LATEST on {datetime.utcnow().isoformat()}"
+    return f"LATEST on {datetime.datetime.now(datetime.UTC).isoformat()}"
 
 
 class BaseModel(PydanticBaseModel):
@@ -84,6 +86,15 @@ class BaseModel(PydanticBaseModel):
                 )
             return node_to_extract._relations[path]
 
+        def _get_value_from_source_field(model_field, db_node, db_field):
+            value = getattr(db_node, db_field)
+
+            # In case of author_username model field, we need to lookup the User node using the `source` field value as `User.user_id`
+            if model_field == "author_username":
+                value = UserInfoService.get_author_username_from_id(value)
+
+            return value
+
         ret = []
         for name, field in cls.__fields__.items():
             source = field.field_info.extra.get("source")
@@ -110,7 +121,7 @@ class BaseModel(PydanticBaseModel):
                             setattr(obj, name, None)
                 # Quick fix to provide default None value to fields that allow it
                 # Not the best place to do this...
-                elif field.field_info.default is Ellipsis and not hasattr(obj, name):
+                elif field.field_info.default == Undefined and not hasattr(obj, name):
                     setattr(obj, name, None)
                 continue
             if "." in source or "|" in source:
@@ -151,9 +162,12 @@ class BaseModel(PydanticBaseModel):
                 # if node is a list we want to
                 # extract property from each element of list and return list of property values
                 if isinstance(node, list):
-                    value = [getattr(n, source) for n in node]
+                    value = [
+                        _get_value_from_source_field(name, n, source) for n in node
+                    ]
                 else:
-                    value = getattr(node, source)
+                    value = _get_value_from_source_field(name, node, source)
+
             else:
                 value = None
             # if obtained value is a list and field type is not List
@@ -197,41 +211,27 @@ class BaseModel(PydanticBaseModel):
                     prop.pop(attr, None)
 
 
-def snake_to_camel(name):
-    name = "".join(word.title() for word in name.split("_"))
-    name = f"{name[0].lower()}{name[1:]}"
-    return name
+class InputModel(BaseModel):
+    @root_validator(pre=True)
+    # pylint: disable=no-self-argument
+    def strip_whitespace(cls, values: dict):
+        for key, value in values.items():
+            if isinstance(value, str):
+                values[key] = value.strip()
+            elif isinstance(value, list):
+                values[key] = [
+                    elm.strip() if isinstance(elm, str) else elm for elm in value
+                ]
+        return values
 
 
-def camel_to_snake(name):
-    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+class PostInputModel(InputModel): ...
 
 
-def snake_case_data(datadict, privates=False):
-    return_value = {}
-    for key, value in datadict.items():
-        if privates:
-            new_key = f"_{camel_to_snake(key)}"
-        else:
-            new_key = camel_to_snake(key)
-        return_value[new_key] = value
-    return return_value
+class PatchInputModel(InputModel): ...
 
 
-def camel_case_data(datadict):
-    return_value = {}
-    for key, value in datadict.items():
-        return_value[snake_to_camel(key)] = value
-    return return_value
-
-
-def is_attribute_in_model(attribute: str, model: BaseModel) -> bool:
-    """
-    Checks if given string is an attribute defined in a model (in the Pydantic sense).
-    This works for the model's own attributes and inherited attributes.
-    """
-    return attribute in model.__fields__.keys()
+class BatchInputModel(InputModel): ...
 
 
 T = TypeVar("T")

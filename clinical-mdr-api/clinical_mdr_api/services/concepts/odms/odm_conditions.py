@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.condition_repository import (
     ConditionRepository,
 )
@@ -8,7 +7,6 @@ from clinical_mdr_api.domains.concepts.odms.condition import (
     OdmConditionAR,
     OdmConditionVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.odms.odm_condition import (
     OdmCondition,
     OdmConditionPatchInput,
@@ -31,6 +29,7 @@ from clinical_mdr_api.services.concepts.odms.odm_formal_expressions import (
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from common.exceptions import NotFoundException
 
 
 class OdmConditionService(OdmGenericService[OdmConditionAR]):
@@ -52,7 +51,7 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
         self, concept_input: OdmConditionPostInput, library
     ) -> OdmConditionAR:
         return OdmConditionAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmConditionVO.from_repository_values(
                 oid=concept_input.oid,
                 name=concept_input.name,
@@ -65,6 +64,7 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
             odm_object_exists_callback=self._repos.odm_condition_repository.odm_object_exists,
             find_odm_formal_expression_callback=self._repos.odm_formal_expression_repository.find_by_uid_2,
             find_odm_description_callback=self._repos.odm_description_repository.find_by_uid_2,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
 
@@ -72,7 +72,7 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
         self, item: OdmConditionAR, concept_edit_input: OdmConditionPatchInput
     ) -> OdmConditionAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmConditionVO.from_repository_values(
                 oid=concept_edit_input.oid,
@@ -84,6 +84,7 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
             odm_object_exists_callback=self._repos.odm_condition_repository.odm_object_exists,
             find_odm_formal_expression_callback=self._repos.odm_formal_expression_repository.find_by_uid_2,
             find_odm_description_callback=self._repos.odm_description_repository.find_by_uid_2,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
         return item
@@ -93,20 +94,24 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
         self, concept_input: OdmConditionPostInput
     ) -> OdmCondition:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else OdmDescriptionService()
+                .non_transactional_create(concept_input=description)
+                .uid
+            )
             for description in concept_input.descriptions
         ]
 
         formal_expression_uids = [
-            formal_expression
-            if isinstance(formal_expression, str)
-            else OdmFormalExpressionService()
-            .non_transactional_create(concept_input=formal_expression)
-            .uid
+            (
+                formal_expression
+                if isinstance(formal_expression, str)
+                else OdmFormalExpressionService()
+                .non_transactional_create(concept_input=formal_expression)
+                .uid
+            )
             for formal_expression in concept_input.formal_expressions
         ]
 
@@ -130,30 +135,40 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
         self, uid: str, concept_edit_input: OdmConditionPatchInput
     ) -> OdmCondition:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_edit(uid=description.uid, concept_edit_input=description)
-            .uid
-            if isinstance(description, OdmDescriptionBatchPatchInput)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else (
+                    OdmDescriptionService()
+                    .non_transactional_edit(
+                        uid=description.uid, concept_edit_input=description
+                    )
+                    .uid
+                    if isinstance(description, OdmDescriptionBatchPatchInput)
+                    else OdmDescriptionService()
+                    .non_transactional_create(concept_input=description)
+                    .uid
+                )
+            )
             for description in concept_edit_input.descriptions
         ]
 
         formal_expression_uids = [
-            formal_expression
-            if isinstance(formal_expression, str)
-            else OdmFormalExpressionService()
-            .non_transactional_edit(
-                uid=formal_expression.uid, concept_edit_input=formal_expression
+            (
+                formal_expression
+                if isinstance(formal_expression, str)
+                else (
+                    OdmFormalExpressionService()
+                    .non_transactional_edit(
+                        uid=formal_expression.uid, concept_edit_input=formal_expression
+                    )
+                    .uid
+                    if isinstance(formal_expression, OdmFormalExpressionBatchPatchInput)
+                    else OdmFormalExpressionService()
+                    .non_transactional_create(concept_input=formal_expression)
+                    .uid
+                )
             )
-            .uid
-            if isinstance(formal_expression, OdmFormalExpressionBatchPatchInput)
-            else OdmFormalExpressionService()
-            .non_transactional_create(concept_input=formal_expression)
-            .uid
             for formal_expression in concept_edit_input.formal_expressions
         ]
 
@@ -174,30 +189,30 @@ class OdmConditionService(OdmGenericService[OdmConditionAR]):
         )
 
     @db.transaction
-    def soft_delete(self, uid: str):
+    def soft_delete(self, uid: str, cascade_delete: bool = False):
         """
         Works exactly as the parent soft_delete method.
         However, after deleting the ODM Condition, it also sets all collection_exception_condition_oid that use this ODM Condition to null.
 
         This method is temporary and should be removed when the database relationship between ODM Condition and its reference nodes is ready.
         """
-        try:
-            condition = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            condition.soft_delete()
-            self.repository.save(condition)
+        condition = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        condition.soft_delete()
+        self.repository.save(condition)
 
-            self._repos.odm_condition_repository.set_all_collection_exception_condition_oid_properties_to_null(
-                condition.concept_vo.oid
-            )
+        if cascade_delete:
+            self.cascade_delete(condition)
 
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        self._repos.odm_condition_repository.set_all_collection_exception_condition_oid_properties_to_null(
+            condition.concept_vo.oid
+        )
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_condition_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Condition identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_condition_repository.exists_by("uid", uid, True),
+            "ODM Condition",
+            uid,
+        )
 
         return self._repos.odm_condition_repository.get_active_relationships(uid, [])

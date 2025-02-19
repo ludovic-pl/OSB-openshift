@@ -18,19 +18,31 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_attributes im
 from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_name import (
     CTCodelistNameAR,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.controlled_terminologies.ct_stats import CodelistCount
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
+    validate_filters_and_add_search_string,
 )
+from common.exceptions import ValidationException
 
 
 class CTCodelistAggregatedRepository:
     generic_final_alias_clause = """
+        CALL {
+            WITH rel_data_attributes
+            OPTIONAL MATCH (attributes_author: User)
+            WHERE attributes_author.user_id = rel_data_attributes.author_id
+            RETURN attributes_author
+        }
+        CALL {
+            WITH rel_data_name
+            OPTIONAL MATCH (name_author: User)
+            WHERE name_author.user_id = rel_data_name.author_id
+            RETURN name_author
+        }
         WITH 
             codelist_root.uid AS codelist_uid,
             head([(codelist_root)-[:HAS_PARENT_CODELIST]->(ccr:CTCodelistRoot) | ccr.uid]) AS parent_codelist_uid,
@@ -47,7 +59,8 @@ class CTCodelistAggregatedRepository:
                 status: rel_data_attributes.status,
                 version: rel_data_attributes.version,
                 change_description: rel_data_attributes.change_description,
-                user_initials: rel_data_attributes.user_initials
+                author_id: rel_data_attributes.author_id,
+                author_username: coalesce(attributes_author.username, rel_data_attributes.author_id)
             } AS rel_data_attributes,
             {
                 start_date: rel_data_name.start_date,
@@ -55,7 +68,8 @@ class CTCodelistAggregatedRepository:
                 status: rel_data_name.status,
                 version: rel_data_name.version,
                 change_description: rel_data_name.change_description,
-                user_initials: rel_data_name.user_initials
+                author_id: rel_data_name.author_id,
+                author_username: coalesce(name_author.username, rel_data_name.author_id)
             } AS rel_data_name
     """
     generic_alias_clause = f"""
@@ -67,7 +81,7 @@ class CTCodelistAggregatedRepository:
         CALL {{
                 WITH codelist_attributes_root, codelist_attributes_value
                 MATCH (codelist_attributes_root)-[hv:HAS_VERSION]->(codelist_attributes_value)
-                WITH hv 
+                WITH hv
                 ORDER BY
                     toInteger(split(hv.version, '.')[0]) ASC,
                     toInteger(split(hv.version, '.')[1]) ASC,
@@ -223,10 +237,10 @@ class CTCodelistAggregatedRepository:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
@@ -236,7 +250,7 @@ class CTCodelistAggregatedRepository:
         :param search_string:
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
         # Build match_clause
@@ -260,13 +274,9 @@ class CTCodelistAggregatedRepository:
         )
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -280,7 +290,7 @@ class CTCodelistAggregatedRepository:
 
         query.full_query = query.build_header_query(
             header_alias=format_codelist_filter_sort_keys(field_name),
-            result_count=result_count,
+            page_size=page_size,
         )
 
         query.parameters.update(filter_query_parameters)
@@ -302,15 +312,15 @@ class CTCodelistAggregatedRepository:
         match_clause = ""
 
         if is_sponsor:
-            if not package:
-                raise ValidationException(
-                    "Package must be provided when fetching sponsor codelists."
-                )
+            ValidationException.raise_if_not(
+                package,
+                msg="Package must be provided when fetching sponsor codelists.",
+            )
             if term_filter:
-                if "term_uids" not in term_filter:
-                    raise ValidationException(
-                        "term_uids must be provided for term filtering."
-                    )
+                ValidationException.raise_if(
+                    "term_uids" not in term_filter,
+                    msg="term_uids must be provided for term filtering.",
+                )
 
                 operation_function = "all"
                 if "operator" in term_filter and term_filter["operator"] != "and":
@@ -344,7 +354,8 @@ class CTCodelistAggregatedRepository:
                     match_clause += f"""
                         MATCH (parent_package:CTPackage)-[:CONTAINS_CODELIST]->(:CTPackageCodelist)-[:CONTAINS_ATTRIBUTES]->
                             (codelist_attributes_value:CTCodelistAttributesValue)<-[attr_v_rel:HAS_VERSION]-(codelist_attributes_root:CTCodelistAttributesRoot)<-[:HAS_ATTRIBUTES_ROOT]-
-                            (codelist_root{":CTCodelistRoot" if not term_filter else ""})-[:HAS_NAME_ROOT]->(codelist_name_root:CTCodelistNameRoot)-[name_v_rel:HAS_VERSION]->(codelist_name_value:CTCodelistNameValue)
+                            (codelist_root{":CTCodelistRoot" if not term_filter else ""})
+                            -[:HAS_NAME_ROOT]->(codelist_name_root:CTCodelistNameRoot)-[name_v_rel:HAS_VERSION]->(codelist_name_value:CTCodelistNameValue)
                         WHERE name_v_rel.start_date<= exact_datetime < name_v_rel.end_date OR (name_v_rel.end_date IS NULL AND name_v_rel.start_date <= exact_datetime)
                         MATCH (library:Library)-->(codelist_root)
                         WITH DISTINCT codelist_root, codelist_name_root, codelist_name_value, codelist_attributes_root, codelist_attributes_value, attr_v_rel, name_v_rel
@@ -356,7 +367,8 @@ class CTCodelistAggregatedRepository:
                     WITH package, parent_package, exact_datetime
                     MATCH (parent_package:CTPackage)-[:CONTAINS_CODELIST]->(:CTPackageCodelist)-[:CONTAINS_ATTRIBUTES]->
                         (codelist_attributes_value:CTCodelistAttributesValue)<-[attr_v_rel:HAS_VERSION]-(codelist_attributes_root:CTCodelistAttributesRoot)<-[:HAS_ATTRIBUTES_ROOT]-
-                        (codelist_root{":CTCodelistRoot" if not term_filter else ""})-[:HAS_NAME_ROOT]->(codelist_name_root:CTCodelistNameRoot)-[name_v_rel:HAS_VERSION]->(codelist_name_value:CTCodelistNameValue)
+                        (codelist_root{":CTCodelistRoot" if not term_filter else ""})
+                        -[:HAS_NAME_ROOT]->(codelist_name_root:CTCodelistNameRoot)-[name_v_rel:HAS_VERSION]->(codelist_name_value:CTCodelistNameValue)
                     WHERE name_v_rel.start_date<= exact_datetime < name_v_rel.end_date OR (name_v_rel.end_date IS NULL AND name_v_rel.start_date <= exact_datetime)
                     RETURN DISTINCT codelist_root, codelist_name_root, codelist_name_value, codelist_attributes_root, codelist_attributes_value, attr_v_rel, name_v_rel
 
@@ -372,10 +384,10 @@ class CTCodelistAggregatedRepository:
             """
         else:
             if term_filter:
-                if "term_uids" not in term_filter:
-                    raise ValidationException(
-                        "term_uids must be provided for term filtering."
-                    )
+                ValidationException.raise_if(
+                    "term_uids" not in term_filter,
+                    msg="term_uids must be provided for term filtering.",
+                )
 
                 operation_function = "all"
                 if "operator" in term_filter and term_filter["operator"] != "and":

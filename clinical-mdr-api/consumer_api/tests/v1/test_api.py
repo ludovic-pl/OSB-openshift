@@ -12,9 +12,9 @@ from clinical_mdr_api.tests.integration.utils.factory_visit import (
 )
 from clinical_mdr_api.tests.integration.utils.method_library import create_study_epoch
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common import config
 from consumer_api.consumer_api import app
-from consumer_api.shared import config
-from consumer_api.tests.utils import set_db
+from consumer_api.tests.utils import assert_response_status_code, set_db
 from consumer_api.v1 import models
 
 BASE_URL = "/v1"
@@ -74,21 +74,52 @@ STUDY_VISIT_FIELDS_NOT_ALL = [
     "study_epoch_name",
 ]
 
+
+STUDY_ACTIVITIES_FIELDS_ALL = [
+    "study_uid",
+    "study_version_number",
+    "uid",
+    "study_activity_subgroup",
+    "study_activity_group",
+    "soa_group",
+    "activity_uid",
+    "activity_name",
+    "is_data_collected",
+]
+
+STUDY_ACTIVITIES_FIELDS_NOT_ALL = []
+
+
+STUDY_DETAILED_SOA_FIELDS_ALL = [
+    "study_uid",
+    "study_version_number",
+    "visit_name",
+    "epoch_name",
+    "activity_name",
+    "activity_subgroup_name",
+    "activity_group_name",
+    "soa_group_name",
+    "is_data_collected",
+]
+
+STUDY_DETAILED_SOA_FIELDS_NOT_ALL = []
+
+
 STUDY_OPERATIONAL_SOA_FIELDS_ALL = [
     "study_uid",
     "study_id",
     "study_version_number",
-    "activity",
+    "activity_name",
     "activity_uid",
-    "activity_group",
+    "activity_group_name",
     "activity_group_uid",
-    "activity_subgroup",
+    "activity_subgroup_name",
     "activity_subgroup_uid",
-    "activity_instance",
+    "activity_instance_name",
     "activity_instance_uid",
-    "epoch",
+    "epoch_name",
     "param_code",
-    "soa_group",
+    "soa_group_name",
     "topic_code",
     "visit_short_name",
     "visit_uid",
@@ -102,7 +133,11 @@ studies: list[models.Study]
 total_studies: int = 25
 study_visits: list[models.StudyVisit]
 total_study_visits: int = 25
-study_operational_soas: list  # [StudyActivitySchedule]
+study_activities: list
+total_study_activities: int = 25
+study_detailed_soas: list
+total_study_detailed_soa: int = 25
+study_operational_soas: list
 total_study_operational_soa: int = 25
 
 
@@ -123,6 +158,8 @@ def test_data(api_client):
     global rand
     global studies
     global study_visits
+    global study_activities
+    global study_detailed_soas
     global study_operational_soas
 
     studies = [study]
@@ -163,7 +200,7 @@ def test_data(api_client):
         "Activity Sub Group", activity_groups=[activity_group_uid]
     ).uid
     study_activities = []
-    for idx in range(0, total_study_operational_soa):
+    for idx in range(0, total_study_activities):
         activity = TestUtils.create_activity(
             f"Activity {str(idx + 1).zfill(2)}",
             activity_groups=[activity_group_uid],
@@ -186,14 +223,19 @@ def test_data(api_client):
             study_activity_uid=study_activities[idx].study_activity_uid,
         )
 
-    study_operational_soas = StudyFlowchartService.download_operational_soa_content(
+    study_flowchart_service = StudyFlowchartService()
+    study_detailed_soas = study_flowchart_service.download_detailed_soa_content(
+        studies[0].uid
+    )
+
+    study_operational_soas = study_flowchart_service.download_operational_soa_content(
         studies[0].uid
     )
 
 
 def test_get_studies(api_client):
     response = api_client.get(f"{BASE_URL}/studies")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res.keys() == {"self", "prev", "next", "items"}
@@ -216,7 +258,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Default page size
     response = api_client.get(f"{BASE_URL}/studies")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == page_size_default
@@ -224,7 +266,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Non-default page size
     response = api_client.get(f"{BASE_URL}/studies?page_size=2")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 2
@@ -232,7 +274,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Non-default page size
     response = api_client.get(f"{BASE_URL}/studies?page_size=100")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == total_studies
@@ -240,7 +282,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Non-default page number and page size
     response = api_client.get(f"{BASE_URL}/studies?page_size=3&page_number=2")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 3
@@ -248,7 +290,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Non-default sort_by
     response = api_client.get(f"{BASE_URL}/studies?page_size=10&sort_by=id_prefix")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) == 10
@@ -256,7 +298,7 @@ def test_get_studies_pagination_sorting(api_client):
 
     # Non-default sort_by and sort_order
     response = api_client.get(f"{BASE_URL}/studies?sort_order=desc&sort_by=id_prefix")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == page_size_default
@@ -291,7 +333,7 @@ def test_get_studies_filtering(api_client):
     # Filter by existing id (full match)
     filter_by_id = study_x["id"]
     response = api_client.get(f"{BASE_URL}/studies?id={filter_by_id}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) == 1
@@ -302,7 +344,7 @@ def test_get_studies_filtering(api_client):
     # Filter by existing id (partial match)
     filter_by_id = study_x["id"][:3]
     response = api_client.get(f"{BASE_URL}/studies?id={filter_by_id}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) >= 1
@@ -314,7 +356,7 @@ def test_get_studies_filtering(api_client):
     # Filter by non-existing id
     filter_by_id = "non-existing-id"
     response = api_client.get(f"{BASE_URL}/studies?id={filter_by_id}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) == 0
@@ -324,7 +366,7 @@ def test_get_studies_filtering(api_client):
 
 def test_get_studies_invalid_pagination_params(api_client):
     response = api_client.get(f"{BASE_URL}/studies?page_size=0")
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert (
         response.json()["detail"][0]["msg"]
         == "ensure this value is greater than or equal to 1"
@@ -333,7 +375,7 @@ def test_get_studies_invalid_pagination_params(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies?page_size={config.MAX_PAGE_SIZE + 1}"
     )
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert (
         response.json()["detail"][0]["msg"]
         == "ensure this value is less than or equal to 1000"
@@ -342,16 +384,16 @@ def test_get_studies_invalid_pagination_params(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies?page_number={config.MAX_INT_NEO4J + 1}&page_size=1"
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert (
         response.json()["message"]
-        == "(page_number * page_size) value cannot be bigger than 9223372036854775807"
+        == f"(page_number * page_size) value cannot be bigger than {config.MAX_INT_NEO4J}"
     )
 
 
 def test_get_study_visits(api_client):
     response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/study-visits")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res.keys() == {"self", "prev", "next", "items"}
@@ -361,7 +403,6 @@ def test_get_study_visits(api_client):
             item, STUDY_VISIT_FIELDS_ALL, STUDY_VISIT_FIELDS_NOT_ALL
         )
 
-    print("res['item']", study_visits)
     # Default page size is 100
     for idx, study_visit in enumerate(study_visits):
         if idx < 100:
@@ -373,7 +414,7 @@ def test_get_study_visits(api_client):
 def test_get_study_visits_pagination_sorting(api_client):
     # Default page size
     response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/study-visits")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 25
@@ -383,7 +424,7 @@ def test_get_study_visits_pagination_sorting(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/study-visits?page_size=2"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 2
@@ -393,7 +434,7 @@ def test_get_study_visits_pagination_sorting(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/study-visits?page_size=3&page_number=2"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 3
@@ -403,7 +444,7 @@ def test_get_study_visits_pagination_sorting(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/study-visits?page_size=10&sort_by=visit_name"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) == 10
@@ -413,7 +454,7 @@ def test_get_study_visits_pagination_sorting(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/study-visits?sort_order=desc&sort_by=visit_name"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 25
@@ -442,9 +483,196 @@ def test_get_all_study_visits(api_client, page_size):
     TestUtils.assert_sort_order(all_fetched_study_visits, "uid", False)
 
 
+def test_get_study_activities(api_client):
+    response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/study-activities")
+    assert_response_status_code(response, 200)
+    res = response.json()
+
+    assert res.keys() == {"self", "prev", "next", "items"}
+    print(res["items"])
+    for item in res["items"]:
+        TestUtils.assert_response_shape_ok(
+            item, STUDY_ACTIVITIES_FIELDS_ALL, STUDY_ACTIVITIES_FIELDS_NOT_ALL
+        )
+
+    # Default page size is 100
+    for idx, study_activity in enumerate(study_activities):
+        if idx < 100:
+            assert any(
+                item["uid"] == study_activity.study_activity_uid
+                for item in res["items"]
+            ), f"Study Activity {study_activity.study_activity_uid} not found in response"
+
+
+def test_get_study_activities_pagination_sorting(api_client):
+    # Default page size
+    response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/study-activities")
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 25
+    TestUtils.assert_sort_order(res["items"], "uid", False)
+
+    # Non-default page size
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/study-activities?page_size=2"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 2
+    TestUtils.assert_sort_order(res["items"], "uid", False)
+
+    # Non-default page number and page size
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/study-activities?page_size=3&page_number=2"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 3
+    TestUtils.assert_sort_order(res["items"], "uid", False)
+
+    # Non-default sort_by
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/study-activities?page_size=10&sort_by=activity_name"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "prev", "next", "items"}
+    assert len(res["items"]) == 10
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
+
+    # Non-default sort_by and sort_order
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/study-activities?sort_order=desc&sort_by=activity_name"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 25
+    TestUtils.assert_sort_order(res["items"], "activity_name", True)
+
+
+@pytest.mark.parametrize("page_size", [8, 20, 100])
+def test_get_all_study_activities(api_client, page_size):
+    all_fetched_study_activities = []
+
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/study-activities?page_size={page_size}"
+    )
+    all_fetched_study_activities.extend(response.json()["items"])
+
+    while response.json()["items"]:
+        # Fetch the next page until no items are returned
+        response = api_client.get(response.json()["next"])
+        all_fetched_study_activities.extend(response.json()["items"])
+
+    assert len(all_fetched_study_activities) == total_study_activities
+    assert {
+        study_activity["uid"] for study_activity in all_fetched_study_activities
+    } == {study_activity.study_activity_uid for study_activity in study_activities}
+
+    TestUtils.assert_sort_order(all_fetched_study_activities, "uid", False)
+
+
+def test_get_study_detailed_soa(api_client):
+    response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa")
+    assert_response_status_code(response, 200)
+    res = response.json()
+
+    assert res.keys() == {"self", "prev", "next", "items"}
+    print(res["items"])
+    for item in res["items"]:
+        TestUtils.assert_response_shape_ok(
+            item, STUDY_DETAILED_SOA_FIELDS_ALL, STUDY_DETAILED_SOA_FIELDS_NOT_ALL
+        )
+
+    # Default page size is 100
+    for idx, study_detailed_soa in enumerate(study_detailed_soas):
+        if idx < 100:
+            assert any(
+                item["activity_name"] == study_detailed_soa["activity"]
+                for item in res["items"]
+            ), f"Study Detailed SoA with Activity Name {study_detailed_soa['activity']} not found in response"
+
+
+def test_get_study_detailed_soa_pagination_sorting(api_client):
+    # Default page size
+    response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa")
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 25
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
+
+    # Non-default page size
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa?page_size=2"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 2
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
+
+    # Non-default page number and page size
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa?page_size=3&page_number=2"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 3
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
+
+    # Non-default sort_by
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa?page_size=10&sort_by=epoch_name"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "prev", "next", "items"}
+    assert len(res["items"]) == 10
+    TestUtils.assert_sort_order(res["items"], "epoch_name", False)
+
+    # Non-default sort_by and sort_order
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa?sort_order=desc&sort_by=epoch_name"
+    )
+    assert_response_status_code(response, 200)
+    res = response.json()
+    assert res.keys() == {"self", "next", "prev", "items"}
+    assert len(res["items"]) == 25
+    TestUtils.assert_sort_order(res["items"], "epoch_name", True)
+
+
+@pytest.mark.parametrize("page_size", [8, 20, 100])
+def test_get_all_study_detailed_soa(api_client, page_size):
+    all_fetched_study_detailed_soas = []
+
+    response = api_client.get(
+        f"{BASE_URL}/studies/{studies[0].uid}/detailed-soa?page_size={page_size}"
+    )
+    all_fetched_study_detailed_soas.extend(response.json()["items"])
+
+    while response.json()["items"]:
+        # Fetch the next page until no items are returned
+        response = api_client.get(response.json()["next"])
+        all_fetched_study_detailed_soas.extend(response.json()["items"])
+
+    assert len(all_fetched_study_detailed_soas) == total_study_detailed_soa
+    assert {
+        study_detailed_soa["activity_name"]
+        for study_detailed_soa in all_fetched_study_detailed_soas
+    } == {study_detailed_soa["activity"] for study_detailed_soa in study_detailed_soas}
+
+    TestUtils.assert_sort_order(all_fetched_study_detailed_soas, "activity_name", False)
+
+
 def test_get_study_operational_soa(api_client):
     response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/operational-soa")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert res.keys() == {"self", "prev", "next", "items"}
@@ -454,12 +682,11 @@ def test_get_study_operational_soa(api_client):
             item, STUDY_OPERATIONAL_SOA_FIELDS_ALL, STUDY_OPERATIONAL_SOA_FIELDS_NOT_ALL
         )
 
-    print("res['item']", study_operational_soas)
     # Default page size is 100
     for idx, study_operational_soa in enumerate(study_operational_soas):
         if idx < 100:
             assert any(
-                item["activity"] == study_operational_soa["activity"]
+                item["activity_name"] == study_operational_soa["activity"]
                 for item in res["items"]
             ), f"Study Operational SoA {study_operational_soa['activity']} not found in response"
 
@@ -467,37 +694,37 @@ def test_get_study_operational_soa(api_client):
 def test_get_study_operational_soa_pagination_sorting(api_client):
     # Default page size
     response = api_client.get(f"{BASE_URL}/studies/{studies[0].uid}/operational-soa")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 25
-    TestUtils.assert_sort_order(res["items"], "activity", False)
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
 
     # Non-default page size
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/operational-soa?page_size=2"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 2
-    TestUtils.assert_sort_order(res["items"], "activity", False)
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
 
     # Non-default page number and page size
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/operational-soa?page_size=3&page_number=2"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 3
-    TestUtils.assert_sort_order(res["items"], "activity", False)
+    TestUtils.assert_sort_order(res["items"], "activity_name", False)
 
     # Non-default sort_by
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/operational-soa?page_size=10&sort_by=visit_uid"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "prev", "next", "items"}
     assert len(res["items"]) == 10
@@ -507,7 +734,7 @@ def test_get_study_operational_soa_pagination_sorting(api_client):
     response = api_client.get(
         f"{BASE_URL}/studies/{studies[0].uid}/operational-soa?sort_order=desc&sort_by=visit_uid"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res.keys() == {"self", "next", "prev", "items"}
     assert len(res["items"]) == 25
@@ -530,11 +757,13 @@ def test_get_all_study_operational_soa(api_client, page_size):
 
     assert len(all_fetched_study_operational_soas) == total_study_operational_soa
     assert {
-        study_operational_soa["activity"]
+        study_operational_soa["activity_name"]
         for study_operational_soa in all_fetched_study_operational_soas
     } == {
         study_operational_soa["activity"]
         for study_operational_soa in study_operational_soas
     }
 
-    TestUtils.assert_sort_order(all_fetched_study_operational_soas, "activity", False)
+    TestUtils.assert_sort_order(
+        all_fetched_study_operational_soas, "activity_name", False
+    )

@@ -6,7 +6,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.dictionaries.dictionary_term_repository import (
     DictionaryTermGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.dictionary import DictionaryTermRoot
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
@@ -23,12 +22,14 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
 from clinical_mdr_api.repositories._utils import (
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.utils import convert_to_datetime
 
 
 class DictionaryTermSubstanceRepository(
@@ -72,7 +73,10 @@ class DictionaryTermSubstanceRepository(
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=term_dict.get("change_description"),
                 status=LibraryItemStatus(term_dict.get("status")),
-                author=term_dict.get("user_initials"),
+                author_id=term_dict.get("author_id"),
+                author_username=UserInfoService.get_author_username_from_id(
+                    term_dict.get("author_id")
+                ),
                 start_date=convert_to_datetime(value=term_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),

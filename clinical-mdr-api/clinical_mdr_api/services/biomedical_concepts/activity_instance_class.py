@@ -12,11 +12,11 @@ from clinical_mdr_api.models.biomedical_concepts.activity_instance_class import 
     ActivityInstanceClassMappingInput,
     ActivityInstanceClassVersion,
 )
-from clinical_mdr_api.services._utils import raise_404_if_none
 from clinical_mdr_api.services.neomodel_ext_generic import (
     NeomodelExtGenericService,
     _AggregateRootType,
 )
+from common.exceptions import NotFoundException
 
 
 class ActivityInstanceClassService(NeomodelExtGenericService):
@@ -36,7 +36,7 @@ class ActivityInstanceClassService(NeomodelExtGenericService):
         self, item_input: ActivityInstanceClassInput, library: LibraryVO
     ) -> _AggregateRootType:
         return ActivityInstanceClassAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             activity_instance_class_vo=ActivityInstanceClassVO.from_repository_values(
                 name=item_input.name,
                 order=item_input.order,
@@ -54,7 +54,7 @@ class ActivityInstanceClassService(NeomodelExtGenericService):
         self, item: ActivityInstanceClassAR, item_edit_input: ActivityInstanceClassInput
     ) -> ActivityInstanceClassAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=item_edit_input.change_description,
             activity_instance_class_vo=ActivityInstanceClassVO.from_repository_values(
                 name=item_edit_input.name,
@@ -74,9 +74,9 @@ class ActivityInstanceClassService(NeomodelExtGenericService):
         activity_instance_class = (
             self._repos.activity_instance_class_repository.find_by_uid(uid)
         )
-        raise_404_if_none(
-            activity_instance_class,
-            f"Activity instance class with uid '{uid}' does not exist.",
+
+        NotFoundException.raise_if_not(
+            activity_instance_class, "Activity Instance Class", uid
         )
 
         try:

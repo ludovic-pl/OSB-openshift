@@ -85,7 +85,7 @@ class Version:
             description=version_json_data.get("description", None),
             source=version_json_data.get("source", None),
             effective_date=version_json_data.get("effectiveDate", None),
-            registration_status=version_json_data.get("registrationStatus", None),
+            registration_status=version_json_data.get("registrationStatus", "Final"),
             data_model_type=data_model_type,
             href=self.__get_href(version_json_data),
             prior_version=version_json_data.get("_links", {})
@@ -162,7 +162,7 @@ class Version:
             label=version_csv_data.get("label", None),
             description=version_csv_data.get("description", None),
             source=version_csv_data.get("source", None),
-            registration_status=version_csv_data.get("registrationStatus", None),
+            registration_status=version_csv_data.get("registration_status", "Final"),
             effective_date=version_csv_data.get("release_date", None),
             data_model_type=data_model_type,
             href=version_csv_data.get("href", None),

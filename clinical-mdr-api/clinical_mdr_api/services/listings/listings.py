@@ -3,8 +3,15 @@ from typing import Callable
 
 from neomodel import db
 
-from clinical_mdr_api import models
 from clinical_mdr_api.listings.query_service import QueryService
+from clinical_mdr_api.models.listings.listings import (
+    CDISCCTList,
+    CDISCCTPkg,
+    CDISCCTVal,
+    CDISCCTVer,
+    MetaData,
+    TopicCdDef,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._utils import (
@@ -27,7 +34,7 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.TopicCdDef]:
+    ) -> GenericFilteringReturn[TopicCdDef]:
         data = self._query_service.get_topic_codes(
             at_specific_date=at_specified_datetime,
             filter_by=filter_by,
@@ -37,9 +44,7 @@ class ListingsService:
             page_number=page_number,
             page_size=page_size,
         )
-        data.items = list(
-            map(models.listings.listings.TopicCdDef.from_query, data.items)
-        )
+        data.items = list(map(TopicCdDef.from_query, data.items))
 
         return data
 
@@ -53,9 +58,9 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.MetaData]:
+    ) -> GenericFilteringReturn[MetaData]:
         data = self._query_service.get_metadata(dataset_name=dataset_name)
-        result = list(map(models.listings.listings.MetaData.from_query, data))
+        result = list(map(MetaData.from_query, data))
 
         filtered_items = service_level_generic_filtering(
             items=result,
@@ -80,7 +85,7 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.CDISCCTList]:
+    ) -> GenericFilteringReturn[CDISCCTList]:
         data = self._query_service.get_cdisc_ct_ver(
             catalogue_name=catalogue_name,
             after_date=after_date,
@@ -91,9 +96,7 @@ class ListingsService:
             page_number=page_number,
             page_size=page_size,
         )
-        data.items = list(
-            map(models.listings.listings.CDISCCTVer.from_query, data.items)
-        )
+        data.items = list(map(CDISCCTVer.from_query, data.items))
 
         return data
 
@@ -108,7 +111,7 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.CDISCCTList]:
+    ) -> GenericFilteringReturn[CDISCCTList]:
         data = self._query_service.get_cdisc_ct_pkg(
             catalogue_name=catalogue_name,
             after_date=after_date,
@@ -119,9 +122,7 @@ class ListingsService:
             page_number=page_number,
             page_size=page_size,
         )
-        data.items = list(
-            map(models.listings.listings.CDISCCTPkg.from_query, data.items)
-        )
+        data.items = list(map(CDISCCTPkg.from_query, data.items))
 
         return data
 
@@ -137,7 +138,7 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.CDISCCTList]:
+    ) -> GenericFilteringReturn[CDISCCTList]:
         data = self._query_service.get_cdisc_ct_list(
             catalogue_name=catalogue_name,
             package=package,
@@ -150,9 +151,7 @@ class ListingsService:
             page_size=page_size,
         )
 
-        data.items = list(
-            map(models.listings.listings.CDISCCTList.from_query, data.items)
-        )
+        data.items = list(map(CDISCCTList.from_query, data.items))
 
         return data
 
@@ -168,7 +167,7 @@ class ListingsService:
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
-    ) -> GenericFilteringReturn[models.listings.listings.CDISCCTVal]:
+    ) -> GenericFilteringReturn[CDISCCTVal]:
         data = self._query_service.get_cdisc_ct_val(
             catalogue_name=catalogue_name,
             package=package,
@@ -180,9 +179,7 @@ class ListingsService:
             page_number=page_number,
             page_size=page_size,
         )
-        data.items = list(
-            map(models.listings.listings.CDISCCTVal.from_query, data.items)
-        )
+        data.items = list(map(CDISCCTVal.from_query, data.items))
 
         return data
 
@@ -193,7 +190,7 @@ class ListingsService:
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
         all_items = action()
 
@@ -203,7 +200,7 @@ class ListingsService:
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
         return header_values

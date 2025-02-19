@@ -17,7 +17,7 @@
     "start_date": "2022-10-18T13:18:41.809079",
     "status": "Draft",
     "uid": "OdmTemplate_000001",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -38,7 +38,7 @@
     "start_date": "2022-10-18T13:18:42.163245",
     "status": "Draft",
     "uid": "OdmTemplate_000002",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   },
   {
@@ -59,7 +59,7 @@
     "start_date": "2022-10-18T13:18:42.285160",
     "status": "Draft",
     "uid": "OdmTemplate_000003",
-    "user_initials": "TODO user initials",
+    "author_username": "unknown-user@example.com",
     "version": "0.1"
   }
 ]

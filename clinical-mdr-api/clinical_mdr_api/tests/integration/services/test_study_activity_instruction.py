@@ -3,7 +3,20 @@ import unittest
 from neomodel import db
 
 import clinical_mdr_api.services.libraries.libraries as library_service
-from clinical_mdr_api import models
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivityInstructionBatchInput,
+    StudyActivityInstructionCreateInput,
+    StudyActivityInstructionDeleteInput,
+    StudySelectionActivityBatchInput,
+    StudySelectionActivityCreateInput,
+    StudySelectionActivityInput,
+)
+from clinical_mdr_api.models.syntax_instances.activity_instruction import (
+    ActivityInstructionCreateInput,
+)
+from clinical_mdr_api.models.syntax_templates.activity_instruction_template import (
+    ActivityInstructionTemplateCreateInput,
+)
 from clinical_mdr_api.services.studies.study_activity_instruction import (
     StudyActivityInstructionService,
 )
@@ -35,7 +48,7 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         data["name"] = "Test [Indication]"
         data["activity_subgroup_uids"] = ["activity_subgroup_root1"]
         data["activity_group_uids"] = ["activity_group_root1"]
-        template_input = models.ActivityInstructionTemplateCreateInput(**data)
+        template_input = ActivityInstructionTemplateCreateInput(**data)
         service = ActivityInstructionTemplateService()
         self.template = service.create(template_input)
         service.approve(self.template.dict()["uid"])
@@ -47,18 +60,18 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         service.handle_batch_operations(
             "study_root",
             [
-                models.StudySelectionActivityBatchInput(
+                StudySelectionActivityBatchInput(
                     method="POST",
-                    content=models.StudySelectionActivityCreateInput(
+                    content=StudySelectionActivityCreateInput(
                         soa_group_term_uid="term_root_final",
                         activity_uid="activity_root1",
                         activity_subgroup_uid="activity_subgroup_root1",
                         activity_group_uid="activity_group_root1",
                     ),
                 ),
-                models.StudySelectionActivityBatchInput(
+                StudySelectionActivityBatchInput(
                     method="POST",
-                    content=models.StudySelectionActivityCreateInput(
+                    content=StudySelectionActivityCreateInput(
                         soa_group_term_uid="term_root_final",
                         activity_uid="activity_root3",
                         activity_subgroup_uid="activity_subgroup_root3",
@@ -71,8 +84,8 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
     def _create_study_activity_instruction(self):
         self.service.create(
             "study_root",
-            models.StudyActivityInstructionCreateInput(
-                activity_instruction_data=models.ActivityInstructionCreateInput(
+            StudyActivityInstructionCreateInput(
+                activity_instruction_data=ActivityInstructionCreateInput(
                     activity_instruction_template_uid=self.template.uid,
                     parameter_terms=[
                         {
@@ -98,7 +111,7 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.service.create(
                 "study_root",
-                models.StudyActivityInstructionCreateInput(
+                StudyActivityInstructionCreateInput(
                     study_activity_uid="StudyActivity_000001"
                 ),
             )
@@ -117,7 +130,7 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         # Test activity instruction selection
         self.service.create(
             "study_root",
-            models.StudyActivityInstructionCreateInput(
+            StudyActivityInstructionCreateInput(
                 activity_instruction_uid="ActivityInstruction_000001",
                 study_activity_uid="StudyActivity_000001",
             ),
@@ -131,9 +144,7 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         service.patch_selection(
             "study_root",
             "StudyActivity_000001",
-            models.StudySelectionActivityInput(
-                show_activity_in_protocol_flowchart=False
-            ),
+            StudySelectionActivityInput(show_activity_in_protocol_flowchart=False),
         )
         self.service.delete("study_root", "StudyActivityInstruction_000001")
         study_activity_instructions = self.service.get_all_instructions("study_root")
@@ -143,10 +154,10 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         self.service.handle_batch_operations(
             "study_root",
             [
-                models.StudyActivityInstructionBatchInput(
+                StudyActivityInstructionBatchInput(
                     method="POST",
-                    content=models.StudyActivityInstructionCreateInput(
-                        activity_instruction_data=models.ActivityInstructionCreateInput(
+                    content=StudyActivityInstructionCreateInput(
+                        activity_instruction_data=ActivityInstructionCreateInput(
                             activity_instruction_template_uid=self.template.uid,
                             parameter_terms=[
                                 {
@@ -167,10 +178,10 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
                         study_activity_uid="StudyActivity_000001",
                     ),
                 ),
-                models.StudyActivityInstructionBatchInput(
+                StudyActivityInstructionBatchInput(
                     method="POST",
-                    content=models.StudyActivityInstructionCreateInput(
-                        activity_instruction_data=models.ActivityInstructionCreateInput(
+                    content=StudyActivityInstructionCreateInput(
+                        activity_instruction_data=ActivityInstructionCreateInput(
                             activity_instruction_template_uid=self.template.uid,
                             parameter_terms=[
                                 {
@@ -199,9 +210,9 @@ class StudyActivityInstructionTestCase(unittest.TestCase):
         self.service.handle_batch_operations(
             "study_root",
             [
-                models.StudyActivityInstructionBatchInput(
+                StudyActivityInstructionBatchInput(
                     method="DELETE",
-                    content=models.StudyActivityInstructionDeleteInput(
+                    content=StudyActivityInstructionDeleteInput(
                         study_activity_instruction_uid="StudyActivityInstruction_000001"
                     ),
                 )

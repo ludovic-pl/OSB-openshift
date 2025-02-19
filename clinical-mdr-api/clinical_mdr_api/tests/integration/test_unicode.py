@@ -48,7 +48,7 @@ def test_unicode_input(api_client):
     try:
         name = payload.get("name")
         assert name
-        assert name == test_string, "unicode value does not match after creation"
+        assert name == test_string, "unicode value doesn't match after creation"
     finally:
         if uid:
             api_client.delete(f"/brands/{uid}")
@@ -67,7 +67,7 @@ def test_unicode_retrieval(api_client):
         payload = response.json()
         name = payload.get("name")
         assert name
-        assert name == test_string, "unicode value does not match after retrieval"
+        assert name == test_string, "unicode value doesn't match after retrieval"
     finally:
         if uid:
             api_client.delete(f"/brands/{uid}")
@@ -83,7 +83,7 @@ def test_unicode_patch(api_client):
         "/configurations",
         {
             property_name: test_string,
-            "study_field_data_type": "string",
+            "study_field_data_type": "text",
             "study_field_name_api": "some_field",
             "is_dictionary_term": False,
         },
@@ -106,7 +106,7 @@ def test_unicode_patch(api_client):
             {
                 property_name: test_string,
                 "change_description": "testing",
-                "study_field_data_type": "string",
+                "study_field_data_type": "text",
                 "study_field_name_api": "some_field",
                 "is_dictionary_term": False,
             },
@@ -154,7 +154,7 @@ def test_non_unicode_patch_error_response(api_client):
         {
             property_name: test_string,
             "change_description": "testing",
-            "study_field_data_type": "string",
+            "study_field_data_type": "text",
             "study_field_name_api": "some_field",
             "is_dictionary_term": False,
         },

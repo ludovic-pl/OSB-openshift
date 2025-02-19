@@ -11,7 +11,6 @@ from clinical_mdr_api.domain_repositories.models.syntax import (
 from clinical_mdr_api.domain_repositories.syntax_instances.generic_syntax_instance_repository import (
     GenericSyntaxInstanceRepository,
 )
-from clinical_mdr_api.domains._utils import strip_html
 from clinical_mdr_api.domains.syntax_pre_instances.criteria_pre_instance import (
     CriteriaPreInstanceAR,
 )
@@ -22,6 +21,7 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleTermModel,
     SimpleTermName,
 )
+from clinical_mdr_api.utils import strip_html
 
 
 class CriteriaPreInstanceRepository(

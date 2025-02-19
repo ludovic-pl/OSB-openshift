@@ -28,7 +28,7 @@ class SponsorModelVariableClassService(NeomodelExtGenericService):
         self, item_input: SponsorModelVariableClassInput, library: LibraryVO
     ) -> SponsorModelVariableClassAR:
         return SponsorModelVariableClassAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             sponsor_model_variable_class_vo=SponsorModelVariableClassVO.from_repository_values(
                 dataset_class_uid=item_input.dataset_class_uid,
                 variable_class_uid=item_input.variable_class_uid,
@@ -66,7 +66,7 @@ class SponsorModelVariableClassService(NeomodelExtGenericService):
         item_edit_input: SponsorModelVariableClassInput,
     ) -> SponsorModelVariableClassAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             sponsor_model_vo=SponsorModelVariableClassVO.from_repository_values(
                 dataset_class_uid=item_edit_input.dataset_class_uid,
                 variable_class_uid=item_edit_input.variable_class_uid,

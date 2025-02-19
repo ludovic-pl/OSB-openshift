@@ -38,6 +38,7 @@ from clinical_mdr_api.tests.integration.utils.method_library import (
     patch_study_branch_arm,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 study_uid: str
 
@@ -211,7 +212,7 @@ def test_ta_listing(api_client):
     response = api_client.get(
         "/listings/studies/study_root/sdtm/ta",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res is not None
 

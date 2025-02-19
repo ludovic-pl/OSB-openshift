@@ -43,9 +43,10 @@ class CriteriaRepository(GenericSyntaxInstanceRepository[CriteriaAR]):
 
     def check_exists_by_name_for_type(self, name: str, criteria_type_uid: str) -> bool:
         query = f"""
-            MATCH (type WHERE type.uid=$type_uid)<-[:HAS_TYPE]-(:CriteriaTemplateRoot)-->(:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED|LATEST]->(v:{self.value_class.__label__} WHERE v.name=$name)
-            RETURN count(DISTINCT v)
-            """
+MATCH (type WHERE type.uid=$type_uid)<-[:HAS_TYPE]-(:CriteriaTemplateRoot)-->(:{self.root_class.__label__})
+-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED|LATEST]->(v:{self.value_class.__label__} WHERE v.name=$name)
+RETURN count(DISTINCT v)
+"""
 
         result, _ = db.cypher_query(
             query, {"type_uid": criteria_type_uid, "name": name}

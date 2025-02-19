@@ -35,10 +35,55 @@ def initial_data():
 
 
 @pytest.fixture(scope="module")
-def correction(initial_data):
+def verify_initial_data(initial_data):
+    # Verify the test data by calling each verification function.
+    # If the test data has been set up correctly, they should all fail at this stage.
+    functions = [
+        correction_verification_008.test_delete_valid_for_epoch_type_relationship,
+        correction_verification_008.test_handle_multiple_activity_value_nodes_for_version,
+        correction_verification_008.test_handle_multiple_activity_instance_value_nodes_for_version,
+    ]
+    for func in functions:
+        with pytest.raises(AssertionError):
+            func()
+
+
+@pytest.fixture(scope="module")
+def correction(verify_initial_data):
     # Run migration
     correction_008.main("test_correction")
 
 
-def test_delete_unwanted_valid_for_epoch_type_relationship(correction):
-    correction_verification_008.test_delete_unwanted_valid_for_epoch_type_relationship()
+def test_delete_valid_for_epoch_type_relationship(correction):
+    correction_verification_008.test_delete_valid_for_epoch_type_relationship()
+
+
+@pytest.mark.order(after="test_delete_valid_for_epoch_type_relationship")
+def test_repeat_delete_valid_for_epoch_type_relationship():
+    assert not correction_008.delete_valid_for_epoch_type_relationship(
+        DB_DRIVER, LOGGER, VERIFY_RUN_LABEL
+    )
+
+
+def test_handle_multiple_activity_value_nodes_for_version(correction):
+    correction_verification_008.test_handle_multiple_activity_value_nodes_for_version()
+
+
+@pytest.mark.order(after="test_handle_multiple_activity_value_nodes_for_version")
+def test_repeat_handle_multiple_activity_value_nodes_for_version():
+    assert not correction_008.handle_multiple_activity_value_nodes_for_version(
+        DB_DRIVER, LOGGER, VERIFY_RUN_LABEL
+    )
+
+
+def test_handle_multiple_activity_instance_value_nodes_for_version(correction):
+    correction_verification_008.test_handle_multiple_activity_instance_value_nodes_for_version()
+
+
+@pytest.mark.order(
+    after="test_handle_multiple_activity_instance_value_nodes_for_version"
+)
+def test_repeat_handle_multiple_activity_instance_value_nodes_for_version():
+    assert not correction_008.handle_multiple_activity_instance_value_nodes_for_version(
+        DB_DRIVER, LOGGER, VERIFY_RUN_LABEL
+    )

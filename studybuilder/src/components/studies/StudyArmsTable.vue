@@ -166,7 +166,7 @@ export default {
         { title: this.$t('StudyArmsTable.description'), key: 'description' },
         { title: this.$t('StudyBranchArms.colour'), key: 'arm_colour' },
         { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
       ],
       actions: [
         {

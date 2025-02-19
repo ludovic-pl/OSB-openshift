@@ -54,26 +54,6 @@ class TestServiceUtils(unittest.TestCase):
     def test_get_input_or_new_value_raises_exception(self):
         self.assertRaises(ValueError, _utils.get_input_or_new_value, None, "Y", None)
 
-    def test_to_dict(self):
-        class ClassB:
-            z: str
-
-            def __init__(self, z) -> None:
-                self.z = z
-
-        class ClassA:
-            x: str
-            y: ClassB
-
-            def __init__(self, x, y) -> None:
-                self.x = x
-                self.y = y
-
-        assert _utils.to_dict(ClassA(x="a", y=ClassB(z="b"))) == {
-            "y": {"z": "b"},
-            "x": "a",
-        }
-
     @parameterized.expand(
         [
             ({"x": 1, "y": 2}, {"x": 1, "y": 3}, {"x": False, "y": True}),
@@ -83,17 +63,6 @@ class TestServiceUtils(unittest.TestCase):
     )
     def test_object_diff(self, obj1, obj2, expected):
         assert _utils.object_diff(obj1, obj2) == expected
-
-    @parameterized.expand(
-        [
-            ("camelCaseInput", "camel_case_input"),
-            ("camel32CaseInput_", "camel32_case_input_"),
-            ("...Camel____CaseInput____", "..._camel_____case_input____"),
-            ("aaaCamel____CaseInput____", "aaa_camel_____case_input____"),
-        ]
-    )
-    def test_camel_to_snake(self, input_data, expected):
-        assert _utils.camel_to_snake(input_data) == expected
 
     @parameterized.expand(
         [
@@ -232,7 +201,7 @@ class TestServiceUtils(unittest.TestCase):
         filter_operator,
         search_string,
         filter_by,
-        result_count,
+        page_size,
         expected,
     ):
         out = _utils.service_level_generic_header_filtering(
@@ -241,7 +210,7 @@ class TestServiceUtils(unittest.TestCase):
             filter_operator,
             search_string,
             filter_by,
-            result_count,
+            page_size,
         )
         assert sorted(out) == sorted(expected)
 
@@ -297,14 +266,3 @@ class TestServiceUtils(unittest.TestCase):
             item, filter_key, filter_values, filter_operator
         )
         assert out == expected
-
-    @parameterized.expand(
-        [
-            ("", None),
-            ("   ", None),
-            ("x", "x"),
-            (" x ", "x"),
-        ]
-    )
-    def test_normalize_string(self, string, expected):
-        assert _utils.normalize_string(string) == expected

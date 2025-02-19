@@ -12,7 +12,8 @@ class StudyDesignCellVO:
 
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
 
     uid: str | None = None
     study_element_name: str | None = None

@@ -41,7 +41,6 @@ from clinical_mdr_api.domains.concepts.odms.odm_xml_definition import (
     TranslatedText,
 )
 from clinical_mdr_api.domains.concepts.utils import ENG_LANGUAGE, TargetType
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmRefVendorAttributeModel,
 )
@@ -53,6 +52,7 @@ from clinical_mdr_api.services.concepts.odms.odm_xml_stylesheets import (
     OdmXmlStylesheetService,
 )
 from clinical_mdr_api.services.utils.odm_xml_mapper import map_xml
+from common.exceptions import BusinessLogicException
 
 
 class OdmXmlExporterService:
@@ -70,7 +70,7 @@ class OdmXmlExporterService:
     OSB_VERSION = "osb:version"
     OSB_INSTRUCTION = "osb:instruction"
     OSB_SPONSOR_INSTRUCTION = "osb:sponsorInstruction"
-    SDTM_MSG_COLOURS = ["#bfffff", "#ffff96", "#96ff96", "#ffbf9c"]
+    SDTM_MSG_COLOURS = ["#bfffff", "#ffff96", "#96ff96", "#ffbf9c", "#ffffff"]
 
     def __init__(
         self,
@@ -159,7 +159,7 @@ class OdmXmlExporterService:
 
                 rs = HTML(string=etree.tostring(transform(dom))).write_pdf()
             except Exception as exc:
-                raise BusinessLogicException(exc.args[0]) from exc
+                raise BusinessLogicException(msg=exc.args[0]) from exc
 
         return rs
 
@@ -467,17 +467,19 @@ class OdmXmlExporterService:
                     sas_dataset_name=Attribute(
                         "SASDatasetName", item_group.sas_dataset_name
                     ),
-                    domain=Attribute(
-                        "Domain",
-                        "|".join(
-                            [
-                                f"{sdtm_domain.code_submission_value}:{sdtm_domain.preferred_term}"
-                                for sdtm_domain in item_group.sdtm_domains
-                            ]
-                        ),
-                    )
-                    if item_group.sdtm_domains
-                    else "",
+                    domain=(
+                        Attribute(
+                            "Domain",
+                            "|".join(
+                                [
+                                    f"{sdtm_domain.code_submission_value}:{sdtm_domain.preferred_term}"
+                                    for sdtm_domain in item_group.sdtm_domains
+                                ]
+                            ),
+                        )
+                        if item_group.sdtm_domains
+                        else ""
+                    ),
                     **self._get_vendor_attributes_or_empty_dict(
                         {
                             "version": Attribute(self.OSB_VERSION, item_group.version),
@@ -509,16 +511,20 @@ class OdmXmlExporterService:
                     ),
                     **self._create_vendor_attributes_of(item_group),
                     **self._create_vendor_elements_of(item_group),
-                    osb_domain_colors=self._get_vendor_elements_or_empty_list(
-                        [
-                            OsbDomainColor(
-                                f"{sdtm_domain.code_submission_value}:{self.SDTM_MSG_COLOURS[idx]};"
-                            )
-                            for idx, sdtm_domain in enumerate(item_group.sdtm_domains)
-                        ]
-                    )
-                    if item_group.sdtm_domains
-                    else [],
+                    osb_domain_colors=(
+                        self._get_vendor_elements_or_empty_list(
+                            [
+                                OsbDomainColor(
+                                    f"{sdtm_domain.code_submission_value}:{self.SDTM_MSG_COLOURS[idx%len(self.SDTM_MSG_COLOURS)]} !important;"
+                                )
+                                for idx, sdtm_domain in enumerate(
+                                    item_group.sdtm_domains
+                                )
+                            ]
+                        )
+                        if item_group.sdtm_domains
+                        else []
+                    ),
                     description=Description(
                         [
                             TranslatedText(
@@ -671,9 +677,11 @@ class OdmXmlExporterService:
                     codelist_ref=CodeListRef(
                         codelist_oid=Attribute(
                             "CodeListOID",
-                            f"{item.codelist.submission_value}@{item.oid}"
-                            if item.codelist
-                            else None,
+                            (
+                                f"{item.codelist.submission_value}@{item.oid}"
+                                if item.codelist
+                                else None
+                            ),
                         )
                     ),
                     measurement_unit_refs=[

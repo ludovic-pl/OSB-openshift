@@ -5,8 +5,8 @@ from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     ObjectAction,
-    VersioningException,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass
@@ -30,10 +30,10 @@ class OdmARBase(ConceptARBase):
         return frozenset()
 
     def soft_delete(self) -> None:
-        if (
-            self._item_metadata.major_version == 0
-            or self._item_metadata.status == LibraryItemStatus.RETIRED
-        ):
-            self._is_deleted = True
-        else:
-            raise VersioningException("Object has been accepted or is not retired")
+        BusinessLogicException.raise_if(
+            self._item_metadata.major_version != 0
+            and self._item_metadata.status != LibraryItemStatus.RETIRED,
+            msg="Object has been accepted or is not retired",
+        )
+
+        self._is_deleted = True

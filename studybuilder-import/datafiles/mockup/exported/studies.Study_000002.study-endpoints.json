@@ -36,7 +36,7 @@
       "status": "Final",
       "study_count": null,
       "uid": "Endpoint_000005",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "endpoint_level": {
@@ -55,7 +55,7 @@
       "start_date": "2022-10-18T12:52:44.445889",
       "status": "Final",
       "term_uid": "C98772_OUTMSPRI",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "2.0"
     },
     "endpoint_sublevel": null,
@@ -98,7 +98,7 @@
         "status": "Final",
         "study_count": null,
         "uid": "Objective_000004",
-        "user_initials": "MT",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       },
       "objective_level": {
@@ -117,7 +117,7 @@
         "start_date": "2022-10-18T12:52:48.896938",
         "status": "Final",
         "term_uid": "C85826_OBJPRIM",
-        "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+        "author_username": "unknown-user@example.com",
         "version": "2.0"
       },
       "order": 1,
@@ -126,7 +126,7 @@
       "start_date": "2022-10-20T06:32:44.904961",
       "study_objective_uid": "StudyObjective_000001",
       "study_uid": "Study_000002",
-      "user_initials": "MT"
+      "author_username": "unknown-user@example.com"
     },
     "study_uid": "Study_000002",
     "timeframe": {
@@ -163,10 +163,10 @@
         "uid": "TimeframeTemplate_000004"
       },
       "uid": "Timeframe_000004",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -241,7 +241,7 @@
       "status": "Final",
       "study_count": null,
       "uid": "Endpoint_000006",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "endpoint_level": {
@@ -260,7 +260,7 @@
       "start_date": "2022-10-18T12:52:45.400062",
       "status": "Final",
       "term_uid": "C98781_OUTMSSEC",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "2.0"
     },
     "endpoint_sublevel": null,
@@ -303,7 +303,7 @@
         "status": "Final",
         "study_count": null,
         "uid": "Objective_000005",
-        "user_initials": "MT",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       },
       "objective_level": {
@@ -322,7 +322,7 @@
         "start_date": "2022-10-18T12:52:49.546806",
         "status": "Final",
         "term_uid": "C85827_OBJSEC",
-        "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+        "author_username": "unknown-user@example.com",
         "version": "2.0"
       },
       "order": 2,
@@ -331,7 +331,7 @@
       "start_date": "2022-10-20T12:27:17.685437",
       "study_objective_uid": "StudyObjective_000002",
       "study_uid": "Study_000002",
-      "user_initials": "MT"
+      "author_username": "unknown-user@example.com"
     },
     "study_uid": "Study_000002",
     "timeframe": {
@@ -368,9 +368,9 @@
         "uid": "TimeframeTemplate_000004"
       },
       "uid": "Timeframe_000004",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   }
 ]

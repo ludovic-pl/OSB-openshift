@@ -1,40 +1,45 @@
 <template>
-  <NNTable
-    ref="table"
-    :headers="headers"
-    :items="items"
-    :items-length="total"
-    only-text-search
-    hide-default-switches
-    item-value="name"
-    export-data-url="clinical-programmes"
-    export-object-label="ClinicalProgrammes"
-    @filter="fetchProgrammes"
-  >
-    <template #actions="">
-      <slot name="extraActions" />
-      <v-btn
-        class="ml-2"
-        size="small"
-        variant="outlined"
-        color="nnBaseBlue"
-        data-cy="add-clinical-programme"
-        :title="$t('ClinicalProgrammeForm.add_title')"
-        icon="mdi-plus"
-        @click.stop="showForm"
-      />
-    </template>
-    <template #[`item.actions`]="{ item }">
-      <ActionsMenu :actions="actions" :item="item" />
-    </template>
-  </NNTable>
-  <ClinicalProgrammeForm
-    :open="showClinicalProgrammeForm"
-    :programme-uid="selectedProgramme ? selectedProgramme.uid : ''"
-    @reload="table.filterTable()"
-    @close="closeForm"
-  />
-  <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
+  <div class="px-4">
+    <div class="page-title d-flex align-center">
+      {{ $t('ClinicalProgrammesView.title') }}
+    </div>
+    <NNTable
+      ref="table"
+      :headers="headers"
+      :items="items"
+      :items-length="total"
+      column-data-resource="clinical-programmes"
+      hide-default-switches
+      item-value="name"
+      export-data-url="clinical-programmes"
+      export-object-label="ClinicalProgrammes"
+      @filter="fetchProgrammes"
+    >
+      <template #actions="">
+        <slot name="extraActions" />
+        <v-btn
+          class="ml-2"
+          size="small"
+          variant="outlined"
+          color="nnBaseBlue"
+          data-cy="add-clinical-programme"
+          :title="$t('ClinicalProgrammeForm.add_title')"
+          icon="mdi-plus"
+          @click.stop="showForm"
+        />
+      </template>
+      <template #[`item.actions`]="{ item }">
+        <ActionsMenu :actions="actions" :item="item" />
+      </template>
+    </NNTable>
+    <ClinicalProgrammeForm
+      :open="showClinicalProgrammeForm"
+      :programme-uid="selectedProgramme ? selectedProgramme.uid : ''"
+      @reload="table.filterTable()"
+      @close="closeForm"
+    />
+    <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
+  </div>
 </template>
 
 <script setup>

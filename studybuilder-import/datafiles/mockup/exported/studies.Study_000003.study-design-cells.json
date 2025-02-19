@@ -13,7 +13,7 @@
     "study_epoch_uid": "StudyEpoch_000004",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000014",
@@ -29,7 +29,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000015",
@@ -45,7 +45,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000016",
@@ -61,7 +61,7 @@
     "study_epoch_uid": "StudyEpoch_000007",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000017",
@@ -77,7 +77,7 @@
     "study_epoch_uid": "StudyEpoch_000008",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000018",
@@ -93,7 +93,7 @@
     "study_epoch_uid": "StudyEpoch_000004",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000019",
@@ -109,7 +109,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000020",
@@ -125,7 +125,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000021",
@@ -141,7 +141,7 @@
     "study_epoch_uid": "StudyEpoch_000007",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000022",
@@ -157,6 +157,6 @@
     "study_epoch_uid": "StudyEpoch_000008",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

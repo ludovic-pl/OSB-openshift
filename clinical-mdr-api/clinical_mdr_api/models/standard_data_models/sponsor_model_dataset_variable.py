@@ -1,210 +1,146 @@
+from typing import Annotated
+
 from pydantic import Field
 
 from clinical_mdr_api.domains.standard_data_models.sponsor_model_dataset_variable import (
     SponsorModelDatasetVariableAR,
 )
-from clinical_mdr_api.models import Library
+from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModelBase
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import InputModel
 
 
 class SponsorModelDatasetVariable(SponsorModelBase):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    library_name: str | None = Field(
-        None,
-        title="library_name",
-        description="",
-        source="has_library.name",
-        nullable=True,
-    )
-    is_basic_std: bool | None = Field(
-        None,
-        title="is_basic_std",
-        source="has_sponsor_model_instance.is_basic_std",
-        nullable=True,
-    )
-    label: str | None = Field(
-        None,
-        title="label",
-        source="has_sponsor_model_instance.label",
-        nullable=True,
-    )
-    order: int | None = Field(
-        None,
-        title="order",
-        source="has_sponsor_model_instance.has_variable|ordinal",
-        nullable=True,
-    )
-    variable_type: str | None = Field(
-        None,
-        title="variable_type",
-        source="has_sponsor_model_instance.variable_type",
-        nullable=True,
-    )
-    length: int | None = Field(
-        None,
-        title="length",
-        source="has_sponsor_model_instance.length",
-        nullable=True,
-    )
-    display_format: str | None = Field(
-        None,
-        title="display_format",
-        source="has_sponsor_model_instance.display_format",
-        nullable=True,
-    )
-    xml_datatype: str | None = Field(
-        None,
-        title="xml_datatype",
-        source="has_sponsor_model_instance.xml_datatype",
-        nullable=True,
-    )
-    xml_codelist: str | None = Field(
-        None,
-        title="xml_codelist",
-        source="has_sponsor_model_instance.xml_codelist",
-        nullable=True,
-    )
-    xml_codelist_multi: list[str] | None = Field(
-        None,
-        title="xml_codelist_multi",
-        source="has_sponsor_model_instance.xml_codelist_multi",
-        nullable=True,
-    )
-    core: str | None = Field(
-        None,
-        title="core",
-        source="has_sponsor_model_instance.core",
-        nullable=True,
-    )
-    origin: str | None = Field(
-        None,
-        title="origin",
-        source="has_sponsor_model_instance.origin",
-        nullable=True,
-    )
-    role: str | None = Field(
-        None,
-        title="role",
-        source="has_sponsor_model_instance.role",
-        nullable=True,
-    )
-    term: str | None = Field(
-        None,
-        title="term",
-        source="has_sponsor_model_instance.term",
-        nullable=True,
-    )
-    algorithm: str | None = Field(
-        None,
-        title="algorithm",
-        source="has_sponsor_model_instance.algorithm",
-        nullable=True,
-    )
-    qualifiers: list[str] | None = Field(
-        None,
-        title="qualifiers",
-        source="has_sponsor_model_instance.qualifiers",
-        nullable=True,
-    )
-    comment: str | None = Field(
-        None,
-        title="comment",
-        source="has_sponsor_model_instance.comment",
-        nullable=True,
-    )
-    ig_comment: str | None = Field(
-        None,
-        title="ig_comment",
-        source="has_sponsor_model_instance.ig_comment",
-        nullable=True,
-    )
-    class_table: str | None = Field(
-        None,
-        title="class_table",
-        source="has_sponsor_model_instance.class_table",
-        nullable=True,
-    )
-    class_column: str | None = Field(
-        None,
-        title="class_column",
-        source="has_sponsor_model_instance.class_column",
-        nullable=True,
-    )
-    map_var_flag: bool | None = Field(
-        None,
-        title="map_var_flag",
-        source="has_sponsor_model_instance.map_var_flag",
-        nullable=True,
-    )
-    fixed_mapping: str | None = Field(
-        None,
-        title="fixed_mapping",
-        source="has_sponsor_model_instance.fixed_mapping",
-        nullable=True,
-    )
-    include_in_raw: bool | None = Field(
-        None,
-        title="include_in_raw",
-        source="has_sponsor_model_instance.include_in_raw",
-        nullable=True,
-    )
-    nn_internal: bool | None = Field(
-        None,
-        title="nn_internal",
-        source="has_sponsor_model_instance.nn_internal",
-        nullable=True,
-    )
-    value_lvl_where_cols: str | None = Field(
-        None,
-        title="value_lvl_where_cols",
-        source="has_sponsor_model_instance.value_lvl_where_cols",
-        nullable=True,
-    )
-    value_lvl_label_col: str | None = Field(
-        None,
-        title="value_lvl_label_col",
-        source="has_sponsor_model_instance.value_lvl_label_col",
-        nullable=True,
-    )
-    value_lvl_collect_ct_val: str | None = Field(
-        None,
-        title="value_lvl_collect_ct_val",
-        source="has_sponsor_model_instance.value_lvl_collect_ct_val",
-        nullable=True,
-    )
-    value_lvl_ct_codelist_id_col: str | None = Field(
-        None,
-        title="value_lvl_ct_codelist_id_col",
-        source="has_sponsor_model_instance.value_lvl_ct_codelist_id_col",
-        nullable=True,
-    )
-    enrich_build_order: int | None = Field(
-        None,
-        title="enrich_build_order",
-        source="has_sponsor_model_instance.enrich_build_order",
-        nullable=True,
-    )
-    enrich_rule: str | None = Field(
-        None,
-        title="enrich_rule",
-        source="has_sponsor_model_instance.enrich_rule",
-        nullable=True,
-    )
-    xml_codelist_values: bool | None = Field(
-        None,
-        title="xml_codelist_values",
-        source="has_sponsor_model_instance.xml_codelist_values",
-        nullable=True,
-    )
+    uid: Annotated[str | None, Field(source="uid", nullable=True)] = None
+    library_name: Annotated[
+        str | None, Field(source="has_library.name", nullable=True)
+    ] = None
+    is_basic_std: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.is_basic_std", nullable=True),
+    ] = None
+    label: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.label", nullable=True),
+    ] = None
+    order: Annotated[
+        int | None,
+        Field(source="has_sponsor_model_instance.has_variable|ordinal", nullable=True),
+    ] = None
+    variable_type: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.variable_type", nullable=True),
+    ] = None
+    length: Annotated[
+        int | None,
+        Field(source="has_sponsor_model_instance.length", nullable=True),
+    ] = None
+    display_format: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.display_format", nullable=True),
+    ] = None
+    xml_datatype: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.xml_datatype", nullable=True),
+    ] = None
+    xml_codelist: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.xml_codelist", nullable=True),
+    ] = None
+    xml_codelist_multi: Annotated[
+        list[str] | None,
+        Field(source="has_sponsor_model_instance.xml_codelist_multi", nullable=True),
+    ] = None
+    core: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.core", nullable=True),
+    ] = None
+    origin: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.origin", nullable=True),
+    ] = None
+    role: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.role", nullable=True),
+    ] = None
+    term: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.term", nullable=True),
+    ] = None
+    algorithm: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.algorithm", nullable=True)
+    ] = None
+    qualifiers: Annotated[
+        list[str] | None,
+        Field(source="has_sponsor_model_instance.qualifiers", nullable=True),
+    ] = None
+    comment: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.comment", nullable=True),
+    ] = None
+    ig_comment: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.ig_comment", nullable=True)
+    ] = None
+    class_table: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.class_table", nullable=True),
+    ] = None
+    class_column: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.class_column", nullable=True),
+    ] = None
+    map_var_flag: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.map_var_flag", nullable=True),
+    ] = None
+    fixed_mapping: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.fixed_mapping", nullable=True),
+    ] = None
+    include_in_raw: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.include_in_raw", nullable=True),
+    ] = None
+    nn_internal: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.nn_internal", nullable=True),
+    ] = None
+    value_lvl_where_cols: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.value_lvl_where_cols", nullable=True),
+    ] = None
+    value_lvl_label_col: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.value_lvl_label_col", nullable=True),
+    ] = None
+    value_lvl_collect_ct_val: Annotated[
+        str | None,
+        Field(
+            source="has_sponsor_model_instance.value_lvl_collect_ct_val", nullable=True
+        ),
+    ] = None
+    value_lvl_ct_codelist_id_col: Annotated[
+        str | None,
+        Field(
+            source="has_sponsor_model_instance.value_lvl_ct_codelist_id_col",
+            nullable=True,
+        ),
+    ] = None
+    enrich_build_order: Annotated[
+        int | None,
+        Field(source="has_sponsor_model_instance.enrich_build_order", nullable=True),
+    ] = None
+    enrich_rule: Annotated[
+        str | None,
+        Field(source="has_sponsor_model_instance.enrich_rule", nullable=True),
+    ] = None
+    xml_codelist_values: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.xml_codelist_values", nullable=True),
+    ] = None
 
     @classmethod
     def from_sponsor_model_dataset_variable_ar(
@@ -249,63 +185,59 @@ class SponsorModelDatasetVariable(SponsorModelBase):
         )
 
 
-class SponsorModelDatasetVariableInput(BaseModel):
-    dataset_uid: str = Field(
-        ...,
-        title="dataset_uid",
-        description="Uid of the dataset in which to create the variable. E.g AE",
-    )
-    dataset_variable_uid: str = Field(
-        ..., title="uid", description="Unique identifier of the variable"
-    )
-    sponsor_model_name: str = Field(
-        ...,
-        title="sponsor_model_name",
-        description="Name of the sponsor model in which to create the variable. E.g sdtmig_sponsormodel...",
-    )
-    sponsor_model_version_number: str = Field(
-        ...,
-        title="sponsor_model_version_number",
-        description="Version number of the sponsor model in which to create the variable",
-    )
-    is_basic_std: bool = Field(None, title="is_basic_std", description="")
-    label: str = Field(None, title="label", description="")
-    order: int = Field(None, title="order", description="")
-    variable_type: str = Field(None, title="variable_type", description="")
-    length: int = Field(None, title="length", description="")
-    display_format: str = Field(None, title="display_format", description="")
-    xml_datatype: str = Field(None, title="xml_datatype", description="")
-    xml_codelist: str = Field(None, title="xml_codelist", description="")
-    xml_codelist_multi: list[str] = Field(
-        None, title="xml_codelist_multi", description=""
-    )
-    core: str = Field(None, title="core", description="")
-    origin: str = Field(None, title="origin", description="")
-    role: str = Field(None, title="role", description="")
-    term: str = Field(None, title="term", description="")
-    algorithm: str = Field(None, title="algorithm", description="")
-    qualifiers: list[str] = Field(None, title="qualifiers", description="")
-    comment: str = Field(None, title="comment", description="")
-    ig_comment: str = Field(None, title="ig_comment", description="")
-    class_table: str = Field(None, title="class_table", description="")
-    class_column: str = Field(None, title="class_column", description="")
-    map_var_flag: bool = Field(None, title="map_var_flag", description="")
-    fixed_mapping: str = Field(None, title="fixed_mapping", description="")
-    include_in_raw: bool = Field(None, title="include_in_raw", description="")
-    nn_internal: bool = Field(None, title="nn_internal", description="")
-    value_lvl_where_cols: str = Field(
-        None, title="value_lvl_where_cols", description=""
-    )
-    value_lvl_label_col: str = Field(None, title="value_lvl_label_col", description="")
-    value_lvl_collect_ct_val: str = Field(
-        None, title="value_lvl_collect_ct_val", description=""
-    )
-    value_lvl_ct_codelist_id_col: str = Field(
-        None, title="value_lvl_ct_codelist_id_col", description=""
-    )
-    enrich_build_order: int = Field(None, title="enrich_build_order", description="")
-    enrich_rule: str = Field(None, title="enrich_rule", description="")
-    xml_codelist_values: bool = Field(None, title="xml_codelist_values", description="")
-    library_name: str | None = Field(
-        "CDISC", title="library_name", description="Defaults to CDISC"
-    )
+class SponsorModelDatasetVariableInput(InputModel):
+    dataset_uid: Annotated[
+        str,
+        Field(
+            description="Uid of the dataset in which to create the variable. E.g AE",
+            min_length=1,
+        ),
+    ]
+    dataset_variable_uid: Annotated[str, Field(min_length=1)]
+    sponsor_model_name: Annotated[
+        str,
+        Field(
+            description="Name of the sponsor model in which to create the variable. E.g sdtmig_sponsormodel...",
+            min_length=1,
+        ),
+    ]
+    sponsor_model_version_number: Annotated[
+        str,
+        Field(
+            description="Version number of the sponsor model in which to create the variable",
+            min_length=1,
+        ),
+    ]
+    is_basic_std: bool | None = None
+    label: str | None = None
+    order: int | None = None
+    variable_type: str | None = None
+    length: int | None = None
+    display_format: str | None = None
+    xml_datatype: str | None = None
+    xml_codelist: str | None = None
+    xml_codelist_multi: list[str] | None = None
+    core: str | None = None
+    origin: str | None = None
+    role: str | None = None
+    term: str | None = None
+    algorithm: str | None = None
+    qualifiers: list[str] | None = None
+    comment: str | None = None
+    ig_comment: str | None = None
+    class_table: str | None = None
+    class_column: str | None = None
+    map_var_flag: bool | None = None
+    fixed_mapping: str | None = None
+    include_in_raw: bool | None = None
+    nn_internal: bool | None = None
+    value_lvl_where_cols: str | None = None
+    value_lvl_label_col: str | None = None
+    value_lvl_collect_ct_val: str | None = None
+    value_lvl_ct_codelist_id_col: str | None = None
+    enrich_build_order: int | None = None
+    enrich_rule: str | None = None
+    xml_codelist_values: bool | None = None
+    library_name: Annotated[
+        str | None, Field(description="Defaults to CDISC", min_length=1)
+    ] = "CDISC"

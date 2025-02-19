@@ -1,22 +1,21 @@
 import datetime
 from collections import OrderedDict
 
-from clinical_mdr_api.models import (
-    CTTermName,
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTermName
+from clinical_mdr_api.models.study_selections.study import StudySoaPreferences
+from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
+from clinical_mdr_api.models.study_selections.study_selection import (
     StudyDesignCell,
     StudySelectionArmWithConnectedBranchArms,
     StudySelectionElement,
-    StudyVisit,
 )
-from clinical_mdr_api.models.study_selections.study import StudySoaPreferences
-from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
 from clinical_mdr_api.services.studies.study_design_figure import (
     StudyDesignFigureService,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_USERNAME
 
 STUDY_UID = "Study_000001"
-
-USER_INITIALS = "unknown-user"
 
 STUDY_ARMS = OrderedDict(
     (
@@ -42,7 +41,7 @@ STUDY_ARMS = OrderedDict(
                     start_date=datetime.datetime(2022, 7, 14, 11, 18, 29, 635044),
                 ),
                 start_date=datetime.datetime(2022, 8, 25, 19, 32, 11, 640636),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -67,7 +66,7 @@ STUDY_ARMS = OrderedDict(
                     start_date=datetime.datetime(2022, 7, 14, 11, 18, 29, 635044),
                 ),
                 start_date=datetime.datetime(2022, 8, 25, 9, 33, 24, 232339),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -85,7 +84,7 @@ STUDY_ARMS = OrderedDict(
                 number_of_subjects=None,
                 arm_type=None,
                 start_date=datetime.datetime(2022, 8, 25, 19, 32, 0, 886693),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -103,7 +102,7 @@ STUDY_ARMS = OrderedDict(
                 number_of_subjects=None,
                 arm_type=None,
                 start_date=datetime.datetime(2022, 8, 25, 19, 46, 11, 300649),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
     )
@@ -139,9 +138,10 @@ STUDY_EPOCHS = (
         end_day=1,
         start_date="2022-07-16 09:13:42",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=1,
     ),
     StudyEpoch(
@@ -173,14 +173,15 @@ STUDY_EPOCHS = (
         end_day=64,
         start_date="2022-07-16 09:13:42",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=9,
     ),
     StudyEpoch(
         study_uid=STUDY_UID,
-        start_rule="",
+        start_rule=None,
         epoch="CTTerm_000007",
         epoch_subtype="CTTerm_000007",
         order=3,
@@ -208,9 +209,10 @@ STUDY_EPOCHS = (
         end_day=183,
         start_date="2022-08-26 02:06:50",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=1,
     ),
     StudyEpoch(
@@ -242,9 +244,10 @@ STUDY_EPOCHS = (
         end_day=366,
         start_date="2022-08-26 02:06:50",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=1,
     ),
     StudyEpoch(
@@ -276,9 +279,10 @@ STUDY_EPOCHS = (
         end_day=373,
         start_date="2022-08-26 02:06:50",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=1,
     ),
     StudyEpoch(
@@ -307,9 +311,10 @@ STUDY_EPOCHS = (
         },
         start_date="2022-08-26 02:06:50",
         status="DRAFT",
-        user_initials="TODO Initials",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock", "reorder"],
         change_description="Initial Version",
+        change_type="add",
         study_visit_count=0,
     ),
 )
@@ -341,7 +346,7 @@ STUDY_ELEMENTS = OrderedDict(
                 ),
                 study_compound_dosing_count=0,
                 start_date=datetime.datetime(2022, 7, 22, 9, 57, 9, 373874),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -369,7 +374,7 @@ STUDY_ELEMENTS = OrderedDict(
                 ),
                 study_compound_dosing_count=0,
                 start_date=datetime.datetime(2022, 7, 22, 9, 57, 10, 406127),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -397,7 +402,7 @@ STUDY_ELEMENTS = OrderedDict(
                 ),
                 study_compound_dosing_count=0,
                 start_date=datetime.datetime(2022, 7, 22, 9, 57, 10, 503358),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
         (
@@ -425,7 +430,7 @@ STUDY_ELEMENTS = OrderedDict(
                 ),
                 study_compound_dosing_count=0,
                 start_date=datetime.datetime(2022, 7, 22, 9, 57, 10, 985130),
-                user_initials=USER_INITIALS,
+                author_username=AUTHOR_USERNAME,
             ),
         ),
     )
@@ -443,7 +448,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Screening",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 37, 25, 904287),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=1,
     ),
     StudyDesignCell(
@@ -457,7 +462,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 37, 25, 749029),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=2,
     ),
     StudyDesignCell(
@@ -471,7 +476,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Follow-up",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 37, 25, 583916),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=3,
     ),
     StudyDesignCell(
@@ -485,7 +490,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 37, 25, 309418),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=4,
     ),
     StudyDesignCell(
@@ -499,7 +504,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Screening",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 35, 11, 107228),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=5,
     ),
     StudyDesignCell(
@@ -513,7 +518,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Metformin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 35, 12, 69303),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=6,
     ),
     StudyDesignCell(
@@ -527,7 +532,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Follow-up",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 35, 12, 323734),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=7,
     ),
     StudyDesignCell(
@@ -541,7 +546,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Metformin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 16, 9, 35, 12, 591836),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=8,
     ),
     StudyDesignCell(
@@ -555,7 +560,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 25, 22, 54, 8, 133786),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=9,
     ),
     StudyDesignCell(
@@ -569,7 +574,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 7, 34, 231184),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=10,
     ),
     StudyDesignCell(
@@ -583,7 +588,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 7, 34, 318480),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=11,
     ),
     StudyDesignCell(
@@ -597,7 +602,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Metformin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 8, 31, 590352),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=12,
     ),
     StudyDesignCell(
@@ -611,7 +616,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="Metformin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 8, 31, 765647),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=13,
     ),
     StudyDesignCell(
@@ -625,7 +630,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 7, 59, 750359),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=14,
     ),
     StudyDesignCell(
@@ -639,7 +644,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 8, 0, 315389),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=15,
     ),
     StudyDesignCell(
@@ -653,7 +658,7 @@ STUDY_DESIGN_CELLS = (
         study_element_name="NPH insulin",
         transition_rule=None,
         start_date=datetime.datetime(2022, 8, 26, 2, 8, 0, 807474),
-        user_initials=USER_INITIALS,
+        author_username=AUTHOR_USERNAME,
         order=16,
     ),
 )
@@ -722,7 +727,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:48",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -789,7 +794,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:49",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -856,7 +861,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:49",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -923,7 +928,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:49",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -990,7 +995,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:50",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1057,7 +1062,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:50",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1124,7 +1129,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:50",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1191,7 +1196,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:50",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1258,7 +1263,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:50",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1325,7 +1330,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-24 11:52:51",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1392,7 +1397,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-26 02:14:58",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1459,7 +1464,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-08-26 02:14:31",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),
@@ -1526,7 +1531,7 @@ STUDY_VISITS = (
         visit_window_unit_name="days",
         status="DRAFT",
         start_date="2022-09-01 09:39:57",
-        user_initials="unknown-user",
+        author_username=AUTHOR_USERNAME,
         possible_actions=["edit", "delete", "lock"],
         study_activity_count=0,
     ),

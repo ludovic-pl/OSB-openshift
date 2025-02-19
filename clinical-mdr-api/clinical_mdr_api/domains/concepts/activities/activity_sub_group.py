@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -46,22 +45,29 @@ class ActivitySubGroupVO(ConceptVO):
 
     def validate(
         self,
-        concept_exists_by_callback: Callable[[str, str, bool], bool],
         activity_group_exists: Callable[[str], bool],
+        activity_subgroup_exists_by_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
         previous_name: str | None = None,
+        library_name: str | None = None,
     ):
         self.validate_name_sentence_case()
-        self.duplication_check(
-            [("name", self.name, previous_name)],
-            concept_exists_by_callback,
+        existing_name = activity_subgroup_exists_by_name_callback(
+            library_name, self.name
+        )
+        AlreadyExistsException.raise_if(
+            existing_name and previous_name != self.name,
             "Activity Subgroup",
+            self.name,
+            "Name",
         )
         for activity_group in self.activity_groups:
-            if not activity_group_exists(activity_group.activity_group_uid):
-                raise BusinessLogicException(
-                    "Activity Subgroup tried to connect to non-existent or non-final concepts "
-                    f"""[('Concept Name: Activity Group', "uids: {{'{activity_group.activity_group_uid}'}}")]."""
-                )
+            BusinessLogicException.raise_if_not(
+                activity_group_exists(activity_group.activity_group_uid),
+                msg="Activity Subgroup tried to connect to non-existent or non-final concepts "
+                f"""[('Concept Name: Activity Group', "uids: {{'{activity_group.activity_group_uid}'}}")].""",
+            )
 
 
 @dataclass
@@ -79,25 +85,31 @@ class ActivitySubGroupAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: ActivitySubGroupVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         concept_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        concept_exists_by_library_and_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
         activity_group_exists: Callable[[str], bool] = lambda _: False,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
-            concept_exists_by_callback=concept_exists_by_callback,
+            activity_subgroup_exists_by_name_callback=concept_exists_by_library_and_name_callback,
             activity_group_exists=activity_group_exists,
+            library_name=library.name,
         )
 
         activity_subgroup_ar = cls(
@@ -110,20 +122,26 @@ class ActivitySubGroupAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: ActivitySubGroupVO,
         concept_exists_by_callback: Callable[[str, str, bool], bool] | None = None,
+        concept_exists_by_library_and_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
         activity_group_exists: Callable[[str], bool] | None = None,
     ) -> None:
         """
         Creates a new draft version for the object.
         """
         concept_vo.validate(
-            concept_exists_by_callback=concept_exists_by_callback,
+            activity_subgroup_exists_by_name_callback=concept_exists_by_library_and_name_callback,
             activity_group_exists=activity_group_exists,
             previous_name=self.name,
+            library_name=self.library.name,
         )
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

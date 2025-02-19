@@ -1,23 +1,13 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
-from enum import Enum
 from typing import Callable, Self
 
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
-from clinical_mdr_api.exceptions import ValidationException
-
-
-class SoAItemType(Enum):
-    STUDY_ACTIVITY_SCHEDULE = "StudyActivitySchedule"
-    STUDY_ACTIVITY = "StudyActivity"
-    STUDY_ACTIVITY_INSTANCE = "StudyActivityInstance"
-    STUDY_ACTIVITY_SUBGROUP = "StudyActivitySubGroup"
-    STUDY_ACTIVITY_GROUP = "StudyActivityGroup"
-    STUDY_SOA_GROUP = "StudySoAGroup"
-    STUDY_EPOCH = "StudyEpoch"
-    STUDY_VISIT = "StudyVisit"
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.exceptions import AlreadyExistsException
 
 
 @dataclass
@@ -41,7 +31,8 @@ class StudySoAFootnoteVOHistory:
     end_date: datetime | None
     change_type: str
     status: StudyStatus | None = None
-    author: str | None = None
+    author_id: str | None = None
+    author_username: str | None = None
     is_deleted: bool = False
     accepted_version: bool = False
 
@@ -58,7 +49,8 @@ class StudySoAFootnoteVO:
     footnote_number: int
     modified: datetime | None = None
     status: StudyStatus | None = None
-    author: str | None = None
+    author_id: str | None = None
+    author_username: str | None = None
     is_deleted: bool = False
     accepted_version: bool = False
 
@@ -72,7 +64,7 @@ class StudySoAFootnoteVO:
         footnote_template_version: str | None,
         referenced_items: list[ReferencedItemVO],
         footnote_number: int,
-        author: str,
+        author_id: str,
         status: StudyStatus,
         modified: datetime | None = None,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -87,7 +79,8 @@ class StudySoAFootnoteVO:
             footnote_template_version=footnote_template_version,
             footnote_number=footnote_number,
             referenced_items=referenced_items,
-            author=author,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             status=status,
             modified=modified,
             accepted_version=accepted_version,
@@ -104,7 +97,7 @@ class StudySoAFootnoteVO:
         footnote_number: int,
         uid: str,
         modified: datetime,
-        author: str,
+        author_id: str,
         status: StudyStatus,
         accepted_version: bool,
         footnote_version: str = None,
@@ -120,21 +113,22 @@ class StudySoAFootnoteVO:
             footnote_number=footnote_number,
             referenced_items=referenced_items,
             modified=modified,
-            author=author,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             status=status,
             accepted_version=accepted_version,
         )
         return footnote_ar
 
     def validate(self):
-        if self.footnote_uid and self.footnote_template_uid:
-            raise ValidationException(
-                f"Footnote uid {self.footnote_uid} and footnote template uid {self.footnote_template_uid} can't be both set"
-            )
-        if not self.footnote_uid and not self.footnote_template_uid:
-            raise ValidationException(
-                f"At least one of Footnote uid {self.footnote_uid} and footnote template uid {self.footnote_template_uid} must be set"
-            )
+        AlreadyExistsException.raise_if(
+            self.footnote_uid and self.footnote_template_uid,
+            msg=f"Footnote UID '{self.footnote_uid}' and Footnote Template UID '{self.footnote_template_uid}' can't be both set.",
+        )
+        AlreadyExistsException.raise_if(
+            not self.footnote_uid and not self.footnote_template_uid,
+            msg=f"At least one of Footnote UID '{self.footnote_uid}' and Footnote Template UID '{self.footnote_template_uid}' must be set.",
+        )
 
     def accept_versions(self):
         return replace(self, accepted_version=True)

@@ -9,7 +9,7 @@ import neo4j.exceptions
 import requests
 from neo4j import GraphDatabase
 from neomodel import config as neoconfig
-from neomodel.core import db
+from neomodel import db
 
 REGEX_SNAKE_CASE = r"^[a-z]+(_[a-z]+)*$"
 REGEX_SNAKE_CASE_WITH_DOT = r"^[a-z.]+(_[a-z.]+)*$"
@@ -205,7 +205,7 @@ def api_get(
     asserts that http response status is 200 and returns the response."""
     refresh_token()
     url = API_BASE_URL + path
-    logger.info("GET %s", url)
+    logger.info("GET %s %s", url, params or "")
     res = requests.get(url, params=params, timeout=60, headers=API_HEADERS)
     if check_ok_status:
         assert res.status_code == 200, f"Response status {res.status_code} is not 200."
@@ -254,11 +254,14 @@ def api_post(path: str, payload: dict, params: Optional[Any] = None):
     Returns the response."""
     refresh_token()
     url = API_BASE_URL + path
-    logger.info("POST %s", url)
+    logger.info("POST %s %s", url, params)
     res = requests.post(
         url, json=payload, params=params, timeout=30, headers=API_HEADERS
     )
-    assert res.status_code in [201], f"Response status {res.status_code} is not 201."
+    assert res.status_code in {
+        201,
+        204,
+    }, f"Response status {res.status_code} is not in [201, 204]"
     return res
 
 
@@ -288,11 +291,13 @@ def get_db_driver():
     return driver
 
 
-def run_cypher_query(driver, query, params=None):
+def run_cypher_query(
+    driver: neo4j.Neo4jDriver, query, params=None
+) -> tuple[list[neo4j.Record], neo4j.ResultSummary]:
     with driver.session(database=DATABASE_NAME) as session:
-        result = session.run(query, params)
+        result: neo4j.Result = session.run(query, params)
         records = list(result)
-        summary = result.consume()
+        summary: neo4j.ResultSummary = result.consume()
         return records, summary
 
 
@@ -302,7 +307,7 @@ def print_aligned(label, col_1, col_2, col_3):
 
 
 # ---------- Console logging of counters ----------
-def print_counters_table(counters):
+def print_counters_table(counters: neo4j.SummaryCounters):
     if counters.contains_updates:
         print_aligned("Summary", "Created", "Deleted", "Set")
         print_aligned("Nodes", counters.nodes_created, counters.nodes_deleted, "")
@@ -317,3 +322,10 @@ def print_counters_table(counters):
         )
     else:
         print("No changes made")
+
+
+def print_query(summary: neo4j.ResultSummary):
+    print("---- Query: --------------------------------")
+    print(summary.query)
+    print(f":params {summary.parameters}")
+    print("--------------------------------------------")

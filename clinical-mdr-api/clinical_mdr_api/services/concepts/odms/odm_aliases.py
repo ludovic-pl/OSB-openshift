@@ -1,12 +1,10 @@
 from fastapi import status
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.concepts.odms.alias_repository import (
     AliasRepository,
 )
 from clinical_mdr_api.domains.concepts.odms.alias import OdmAliasAR, OdmAliasVO
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
 from clinical_mdr_api.models.concepts.odms.odm_alias import (
     OdmAlias,
     OdmAliasBatchInput,
@@ -15,9 +13,12 @@ from clinical_mdr_api.models.concepts.odms.odm_alias import (
     OdmAliasPostInput,
     OdmAliasVersion,
 )
+from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.services._utils import ensure_transaction
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from common import exceptions
 
 
 class OdmAliasService(OdmGenericService[OdmAliasAR]):
@@ -34,7 +35,7 @@ class OdmAliasService(OdmGenericService[OdmAliasAR]):
         self, concept_input: OdmAliasPostInput, library
     ) -> OdmAliasAR:
         return OdmAliasAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmAliasVO.from_repository_values(
                 name=concept_input.name,
                 context=concept_input.context,
@@ -48,7 +49,7 @@ class OdmAliasService(OdmGenericService[OdmAliasAR]):
         self, item: OdmAliasAR, concept_edit_input: OdmAliasPatchInput
     ) -> OdmAliasAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmAliasVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -59,19 +60,29 @@ class OdmAliasService(OdmGenericService[OdmAliasAR]):
         return item
 
     def soft_delete(self, uid: str) -> None:
-        if not self._repos.odm_alias_repository.exists_by("uid", uid, True):
-            raise NotFoundException(
-                f"ODM Alias identified by uid ({uid}) does not exist."
-            )
-
-        if self._repos.odm_alias_repository.has_active_relationships(
+        exceptions.NotFoundException.raise_if_not(
+            self._repos.odm_alias_repository.exists_by("uid", uid, True),
+            "ODM Alias",
             uid,
-            ["has_form", "has_item_group", "has_item", "has_condition", "has_method"],
-        ):
-            raise BusinessLogicException("This ODM Alias is in use.")
+        )
+
+        exceptions.BusinessLogicException.raise_if(
+            self._repos.odm_alias_repository.has_active_relationships(
+                uid,
+                [
+                    "has_form",
+                    "has_item_group",
+                    "has_item",
+                    "has_condition",
+                    "has_method",
+                ],
+            ),
+            msg="This ODM Alias is in use.",
+        )
 
         return super().soft_delete(uid)
 
+    @ensure_transaction(db)
     def handle_batch_operations(
         self, operations: list[OdmAliasBatchInput]
     ) -> list[OdmAliasBatchOutput]:
@@ -84,26 +95,31 @@ class OdmAliasService(OdmGenericService[OdmAliasAR]):
                 if operation.method == "POST":
                     item = self.create(operation.content)
                     response_code = status.HTTP_201_CREATED
-                else:
+                elif operation.method == "PATCH":
                     item = self.edit_draft(operation.content.uid, operation.content)
                     response_code = status.HTTP_200_OK
-            except exceptions.MDRApiBaseException as error:
-                result["response_code"] = error.status_code
-                result["content"] = models.error.BatchErrorResponse(message=str(error))
-            else:
+                else:
+                    raise exceptions.MethodNotAllowedException(method=operation.method)
                 result["response_code"] = response_code
                 if item:
                     result["content"] = item.dict()
-            finally:
                 results.append(OdmAliasBatchOutput(**result))
+            except exceptions.MDRApiBaseException as error:
+                results.append(
+                    OdmAliasBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
         return results
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_alias_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Alias identified by uid ({uid}) does not exist."
-            )
+        exceptions.NotFoundException.raise_if_not(
+            self._repos.odm_alias_repository.exists_by("uid", uid, True),
+            "ODM Alias",
+            uid,
+        )
 
         return self._repos.odm_alias_repository.get_active_relationships(
             uid,

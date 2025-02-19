@@ -1,12 +1,8 @@
-from clinical_mdr_api.config import (
-    DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
-    WEEK_UNIT_CONVERSION_FACTOR_TO_MASTER,
-)
-from clinical_mdr_api.models import StudyVisit
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionPostInput,
 )
 from clinical_mdr_api.models.study_selections.study_visit import (
+    StudyVisit,
     StudyVisitCreateInput,
     StudyVisitEditInput,
 )
@@ -25,6 +21,10 @@ from clinical_mdr_api.tests.integration.utils.factory_epoch import (
     create_study_epoch,
     create_study_epoch_codelists_ret_cat_and_lib,
 )
+from common.config import (
+    DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
+    WEEK_UNIT_CONVERSION_FACTOR_TO_MASTER,
+)
 
 DAY = {
     "name": "day",
@@ -35,9 +35,10 @@ DAY = {
     "master_unit": False,
     "si_unit": True,
     "us_conventional_unit": True,
+    "use_complex_unit_conversion": False,
     "unit_dimension": "TIME_UID",
     "legacy_code": "unit1-legacy-code",
-    "molecular_weight_conv_expon": 0,
+    "use_molecular_weight": False,
     "conversion_factor_to_master": DAY_UNIT_CONVERSION_FACTOR_TO_MASTER,
 }
 
@@ -50,9 +51,10 @@ WEEK = {
     "master_unit": False,
     "si_unit": False,
     "us_conventional_unit": True,
+    "use_complex_unit_conversion": False,
     "unit_dimension": "TIME_UID",
     "legacy_code": "unit2-legacy-code",
-    "molecular_weight_conv_expon": 0,
+    "use_molecular_weight": False,
     "conversion_factor_to_master": WEEK_UNIT_CONVERSION_FACTOR_TO_MASTER,
 }
 
@@ -61,8 +63,8 @@ def generate_default_input_data_for_visit():
     day_uid = get_unit_uid_by_name("day")
     week_uid = get_unit_uid_by_name("week")
     return {
-        "visit_sublabel_codelist_uid": "",
-        "visit_sublabel_reference": "",
+        "visit_sublabel_codelist_uid": None,
+        "visit_sublabel_reference": None,
         "consecutive_visit_group": None,
         "show_visit": True,
         "min_visit_window_value": -1,
@@ -132,8 +134,10 @@ def create_study_visit_codelists(
     )
     if create_unit_definitions:
         unit_service = UnitDefinitionService(meta_repository=MetaRepository())
-        unit_service.post(UnitDefinitionPostInput(**WEEK))
-        unit_service.post(UnitDefinitionPostInput(**DAY))
+        week_unit = unit_service.post(UnitDefinitionPostInput(**WEEK))
+        unit_service.approve(uid=week_unit.uid)
+        day_unit = unit_service.post(UnitDefinitionPostInput(**DAY))
+        unit_service.approve(uid=day_unit.uid)
 
     codelist = create_codelist(
         "VisitType", "CTCodelist_00004", catalogue_name, library_name

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -11,15 +11,9 @@ from clinical_mdr_api.models.utils import BaseModel
 
 
 class CTCatalogue(BaseModel):
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: Annotated[str, Field()]
 
-    library_name: str | None = Field(
-        None, title="library_name", description="", nullable=True
-    )
+    library_name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class CTCatalogueChanges(BaseModel):

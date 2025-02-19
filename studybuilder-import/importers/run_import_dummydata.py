@@ -736,7 +736,7 @@ class DummyData(BaseImporter):
     def create_activity_requests(self):
         total = self.simple_get(
             "/concepts/activities/activities",
-            {"library": LIBRARY_NAME_REQUESTED, "page_size": 1, "total_count": True},
+            {"library_name": LIBRARY_NAME_REQUESTED, "page_size": 1, "total_count": True},
             return_key="total",
         )
 
@@ -759,7 +759,7 @@ class DummyData(BaseImporter):
             item["uid"]
             for item in self.simple_get(
                 "/concepts/activities/activities",
-                {"library": LIBRARY_NAME_REQUESTED, "page_size": 0},
+                {"library_name": LIBRARY_NAME_REQUESTED, "page_size": 0},
                 return_key="items",
             )
         ]
@@ -1132,7 +1132,7 @@ class DummyData(BaseImporter):
 
     def create_syntax_templates(self):
         req = requests.get(
-            f"{self.api.api_base_url}/dictionaries/codelists?library=SNOMED&page_size=0",
+            f"{self.api.api_base_url}/dictionaries/codelists?library_name=SNOMED&page_size=0",
             headers=self.api.api_headers,
         ).json()
 

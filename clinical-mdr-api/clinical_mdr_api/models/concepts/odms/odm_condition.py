@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -53,7 +53,7 @@ class OdmCondition(ConceptModel):
             status=odm_condition_ar.item_metadata.status.value,
             version=odm_condition_ar.item_metadata.version,
             change_description=odm_condition_ar.item_metadata.change_description,
-            user_initials=odm_condition_ar.item_metadata.user_initials,
+            author_username=odm_condition_ar.item_metadata.author_username,
             formal_expressions=sorted(
                 [
                     OdmFormalExpressionSimpleModel.from_odm_formal_expression_uid(
@@ -91,14 +91,14 @@ class OdmCondition(ConceptModel):
 
 
 class OdmConditionPostInput(ConceptPostInput):
-    oid: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
     formal_expressions: list[OdmFormalExpressionPostInput | str]
     descriptions: list[OdmDescriptionPostInput | str]
     alias_uids: list[str]
 
 
 class OdmConditionPatchInput(ConceptPatchInput):
-    oid: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
     formal_expressions: list[
         OdmFormalExpressionBatchPatchInput | OdmFormalExpressionPostInput | str
     ]
@@ -111,11 +111,13 @@ class OdmConditionVersion(OdmCondition):
     Class for storing OdmCondition and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

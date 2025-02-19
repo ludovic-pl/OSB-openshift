@@ -5,7 +5,7 @@ const resource = 'dictionaries'
 export default {
   getCodelists(library) {
     return repository.get(`${resource}/codelists`, {
-      params: { library: library, page_size: 0 },
+      params: { library_name: library, page_size: 0 },
     })
   },
   getTerms(options) {

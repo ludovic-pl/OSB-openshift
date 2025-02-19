@@ -1,21 +1,22 @@
 """Study chart router."""
 
+from typing import Annotated
+
 from fastapi import Path, Query
 from fastapi.responses import Response
 
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.routers import studies_router as router
 from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_design_figure import (
     StudyDesignFigureService,
 )
+from common.auth import rbac
 
-StudyUID = Path(None, description="The unique id of the study.")
+StudyUID = Path(description="The unique id of the study.")
 
 time_unit = Query(
-    "days",
-    regex="^(weeks|days)$",
+    pattern="^(weeks|days)$",
     description="The preferred time unit, either days or weeks.",
 )
 
@@ -37,17 +38,18 @@ class SVGResponse(Response):
 )
 def get_study_flowchart_html(
     response: Response,
-    study_uid: str = StudyUID,
-    debug: bool
-    | None = Query(
-        default=False, description="Draw some lines for debugging the image layout"
-    ),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, StudyUID],
+    debug: Annotated[
+        bool | None, Query(description="Draw some lines for debugging the image layout")
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> SVGResponse:
     StudyService().check_if_study_exists(study_uid)
-    response.headers[
-        "Content-Disposition"
-    ] = f'inline; filename="{study_uid} design.svg"'
+    response.headers["Content-Disposition"] = (
+        f'inline; filename="{study_uid} design.svg"'
+    )
     return SVGResponse(
         StudyDesignFigureService(debug=debug).get_svg_document(
             study_uid, study_value_version=study_value_version

@@ -5,8 +5,6 @@ from decimal import Decimal
 from typing import Any, Callable, Mapping
 from unittest.mock import patch
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 from clinical_mdr_api.domains.study_definition_aggregates import study_configuration
 from clinical_mdr_api.domains.study_definition_aggregates.registry_identifiers import (
     RegistryIdentifiersVO,
@@ -35,6 +33,8 @@ from clinical_mdr_api.tests.unit.domain.study_definition_aggregate.test_study_me
     random_valid_study_population,
 )
 from clinical_mdr_api.tests.unit.domain.utils import random_str
+from common import exceptions
+from common.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 
 
 def _test_uid_generator() -> str:
@@ -65,7 +65,7 @@ def create_random_study(
     ] = lambda _: True,
     max_tries: int = 100,
     is_study_after_create: bool = False,
-    author: str | None = None,
+    author_id: str = "unknown-user",
 ) -> StudyDefinitionAR:
     if new_id_metadata_fixed_values is None:
         new_id_metadata_fixed_values = _dict()
@@ -93,31 +93,37 @@ def create_random_study(
             initial_id_metadata=initial_id_metadata,
             project_exists_callback=(lambda _: True),
             study_number_exists_callback=(lambda x, y: False),
-            initial_high_level_study_design=initial_high_level_study_design
-            if not is_study_after_create
-            else _DEF_INITIAL_HIGH_LEVEL_STUDY_DESIGN,
+            initial_high_level_study_design=(
+                initial_high_level_study_design
+                if not is_study_after_create
+                else _DEF_INITIAL_HIGH_LEVEL_STUDY_DESIGN
+            ),
             study_type_exists_callback=(lambda _: True),
             trial_type_exists_callback=(lambda _: True),
             trial_intent_type_exists_callback=(lambda _: True),
             trial_phase_exists_callback=(lambda _: True),
             null_value_exists_callback=(lambda _: True),
-            initial_study_population=initial_study_population
-            if not is_study_after_create
-            else _DEF_INITIAL_STUDY_POPULATION,
+            initial_study_population=(
+                initial_study_population
+                if not is_study_after_create
+                else _DEF_INITIAL_STUDY_POPULATION
+            ),
             therapeutic_area_exists_callback=(lambda _: True),
             disease_condition_or_indication_exists_callback=(lambda _: True),
             diagnosis_group_exists_callback=(lambda _: True),
             sex_of_participants_exists_callback=(lambda _: True),
-            initial_study_intervention=initial_study_intervention
-            if not is_study_after_create
-            else _DEF_INITIAL_STUDY_INTERVENTION,
+            initial_study_intervention=(
+                initial_study_intervention
+                if not is_study_after_create
+                else _DEF_INITIAL_STUDY_INTERVENTION
+            ),
             intervention_type_exists_callback=(lambda _: True),
             control_type_exists_callback=(lambda _: True),
             intervention_model_exists_callback=(lambda _: True),
             trial_blinding_schema_exists_callback=(lambda _: True),
             study_title_exists_callback=(lambda _, study_number: False),
             study_short_title_exists_callback=(lambda _, study_number: False),
-            author=author,
+            author_id=author_id,
         )
 
         if condition(result):
@@ -147,7 +153,7 @@ def make_random_study_metadata_edit(
         [StudyInterventionVO], bool
     ] = lambda _: True,
     max_tries: int = 100,
-    author: str | None = None,
+    author_id: str | None = None,
 ):
     if new_id_metadata_fixed_values is None:
         new_id_metadata_fixed_values = _dict()
@@ -239,7 +245,7 @@ def make_random_study_metadata_edit(
         control_type_exists_callback=(lambda _: True),
         intervention_model_exists_callback=(lambda _: True),
         trial_blinding_schema_exists_callback=(lambda _: True),
-        author=author,
+        author_id=author_id,
     )
 
 
@@ -275,7 +281,7 @@ def prepare_random_study(
             )
             study.lock(
                 version_description=random_str(),
-                version_author=random_str(),
+                author_id=random_str(),
             )
             study.unlock()
             make_random_study_metadata_edit(
@@ -304,7 +310,7 @@ def prepare_random_study(
                 )
                 study.lock(
                     version_description=random_str(),
-                    version_author=random_str(),
+                    author_id=random_str(),
                 )
         if condition(study):
             return study
@@ -807,7 +813,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 )
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.release(change_description="making a release")
 
@@ -841,7 +847,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                     ),
                 )
                 study.lock(
-                    version_author=version_author,
+                    author_id=version_author,
                     version_description=version_info,
                 )
 
@@ -901,7 +907,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 )
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.edit_metadata(
                         study_title_exists_callback=(lambda _, study_number: False),
@@ -915,7 +921,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                     )
                     study.lock(
                         version_description=random_str(),
-                        version_author=random_str(),
+                        author_id=random_str(),
                     )
 
     def test__unlock__result(self):
@@ -986,7 +992,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 )
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.unlock()
 
@@ -1191,7 +1197,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 )
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.edit_metadata(
                         new_id_metadata=new_id_metadata,
@@ -1265,7 +1271,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 )
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.edit_metadata(
                         new_id_metadata=new_id_metadata,
@@ -1283,7 +1289,7 @@ class TestStudyDefinitionAR(unittest.TestCase):
                 assert study.latest_locked_metadata is not None
 
                 # then
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     # when
                     study.mark_deleted()
 

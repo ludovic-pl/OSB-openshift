@@ -2,16 +2,20 @@ from unittest import TestCase
 
 from pydantic import BaseModel
 
-import clinical_mdr_api.models.syntax_templates.objective_template as models
 import clinical_mdr_api.services.libraries.libraries as library_service
 import clinical_mdr_api.services.syntax_templates.objective_templates as service
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
+from clinical_mdr_api.models.syntax_templates.objective_template import (
+    ObjectiveTemplate,
+    ObjectiveTemplateCreateInput,
+    ObjectiveTemplateEditInput,
+)
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     library_data,
     template_data,
 )
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class TestCreate(TestCase):
@@ -25,9 +29,9 @@ class TestCreate(TestCase):
 
     def test_create(self):
         data = {"name": template_data["name"], "library_name": self.library["name"]}
-        objective_template = models.ObjectiveTemplateCreateInput(**data)
+        objective_template = ObjectiveTemplateCreateInput(**data)
         result = service.ObjectiveTemplateService().create(objective_template)
-        self.assertIsInstance(result, models.ObjectiveTemplate)
+        self.assertIsInstance(result, ObjectiveTemplate)
         self.assertEqual(result.name, template_data["name"])
         self.assertEqual(result.status, "Draft")
         self.assertEqual(result.version, "0.1")
@@ -41,7 +45,7 @@ class TestDraftEdit(TestCase):
     def setUp(cls):
         inject_and_clear_db(cls.TEST_DB_NAME)
         cls.library = library_service.create(**library_data)
-        objective_template = models.ObjectiveTemplateCreateInput(**template_data)
+        objective_template = ObjectiveTemplateCreateInput(**template_data)
         cls.objective_template = service.ObjectiveTemplateService().create(
             objective_template
         )
@@ -53,7 +57,7 @@ class TestDraftEdit(TestCase):
             "name": template_data["name"] + " edited",
             "change_description": "tested",
         }
-        objective_template = models.ObjectiveTemplateEditInput(**data)
+        objective_template = ObjectiveTemplateEditInput(**data)
         result = service.ObjectiveTemplateService().edit_draft(
             self.objective_template["uid"], objective_template
         )
@@ -67,7 +71,7 @@ class TestDraftEdit(TestCase):
             "name": template_data["name"] + " edited again",
             "change_description": "tested",
         }
-        objective_template = models.ObjectiveTemplateEditInput(**data)
+        objective_template = ObjectiveTemplateEditInput(**data)
         result = service.ObjectiveTemplateService().edit_draft(
             self.objective_template["uid"], objective_template
         )
@@ -85,7 +89,7 @@ class TestApprove(TestCase):
     def setUp(cls):
         inject_and_clear_db(cls.TEST_DB_NAME)
         cls.library = library_service.create(**library_data)
-        objective_template = models.ObjectiveTemplateCreateInput(**template_data)
+        objective_template = ObjectiveTemplateCreateInput(**template_data)
         cls.objective_template = service.ObjectiveTemplateService().create(
             objective_template
         )
@@ -96,7 +100,7 @@ class TestApprove(TestCase):
         result = service.ObjectiveTemplateService().approve(
             self.objective_template["uid"]
         )
-        assert isinstance(result, models.ObjectiveTemplate)
+        assert isinstance(result, ObjectiveTemplate)
         self.assertEqual(result.version, "1.0")
         self.assertEqual(result.status, "Final")
 
@@ -108,7 +112,7 @@ class TestActivation(TestCase):
     def setUp(cls):
         inject_and_clear_db(cls.TEST_DB_NAME)
         cls.library = library_service.create(**library_data)
-        objective_template = models.ObjectiveTemplateCreateInput(**template_data)
+        objective_template = ObjectiveTemplateCreateInput(**template_data)
         objective_template = service.ObjectiveTemplateService().create(
             objective_template
         )
@@ -122,7 +126,7 @@ class TestActivation(TestCase):
         result = service.ObjectiveTemplateService().inactivate_final(
             self.objective_template["uid"]
         )
-        assert isinstance(result, models.ObjectiveTemplate)
+        assert isinstance(result, ObjectiveTemplate)
         self.assertEqual(result.version, "1.0")
         self.assertEqual(result.status, "Retired")
         with self.assertRaises(BusinessLogicException):
@@ -133,7 +137,7 @@ class TestActivation(TestCase):
         result = service.ObjectiveTemplateService().reactivate_retired(
             self.objective_template["uid"]
         )
-        assert isinstance(result, models.ObjectiveTemplate)
+        assert isinstance(result, ObjectiveTemplate)
         self.assertEqual(result.version, "1.0")
         self.assertEqual(result.status, "Final")
         with self.assertRaises(BusinessLogicException):
@@ -149,7 +153,7 @@ class TestSoftDelete(TestCase):
     def setUp(cls):
         inject_and_clear_db(cls.TEST_DB_NAME)
         cls.library = library_service.create(**library_data)
-        objective_template = models.ObjectiveTemplateCreateInput(**template_data)
+        objective_template = ObjectiveTemplateCreateInput(**template_data)
         cls.objective_template = service.ObjectiveTemplateService().create(
             objective_template
         )
@@ -165,6 +169,6 @@ class TestSoftDelete(TestCase):
                 self.objective_template["uid"]
             )
         self.assertEqual(
-            "No ObjectiveTemplateRoot with UID (ObjectiveTemplate_000001) found in given status, date and version.",
-            str(message.exception),
+            "No ObjectiveTemplateRoot with UID 'ObjectiveTemplate_000001' found in given status, date and version.",
+            message.exception.msg,
         )

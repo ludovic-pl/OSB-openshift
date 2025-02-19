@@ -2,9 +2,8 @@ from datetime import datetime, timezone
 
 from fastapi import status
 from neomodel import db
+from neomodel.sync_.match import Optional
 
-from clinical_mdr_api import exceptions, models
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
 from clinical_mdr_api.domain_repositories.models.study_selections import (
     StudyDesignCell as StudyDesignCellNeoModel,
 )
@@ -14,15 +13,31 @@ from clinical_mdr_api.domain_repositories.study_selections.study_design_cell_rep
 from clinical_mdr_api.domains.study_selections.study_design_cell import (
     StudyDesignCellVO,
 )
-from clinical_mdr_api.oauth.user import user
+from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCell,
+    StudyDesignCellBatchInput,
+    StudyDesignCellBatchOutput,
+    StudyDesignCellCreateInput,
+    StudyDesignCellEditInput,
+)
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCellHistory as StudyDesignCellHistoryModel,
+)
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyDesignCellVersion,
+)
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
+    ensure_transaction,
     fill_missing_values_in_base_model_from_reference_base_model,
 )
 from clinical_mdr_api.services.studies.study_endpoint_selection import (
     StudySelectionMixin,
 )
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyDesignCellService(StudySelectionMixin):
@@ -37,14 +52,14 @@ class StudyDesignCellService(StudySelectionMixin):
         self,
         study_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudyDesignCell]:
+    ) -> list[StudyDesignCell]:
         design_cell_ar = (
             self._repos.study_design_cell_repository.find_all_design_cells_by_study(
                 study_uid=study_uid, study_value_version=study_value_version
             )
         )
         design_cells = [
-            models.StudyDesignCell.from_vo(
+            StudyDesignCell.from_vo(
                 i_design_cell, study_value_version=study_value_version
             )
             for i_design_cell in design_cell_ar
@@ -57,14 +72,14 @@ class StudyDesignCellService(StudySelectionMixin):
         study_uid: str,
         study_arm_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudyDesignCell]:
+    ) -> list[StudyDesignCell]:
         sdc_nodes = (
             self._repos.study_design_cell_repository.get_design_cells_connected_to_arm(
                 study_uid, study_arm_uid, study_value_version=study_value_version
             )
         )
         return [
-            models.StudyDesignCell.from_vo(
+            StudyDesignCell.from_vo(
                 self._repos.study_design_cell_repository._from_repository_values(
                     study_uid=study_uid,
                     design_cell=sdc_node,
@@ -81,14 +96,14 @@ class StudyDesignCellService(StudySelectionMixin):
         study_uid: str,
         study_branch_arm_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudyDesignCell]:
+    ) -> list[StudyDesignCell]:
         sdc_nodes = self._repos.study_design_cell_repository.get_design_cells_connected_to_branch_arm(
             study_uid,
             study_branch_arm_uid,
             study_value_version=study_value_version,
         )
         return [
-            models.StudyDesignCell.from_vo(
+            StudyDesignCell.from_vo(
                 self._repos.study_design_cell_repository._from_repository_values(
                     study_uid=study_uid,
                     design_cell=sdc_node,
@@ -105,12 +120,12 @@ class StudyDesignCellService(StudySelectionMixin):
         study_uid: str,
         study_epoch_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudyDesignCell]:
+    ) -> list[StudyDesignCell]:
         sdc_nodes = self._repos.study_design_cell_repository.get_design_cells_connected_to_epoch(
             study_uid, study_epoch_uid, study_value_version=study_value_version
         )
         return [
-            models.StudyDesignCell.from_vo(
+            StudyDesignCell.from_vo(
                 self._repos.study_design_cell_repository._from_repository_values(
                     study_uid=study_uid,
                     design_cell=sdc_node,
@@ -123,24 +138,26 @@ class StudyDesignCellService(StudySelectionMixin):
 
     def get_specific_design_cell(
         self, study_uid: str, design_cell_uid: str
-    ) -> models.StudyDesignCell:
-        sdc_node = to_relation_trees(
+    ) -> StudyDesignCell:
+        sdc_node = (
             StudyDesignCellNeoModel.nodes.fetch_relations(
                 "study_epoch__has_epoch__has_name_root__has_latest_value",
                 "study_element",
                 "has_after__audit_trail",
+                Optional("study_arm"),
+                Optional("study_branch_arm"),
             )
-            .fetch_optional_relations("study_arm", "study_branch_arm")
             .filter(study_value__latest_value__uid=study_uid, uid=design_cell_uid)
+            .resolve_subgraph()
         )
-        if sdc_node is None or len(sdc_node) == 0:
-            raise exceptions.NotFoundException(
-                f"Not Found - The study design cell with the specified 'uid' {design_cell_uid} could not be found.",
-            )
-        return models.StudyDesignCell.from_orm(sdc_node[0])
+
+        exceptions.NotFoundException.raise_if(
+            sdc_node is None or len(sdc_node) == 0, "Study Design Cell", design_cell_uid
+        )
+        return StudyDesignCell.from_orm(sdc_node[0])
 
     def _from_input_values(
-        self, study_uid: str, design_cell_input: models.StudyDesignCellCreateInput
+        self, study_uid: str, design_cell_input: StudyDesignCellCreateInput
     ) -> StudyDesignCellVO:
         return StudyDesignCellVO(
             study_uid=study_uid,
@@ -154,14 +171,14 @@ class StudyDesignCellService(StudySelectionMixin):
             study_element_name=None,
             order=design_cell_input.order,
             transition_rule=design_cell_input.transition_rule,
-            user_initials=self.author,
+            author_id=self.author,
             start_date=datetime.now(timezone.utc),
         )
 
-    @db.transaction
+    @ensure_transaction(db)
     def create(
-        self, study_uid: str, design_cell_input: models.StudyDesignCellCreateInput
-    ) -> models.StudyDesignCell:
+        self, study_uid: str, design_cell_input: StudyDesignCellCreateInput
+    ) -> StudyDesignCell:
         # all_design_cells: list[StudyDesignCellVO]
         all_design_cells = (
             self._repos.study_design_cell_repository.find_all_design_cells_by_study(
@@ -174,8 +191,10 @@ class StudyDesignCellService(StudySelectionMixin):
 
         # if the order want an specific order
         if design_cell_input.order:
-            if len(all_design_cells) + 1 < created_design_cell.order:
-                raise exceptions.BusinessLogicException("Order is too big.")
+            exceptions.BusinessLogicException.raise_if(
+                len(all_design_cells) + 1 < created_design_cell.order,
+                msg="Order is too big.",
+            )
             # shift one order more to fit the modified
             for design_cell in all_design_cells[created_design_cell.order - 1 :]:
                 design_cell.order += 1
@@ -192,12 +211,12 @@ class StudyDesignCellService(StudySelectionMixin):
         )
 
         # return json response model
-        return models.StudyDesignCell.from_vo(created_item)
+        return StudyDesignCell.from_vo(created_item)
 
     def _edit_study_design_cell_vo(
         self,
         study_design_cell_to_edit: StudyDesignCellVO,
-        study_design_cell_edit_input: models.StudyDesignCellEditInput,
+        study_design_cell_edit_input: StudyDesignCellEditInput,
     ):
         study_design_cell_to_edit.edit_core_properties(
             study_epoch_uid=study_design_cell_to_edit.study_epoch_uid,
@@ -208,10 +227,10 @@ class StudyDesignCellService(StudySelectionMixin):
             order=study_design_cell_edit_input.order,
         )
 
-    @db.transaction
+    @ensure_transaction(db)
     def patch(
-        self, study_uid: str, design_cell_update_input: models.StudyDesignCellEditInput
-    ) -> models.StudyDesignCell:
+        self, study_uid: str, design_cell_update_input: StudyDesignCellEditInput
+    ) -> StudyDesignCell:
         # study_design_cell: StudyDesignCellVO
         study_design_cell = self._repos.study_design_cell_repository.find_by_uid(
             study_uid=study_uid, uid=design_cell_update_input.study_design_cell_uid
@@ -224,7 +243,7 @@ class StudyDesignCellService(StudySelectionMixin):
         fill_missing_values_in_base_model_from_reference_base_model(
             base_model_with_missing_values=design_cell_update_input,
             # return json response model
-            reference_base_model=models.StudyDesignCell.from_vo(study_design_cell),
+            reference_base_model=StudyDesignCell.from_vo(study_design_cell),
         )
 
         self._edit_study_design_cell_vo(
@@ -236,9 +255,9 @@ class StudyDesignCellService(StudySelectionMixin):
             study_design_cell, self.author, create=False
         )
         # return json response model
-        return models.StudyDesignCell.from_vo(updated_item)
+        return StudyDesignCell.from_vo(updated_item)
 
-    @db.transaction
+    @ensure_transaction(db)
     def delete(self, study_uid: str, design_cell_uid: str):
         study_design_cell = self._repos.study_design_cell_repository.find_by_uid(
             study_uid=study_uid, uid=design_cell_uid
@@ -255,13 +274,13 @@ class StudyDesignCellService(StudySelectionMixin):
         for design_cell in all_design_cells[study_design_cell.order - 1 :]:
             design_cell.order -= 1
             self._repos.study_design_cell_repository.save(
-                design_cell, author=self.author, create=False
+                design_cell, author_id=self.author, create=False
             )
 
     def _transform_each_history_to_response_model(
         self, study_selection_history: StudyDesignCellHistory, study_uid: str
-    ) -> models.StudyDesignCellHistory:
-        return models.StudyDesignCellHistory(
+    ) -> StudyDesignCellHistoryModel:
+        return StudyDesignCellHistoryModel(
             study_uid=study_uid,
             study_design_cell_uid=study_selection_history.study_selection_uid,
             study_arm_uid=study_selection_history.study_arm_uid,
@@ -277,7 +296,7 @@ class StudyDesignCellService(StudySelectionMixin):
     @db.transaction
     def get_all_design_cells_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudyDesignCellVersion]:
+    ) -> list[StudyDesignCellVersion]:
         repos = self._repos
         try:
             try:
@@ -285,7 +304,7 @@ class StudyDesignCellService(StudySelectionMixin):
                     repos.study_design_cell_repository.find_selection_history(study_uid)
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             unique_list_uids = list({x.study_selection_uid for x in selection_history})
             unique_list_uids.sort()
@@ -302,11 +321,9 @@ class StudyDesignCellService(StudySelectionMixin):
                     for _ in ith_selection_history
                 ]
                 if not data:
-                    data = calculate_diffs(versions, models.StudyDesignCellVersion)
+                    data = calculate_diffs(versions, StudyDesignCellVersion)
                 else:
-                    data.extend(
-                        calculate_diffs(versions, models.StudyDesignCellVersion)
-                    )
+                    data.extend(calculate_diffs(versions, StudyDesignCellVersion))
             return data
         finally:
             repos.close()
@@ -314,7 +331,7 @@ class StudyDesignCellService(StudySelectionMixin):
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, design_cell_uid: str
-    ) -> list[models.StudyDesignCellVersion]:
+    ) -> list[StudyDesignCellVersion]:
         repos = self._repos
         try:
             try:
@@ -324,20 +341,21 @@ class StudyDesignCellService(StudySelectionMixin):
                     )
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             versions = [
                 self._transform_each_history_to_response_model(_, study_uid).dict()
                 for _ in selection_history
             ]
-            data = calculate_diffs(versions, models.StudyDesignCellVersion)
+            data = calculate_diffs(versions, StudyDesignCellVersion)
             return data
         finally:
             repos.close()
 
+    @ensure_transaction(db)
     def handle_batch_operations(
-        self, study_uid: str, operations: list[models.StudyDesignCellBatchInput]
-    ) -> list[models.StudyDesignCellBatchOutput]:
+        self, study_uid: str, operations: list[StudyDesignCellBatchInput]
+    ) -> list[StudyDesignCellBatchOutput]:
         results = []
         for operation in operations:
             result = {}
@@ -349,16 +367,20 @@ class StudyDesignCellService(StudySelectionMixin):
                 elif operation.method == "PATCH":
                     item = self.patch(study_uid, operation.content)
                     response_code = status.HTTP_200_OK
-                else:
+                elif operation.method == "DELETE":
                     self.delete(study_uid, operation.content.uid)
                     response_code = status.HTTP_204_NO_CONTENT
-            except exceptions.MDRApiBaseException as error:
-                result["response_code"] = error.status_code
-                result["content"] = models.error.BatchErrorResponse(message=str(error))
-            else:
+                else:
+                    raise exceptions.MethodNotAllowedException(method=operation.method)
                 result["response_code"] = response_code
                 if item:
                     result["content"] = item.dict()
-            finally:
-                results.append(models.StudyDesignCellBatchOutput(**result))
+                results.append(StudyDesignCellBatchOutput(**result))
+            except exceptions.MDRApiBaseException as error:
+                results.append(
+                    StudyDesignCellBatchOutput.construct(
+                        response_code=error.status_code,
+                        content=BatchErrorResponse(message=str(error)),
+                    )
+                )
         return results

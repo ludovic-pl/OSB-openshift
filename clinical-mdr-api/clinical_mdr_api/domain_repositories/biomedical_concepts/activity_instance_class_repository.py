@@ -1,10 +1,16 @@
+from neomodel import NodeSet
+from neomodel.sync_.match import (
+    Collect,
+    Last,
+    NodeNameResolver,
+    Optional,
+    RawCypher,
+    RelationNameResolver,
+)
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
     _AggregateRootType,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    LATEST_VERSION_ORDER_BY,
-    CustomNodeSet,
 )
 from clinical_mdr_api.domain_repositories.models.biomedical_concepts import (
     ActivityInstanceClassRoot,
@@ -35,17 +41,33 @@ class ActivityInstanceClassRepository(
     value_class = ActivityInstanceClassValue
     return_model = ActivityInstanceClass
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return (
             ActivityInstanceClassRoot.nodes.fetch_relations(
-                "has_latest_value", "has_library"
+                "has_latest_value",
+                "has_library",
+                Optional("parent_class__has_latest_value"),
+                Optional("maps_dataset_class"),
             )
-            .fetch_optional_relations("parent_class__has_latest_value")
-            .fetch_optional_relations_and_collect("maps_dataset_class")
-            .fetch_optional_single_relation_of_type(
-                {
-                    "has_version": ("latest_version", LATEST_VERSION_ORDER_BY),
-                }
+            .subquery(
+                ActivityInstanceClassRoot.nodes.traverse_relations(
+                    latest_version="has_version"
+                )
+                .intermediate_transform(
+                    {"rel": {"source": RelationNameResolver("has_version")}},
+                    ordering=[
+                        RawCypher("toInteger(split(rel.version, '.')[0])"),
+                        RawCypher("toInteger(split(rel.version, '.')[1])"),
+                        "rel.end_date",
+                        "rel.start_date",
+                    ],
+                )
+                .annotate(latest_version=Last(Collect("rel"))),
+                ["latest_version"],
+            )
+            .annotate(
+                Collect(NodeNameResolver("maps_dataset_class"), distinct=True),
+                Collect(RelationNameResolver("maps_dataset_class"), distinct=True),
             )
         )
 

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -35,14 +35,19 @@ class ActivityGroupVO(ConceptVO):
 
     def validate(
         self,
-        concept_exists_by_callback: Callable[[str, str, bool], bool],
+        activity_group_exists_by_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
         previous_name: str | None = None,
+        library_name: str | None = None,
     ) -> None:
         self.validate_name_sentence_case()
-        self.duplication_check(
-            [("name", self.name, previous_name)],
-            concept_exists_by_callback,
+        existing_name = activity_group_exists_by_name_callback(library_name, self.name)
+        AlreadyExistsException.raise_if(
+            existing_name and previous_name != self.name,
             "Activity Group",
+            self.name,
+            "Name",
         )
 
 
@@ -61,23 +66,29 @@ class ActivityGroupAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: ActivityGroupVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         concept_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        concept_exists_by_library_and_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
-            concept_exists_by_callback=concept_exists_by_callback,
+            activity_group_exists_by_name_callback=concept_exists_by_library_and_name_callback,
+            library_name=library.name,
         )
 
         activity_group_ar = cls(
@@ -90,21 +101,27 @@ class ActivityGroupAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: ActivityGroupVO,
         concept_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        concept_exists_by_library_and_name_callback: Callable[
+            [str, str], bool
+        ] = lambda x, y: True,
     ) -> None:
         """
         Creates a new draft version for the object.
         """
         concept_vo.validate(
-            concept_exists_by_callback=concept_exists_by_callback,
+            activity_group_exists_by_name_callback=concept_exists_by_library_and_name_callback,
             previous_name=self.name,
+            library_name=self.library.name,
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

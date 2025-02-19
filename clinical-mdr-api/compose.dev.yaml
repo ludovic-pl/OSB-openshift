@@ -10,7 +10,7 @@ services:
         TARGET: ${BUILD_TARGET:-dev}
         UID: ${UID:-1000}
     environment:
-      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687}/mdrdb"
+      NEO4J_DSN: "${NEO4J_DSN:-bolt://neo4j:changeme1234@database:7687/mdrdb}"
       UVICORN_ROOT_PATH: ""
       UVICORN_RELOAD: "true"
       EXPIRED_ACCESS_TOKEN: "${EXPIRED_ACCESS_TOKEN:-}"

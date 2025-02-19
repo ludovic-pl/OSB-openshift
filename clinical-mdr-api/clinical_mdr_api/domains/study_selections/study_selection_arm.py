@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,8 @@ class StudySelectionArmVO:
     number_of_subjects: int | None
     arm_type_uid: str | None
     start_date: datetime.datetime
-    user_initials: str
+    author_id: str
+    author_username: str
     end_date: datetime.datetime | None
     status: str | None
     change_type: str | None
@@ -32,7 +34,7 @@ class StudySelectionArmVO:
     @classmethod
     def from_input_values(
         cls,
-        user_initials: str,
+        author_id: str,
         study_selection_uid: str | None = None,
         study_uid: str | None = None,
         name: str | None = None,
@@ -63,7 +65,7 @@ class StudySelectionArmVO:
         :param number_of_subjects
         :param arm_type_uid
         :param start_date
-        :param user_initials
+        :param author_id
         :param end_date
         :param status
         :param change_type
@@ -90,7 +92,8 @@ class StudySelectionArmVO:
             number_of_subjects=number_of_subjects,
             arm_type_uid=arm_type_uid,
             start_date=start_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             end_date=end_date,
             status=status,
             change_type=change_type,
@@ -109,38 +112,38 @@ class StudySelectionArmVO:
         :return:
         """
         # Check if there exist a Term with the selected uid
-        if self.arm_type_uid and not ct_term_exists_callback(self.arm_type_uid):
-            raise exceptions.ValidationException(
-                f"There is no approved arm level identified by provided term uid ({self.arm_type_uid})"
-            )
+        exceptions.ValidationException.raise_if(
+            self.arm_type_uid and not ct_term_exists_callback(self.arm_type_uid),
+            msg=f"There is no approved Arm Level Term with UID '{self.arm_type_uid}'.",
+        )
 
         # check if the specified name is already used
-        if self.name and arm_exists_callback_by("name", "name", arm_vo=self):
-            raise exceptions.ValidationException(
-                f'Value "{self.name}" in field Arm name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.name and arm_exists_callback_by("name", "name", arm_vo=self),
+            msg=f"Value '{self.name}' in field Arm name is not unique for the study.",
+        )
 
         # check if the specified short_name is already used
-        if self.short_name and arm_exists_callback_by(
-            "short_name", "short_name", arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.short_name}" in field Arm short name is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.short_name
+            and arm_exists_callback_by("short_name", "short_name", arm_vo=self),
+            msg=f"Value '{self.short_name}' in field Arm short name is not unique for the study.",
+        )
 
         # check if the specified code is already used with the callback
-        if self.code and arm_exists_callback_by("arm_code", "code", arm_vo=self):
-            raise exceptions.ValidationException(
-                f'Value "{self.code}" in field code is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.code and arm_exists_callback_by("arm_code", "code", arm_vo=self),
+            msg=f"Value '{self.code}' in field code is not unique for the study.",
+        )
 
         # check if the specified randomization group is already used with the callback
-        if self.randomization_group and arm_exists_callback_by(
-            "randomization_group", "randomization_group", arm_vo=self
-        ):
-            raise exceptions.ValidationException(
-                f'Value "{self.randomization_group}" in field Arm Randomization code is not unique for the study'
-            )
+        exceptions.ValidationException.raise_if(
+            self.randomization_group
+            and arm_exists_callback_by(
+                "randomization_group", "randomization_group", arm_vo=self
+            ),
+            msg=f"Value '{self.randomization_group}' in field Arm Randomization code is not unique for the study.",
+        )
 
 
 @dataclass
@@ -158,7 +161,7 @@ class StudySelectionArmAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"The study selection {study_selection_uid} does not exist for study {self._study_uid}"
+            msg=f"Study Selection with UID '{study_selection_uid}' doesn't exist for Study with UID '{self._study_uid}'."
         )
 
     @property
@@ -181,7 +184,7 @@ class StudySelectionArmAR:
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
         raise exceptions.NotFoundException(
-            f"There is no selection between the study arm '{study_selection_uid}' and the study"
+            msg=f"There is no selection between the Study Arm with UID '{study_selection_uid}' and the study"
         )
 
     def _add_selection(self, study_arm_selection) -> None:

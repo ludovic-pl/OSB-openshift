@@ -8301,7 +8301,7 @@ class SdmcomplexTypeDefinitionParameter:
 class SdmcomplexTypeDefinitionPathCanFinish:
     """
     The PathCanFinish element allows to specify activities for which it is not
-    necessarily an error that the workflow does not provide a transition from
+    necessarily an error that the workflow doesn't provide a transition from
     that activity to another activity.
     """
 

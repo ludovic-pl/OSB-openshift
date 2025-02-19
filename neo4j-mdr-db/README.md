@@ -292,6 +292,27 @@ Run it with pipenv, specifying the directory where the reports JSON files are st
 $ pipenv run import_reports "neodash_reports"
 ```
 
+## How to Connect to NeoDash  
+
+NeoDash can be accessed in two ways:  
+1. Directly from the **Neo4j Browser**.  
+2. Through the standalone site: [http://neodash.graphapp.io/](http://neodash.graphapp.io/).  
+
+### Connecting to the Standalone Site  
+To connect via the standalone site, follow these steps:  
+
+1. **Ensure you are using HTTP, not HTTPS.** NeoDash requires an HTTP connection, so make sure the URL starts with `http://` instead of `https://`.  
+2. Once on the NeoDash site, enter the following database connection details:  
+   - **Host:** `NEO4J_MDR_HOST`  
+   - **Bolt Port:** `NEO4J_MDR_BOLT_PORT`  
+   - **Database Name:** `NEO4J_MDR_DATABASE`  
+   - **Password:** `NEO4J_MDR_AUTH_PASSWORD`  
+3. Click **Connect** to log in.  
+
+### Accessing or Creating Dashboards  
+- If you have already imported NeoDash reports in the previous step, you will see the existing dashboards.  
+- To create a new dashboard, click **New Dashboard** and start building your reports.  
+
 # Update CT stats
 The script `update_ct_stats` loops through all CT packages to update the counters of added, modified and removed terms and codelists.
 This is intended to be run periodically to keep these counters up to date.

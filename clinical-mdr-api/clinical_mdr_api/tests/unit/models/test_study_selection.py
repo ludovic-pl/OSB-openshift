@@ -19,7 +19,10 @@ from clinical_mdr_api.domains.study_selections.study_selection_objective import 
     StudySelectionObjectivesAR,
     StudySelectionObjectiveVO,
 )
-from clinical_mdr_api.models import Objective, StudySelectionObjective
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudySelectionObjective,
+)
+from clinical_mdr_api.models.syntax_instances.objective import Objective
 
 
 @composite
@@ -40,7 +43,7 @@ def study_selection_objectives_values(draw):
         objective_level_uid=None,
         objective_level_order=None,
         start_date=draw(datetimes()),
-        user_initials=draw(non_empty_text()),
+        author_id=draw(non_empty_text()),
     )
 
 
@@ -54,7 +57,7 @@ def objective_models(draw):
         status=draw(non_empty_text()),
         version=draw(non_empty_text()),
         change_description=draw(non_empty_text()),
-        user_initials=draw(non_empty_text()),
+        author_username=draw(non_empty_text()),
     )
 
 
@@ -90,7 +93,7 @@ def study_selection_endpoints_aggregates_with_given_study_uid_study_objective_ui
                 timeframe_uid=draw(non_empty_text()),
                 timeframe_version=draw(non_empty_text()),
                 unit_separator=draw(non_empty_text()),
-                user_initials=draw(non_empty_text()),
+                author_id=draw(non_empty_text()),
             )
             for _ in range(0, count)
         ]
@@ -113,7 +116,7 @@ def study_selection_endpoints_aggregates_with_given_study_uid_study_objective_ui
                 timeframe_uid=draw(non_empty_text()),
                 timeframe_version=draw(non_empty_text()),
                 unit_separator=draw(non_empty_text()),
-                user_initials=draw(non_empty_text()),
+                author_id=draw(non_empty_text()),
             )
             for _ in range(0, draw(integers(min_value=0, max_value=5)))
         ],

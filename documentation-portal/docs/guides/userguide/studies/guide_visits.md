@@ -192,6 +192,6 @@ Visit end rule | End rule
 Study day | Timing relative to the reference timing in days. Example: Day 1
 Study week | Timing relative to the reference timing in weeks. Example: Week 1
 Week in Study | Same as Study duration weeks, but written as 'Week x', can be used as template parameter in study endpoint time frames
-Modified | Name/initials of user 
-Modified by | Date
+Modified | Date
+Modified by | Username of user that made the last change
 

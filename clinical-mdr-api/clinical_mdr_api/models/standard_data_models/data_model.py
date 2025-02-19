@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import Field
 
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.models import _generic_descriptions
 from clinical_mdr_api.models.utils import BaseModel
+from common.utils import convert_to_datetime
 
 
 class SimpleImplementationGuide(BaseModel):
@@ -14,32 +15,28 @@ class SimpleImplementationGuide(BaseModel):
 
 class DataModel(BaseModel):
     uid: str
-    name: str = Field(
-        ...,
-        title="name",
-        description="The name or the data model. E.g. 'SDTM', 'ADAM', ...",
-    )
-    description: str = Field(
-        ...,
-        title="name_sentence_case",
-        description="",
-    )
-    implementation_guides: list[SimpleImplementationGuide] = Field(
-        [],
-        title="implementation_guides",
-        description="",
-    )
-    version_number: str = Field(
-        ...,
-        title="version_number",
-        description="The version or the data model ig. E.g. '1.4'",
-    )
-    start_date: datetime = Field(
-        ...,
-        title="start_date",
-        description=_generic_descriptions.START_DATE,
-    )
-    status: str = Field(..., title="status", description="")
+    name: Annotated[
+        str,
+        Field(
+            description="The name or the data model. E.g. 'SDTM', 'ADAM', ...",
+        ),
+    ]
+    description: Annotated[str, Field()]
+    implementation_guides: Annotated[
+        list[SimpleImplementationGuide],
+        Field(),
+    ]
+    version_number: Annotated[
+        str,
+        Field(
+            description="The version or the data model ig. E.g. '1.4'",
+        ),
+    ]
+    start_date: Annotated[
+        datetime,
+        Field(description=_generic_descriptions.START_DATE),
+    ]
+    status: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_repository_output(cls, input_dict: dict):

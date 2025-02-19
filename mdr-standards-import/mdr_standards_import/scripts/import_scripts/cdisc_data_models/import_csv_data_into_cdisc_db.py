@@ -119,7 +119,7 @@ def import_data_model_csv_data_into_cdisc_db(
     data_directory: str,
     cdisc_import_neo4j_driver,
     cdisc_import_db_name: str,
-    user_initials: str,
+    author_id: str,
 ):
     """
     Import the new data found on disc into the intermediate CDISC database
@@ -134,7 +134,7 @@ def import_data_model_csv_data_into_cdisc_db(
         https://neo4j.com/docs/api/python-driver/current/api.html#neo4j.Driver
         cdisc_import_db_name (str): the name of the Neo4j database in which the CDISC data is loaded
         in the first place (after it will be loaded into the default MDR db)
-        user_initials (str): the initials of the user that triggers this step
+        author_id (str): the id of the user that triggers this step
     """
     try:
         start_time = time.time()
@@ -154,7 +154,7 @@ def import_data_model_csv_data_into_cdisc_db(
                 library=library,
                 catalogue=catalogue,
                 version_number=version_number,
-                user_initials=user_initials,
+                author_id=author_id,
             )
             process_model(
                 data_directory=data_directory,
@@ -174,7 +174,7 @@ def import_data_model_csv_data_into_cdisc_db(
                 library=library,
                 catalogue=ig_catalogue_name,
                 version_number=version_number,
-                user_initials=user_initials,
+                author_id=author_id,
             )
             process_model(
                 data_directory=data_directory,

@@ -1,44 +1,9 @@
 """Database related helper functions."""
 
-from typing import Any
-
 from neomodel import db
 
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.concepts.concept import VersionProperties
-
-
-def db_result_to_list(result) -> list[dict]:
-    """
-    Converts a Cypher query result to a list of dictionaries.
-
-    Args:
-        result: The result of a Cypher query.
-
-    Returns:
-        list[dict]: A list of dictionaries representing the result.
-    """
-    data = []
-    for row in result[0]:
-        new_item = {}
-        for index, header in enumerate(result[1], start=0):
-            new_item[header] = row[index]
-        data.append(new_item)
-    return data
-
-
-def unpack_list_of_lists(result: list) -> list:
-    """
-    Converts a list of embedded lists into a list containing items from internal list.
-    An exemplary result parameter passed to the function looks as follows [['A'], ['B]]
-    The following method would translate it into ['A', 'B']
-    """
-    return [
-        item_in_internal_list
-        for internal_list in result
-        for item_in_internal_list in internal_list
-    ]
 
 
 def acquire_write_lock_study_value(uid: str) -> None:
@@ -93,10 +58,3 @@ def is_codelist_in_final(ct_codelist_root_node) -> bool:
         latest_version = get_latest_version_properties(attributes_root)
         return latest_version and latest_version.status == LibraryItemStatus.FINAL.value
     return False
-
-
-def validate_dict(item: Any, label: str, ignore_none=True) -> bool:
-    if isinstance(item, dict) or (ignore_none and item is None):
-        return True
-
-    raise ValidationException(f"Invalid value for '{label}': {item}")

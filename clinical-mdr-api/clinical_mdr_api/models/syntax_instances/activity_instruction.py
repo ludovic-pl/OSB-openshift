@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -17,40 +17,45 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class ActivityInstructionNameUid(BaseModel):
     uid: str
-    name: str | None = Field(None, nullable=True)
-    name_plain: str | None = Field(None, nullable=True)
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_plain: Annotated[str | None, Field(nullable=True)] = None
 
 
 class ActivityInstruction(ActivityInstructionNameUid):
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
     template: ActivityInstructionTemplateNameUidLibrary | None
-    parameter_terms: list[MultiTemplateParameterTerm] = Field(
-        [],
-        description="""Holds the parameter terms that are used within the activity
+    parameter_terms: Annotated[
+        list[MultiTemplateParameterTerm],
+        Field(
+            description="""Holds the parameter terms that are used within the activity
         instruction. The terms are ordered as they occur in the activity instruction name.""",
-    )
-    library: Library | None = Field(None, nullable=True)
-
-    study_count: int = Field(
-        0, description="Count of studies referencing activity instruction"
-    )
-    possible_actions: list[str] | None = Field(
-        None,
-        description=(
-            "Holds those actions that can be performed on the endpoint. "
-            "Actions are: 'approve', 'edit', 'inactivate', 'reactivate' and 'delete'."
         ),
-    )
+    ] = []
+    library: Annotated[Library | None, Field(nullable=True)] = None
+
+    study_count: Annotated[
+        int, Field(description="Count of studies referencing activity instruction")
+    ] = 0
+    possible_actions: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Holds those actions that can be performed on the endpoint. "
+                "Actions are: 'approve', 'edit', 'inactivate', 'reactivate' and 'delete'."
+            ),
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_activity_instruction_ar(
@@ -83,7 +88,7 @@ class ActivityInstruction(ActivityInstructionNameUid):
             status=activity_instruction_ar.item_metadata.status.value,
             version=activity_instruction_ar.item_metadata.version,
             change_description=activity_instruction_ar.item_metadata.change_description,
-            user_initials=activity_instruction_ar.item_metadata.user_initials,
+            author_username=activity_instruction_ar.item_metadata.author_username,
             template=ActivityInstructionTemplateNameUidLibrary(
                 name=activity_instruction_ar.template_name,
                 name_plain=activity_instruction_ar.template_name_plain,
@@ -105,48 +110,55 @@ class ActivityInstructionVersion(ActivityInstruction):
     Class for storing Activity Instructions and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the activity instruction (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the activity instruction (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class ActivityInstructionParameterInput(BaseModel):
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        None,
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the activity instruction template.",
-    )
+class ActivityInstructionEditInput(PatchInputModel):
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput] | None,
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the activity instruction template.",
+        ),
+    ] = None
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
-class ActivityInstructionEditInput(ActivityInstructionParameterInput):
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
-
-
-class ActivityInstructionCreateInput(BaseModel):
-    activity_instruction_template_uid: str = Field(
-        ...,
-        title="activity_instruction_template_uid",
-        description="The unique id of the activity instruction template that is used as the basis for the new activity instruction.",
-    )
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        ...,
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the activity instruction template.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the criteria will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* criteria can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the criteria template will be used.",
-        nullable=True,
-    )
+class ActivityInstructionCreateInput(PostInputModel):
+    activity_instruction_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the activity instruction template that is used as the basis for the new activity instruction.",
+            min_length=1,
+        ),
+    ]
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the activity instruction template.",
+        ),
+    ]
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the criteria will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* criteria can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the criteria template will be used.",
+            min_length=1,
+        ),
+    ] = None

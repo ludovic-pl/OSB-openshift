@@ -90,7 +90,7 @@ def test_migrate_study_selection_metadata_into_study_selection(migration):
     for study in studies:
         study_uid = study[0]
         logger.info(
-            "Verifying that non and unscheduled visits have proper numbers in the following Study (%s)",
+            "Verifying that StudyActivities are being returned without any issues in the following Study (%s)",
             study_uid,
         )
         # Call endpoint to check API response which is asserted under the hood

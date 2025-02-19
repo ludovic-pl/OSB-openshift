@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -39,10 +39,10 @@ class ActiveSubstanceVO(ConceptVO):
             inn=inn,
             external_id=external_id,
             unii_term_uid=unii_term_uid,
-            name="",
-            name_sentence_case="",
-            definition="",
-            abbreviation="",
+            name=None,
+            name_sentence_case=None,
+            definition=None,
+            abbreviation=None,
             is_template_parameter=False,
         )
 
@@ -59,7 +59,7 @@ class ActiveSubstanceVO(ConceptVO):
             uid=uid,
             property_name="analyte_number",
             value=self.analyte_number,
-            error_message=f"ActiveSubstance with analyte number ({self.analyte_number}) already exists",
+            error_message=f"Active Substance with Analyte Number '{self.analyte_number}' already exists.",
         )
 
         self.validate_uniqueness(
@@ -67,7 +67,7 @@ class ActiveSubstanceVO(ConceptVO):
             uid=uid,
             property_name="short_number",
             value=self.short_number,
-            error_message=f"ActiveSubstance with short number ({self.short_number}) already exists",
+            error_message=f"Active Substance with Short Number '{self.short_number}' already exists.",
         )
 
         self.validate_uniqueness(
@@ -75,7 +75,7 @@ class ActiveSubstanceVO(ConceptVO):
             uid=uid,
             property_name="long_number",
             value=self.long_number,
-            error_message=f"ActiveSubstance with long number ({self.long_number}) already exists",
+            error_message=f"Active Substance with Long Number '{self.long_number}' already exists.",
         )
 
         self.validate_uniqueness(
@@ -83,15 +83,14 @@ class ActiveSubstanceVO(ConceptVO):
             uid=uid,
             property_name="external_id",
             value=self.external_id,
-            error_message=f"ActiveSubstance with external_id ({self.external_id}) already exists",
+            error_message=f"Active Substance with external_id '{self.external_id}' already exists.",
         )
 
-        if self.unii_term_uid and not dictionary_term_exists_callback(
+        BusinessLogicException.raise_if(
             self.unii_term_uid
-        ):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non existing UNII term identified by uid ({self.unii_term_uid})"
-            )
+            and not dictionary_term_exists_callback(self.unii_term_uid),
+            msg=f"{type(self).__name__} tried to connect to non existing UNII Term with UID '{self.unii_term_uid}'.",
+        )
 
 
 class ActiveSubstanceAR(ConceptARBase):
@@ -109,20 +108,22 @@ class ActiveSubstanceAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: ActiveSubstanceVO,
         library: LibraryVO,
         active_substance_uid_by_property_value_callback: Callable[[str, str], str],
         dictionary_term_exists_callback: Callable[[str], bool],
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
         uid = generate_uid_callback()
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
             uid=uid,
@@ -140,7 +141,7 @@ class ActiveSubstanceAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: ActiveSubstanceVO,
         concept_exists_by_callback: Callable[[str, str], str] | None = None,
@@ -156,5 +157,7 @@ class ActiveSubstanceAR(ConceptARBase):
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

@@ -15,7 +15,8 @@ class CTPackageAR:
     extends_package: str | None
     import_date: datetime
     effective_date: date
-    user_initials: str
+    author_id: str
+    author_username: str
 
     @property
     def uid(self) -> str:
@@ -34,7 +35,8 @@ class CTPackageAR:
         extends_package: str | None,
         import_date: datetime,
         effective_date: date,
-        user_initials: str,
+        author_id: str,
+        author_username: str,
     ):
         return CTPackageAR(
             _uid=uid,
@@ -48,5 +50,6 @@ class CTPackageAR:
             extends_package=extends_package,
             import_date=import_date,
             effective_date=effective_date,
-            user_initials=user_initials,
+            author_id=author_id,
+            author_username=author_username,
         )

@@ -7,8 +7,8 @@ from clinical_mdr_api.domain_repositories.projects.project_repository import (
     ProjectRepository,
 )
 from clinical_mdr_api.domains.projects.project import ProjectAR
-from clinical_mdr_api.exceptions import NotFoundException
 from clinical_mdr_api.tests.unit.domain.utils import random_opt_str, random_str
+from common.exceptions import NotFoundException
 
 
 class MockClinicalProgramme:

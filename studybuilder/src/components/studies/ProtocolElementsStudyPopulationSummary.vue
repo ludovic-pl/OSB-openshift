@@ -11,7 +11,7 @@
         <v-radio :label="$t('StudyPopulationView.hide_all')" :value="false" />
       </v-radio-group>
     </div>
-    <v-expansion-panels :key="key" v-model="panel" multiple accordion>
+    <v-expansion-panels v-model="panel" multiple accordion>
       <v-expansion-panel
         v-for="(criterias, name) in studyCriterias"
         :key="name"
@@ -46,7 +46,7 @@ export default {
   },
   data() {
     return {
-      studyCriterias: {
+      studyCriteriasTypes: {
         'Inclusion Criteria': [], // Hardcoded to keep correct order
         'Exclusion Criteria': [],
         'Run-in Criteria': [],
@@ -54,7 +54,8 @@ export default {
         'Dosing Criteria': [],
         'Withdrawal Criteria': [],
       },
-      key: 0,
+      studyCriterias: {},
+      test: {},
       panel: [],
       expand: false,
     }
@@ -69,14 +70,10 @@ export default {
       .getStudyCriteria(this.selectedStudy.uid)
       .then((resp) => {
         resp.data.items.forEach((el) => {
-          if (el.criteria_type.sponsor_preferred_name in this.studyCriterias) {
-            this.studyCriterias[el.criteria_type.sponsor_preferred_name].push(
-              el.criteria
-                ? this.removeBrackets(el.criteria.name)
-                : this.removeBrackets(el.criteria_template.name)
-            )
-          } else {
-            this.studyCriterias[el.criteria_type.sponsor_preferred_name] = []
+          if (el.criteria_type.sponsor_preferred_name in this.studyCriteriasTypes) {
+            if (!this.studyCriterias[el.criteria_type.sponsor_preferred_name]) {
+              this.studyCriterias[el.criteria_type.sponsor_preferred_name] = []
+            }
             this.studyCriterias[el.criteria_type.sponsor_preferred_name].push(
               el.criteria
                 ? this.removeBrackets(el.criteria.name)
@@ -84,7 +81,6 @@ export default {
             )
           }
         })
-        this.key += 1
       })
   },
   methods: {

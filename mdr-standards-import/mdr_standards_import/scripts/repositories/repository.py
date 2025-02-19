@@ -60,7 +60,7 @@ def create_import_node(tx, ct_import: CTImport):
         """
         CREATE (import:Import{
             effective_date: date($effective_date),
-            user_initials: $user_initials
+            author_id: $author_id
         })
         SET
             import:Running,
@@ -68,7 +68,7 @@ def create_import_node(tx, ct_import: CTImport):
         RETURN id(import) AS import_id
         """,
         effective_date=ct_import.effective_date,
-        user_initials=ct_import.user_initials,
+        author_id=ct_import.author_id,
         import_date_time=ct_import.import_date_time,
     ).single()
 
@@ -147,7 +147,7 @@ def create_data_model_import_node(tx, dm_import: DataModelImport):
             version_number: $version_number,
             implements_data_model: $implements_data_model,
             data_model_type: $data_model_type,
-            user_initials: $user_initials
+            author_id: $author_id
         })
         SET
             import:Running,
@@ -159,7 +159,7 @@ def create_data_model_import_node(tx, dm_import: DataModelImport):
         version_number=dm_import.version_number,
         data_model_type=dm_import.get_type().value,
         implements_data_model=dm_import.get_implements_data_model(),
-        user_initials=dm_import.user_initials,
+        author_id=dm_import.author_id,
         import_date_time=dm_import.import_date_time,
     ).single()
 
@@ -662,7 +662,7 @@ def _create_inconsistency(tx, inconsistency: Inconsistency, effective_date):
             log.tagline = $tagline,
             log.message = $message,
             log.comment = $comment,
-            log.user_initials = $user_initials
+            log.author_id = $author_id
         RETURN id(log) AS inconsistency_id
         """,
         effective_date=effective_date,
@@ -670,7 +670,7 @@ def _create_inconsistency(tx, inconsistency: Inconsistency, effective_date):
         tagline=inconsistency.tagline,
         message=inconsistency.message,
         comment=inconsistency.comment,
-        user_initials=inconsistency.user_initials,
+        author_id=inconsistency.author_id,
     ).single()
     inconsistency_id = result.get("inconsistency_id")
     if inconsistency.affected_package is not None:

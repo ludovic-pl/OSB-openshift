@@ -1,9 +1,8 @@
 import datetime
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field, validator
 
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domains.concepts.activities.activity import ActivityAR
 from clinical_mdr_api.domains.concepts.activities.activity_group import ActivityGroupAR
 from clinical_mdr_api.domains.concepts.activities.activity_sub_group import (
@@ -14,10 +13,15 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     ObjectAction,
 )
-from clinical_mdr_api.exceptions import ValidationException
-from clinical_mdr_api.models.concepts.concept import Concept, ConceptInput
+from clinical_mdr_api.models.concepts.concept import (
+    Concept,
+    ExtendedConceptPatchInput,
+    ExtendedConceptPostInput,
+)
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, InputModel, PatchInputModel
+from common.exceptions import ValidationException
+from common.utils import convert_to_datetime
 
 
 class ActivityHierarchySimpleModel(BaseModel):
@@ -44,52 +48,50 @@ class ActivityHierarchySimpleModel(BaseModel):
     ) -> Self:
         return cls(uid=activity_ar.uid, name=activity_ar.name)
 
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="",
-    )
-    name: str | None = Field(None, title="name", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class ActivityGroupingHierarchySimpleModel(BaseModel):
     class Config:
         orm_mode = True
 
-    activity_group_uid: str = Field(
-        ...,
-        title="uid",
-        description="",
-        source="has_latest_value.has_grouping.in_subgroup.in_group.has_version.uid",
-    )
-    activity_group_name: str = Field(
-        ...,
-        title="name",
-        description="",
-        source="has_latest_value.has_grouping.in_subgroup.in_group.name",
-    )
-    activity_subgroup_uid: str = Field(
-        ...,
-        title="uid",
-        description="",
-        source="has_latest_value.has_grouping.in_subgroup.has_group.has_version.uid",
-    )
-    activity_subgroup_name: str = Field(
-        ...,
-        title="uid",
-        description="",
-        source="has_latest_value.has_grouping.in_subgroup.has_group.name",
-    )
+    activity_group_uid: Annotated[
+        str,
+        Field(
+            source="has_latest_value.has_grouping.in_subgroup.in_group.has_version.uid",
+        ),
+    ]
+    activity_group_name: Annotated[
+        str,
+        Field(
+            source="has_latest_value.has_grouping.in_subgroup.in_group.name",
+        ),
+    ]
+    activity_subgroup_uid: Annotated[
+        str,
+        Field(
+            source="has_latest_value.has_grouping.in_subgroup.has_group.has_version.uid",
+        ),
+    ]
+    activity_subgroup_name: Annotated[
+        str,
+        Field(
+            source="has_latest_value.has_grouping.in_subgroup.has_group.name",
+        ),
+    ]
 
 
 class ActivityBase(Concept):
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on the ActivityInstances. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the ActivityInstances. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            ),
         ),
-    )
+    ]
 
     @validator("possible_actions", pre=True, always=True)
     # pylint: disable=no-self-argument,unused-argument
@@ -115,7 +117,8 @@ class ActivityBase(Concept):
 
 
 class Activity(ActivityBase):
-    nci_concept_id: str | None = None
+    nci_concept_id: Annotated[str | None, Field(nullable=True)] = None
+    nci_concept_name: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_activity_ar(
@@ -147,8 +150,10 @@ class Activity(ActivityBase):
         return cls(
             uid=activity_ar.uid,
             nci_concept_id=activity_ar.concept_vo.nci_concept_id,
+            nci_concept_name=activity_ar.concept_vo.nci_concept_name,
             name=activity_ar.name,
             name_sentence_case=activity_ar.concept_vo.name_sentence_case,
+            synonyms=activity_ar.concept_vo.synonyms,
             definition=activity_ar.concept_vo.definition,
             abbreviation=activity_ar.concept_vo.abbreviation,
             activity_groupings=sorted(
@@ -164,7 +169,7 @@ class Activity(ActivityBase):
             status=activity_ar.item_metadata.status.value,
             version=activity_ar.item_metadata.version,
             change_description=activity_ar.item_metadata.change_description,
-            user_initials=activity_ar.item_metadata.user_initials,
+            author_username=activity_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in activity_ar.get_possible_actions()]
             ),
@@ -175,12 +180,16 @@ class Activity(ActivityBase):
             contact_person=activity_ar.concept_vo.contact_person,
             requester_study_id=activity_ar.concept_vo.requester_study_id,
             replaced_by_activity=activity_ar.concept_vo.replaced_by_activity,
-            is_data_collected=activity_ar.concept_vo.is_data_collected
-            if activity_ar.concept_vo.is_data_collected
-            else False,
-            is_multiple_selection_allowed=activity_ar.concept_vo.is_multiple_selection_allowed
-            if activity_ar.concept_vo.is_multiple_selection_allowed is not None
-            else True,
+            is_data_collected=(
+                activity_ar.concept_vo.is_data_collected
+                if activity_ar.concept_vo.is_data_collected
+                else False
+            ),
+            is_multiple_selection_allowed=(
+                activity_ar.concept_vo.is_multiple_selection_allowed
+                if activity_ar.concept_vo.is_multiple_selection_allowed is not None
+                else True
+            ),
             is_finalized=activity_ar.concept_vo.is_finalized,
             is_used_by_legacy_instances=activity_ar.concept_vo.is_used_by_legacy_instances,
         )
@@ -211,10 +220,10 @@ class Activity(ActivityBase):
                         )
                     )
                     break
-            if not activity_group or not activity_subgroup:
-                raise ValidationException(
-                    "Either ActivityGroup or ActivitySubGroup can't be find in fetched groupings"
-                )
+            ValidationException.raise_if(
+                not activity_group or not activity_subgroup,
+                msg="Either ActivityGroup or ActivitySubGroup can't be find in fetched groupings",
+            )
             activity_groupings.append(
                 ActivityGroupingHierarchySimpleModel(
                     activity_group_uid=activity_group.uid,
@@ -226,8 +235,10 @@ class Activity(ActivityBase):
         return cls(
             uid=activity_ar.uid,
             nci_concept_id=activity_ar.concept_vo.nci_concept_id,
+            nci_concept_name=activity_ar.concept_vo.nci_concept_name,
             name=activity_ar.name,
             name_sentence_case=activity_ar.concept_vo.name_sentence_case,
+            synonyms=activity_ar.concept_vo.synonyms,
             definition=activity_ar.concept_vo.definition,
             abbreviation=activity_ar.concept_vo.abbreviation,
             activity_groupings=sorted(
@@ -243,7 +254,7 @@ class Activity(ActivityBase):
             status=activity_ar.item_metadata.status.value,
             version=activity_ar.item_metadata.version,
             change_description=activity_ar.item_metadata.change_description,
-            user_initials=activity_ar.item_metadata.user_initials,
+            author_username=activity_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in activity_ar.get_possible_actions()]
             ),
@@ -254,143 +265,156 @@ class Activity(ActivityBase):
             contact_person=activity_ar.concept_vo.contact_person,
             requester_study_id=activity_ar.concept_vo.requester_study_id,
             replaced_by_activity=activity_ar.concept_vo.replaced_by_activity,
-            is_data_collected=activity_ar.concept_vo.is_data_collected
-            if activity_ar.concept_vo.is_data_collected
-            else False,
-            is_multiple_selection_allowed=activity_ar.concept_vo.is_multiple_selection_allowed
-            if activity_ar.concept_vo.is_multiple_selection_allowed is not None
-            else True,
+            is_data_collected=(
+                activity_ar.concept_vo.is_data_collected
+                if activity_ar.concept_vo.is_data_collected
+                else False
+            ),
+            is_multiple_selection_allowed=(
+                activity_ar.concept_vo.is_multiple_selection_allowed
+                if activity_ar.concept_vo.is_multiple_selection_allowed is not None
+                else True
+            ),
             is_finalized=activity_ar.concept_vo.is_finalized,
             is_used_by_legacy_instances=activity_ar.concept_vo.is_used_by_legacy_instances,
         )
 
-    activity_groupings: list[ActivityGroupingHierarchySimpleModel] = Field(
-        [],
-        title="Activity Groupings",
-        description="Activity Groupings",
-    )
-    request_rationale: str | None = Field(
-        None,
-        title="The rationale of the activity request",
-        description="The rationale of the activity request",
-        nullable=True,
-        remove_from_wildcard=True,
-    )
-    is_request_final: bool = Field(
-        False,
-        title="The flag indicating if activity request is finalized",
-        description="The flag indicating if activity request is finalized",
-        nullable=False,
-        remove_from_wildcard=True,
-    )
-    is_request_rejected: bool = Field(
-        False,
-        title="The flag indicating if activity request is rejected",
-        nullable=False,
-        remove_from_wildcard=True,
-    )
-    contact_person: str | None = Field(
-        None,
-        title="The person to contact with about rejection",
-        nullable=True,
-        remove_from_wildcard=True,
-    )
-    reason_for_rejecting: str | None = Field(
-        None,
-        title="The reason why request was rejected",
-        nullable=True,
-        remove_from_wildcard=True,
-    )
-    requester_study_id: str | None = Field(
-        None,
-        title="The study_id of the Study which requested an Activity request",
-        description="The study_id of the Study which requested an Activity request",
-        nullable=True,
-        remove_from_wildcard=True,
-    )
-    replaced_by_activity: str | None = Field(
-        None,
-        title="The uid of the replacing Activity",
-        description="The uid of the replacing Activity",
-        nullable=True,
-        remove_from_wildcard=True,
-    )
-    is_data_collected: bool = Field(
-        False,
-        title="Boolean flag indicating whether data is collected for this activity",
-        description="Boolean flag indicating whether data is collected for this activity",
-        nullable=False,
-    )
-    is_multiple_selection_allowed: bool = Field(
-        True,
-        title="Boolean flag indicating whether multiple selections are allowed for this activity",
-        description="Boolean flag indicating whether multiple selections are allowed for this activity",
-        nullable=False,
-    )
-    is_finalized: bool = Field(
-        False,
-        title="Computed boolean value based on is_request_rejected and replaced_by_activity",
-        description="Evaluates to false, if is_request_rejected is false and replaced_by_activity is null else true",
-        nullable=False,
-    )
-    is_used_by_legacy_instances: bool = Field(
-        False,
-        title="True if all instances linked to given Activity are legacy_used.",
-        nullable=False,
-    )
+    activity_groupings: Annotated[
+        list[ActivityGroupingHierarchySimpleModel], Field()
+    ] = []
+    synonyms: Annotated[list[str], Field(remove_from_wildcard=True)]
+    request_rationale: Annotated[
+        str | None,
+        Field(
+            description="The rationale of the activity request",
+            nullable=True,
+            remove_from_wildcard=True,
+        ),
+    ] = None
+    is_request_final: Annotated[
+        bool,
+        Field(
+            description="The flag indicating if activity request is finalized",
+            nullable=False,
+            remove_from_wildcard=True,
+        ),
+    ] = False
+    is_request_rejected: Annotated[
+        bool,
+        Field(
+            description="The flag indicating if activity request is rejected",
+            nullable=False,
+            remove_from_wildcard=True,
+        ),
+    ] = False
+    contact_person: Annotated[
+        str | None,
+        Field(
+            description="The person to contact with about rejection",
+            nullable=True,
+            remove_from_wildcard=True,
+        ),
+    ] = None
+    reason_for_rejecting: Annotated[
+        str | None,
+        Field(
+            description="The reason why request was rejected",
+            nullable=True,
+            remove_from_wildcard=True,
+        ),
+    ] = None
+    requester_study_id: Annotated[
+        str | None,
+        Field(
+            description="The study_id of the Study which requested an Activity request",
+            nullable=True,
+            remove_from_wildcard=True,
+        ),
+    ] = None
+    replaced_by_activity: Annotated[
+        str | None,
+        Field(
+            description="The uid of the replacing Activity",
+            nullable=True,
+            remove_from_wildcard=True,
+        ),
+    ] = None
+    is_data_collected: Annotated[
+        bool,
+        Field(
+            description="Boolean flag indicating whether data is collected for this activity",
+            nullable=False,
+        ),
+    ] = False
+    is_multiple_selection_allowed: Annotated[
+        bool,
+        Field(
+            description="Boolean flag indicating whether multiple selections are allowed for this activity",
+            nullable=False,
+        ),
+    ] = True
+    is_finalized: Annotated[
+        bool,
+        Field(
+            title="Computed boolean value based on is_request_rejected and replaced_by_activity",
+            description="Evaluates to false, if is_request_rejected is false and replaced_by_activity is null else true",
+            nullable=False,
+        ),
+    ] = False
+    is_used_by_legacy_instances: Annotated[
+        bool,
+        Field(
+            title="True if all instances linked to given Activity are legacy_used.",
+            nullable=False,
+        ),
+    ] = False
 
 
 class ActivityForStudyActivity(Activity):
-    activity_groupings: list[ActivityGroupingHierarchySimpleModel] = Field(
-        [],
-        title="Activity Groupings",
-        description="Activity Groupings",
-        remove_from_wildcard=True,
-    )
+    activity_groupings: Annotated[
+        list[ActivityGroupingHierarchySimpleModel], Field(remove_from_wildcard=True)
+    ] = []
 
 
-class ActivityCommonInput(ConceptInput):
-    name: str | None = Field(
-        None,
-        title="name",
-        description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
-    )
-    name_sentence_case: str | None = Field(
-        None,
-        title="name_sentence_case",
-        description="",
-    )
-
-
-class ActivityGrouping(BaseModel):
+class ActivityGrouping(InputModel):
     activity_group_uid: str
     activity_subgroup_uid: str
 
 
-class ActivityInput(ActivityCommonInput):
-    nci_concept_id: str | None = None
+class ActivityPostInput(ExtendedConceptPostInput):
+    nci_concept_id: Annotated[str | None, Field(min_length=1)] = None
+    nci_concept_name: Annotated[str | None, Field(min_length=1)] = None
     activity_groupings: list[ActivityGrouping] | None = None
-    request_rationale: str | None = None
+    synonyms: list[str] | None = None
+    request_rationale: Annotated[str | None, Field(min_length=1)] = None
     is_request_final: bool = False
     is_data_collected: bool = False
     is_multiple_selection_allowed: bool = True
 
 
-class ActivityEditInput(ActivityInput):
-    change_description: str = Field(None, title="change_description", description="")
+class ActivityEditInput(ExtendedConceptPatchInput):
+    nci_concept_id: Annotated[str | None, Field(min_length=1)] = None
+    nci_concept_name: Annotated[str | None, Field(min_length=1)] = None
+    activity_groupings: list[ActivityGrouping] | None = None
+    synonyms: list[str] | None = None
+    request_rationale: Annotated[str | None, Field(min_length=1)] = None
+    is_request_final: bool = False
+    is_data_collected: bool = False
+    is_multiple_selection_allowed: bool = True
+    change_description: Annotated[str | None, Field(min_length=1)] = None
 
 
-class ActivityCreateInput(ActivityInput):
-    library_name: str
+class ActivityCreateInput(ActivityPostInput):
+    library_name: Annotated[str, Field(min_length=1)]
 
 
-class ActivityRequestRejectInput(BaseModel):
-    contact_person: str
-    reason_for_rejecting: str
+class ActivityRequestRejectInput(PatchInputModel):
+    contact_person: Annotated[str, Field(min_length=1)]
+    reason_for_rejecting: Annotated[str, Field(min_length=1)]
 
 
-class ActivityFromRequestInput(ActivityInput):
-    activity_request_uid: str
+class ActivityFromRequestInput(ActivityPostInput):
+    activity_request_uid: Annotated[str, Field(min_length=1)]
 
 
 class ActivityVersion(Activity):
@@ -398,73 +422,60 @@ class ActivityVersion(Activity):
     Class for storing Activity and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
 class SimpleActivity(BaseModel):
-    nci_concept_id: str | None = Field(
-        None,
-        title="nci_concept_id",
-        description="",
-    )
-    name: str | None = Field(
-        None,
-        title="name",
-        description="",
-    )
-    name_sentence_case: str | None = Field(
-        None,
-        title="name_sentence_case",
-        description="",
-    )
-    definition: str | None = Field(
-        None,
-        title="definition",
-        description="",
-    )
-    abbreviation: str | None = Field(
-        None,
-        title="abbreviation",
-        description="",
-    )
-    is_data_collected: bool = Field(
-        False,
-        title="Boolean flag indicating whether data is collected for this activity",
-        description="Boolean flag indicating whether data is collected for this activity",
-        nullable=False,
-    )
-    is_multiple_selection_allowed: bool = Field(
-        True,
-        title="Boolean flag indicating whether multiple selections are allowed for this activity",
-        description="Boolean flag indicating whether multiple selections are allowed for this activity",
-        nullable=False,
-    )
-    library_name: str | None = Field(
-        None,
-        title="library_name",
-        description="",
-    )
-    version: str | None = Field(None, title="version")
-    status: str | None = Field(None, title="status")
-    start_date: datetime.datetime | None = Field(None, title="start date")
-    end_date: datetime.datetime | None = Field(None, title="end date")
+    nci_concept_id: Annotated[
+        str | None,
+        Field(
+            nullable=True,
+        ),
+    ] = None
+    nci_concept_name: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field()] = None
+    name_sentence_case: Annotated[str | None, Field()] = None
+    synonyms: Annotated[list[str], Field()]
+    definition: Annotated[str | None, Field(nullable=True)] = None
+    abbreviation: Annotated[str | None, Field(nullable=True)] = None
+    is_data_collected: Annotated[
+        bool,
+        Field(
+            description="Boolean flag indicating whether data is collected for this activity",
+            nullable=False,
+        ),
+    ] = False
+    is_multiple_selection_allowed: Annotated[
+        bool,
+        Field(
+            description="Boolean flag indicating whether multiple selections are allowed for this activity",
+            nullable=False,
+        ),
+    ] = True
+    library_name: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime.datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime.datetime | None, Field(nullable=True)] = None
 
 
 class SimpleActivitySubGroup(BaseModel):
-    name: str | None = Field(None, title="name", description="")
-    definition: str | None = Field(None, title="name", description="")
+    name: Annotated[str | None, Field(nullable=True)] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleActivityGroup(BaseModel):
-    name: str | None = Field(None, title="name", description="")
-    definition: str | None = Field(None, title="name", description="")
+    name: Annotated[str | None, Field(nullable=True)] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleActivityGrouping(BaseModel):
@@ -473,47 +484,48 @@ class SimpleActivityGrouping(BaseModel):
 
 
 class SimpleActivityInstanceClass(BaseModel):
-    name: str = Field(..., title="name", description="")
+    name: Annotated[str, Field()]
 
 
 class SimpleActivityInstance(BaseModel):
     uid: str
-    nci_concept_id: str | None = Field(None, title="name", description="")
-    name: str = Field(..., title="name", description="")
-    name_sentence_case: str | None = Field(None, title="name", description="")
-    abbreviation: str | None = Field(None, title="name", description="")
-    definition: str | None = Field(None, title="name", description="")
-    adam_param_code: str | None = Field(None, title="name", description="")
-    is_required_for_activity: bool = Field(
-        False, title="is_required_for_activity", description=""
-    )
-    is_default_selected_for_activity: bool = Field(
-        False, title="is_default_selected_for_activity", description=""
-    )
-    is_data_sharing: bool = Field(False, title="is_data_sharing", description="")
-    is_legacy_usage: bool = Field(False, title="is_legacy_usage", description="")
-    is_derived: bool = Field(False, title="is_derived", description="")
-    topic_code: str | None = Field(None, title="name", description="")
-    library_name: str = Field(..., title="name", description="")
-    activity_instance_class: SimpleActivityInstanceClass = Field(...)
-    version: str | None = Field(None, title="version")
-    status: str | None = Field(None, title="status")
-    start_date: datetime.datetime | None = Field(None, title="start date")
-    end_date: datetime.datetime | None = Field(None, title="end date")
+    nci_concept_id: Annotated[str | None, Field(nullable=True)] = None
+    nci_concept_name: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str, Field()]
+    name_sentence_case: Annotated[str | None, Field()] = None
+    abbreviation: Annotated[str | None, Field(nullable=True)] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
+    adam_param_code: Annotated[str | None, Field(nullable=True)] = None
+    is_required_for_activity: Annotated[bool, Field()] = False
+    is_default_selected_for_activity: Annotated[bool, Field()] = False
+    is_data_sharing: Annotated[bool, Field()] = False
+    is_legacy_usage: Annotated[bool, Field()] = False
+    is_derived: Annotated[bool, Field()] = False
+    topic_code: Annotated[str | None, Field(nullable=True)] = None
+    is_research_lab: Annotated[bool, Field()] = False
+    molecular_weight: Annotated[float | None, Field(nullable=True)] = None
+    library_name: Annotated[str, Field()]
+    activity_instance_class: Annotated[SimpleActivityInstanceClass, Field()]
+    version: Annotated[str | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime.datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime.datetime | None, Field(nullable=True)] = None
 
 
 class ActivityOverview(BaseModel):
-    activity: SimpleActivity = Field(...)
-    activity_groupings: list[SimpleActivityGrouping] = Field(...)
-    activity_instances: list[SimpleActivityInstance] = Field(...)
-    all_versions: list[str] = Field(...)
+    activity: Annotated[SimpleActivity, Field()]
+    activity_groupings: Annotated[list[SimpleActivityGrouping], Field()]
+    activity_instances: Annotated[list[SimpleActivityInstance], Field()]
+    all_versions: Annotated[list[str], Field()]
 
     @classmethod
     def from_repository_input(cls, overview: dict):
         return cls(
             activity=SimpleActivity(
                 nci_concept_id=overview.get("activity_value").get("nci_concept_id"),
+                nci_concept_name=overview.get("activity_value").get("nci_concept_name"),
                 name=overview.get("activity_value").get("name"),
+                synonyms=overview.get("activity_value").get("synonyms", []),
                 name_sentence_case=overview.get("activity_value").get(
                     "name_sentence_case"
                 ),
@@ -558,6 +570,7 @@ class ActivityOverview(BaseModel):
                 SimpleActivityInstance(
                     uid=activity_instance.get("uid"),
                     nci_concept_id=activity_instance.get("nci_concept_id"),
+                    nci_concept_name=activity_instance.get("nci_concept_name"),
                     name=activity_instance.get("name"),
                     name_sentence_case=activity_instance.get("name_sentence_case"),
                     abbreviation=activity_instance.get("abbreviation"),
@@ -573,6 +586,8 @@ class ActivityOverview(BaseModel):
                     is_legacy_usage=activity_instance.get("is_legacy_usage", False),
                     is_derived=activity_instance.get("is_derived", False),
                     topic_code=activity_instance.get("topic_code"),
+                    is_research_lab=activity_instance.get("is_research_lab", False),
+                    molecular_weight=activity_instance.get("molecular_weight"),
                     library_name=activity_instance.get(
                         "activity_instance_library_name"
                     ),
@@ -581,7 +596,7 @@ class ActivityOverview(BaseModel):
                             "name"
                         )
                     ),
-                    version=activity_instance.get("version", {}).get("version"),
+                    version=f"{activity_instance.get('version', {}).get('major_version')}.{activity_instance.get('version', {}).get('minor_version')}",
                     status=activity_instance.get("version", {}).get("status"),
                 )
                 for activity_instance in overview.get("activity_instances")

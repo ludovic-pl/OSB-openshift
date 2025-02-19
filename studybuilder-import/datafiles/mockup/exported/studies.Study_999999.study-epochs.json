@@ -18,7 +18,7 @@
         "end_day": 7,
         "start_date": "2022-04-27 10:18:13",
         "status": "DRAFT",
-        "user_initials": "TODO Initials",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "edit",
             "delete",
@@ -46,7 +46,7 @@
         "end_day": 8,
         "start_date": "2022-04-27 10:19:35",
         "status": "DRAFT",
-        "user_initials": "TODO Initials",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "edit",
             "delete",
@@ -74,7 +74,7 @@
         "end_day": 31,
         "start_date": "2022-04-27 12:16:41",
         "status": "DRAFT",
-        "user_initials": "TODO Initials",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "edit",
             "delete",
@@ -102,7 +102,7 @@
         "end_day": 31,
         "start_date": "2022-04-27 12:17:35",
         "status": "DRAFT",
-        "user_initials": "TODO Initials",
+        "author_username": "unknown-user@example.com",
         "possible_actions": [
             "edit",
             "delete",

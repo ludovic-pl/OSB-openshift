@@ -49,7 +49,7 @@ def get_ct_catalogues_changes(
 
     if comparison_type == CatalogueComparisonType.ATTRIBUTES_COMPARISON:
         relationship_type = "HAS_ATTRIBUTES_ROOT"
-    elif comparison_type == CatalogueComparisonType.SPONSOR_COMPARISON:
+    else:
         relationship_type = "HAS_NAME_ROOT"
 
     codelist_data_retrieval = f"""

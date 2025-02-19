@@ -3,7 +3,6 @@ from typing import Callable
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.study_selections.study_design_cell_repository import (
     StudyDesignCellRepository,
 )
@@ -15,9 +14,14 @@ from clinical_mdr_api.domains.study_selections.study_selection_element import (
     StudySelectionElementAR,
     StudySelectionElementVO,
 )
-from clinical_mdr_api.models.study_selections.study_selection import StudyElementTypes
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyElementTypes,
+    StudySelectionElement,
+    StudySelectionElementCreateInput,
+    StudySelectionElementInput,
+    StudySelectionElementVersion,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
@@ -32,6 +36,8 @@ from clinical_mdr_api.services.studies.study_compound_dosing_selection import (
     StudyCompoundDosingRelationMixin,
 )
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyElementSelectionService(
@@ -47,7 +53,7 @@ class StudyElementSelectionService(
         self,
         study_selection: StudySelectionElementAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionElement]:
+    ) -> list[StudySelectionElement]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -75,9 +81,9 @@ class StudyElementSelectionService(
         study_uid: str,
         terms_at_specific_datetime: datetime | None,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionElement:
+    ) -> StudySelectionElement:
         repos = self._repos
-        return models.StudySelectionElement.from_study_selection_element_ar_and_order(
+        return StudySelectionElement.from_study_selection_element_ar_and_order(
             study_uid,
             study_selection,
             order,
@@ -93,9 +99,9 @@ class StudyElementSelectionService(
         study_selection_history: SelectionHistoryElement,
         study_uid: str,
         effective_date: datetime = None,
-    ) -> models.StudySelectionElement:
+    ) -> StudySelectionElement:
         repos = self._repos
-        return models.StudySelectionElement.from_study_selection_history(
+        return StudySelectionElement.from_study_selection_history(
             study_selection_history=study_selection_history,
             study_uid=study_uid,
             get_ct_term_element_subtype=self._find_by_uid_or_raise_not_found,
@@ -107,7 +113,7 @@ class StudyElementSelectionService(
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudySelectionElementVersion]:
+    ) -> list[StudySelectionElementVersion]:
         repos = self._repos
         try:
             try:
@@ -115,7 +121,7 @@ class StudyElementSelectionService(
                     repos.study_element_repository.find_selection_history(study_uid)
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
             unique_list_uids = list({x.study_selection_uid for x in selection_history})
             unique_list_uids.sort()
             # list of all study_elements
@@ -147,13 +153,9 @@ class StudyElementSelectionService(
                     )
                 ]
                 if not data:
-                    data = calculate_diffs(
-                        versions, models.StudySelectionElementVersion
-                    )
+                    data = calculate_diffs(versions, StudySelectionElementVersion)
                 else:
-                    data.extend(
-                        calculate_diffs(versions, models.StudySelectionElementVersion)
-                    )
+                    data.extend(calculate_diffs(versions, StudySelectionElementVersion))
             return data
         finally:
             repos.close()
@@ -161,7 +163,7 @@ class StudyElementSelectionService(
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
-    ) -> list[models.StudySelectionElementVersion]:
+    ) -> list[StudySelectionElementVersion]:
         repos = self._repos
         try:
             selection_history = repos.study_element_repository.find_selection_history(
@@ -184,7 +186,7 @@ class StudyElementSelectionService(
                 ).dict()
                 for history, effective_date in zip(selection_history, effective_dates)
             ]
-            data = calculate_diffs(versions, models.StudySelectionElementVersion)
+            data = calculate_diffs(versions, StudySelectionElementVersion)
             return data
         finally:
             repos.close()
@@ -192,8 +194,8 @@ class StudyElementSelectionService(
     def make_selection(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionElementCreateInput,
-    ) -> models.StudySelectionElement:
+        selection_create_input: StudySelectionElementCreateInput,
+    ) -> StudySelectionElement:
         repos = self._repos
 
         try:
@@ -202,7 +204,7 @@ class StudyElementSelectionService(
                 # create new VO to add
                 new_selection = StudySelectionElementVO.from_input_values(
                     study_uid=study_uid,
-                    user_initials=self.author,
+                    author_id=self.author,
                     name=selection_create_input.name,
                     short_name=selection_create_input.short_name,
                     code=selection_create_input.code,
@@ -251,7 +253,7 @@ class StudyElementSelectionService(
                     self._extract_study_standards_effective_date(study_uid=study_uid)
                 )
                 # add the element and return
-                return models.StudySelectionElement.from_study_selection_element_ar_and_order(
+                return StudySelectionElement.from_study_selection_element_ar_and_order(
                     study_uid=study_uid,
                     selection=new_selection,
                     order=order,
@@ -274,7 +276,7 @@ class StudyElementSelectionService(
         filter_operator: FilterOperator | None = FilterOperator.AND,
         total_count: bool = False,
         study_value_version: str | None = None,
-    ) -> GenericFilteringReturn[models.StudySelectionElement]:
+    ) -> GenericFilteringReturn[StudySelectionElement]:
         repos = MetaRepository()
         try:
             element_selection_ar = repos.study_element_repository.find_by_study(
@@ -329,7 +331,7 @@ class StudyElementSelectionService(
                     for design_cell in all_design_cells[study_design_cell.order - 1 :]:
                         design_cell.order -= 1
                         self._repos.study_design_cell_repository.save(
-                            design_cell, author=self.author, create=False
+                            design_cell, author_id=self.author, create=False
                         )
 
             # Load aggregate
@@ -356,7 +358,7 @@ class StudyElementSelectionService(
         study_uid: str,
         study_selection_uid: str,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionElement:
+    ) -> StudySelectionElement:
         repos = self._repos
         (
             _selection_aggregate,
@@ -369,7 +371,7 @@ class StudyElementSelectionService(
             study_uid=study_uid,
             study_value_version=study_value_version,
         )
-        return models.StudySelectionElement.from_study_selection_element_ar_and_order(
+        return StudySelectionElement.from_study_selection_element_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,
@@ -381,12 +383,12 @@ class StudyElementSelectionService(
 
     def _patch_prepare_new_study_element(
         self,
-        request_study_element: models.StudySelectionElementInput,
+        request_study_element: StudySelectionElementInput,
         current_study_element: StudySelectionElementVO,
         find_duration_name_by_code: Callable[[str], CTTermNameAR | None],
     ) -> StudySelectionElementVO:
         # transform current to input model
-        transformed_current = models.StudySelectionElementInput.from_study_selection_element(
+        transformed_current = StudySelectionElementInput.from_study_selection_element(
             selection=current_study_element,
             find_all_study_time_units=self._repos.unit_definition_repository.find_all,
         )
@@ -420,7 +422,7 @@ class StudyElementSelectionService(
             element_subtype_uid=request_study_element.element_subtype_uid,
             study_compound_dosing_count=current_study_element.study_compound_dosing_count,
             study_selection_uid=current_study_element.study_selection_uid,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
     @db.transaction
@@ -428,8 +430,8 @@ class StudyElementSelectionService(
         self,
         study_uid: str,
         study_selection_uid: str,
-        selection_update_input: models.StudySelectionElementInput,
-    ) -> models.StudySelectionElement:
+        selection_update_input: StudySelectionElementInput,
+    ) -> StudySelectionElement:
         repos = self._repos
         try:
             # Load aggregate
@@ -469,7 +471,7 @@ class StudyElementSelectionService(
                 study_uid=study_uid
             )
             # add the element and return
-            return models.StudySelectionElement.from_study_selection_element_ar_and_order(
+            return StudySelectionElement.from_study_selection_element_ar_and_order(
                 study_uid=study_uid,
                 selection=new_selection,
                 order=order,
@@ -497,7 +499,7 @@ class StudyElementSelectionService(
     @db.transaction
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
-    ) -> models.StudySelectionElement:
+    ) -> StudySelectionElement:
         repos = self._repos
         try:
             # Load aggregate
@@ -537,7 +539,7 @@ class StudyElementSelectionService(
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         study_value_version: str | None = None,
     ):
         all_items = self.get_all_selection(
@@ -550,7 +552,7 @@ class StudyElementSelectionService(
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
         return header_values

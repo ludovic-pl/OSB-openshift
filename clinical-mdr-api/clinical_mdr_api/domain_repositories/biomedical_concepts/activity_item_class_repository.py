@@ -1,10 +1,16 @@
+from neomodel import NodeSet
+from neomodel.sync_.match import (
+    Collect,
+    Last,
+    NodeNameResolver,
+    Optional,
+    RawCypher,
+    RelationNameResolver,
+)
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
     _AggregateRootType,
-)
-from clinical_mdr_api.domain_repositories.models._utils import (
-    LATEST_VERSION_ORDER_BY,
-    CustomNodeSet,
 )
 from clinical_mdr_api.domain_repositories.models.biomedical_concepts import (
     ActivityInstanceClassRoot,
@@ -41,22 +47,47 @@ class ActivityItemClassRepository(
     value_class = ActivityItemClassValue
     return_model = ActivityItemClass
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return (
             ActivityItemClassRoot.nodes.fetch_relations(
                 "has_latest_value",
                 "has_library",
                 "has_latest_value__has_role__has_name_root__has_latest_value",
                 "has_latest_value__has_data_type__has_name_root__has_latest_value",
+                Optional("has_activity_instance_class__has_latest_value"),
+                Optional("maps_variable_class"),
             )
-            .fetch_optional_relations_and_collect(
-                "has_activity_instance_class__has_latest_value",
-                "maps_variable_class",
+            .subquery(
+                ActivityItemClassRoot.nodes.fetch_relations("has_version")
+                .intermediate_transform(
+                    {"rel": {"source": RelationNameResolver("has_version")}},
+                    ordering=[
+                        RawCypher("toInteger(split(rel.version, '.')[0])"),
+                        RawCypher("toInteger(split(rel.version, '.')[1])"),
+                        "rel.end_date",
+                        "rel.start_date",
+                    ],
+                )
+                .annotate(latest_version=Last(Collect("rel"))),
+                ["latest_version"],
             )
-            .fetch_optional_single_relation_of_type(
-                {
-                    "has_version": ("latest_version", LATEST_VERSION_ORDER_BY),
-                }
+            .annotate(
+                Collect(NodeNameResolver("has_activity_instance_class"), distinct=True),
+                Collect(
+                    RelationNameResolver("has_activity_instance_class"), distinct=True
+                ),
+                Collect(
+                    NodeNameResolver("has_activity_instance_class__has_latest_value"),
+                    distinct=True,
+                ),
+                Collect(
+                    RelationNameResolver(
+                        "has_activity_instance_class__has_latest_value"
+                    ),
+                    distinct=True,
+                ),
+                Collect(NodeNameResolver("maps_variable_class"), distinct=True),
+                Collect(RelationNameResolver("maps_variable_class"), distinct=True),
             )
         )
 

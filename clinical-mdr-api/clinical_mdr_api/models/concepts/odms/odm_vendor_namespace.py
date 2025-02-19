@@ -1,5 +1,5 @@
 import re
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field, validator
 
@@ -42,7 +42,7 @@ class OdmVendorNamespace(ConceptModel):
             status=odm_vendor_namespace_ar.item_metadata.status.value,
             version=odm_vendor_namespace_ar.item_metadata.version,
             change_description=odm_vendor_namespace_ar.item_metadata.change_description,
-            user_initials=odm_vendor_namespace_ar.item_metadata.user_initials,
+            author_username=odm_vendor_namespace_ar.item_metadata.author_username,
             vendor_elements=sorted(
                 [
                     OdmVendorElementSimpleModel.from_odm_vendor_element_uid(
@@ -70,8 +70,8 @@ class OdmVendorNamespace(ConceptModel):
 
 
 class OdmVendorNamespacePostInput(ConceptPostInput):
-    prefix: str
-    url: str
+    prefix: Annotated[str, Field(min_length=1)]
+    url: Annotated[str, Field(min_length=1)]
 
     @validator("prefix")
     @classmethod
@@ -82,8 +82,8 @@ class OdmVendorNamespacePostInput(ConceptPostInput):
 
 
 class OdmVendorNamespacePatchInput(ConceptPatchInput):
-    prefix: str
-    url: str
+    prefix: Annotated[str, Field(min_length=1)]
+    url: Annotated[str, Field(min_length=1)]
 
 
 class OdmVendorNamespaceVersion(OdmVendorNamespace):
@@ -91,11 +91,13 @@ class OdmVendorNamespaceVersion(OdmVendorNamespace):
     Class for storing OdmVendorNamespace and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

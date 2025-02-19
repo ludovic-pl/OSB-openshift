@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
@@ -9,6 +8,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
     ObjectAction,
 )
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -51,19 +51,18 @@ class ActivityInstanceClassVO:
         activity_instance_class_parent_exists: Callable[[str], bool],
         previous_name: str | None = None,
     ) -> None:
-        if (
+        AlreadyExistsException.raise_if(
             activity_instance_class_exists_by_name_callback(self.name)
-            and previous_name != self.name
-        ):
-            raise exceptions.ValidationException(
-                f"ActivityInstanceClass with name ({self.name}) already exists."
-            )
-        if self.parent_uid and not activity_instance_class_parent_exists(
+            and previous_name != self.name,
+            "Activity Instance Class",
+            self.name,
+            "Name",
+        )
+        BusinessLogicException.raise_if(
             self.parent_uid
-        ):
-            raise exceptions.ValidationException(
-                f"ActivityInstanceClass tried to connect to non-existent or non-final ActivityInstanceClass ({self.parent_uid})."
-            )
+            and not activity_instance_class_parent_exists(self.parent_uid),
+            msg=f"Activity Instance Class tried to connect to non-existent or non-final Activity Instance Class with UID '{self.parent_uid}'.",
+        )
 
 
 @dataclass
@@ -108,18 +107,20 @@ class ActivityInstanceClassAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         activity_instance_class_vo: ActivityInstanceClassVO,
         library: LibraryVO,
         activity_instance_class_parent_exists: Callable[[str], bool],
         activity_instance_class_exists_by_name_callback: Callable[[str], bool],
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
         activity_instance_class_vo.validate(
             activity_instance_class_parent_exists=activity_instance_class_parent_exists,
             activity_instance_class_exists_by_name_callback=activity_instance_class_exists_by_name_callback,
@@ -134,7 +135,7 @@ class ActivityInstanceClassAR(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         activity_instance_class_vo: ActivityInstanceClassVO,
         activity_instance_class_parent_exists: Callable[[str], bool],
@@ -150,14 +151,16 @@ class ActivityInstanceClassAR(LibraryItemAggregateRootBase):
             previous_name=self.name,
         )
         if self._activity_instance_class_vo != activity_instance_class_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self.activity_instance_class_vo = activity_instance_class_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """

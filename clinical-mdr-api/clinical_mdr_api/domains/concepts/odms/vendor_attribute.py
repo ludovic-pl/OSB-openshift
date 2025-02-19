@@ -9,7 +9,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -54,45 +54,48 @@ class OdmVendorAttributeVO(ConceptVO):
         ],
     ) -> None:
         if self.vendor_namespace_uid is not None:
-            if not self.compatible_types:
-                raise BusinessLogicException(
-                    "compatible_types must be provided for ODM Vendor Attributes belonging to ODM Vendor Namespace."
-                )
+            BusinessLogicException.raise_if_not(
+                self.compatible_types,
+                msg="compatible_types must be provided for ODM Vendor Attributes belonging to ODM Vendor Namespace.",
+            )
 
-            if not find_odm_vendor_namespace_callback(self.vendor_namespace_uid):
-                raise BusinessLogicException(
-                    "ODM Vendor Attribute tried to connect to non-existent concepts "
-                    f"[('Concept Name: ODM Vendor Namespace', 'uids: ({self.vendor_namespace_uid})')]."
-                )
+            BusinessLogicException.raise_if_not(
+                find_odm_vendor_namespace_callback(self.vendor_namespace_uid),
+                msg="ODM Vendor Attribute tried to connect to non-existent concepts "
+                f"[('Concept Name: ODM Vendor Namespace', 'uids: ({self.vendor_namespace_uid})')].",
+            )
 
         if self.vendor_element_uid is not None:
-            if self.compatible_types:
-                raise BusinessLogicException(
-                    "compatible_types must not be provided for ODM Vendor Attributes belonging to ODM Vendor Element."
-                )
+            BusinessLogicException.raise_if(
+                self.compatible_types,
+                msg="compatible_types must not be provided for ODM Vendor Attributes belonging to ODM Vendor Element.",
+            )
 
-            if not find_odm_vendor_element_callback(self.vendor_element_uid):
-                raise BusinessLogicException(
-                    "ODM Vendor Attribute tried to connect to non-existent concepts "
-                    f"[('Concept Name: ODM Vendor Element', 'uids: ({self.vendor_element_uid})')]."
-                )
+            BusinessLogicException.raise_if_not(
+                find_odm_vendor_element_callback(self.vendor_element_uid),
+                msg="ODM Vendor Attribute tried to connect to non-existent concepts "
+                f"[('Concept Name: ODM Vendor Element', 'uids: ({self.vendor_element_uid})')].",
+            )
 
         odm_vendor_attributes, _ = find_odm_vendor_attribute_callback(
             filter_by={"name": {"v": [self.name], "op": "eq"}}
         )
         for odm_vendor_attribute in odm_vendor_attributes:
-            if (
-                self.vendor_namespace_uid is not None
-                and odm_vendor_attribute.concept_vo.vendor_namespace_uid
-                == self.vendor_namespace_uid
-            ) or (
-                self.vendor_element_uid is not None
-                and odm_vendor_attribute.concept_vo.vendor_element_uid
-                == self.vendor_element_uid
-            ):
-                raise BusinessLogicException(
-                    f"ODM Vendor Attribute with ['name: {self.name}'] already exists."
+            AlreadyExistsException.raise_if(
+                (
+                    self.vendor_namespace_uid is not None
+                    and odm_vendor_attribute.concept_vo.vendor_namespace_uid
+                    == self.vendor_namespace_uid
                 )
+                or (
+                    self.vendor_element_uid is not None
+                    and odm_vendor_attribute.concept_vo.vendor_element_uid
+                    == self.vendor_element_uid
+                ),
+                "ODM Vendor Attribute",
+                self.name,
+                "Name",
+            )
 
 
 @dataclass
@@ -125,7 +128,7 @@ class OdmVendorAttributeAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmVendorAttributeVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -139,7 +142,9 @@ class OdmVendorAttributeAR(OdmARBase):
             [dict], tuple[list["OdmVendorAttributeAR"], int] | None
         ] = lambda _: None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             find_odm_vendor_namespace_callback=find_odm_vendor_namespace_callback,
@@ -156,7 +161,7 @@ class OdmVendorAttributeAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmVendorAttributeVO,
         concept_exists_by_callback: Callable[
@@ -168,7 +173,9 @@ class OdmVendorAttributeAR(OdmARBase):
         """
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo
 
 

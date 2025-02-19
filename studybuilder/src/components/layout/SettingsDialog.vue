@@ -11,7 +11,7 @@
           color="primary"
           :label="$t('Settings.toggle')"
           class="mt-4"
-          @change="toggleDarkTheme()"
+          @update:model-value="toggleDarkTheme"
         />
         <v-select
           v-model="form.rows"
@@ -53,10 +53,12 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { useTheme } from 'vuetify'
 import { useAppStore } from '@/stores/app'
 import tablesConstants from '@/constants/tables'
 import HelpButtonWithPanels from '@/components/tools/HelpButtonWithPanels.vue'
 
+const theme = useTheme()
 const emit = defineEmits(['close'])
 const appStore = useAppStore()
 
@@ -81,8 +83,7 @@ function save() {
   close()
   working.value = false
 }
-function toggleDarkTheme() {
-  // FIXME: should we leave this?
-  // this.$vuetify.theme.dark = !this.$vuetify.theme.dark
+function toggleDarkTheme(value) {
+  theme.global.name.value = value ? 'dark' : 'NNCustomLightTheme'
 }
 </script>

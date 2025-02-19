@@ -10,10 +10,10 @@ export const useFormStore = defineStore('form', {
   },
   actions: {
     save(form) {
-      this.form = form
+      this.form = {...form}
     },
     reset() {
-      this.form = ''
+      this.form = {}
     },
     isEqual(form) {
       return _isEqual(form, this.form)

@@ -37,7 +37,7 @@ class FeatureFlags(BaseImporter):
             body = {
                 "name": row["name"],
                 "enabled": map_boolean(row["enabled"]),
-                "description": row["description"],
+                "description": row["description"] or None,
             }
 
             if row["name"] in feature_flags_in_db:

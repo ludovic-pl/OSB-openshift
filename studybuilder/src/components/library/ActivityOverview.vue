@@ -99,6 +99,24 @@
         </v-row>
         <v-row>
           <v-col cols="2" class="font-weight-bold">
+            {{ $t('ActivityForms.nci_concept_name') }}
+          </v-col>
+          <v-col cols="10">
+            {{ itemOverview.activity.nci_concept_name }}
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="2" class="font-weight-bold">
+            {{ $t('ActivityForms.synonyms') }}
+          </v-col>
+          <v-col cols="10">
+            <v-chip v-for="synonym in itemOverview.activity.synonyms">
+              {{ synonym }}
+            </v-chip>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="2" class="font-weight-bold">
             {{ $t('ActivityOverview.is_data_collected') }}
           </v-col>
           <v-col cols="10">
@@ -203,87 +221,89 @@
   </div>
 </template>
 
-<script>
-import ActivitiesForm from '@/components/library/ActivitiesForm.vue'
+<script setup>
 import BaseActivityOverview from './BaseActivityOverview.vue'
 import StatusChip from '@/components/tools/StatusChip.vue'
 import NCIConceptLink from '@/components//tools/NCIConceptLink.vue'
+import { useRouter } from 'vue-router'
+import { defineAsyncComponent } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  components: {
-    ActivitiesForm,
-    BaseActivityOverview,
-    StatusChip,
-    NCIConceptLink,
+const { t } = useI18n()
+const emit = defineEmits(['refresh'])
+const router = useRouter()
+
+const ActivitiesForm = defineAsyncComponent(() =>
+  import('@/components/library/ActivitiesForm.vue')
+)
+
+const historyHeaders = [
+  { title: t('_global.library'), key: 'library_name' },
+  {
+    title: t('ActivityTable.activity_group'),
+    key: 'activity_group.name',
+    externalFilterSource: 'concepts/activities/activity-groups$name',
+    width: '15%',
+    exludeFromHeader: ['is_data_collected'],
   },
-  emits: ['refresh'],
-  data() {
-    return {
-      historyHeaders: [
-        { title: this.$t('_global.library'), key: 'library_name' },
-        {
-          title: this.$t('ActivityTable.activity_group'),
-          key: 'activity_group.name',
-          externalFilterSource: 'concepts/activities/activity-groups$name',
-          width: '15%',
-          exludeFromHeader: ['is_data_collected'],
-        },
-        {
-          title: this.$t('ActivityTable.activity_subgroup'),
-          key: 'activity_subgroup.name',
-          externalFilterSource: 'concepts/activities/activity-sub-groups$name',
-          width: '15%',
-          exludeFromHeader: ['is_data_collected'],
-        },
-        {
-          title: this.$t('ActivityTable.activity_name'),
-          key: 'name',
-          externalFilterSource: 'concepts/activities/activities$name',
-        },
-        {
-          title: this.$t('ActivityTable.sentence_case_name'),
-          key: 'name_sentence_case',
-        },
-        { title: this.$t('ActivityTable.abbreviation'), key: 'abbreviation' },
-        {
-          title: this.$t('ActivityTable.is_data_collected'),
-          key: 'is_data_collected',
-        },
-        { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.status'), key: 'status' },
-        { title: this.$t('_global.version'), key: 'version' },
-      ],
+  {
+    title: t('ActivityTable.activity_subgroup'),
+    key: 'activity_subgroup.name',
+    externalFilterSource: 'concepts/activities/activity-sub-groups$name',
+    width: '15%',
+    exludeFromHeader: ['is_data_collected'],
+  },
+  {
+    title: t('ActivityTable.activity_name'),
+    key: 'name',
+    externalFilterSource: 'concepts/activities/activities$name',
+  },
+  {
+    title: t('ActivityTable.sentence_case_name'),
+    key: 'name_sentence_case',
+  },
+  {
+    title: t('ActivityTable.synonyms'),
+    key: 'synonyms',
+  },
+  { title: t('ActivityTable.abbreviation'), key: 'abbreviation' },
+  {
+    title: t('ActivityTable.is_data_collected'),
+    key: 'is_data_collected',
+  },
+  { title: t('_global.modified'), key: 'start_date' },
+  { title: t('_global.status'), key: 'status' },
+  { title: t('_global.version'), key: 'version' },
+]
+
+function allVersions(item) {
+  var all_versions = [...item.all_versions].sort().reverse()
+  return all_versions
+}
+
+async function changeVersion(activity, version) {
+  await router.push({
+    name: 'ActivityOverview',
+    params: { id: activity.uid, version: version },
+  })
+  emit('refresh')
+}
+
+function transformItem(item) {
+  if (item.activity_groupings.length > 0) {
+    const groups = []
+    const subgroups = []
+    for (const grouping of item.activity_groupings) {
+      groups.push(grouping.activity_group_name)
+      subgroups.push(grouping.activity_subgroup_name)
     }
-  },
-  methods: {
-    allVersions(item) {
-      var all_versions = [...item.all_versions].sort().reverse()
-      return all_versions
-    },
-    async changeVersion(activity, version) {
-      await this.$router.push({
-        name: 'ActivityOverview',
-        params: { id: activity.uid, version: version },
-      })
-      this.$emit('refresh')
-    },
-    transformItem(item) {
-      if (item.activity_groupings.length > 0) {
-        const groups = []
-        const subgroups = []
-        for (const grouping of item.activity_groupings) {
-          groups.push(grouping.activity_group_name)
-          subgroups.push(grouping.activity_subgroup_name)
-        }
-        item.activity_group = { name: groups }
-        item.activity_subgroup = { name: subgroups }
-        item.item_key = item.uid
-      } else {
-        item.activity_group = { name: [] }
-        item.activity_subgroup = { name: [] }
-        item.item_key = item.uid
-      }
-    },
-  },
+    item.activity_group = { name: groups }
+    item.activity_subgroup = { name: subgroups }
+    item.item_key = item.uid
+  } else {
+    item.activity_group = { name: [] }
+    item.activity_subgroup = { name: [] }
+    item.item_key = item.uid
+  }
 }
 </script>

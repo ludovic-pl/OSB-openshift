@@ -3,11 +3,10 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api.domain_repositories._utils import helpers
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
 )
@@ -27,7 +26,8 @@ from clinical_mdr_api.domains.study_selections.study_selection_objective import 
     StudySelectionObjectivesAR,
     StudySelectionObjectiveVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 # from clinical_mdr_api.models.study_selections.study_selection
 
@@ -41,7 +41,7 @@ class SelectionHistory:
     objective_level_uid: str | None
     start_date: datetime.datetime
     status: str | None
-    user_initials: str
+    author_username: str
     change_type: str
     end_date: datetime.datetime | None
     order: int
@@ -136,14 +136,14 @@ class StudySelectionObjectiveRepository:
                 olr.uid AS objective_level_uid,
                 has_term.order as objective_level_order,
                 sa.date AS start_date,
-                sa.user_initials AS user_initials,
+                sa.author_id AS author_id,
                 is_instance AS is_instance,
                 ver.version AS objective_version
             """
 
         all_objective_selections = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in helpers.db_result_to_list(all_objective_selections):
+        for selection in utils.db_result_to_list(all_objective_selections):
             acv = selection.get("accepted_version", False)
             if acv is None:
                 acv = False
@@ -156,7 +156,7 @@ class StudySelectionObjectiveRepository:
                 objective_level_order=selection["objective_level_order"],
                 is_instance=selection["is_instance"],
                 start_date=convert_to_datetime(value=selection["start_date"]),
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
                 accepted_version=acv,
             )
             all_selections.append(selection_vo)
@@ -235,11 +235,11 @@ class StudySelectionObjectiveRepository:
             return Create()
         return Delete()
 
-    def save(self, study_selection: StudySelectionObjectivesAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionObjectivesAR, author_id: str) -> None:
         """
         Persist the set of selected study objectives from the aggregate to the database
         :param study_selection:
-        :param author:
+        :param author_id:
         """
         assert study_selection.repository_closure_data is not None
 
@@ -251,10 +251,10 @@ class StudySelectionObjectiveRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -294,7 +294,7 @@ class StudySelectionObjectiveRepository:
                 audit_node=audit_node,
                 study_objective_selection_node=last_study_selection_node,
                 study_root_node=study_root_node,
-                author=author,
+                author_id=author_id,
             )
             audit_trail_nodes[study_objective.study_selection_uid] = (
                 audit_node,
@@ -319,7 +319,7 @@ class StudySelectionObjectiveRepository:
                 ]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -337,9 +337,9 @@ class StudySelectionObjectiveRepository:
         audit_node: StudyAction,
         study_objective_selection_node: StudyObjective,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -462,6 +462,13 @@ class StudySelectionObjectiveRepository:
             MATCH (all_so)<-[:AFTER]-(asa:StudyAction)
             OPTIONAL MATCH (all_so)<-[:BEFORE]-(bsa:StudyAction)
             WITH all_so, or, olr, asa, bsa, ver
+                CALL {
+                    WITH asa
+                    OPTIONAL MATCH (author: User)
+                    WHERE author.user_id = asa.author_id
+                    RETURN coalesce(author.username, asa.author_id) AS author_username 
+                }
+            WITH *    
             ORDER BY all_so.uid, asa.date DESC
             RETURN
                 all_so.uid AS study_selection_uid,
@@ -469,15 +476,18 @@ class StudySelectionObjectiveRepository:
                 olr.uid AS objective_level_uid,
                 asa.date AS start_date,
                 asa.status AS status,
-                asa.user_initials AS user_initials,
+                asa.author_id AS author_id,
                 labels(asa) AS change_type,
                 bsa.date AS end_date,
                 all_so.order AS order,
-                ver.version AS objective_version""",
+                ver.version AS objective_version,
+                author_username
+                """,
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_objective_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_objective_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -492,7 +502,7 @@ class StudySelectionObjectiveRepository:
                     objective_level_uid=res["objective_level_uid"],
                     start_date=convert_to_datetime(value=res["start_date"]),
                     status=res["status"],
-                    user_initials=res["user_initials"],
+                    author_username=res["author_username"],
                     change_type=change_type,
                     end_date=end_date,
                     order=res["order"],

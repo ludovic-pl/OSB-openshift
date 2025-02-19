@@ -1,7 +1,10 @@
 """Reusable pydantic validator functions"""
-import re
 
-from clinical_mdr_api.exceptions import ValidationException
+import re
+from datetime import datetime, timezone
+
+from clinical_mdr_api.domains._utils import get_iso_lang_data
+from common.exceptions import ValidationException
 
 FLOAT_REGEX = "^[0-9]+\\.?[0-9]*$"
 
@@ -29,10 +32,10 @@ def validate_string_represents_boolean(cls, value, values, field):
     truthy = ("y", "yes", "t", "true", "on", "1")
     falsy = ("n", "no", "f", "false", "off", "0")
 
-    if value.lower() not in (truthy + falsy):
-        raise ValidationException(
-            f"Unsupported boolean value '{value}' for field '{field.name}'. Allowed values are: {truthy + falsy}."
-        )
+    ValidationException.raise_if(
+        value.lower() not in (truthy + falsy),
+        msg=f"Unsupported boolean value '{value}' for field '{field.name}'. Allowed values are: {truthy + falsy}.",
+    )
 
     return value
 
@@ -82,6 +85,40 @@ def validate_regex(cls, value, values, field):
             return value
         except re.error as exc:
             raise ValueError(
-                f"Provided regex value ({value}) for field '{field.name}' is invalid."
+                f"Provided regex value '{value}' for field '{field.name}' is invalid."
             ) from exc
     return value
+
+
+# pylint: disable=unused-argument
+def transform_to_utc(cls, value: datetime | None, values, field):
+    if not value:
+        return None
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    try:
+        return value.astimezone(timezone.utc)
+    except OverflowError as exc:
+        raise ValueError(
+            f"Provided value '{value}' for '{field.name}' is invalid. {exc}"
+        ) from exc
+
+
+# pylint: disable=unused-argument
+def is_language_supported(cls, value: str):
+    if not value:
+        return None
+
+    keys = ["639-3", "639-2/B", "639-2/T", "639-1"]
+
+    for key in keys:
+        try:
+            # This function will throw an exception if the language isn't found
+            get_iso_lang_data(query=value, key=key, return_key=key)
+            return value
+        except ValidationException:
+            if key == keys[-1]:
+                raise
+
+    return None

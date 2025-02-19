@@ -5,14 +5,14 @@ from typing import Any
 
 from neomodel import db
 
-from clinical_mdr_api.config import CT_UID_NA_VALUE, CT_UID_POSITIVE_INFINITY
-from clinical_mdr_api.domain_repositories._utils import helpers
+from clinical_mdr_api import utils
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import (
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
 )
+from common.config import CT_UID_NA_VALUE, CT_UID_POSITIVE_INFINITY
 
 MATCH_SPECIFIC_STUDY_VERSION = """
     MATCH (sr:StudyRoot {uid: $study_uid})-[l:HAS_VERSION{status:'RELEASED', version:$study_value_version}]->(sv:StudyValue)
@@ -154,7 +154,7 @@ class QueryService:
         result_array, attributes_names = query.execute()
 
         res = (result_array, attributes_names)
-        result = helpers.db_result_to_list(res)
+        result = utils.db_result_to_list(res)
 
         total = 0
         if total_count:
@@ -208,7 +208,7 @@ class QueryService:
         query.parameters.update(filter_query_parameters)
         result_array, attributes_names = query.execute()
         res = (result_array, attributes_names)
-        result = helpers.db_result_to_list(res)
+        result = utils.db_result_to_list(res)
 
         total = 0
         if total_count:
@@ -261,7 +261,7 @@ class QueryService:
         result_array, attributes_names = query.execute()
 
         res = (result_array, attributes_names)
-        result = helpers.db_result_to_list(res)
+        result = utils.db_result_to_list(res)
 
         total = 0
         if total_count:
@@ -332,7 +332,7 @@ class QueryService:
         result_array, attributes_names = query.execute()
 
         res = (result_array, attributes_names)
-        result = helpers.db_result_to_list(res)
+        result = utils.db_result_to_list(res)
 
         total = 0
         if total_count:
@@ -401,7 +401,7 @@ class QueryService:
         result_array, attributes_names = query.execute()
 
         res = (result_array, attributes_names)
-        result = helpers.db_result_to_list(res)
+        result = utils.db_result_to_list(res)
 
         total = 0
         if total_count:
@@ -448,7 +448,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_mdvisit(
         self,
@@ -488,7 +488,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_mdendpnt(
         self,
@@ -576,7 +576,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_ta(
         self,
@@ -659,7 +659,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_ti(
         self,
@@ -695,7 +695,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_ts(
         self,
@@ -788,7 +788,7 @@ class QueryService:
                 THEN 'Dictionary'
             ELSE 'Not Controlled'
         END AS controlled_by
-        MATCH (tr:CTTermRoot {{uid:term_uid}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue) 
+        MATCH (tr:CTTermRoot {{uid:term_uid}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue)
         RETURN DISTINCT 
         sv.study_id_prefix+'-'+sv.study_number AS STUDYID,
         'TS' AS DOMAIN,
@@ -848,11 +848,11 @@ class QueryService:
                 OPTIONAL MATCH (send)-[:HAS_UNIT]->(:UnitDefinitionRoot)-[:LATEST]->(uni_value:UnitDefinitionValue)-[:HAS_CT_UNIT]->(uni_ctt_roo:CTTermRoot)
                 OPTIONAL MATCH (send)-[:HAS_CONJUNCTION]->(con:Conjunction)
                 WITH distinct send,collect(distinct uni_value.name) as units,
-                CASE 
+                CASE
                         WHEN con IS NULL THEN ", "
                         ELSE " "+con.string +" "
                 end as con_string,
-                CASE 
+                CASE
                         WHEN uni_value IS NULL THEN ["",""]
                         ELSE [" (",")."]
                 end as units_space
@@ -869,7 +869,7 @@ class QueryService:
         '' AS TSVALCD,
         '' AS TSVCDREF,
         '' AS TSVCDVER
-        UNION 
+        UNION
         WITH sr, sv
         MATCH (sv)-[:HAS_STUDY_COHORT]->(sch:StudyCohort)
         MATCH (tr:CTTermRoot {{uid:'C126063_NCOHORT'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue)
@@ -910,8 +910,8 @@ class QueryService:
             MATCH (tr:CTTermRoot {{uid:'C98771_NARMS'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue)
             RETURN distinct inner_sr,innver_sv, sar,sba, tav
             }}
-        with   tav, inner_sr, innver_sv, count(*) as counter 
-        return 
+        with   tav, inner_sr, innver_sv, count(*) as counter
+        return
             innver_sv.study_id_prefix+'-'+innver_sv.study_number AS STUDYID,
             'TS' AS DOMAIN,
             tav.code_submission_value AS TSPARMCD,
@@ -924,12 +924,14 @@ class QueryService:
             '' AS TSVCDVER
         UNION
             WITH sr, sv
-            MATCH (sv)-[:HAS_STUDY_COMPOUND]->(sc:StudyCompound)-[:HAS_TYPE_OF_TREATMENT]->(cttr:CTTermRoot)-[:HAS_ATTRIBUTES_ROOT]->(ctar:CTTermAttributesRoot)-[:LATEST_FINAL]->(ctav:CTTermAttributesValue)
-            MATCH (sc)-[:HAS_SELECTED_COMPOUND]->(cav:CompoundAliasValue)-[:IS_COMPOUND]->(cr:CompoundRoot)-[:LATEST_FINAL]->(cv:CompoundValue)-[:HAS_UNII_VALUE]->(uniir:UNIITermRoot)-[:LATEST_FINAL]->(uniiv:UNIITermValue)
+            MATCH (sv)-[:HAS_STUDY_COMPOUND]->(sc:StudyCompound)-[:HAS_TYPE_OF_TREATMENT]->(cttr:CTTermRoot)
+            -[:HAS_ATTRIBUTES_ROOT]->(ctar:CTTermAttributesRoot)-[:LATEST_FINAL]->(ctav:CTTermAttributesValue)
+            MATCH (sc)-[:HAS_SELECTED_COMPOUND]->(cav:CompoundAliasValue)-[:IS_COMPOUND]->(cr:CompoundRoot)-[:LATEST_FINAL]->(cv:CompoundValue)
+            -[:HAS_UNII_VALUE]->(uniir:UNIITermRoot)-[:LATEST_FINAL]->(uniiv:UNIITermValue)
             MATCH (uniir)<-[:CONTAINS_DICTIONARY_TERM]-(lib:Library)
             with sv,uniiv,lib,ctav
-            MATCH (tr1:CTTermRoot {{uid:'C41161_TRT'}})-->(tar1:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav1:CTTermAttributesValue) 
-            MATCH (tr2:CTTermRoot {{uid:'C68612_COMPTRT'}})-->(tar2:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav2:CTTermAttributesValue) 
+            MATCH (tr1:CTTermRoot {{uid:'C41161_TRT'}})-->(tar1:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav1:CTTermAttributesValue)
+            MATCH (tr2:CTTermRoot {{uid:'C68612_COMPTRT'}})-->(tar2:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav2:CTTermAttributesValue)
             MATCH (tr3:CTTermRoot {{uid:'C85582_CURTRT'}})-->(tar3:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav3:CTTermAttributesValue)
             with tav1,tav2,tav3 , sv, uniiv, lib,
             case ctav.code_submission_value
@@ -958,7 +960,7 @@ class QueryService:
             match (sc)-[:HAS_SELECTED_COMPOUND]->(cav:CompoundAliasValue)
             match (cav)-[:IS_COMPOUND]->(cr:CompoundRoot)-[:LATEST_FINAL]->(cv:CompoundValue)-[:HAS_UNII_VALUE]->(uniir:UNIITermRoot)-[:LATEST_FINAL]->(uniiv:UNIITermValue)-[:HAS_PCLASS]->(pclass_root:DictionaryTermRoot)-[:LATEST_FINAL]->(medrt:DictionaryTermValue)
             match (pclass_root)<-[:CONTAINS_DICTIONARY_TERM]-(lib:Library)
-            match (tr:CTTermRoot {{uid:'C98768_PCLAS'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue) 
+            match (tr:CTTermRoot {{uid:'C98768_PCLAS'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue)
             RETURN sv.study_id_prefix+'-'+sv.study_number as STUDYID,
                 'TS' as DOMAIN,
                 tav.code_submission_value as TSPARMCD,
@@ -987,12 +989,12 @@ class QueryService:
                 return inv_num_sub
             }}
             with all_num_sub, inv_num_sub, sv
-            with 
+            with
             case all_num_sub
                 when 0 then 'NA'
-                else round(toFloat(inv_num_sub)/all_num_sub,4) 
+                else round(toFloat(inv_num_sub)/all_num_sub,4)
             end as rand_quotient, sv
-            match (tr:CTTermRoot {{uid:'C98775_RANDQT'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue) 
+            match (tr:CTTermRoot {{uid:'C98775_RANDQT'}})-->(tar:CTTermAttributesRoot)-[:LATEST_FINAL]->(tav:CTTermAttributesValue)
             with tav, rand_quotient, sv
             RETURN 
                 sv.study_id_prefix+'-'+sv.study_number as STUDYID,
@@ -1018,7 +1020,7 @@ class QueryService:
             },
         )
 
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_te(
         self,
@@ -1052,7 +1054,7 @@ class QueryService:
                 "study_value_version": str(study_value_version),
             },
         )
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)
 
     def get_tdm(
         self,
@@ -1086,4 +1088,4 @@ class QueryService:
                 "study_value_version": str(study_value_version),
             },
         )
-        return helpers.db_result_to_list(result_array)
+        return utils.db_result_to_list(result_array)

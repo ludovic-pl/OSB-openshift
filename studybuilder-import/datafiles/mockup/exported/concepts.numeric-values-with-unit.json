@@ -12,7 +12,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000001",
     "unit_definition_uid": "UnitDefinition_000343",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 6.5,
     "version": null
   },
@@ -29,7 +29,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000002",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 500.0,
     "version": null
   },
@@ -46,7 +46,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000003",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 850.0,
     "version": null
   },
@@ -63,7 +63,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000004",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1000.0,
     "version": null
   },
@@ -80,7 +80,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000005",
     "unit_definition_uid": "UnitDefinition_000343",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 6.6,
     "version": null
   },
@@ -97,7 +97,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000006",
     "unit_definition_uid": "UnitDefinition_000242",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 100.0,
     "version": null
   },
@@ -114,7 +114,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000007",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 0.5,
     "version": null
   },
@@ -131,7 +131,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000008",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.0,
     "version": null
   },
@@ -148,7 +148,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000009",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 0.68,
     "version": null
   },
@@ -165,7 +165,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000010",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.0,
     "version": null
   },
@@ -182,7 +182,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000011",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.34,
     "version": null
   },
@@ -199,7 +199,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000012",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 2.0,
     "version": null
   },
@@ -216,7 +216,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000013",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 2.5,
     "version": null
   },
@@ -233,7 +233,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000014",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 2.67,
     "version": null
   },
@@ -250,7 +250,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000015",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 3.0,
     "version": null
   },
@@ -267,7 +267,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000016",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 3.2,
     "version": null
   },
@@ -284,7 +284,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000017",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 5.0,
     "version": null
   },
@@ -301,7 +301,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000018",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 10.0,
     "version": null
   },
@@ -318,7 +318,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000019",
     "unit_definition_uid": "UnitDefinition_000318",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 10.0,
     "version": null
   },
@@ -335,7 +335,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000020",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 14.0,
     "version": null
   },
@@ -352,7 +352,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000021",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 20.0,
     "version": null
   },
@@ -369,7 +369,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000022",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 40.0,
     "version": null
   },
@@ -386,7 +386,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000023",
     "unit_definition_uid": "UnitDefinition_000230",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 50.0,
     "version": null
   },
@@ -403,7 +403,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000024",
     "unit_definition_uid": "UnitDefinition_000357",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 1.0,
     "version": null
   },
@@ -420,7 +420,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000025",
     "unit_definition_uid": "UnitDefinition_000242",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 300.0,
     "version": null
   },
@@ -437,7 +437,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000026",
     "unit_definition_uid": "UnitDefinition_000242",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 200.0,
     "version": null
   },
@@ -454,7 +454,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000027",
     "unit_definition_uid": "UnitDefinition_000242",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 700.0,
     "version": null
   },
@@ -471,7 +471,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000028",
     "unit_definition_uid": "UnitDefinition_000343",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 196.0,
     "version": null
   },
@@ -488,7 +488,7 @@
     "template_parameter": false,
     "uid": "NumericValueWithUnit_000029",
     "unit_definition_uid": "UnitDefinition_000177",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "value": 600.0,
     "version": null
   }

@@ -1,8 +1,8 @@
 from fastapi import Query
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.validators import FLOAT_REGEX
+from common import config
+from common.models.error import ErrorResponse
 
 
 def study_section_description(desc: str):
@@ -107,16 +107,47 @@ Complex filtering example:\n
 
 """
 
-OPERATOR = (
+FILTER_OPERATOR = (
     "Specifies which logical operation - `and` or `or` - should be used in case filtering is done on several fields.\n\n"
     "Default: `and` (all fields have to match their filter).\n\n"
     "Functionality: `and` will return entities having all filters matching, `or` will return entities with any matches.\n\n"
 )
 
-FILTERS_EXAMPLE = """{"*":{ "v": [""], "op": "co"}}"""
+FILTERS_EXAMPLE = {
+    "wildcard": {
+        "summary": "Wildcard Filter",
+        "description": "Apply a wildcard filter.",
+        "value": """{"*":{ "v": [""], "op": "co"}}""",
+    },
+    "uid__contains": {
+        "summary": "Partial Match on UID",
+        "description": "Apply a filter to display records **containing** specified UIDs.",
+        "value": """{"uid":{ "v": [""], "op": "co"}}""",
+    },
+    "uid": {
+        "summary": "Exact Match on UID",
+        "description": "Apply a filter to display only those records with **exact** matching UIDs.",
+        "value": """{"uid":{ "v": [""], "op": "eq"}}""",
+    },
+    "name__contains": {
+        "summary": "Partial Match on Name",
+        "description": "Apply a filter to display records **containing** specified names.",
+        "value": """{"name":{ "v": [""], "op": "co"}}""",
+    },
+    "name": {
+        "summary": "Exact Match on Name",
+        "description": "Apply a filter to display only those records with **exact** matching names.",
+        "value": """{"name":{ "v": [""], "op": "eq"}}""",
+    },
+    "none": {
+        "summary": "No Filters",
+        "description": "No filters are applied.",
+        "value": {},
+    },
+}
 
 TOTAL_COUNT = (
-    "Boolean value specifying whether total count of entities should be included in the reponse.\n\n"
+    "Boolean value specifying whether total count of entities should be included in the response.\n\n"
     "Functionality: retrieve total count of queried entities.\n\n"
 )
 
@@ -129,7 +160,7 @@ HEADER_FIELD_NAME = (
 HEADER_SEARCH_STRING = """Optionally, a (part of the) text for a given field.
 The query result will be values of the field that contain the provided search string."""
 
-HEADER_RESULT_COUNT = "Optionally, the number of results to return. Default = 10."
+HEADER_PAGE_SIZE = "Optionally, the number of results to return. Default = 10."
 
 DATA_EXPORTS_HEADER = """\n
 Response format:\n
@@ -142,16 +173,22 @@ by sending the `Accept` http request header with one of the following values:
 """
 
 STUDY_VALUE_VERSION_QUERY = Query(
-    None,
     description="""If specified, study data with specified version is returned.
 
     Only exact matches are considered. 
 
     E.g. 1, 2, 2.1, ...""",
-    regex=FLOAT_REGEX,
+    pattern=FLOAT_REGEX,
 )
 
+ERROR_400 = {"model": ErrorResponse, "description": "Error"}
 ERROR_404 = {"model": ErrorResponse, "description": "Entity not found"}
+ERROR_409 = {
+    "model": ErrorResponse,
+    "description": "The request could not be completed due to a conflict with the current state of the target resource. "
+    "This typically occurs when attempting to create or modify a resource that already exists or violates a uniqueness constraint.",
+}
+ERROR_422 = {"model": ErrorResponse, "description": "Unprocessable Content"}
 ERROR_500 = {"model": ErrorResponse, "description": "Internal Server Error"}
 
 

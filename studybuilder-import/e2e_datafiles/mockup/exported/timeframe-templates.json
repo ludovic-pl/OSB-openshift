@@ -22,7 +22,7 @@
     "start_date": "2022-05-23T12:12:10.088959",
     "status": "Final",
     "uid": "TimeframeTemplate_000003",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -52,7 +52,7 @@
     "start_date": "2022-05-23T12:12:09.987649",
     "status": "Final",
     "uid": "TimeframeTemplate_000002",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -78,7 +78,7 @@
     "start_date": "2022-05-23T12:12:09.839990",
     "status": "Final",
     "uid": "TimeframeTemplate_000001",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

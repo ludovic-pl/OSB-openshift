@@ -92,7 +92,7 @@
         </v-card>
       </v-window-item>
     </v-window>
-    <slot name="itemForm" :show="showForm" :item="item" :close="closeForm" />
+    <slot v-if="showForm" name="itemForm" :show="showForm" :item="item" :close="closeForm" />
     <v-dialog
       v-model="showHistory"
       persistent

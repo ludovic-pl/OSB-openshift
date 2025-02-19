@@ -30,7 +30,7 @@
         </v-card-title>
         <v-card-text>
           <slot>
-            {{ helpText }}
+            <div v-html="helpText"/>
           </slot>
         </v-card-text>
       </v-card>

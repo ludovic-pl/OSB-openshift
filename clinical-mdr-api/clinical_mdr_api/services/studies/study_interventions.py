@@ -5,7 +5,11 @@ from typing import Mapping
 
 from docx.enum.style import WD_STYLE_TYPE
 
-from clinical_mdr_api import models
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyCompoundDosing,
+    StudySelectionArm,
+    StudySelectionCompound,
+)
 from clinical_mdr_api.services.studies.study_arm_selection import (
     StudyArmSelectionService,
 )
@@ -77,9 +81,9 @@ class StudyInterventionsService:
     @staticmethod
     # pylint: disable=unused-argument
     def mk_table(
-        compounds: list[models.StudySelectionCompound],
-        arms: Mapping[str, list[models.StudySelectionArm]],
-        dosings: Mapping[str, list[models.StudyCompoundDosing]],
+        compounds: list[StudySelectionCompound],
+        arms: Mapping[str, list[StudySelectionArm]],
+        dosings: Mapping[str, list[StudyCompoundDosing]],
     ) -> TableWithFootnotes:
         table = TableWithFootnotes(
             num_header_rows=1,
@@ -281,7 +285,7 @@ class StudyInterventionsService:
             arm.name for arm in arms.get(compound.study_compound_uid, [])
         ) or _gettext("no_information")
 
-    def _get_study_compounds(self, study_uid) -> list[models.StudySelectionCompound]:
+    def _get_study_compounds(self, study_uid) -> list[StudySelectionCompound]:
         return (
             StudyCompoundSelectionService()
             .get_all_selection(
@@ -292,7 +296,7 @@ class StudyInterventionsService:
 
     def _get_arms_for_compounds(
         self, study_uid
-    ) -> Mapping[str, list[models.StudySelectionArm]]:
+    ) -> Mapping[str, list[StudySelectionArm]]:
         arms = {
             arm.arm_uid: arm
             for arm in StudyArmSelectionService()
@@ -313,7 +317,7 @@ class StudyInterventionsService:
 
     def _get_compound_dosings(
         self, study_uid: str
-    ) -> dict[str, list[models.StudyCompoundDosing]]:
+    ) -> dict[str, list[StudyCompoundDosing]]:
         results = (
             StudyCompoundDosingSelectionService()
             .get_all_compound_dosings(study_uid)

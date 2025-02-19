@@ -32,8 +32,8 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_term_attributes import
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
-    VersioningException,
 )
+from common.exceptions import BusinessLogicException
 
 
 class CTTermAttributesRepository(CTTermGenericRepository[CTTermAttributesAR]):
@@ -200,19 +200,15 @@ class CTTermAttributesRepository(CTTermGenericRepository[CTTermAttributesAR]):
             {
                 "start_date": datetime.now(timezone.utc),
                 "end_date": None,
-                "user_initials": item.item_metadata.user_initials,
+                "author_id": item.item_metadata.author_id,
             },
         )
 
         # Validate that the term is added to a codelist that isn't in a draft state.
-        if not is_codelist_in_final(ct_codelist_root_node):
-            raise VersioningException(
-                "Term '"
-                + item.uid
-                + "' cannot be added to '"
-                + item.ct_term_vo.codelists[0].codelist_uid
-                + "' as the codelist is in a draft state."
-            )
+        BusinessLogicException.raise_if_not(
+            is_codelist_in_final(ct_codelist_root_node),
+            msg=f"Term with UID '{item.uid}' cannot be added to Codelist with UID '{item.ct_term_vo.codelists[0].codelist_uid}' as the codelist is in a draft state.",
+        )
 
         self._maintain_parameters(item, root, value)
 

@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.simple_concepts.numeric_value import (
     NumericValueAR,
 )
@@ -13,6 +12,7 @@ from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
     UnitDefinitionAR,
 )
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import CTTermNameAR
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -61,22 +61,22 @@ class TimePointVO(SimpleConceptVO):
         find_time_reference_by_uid: Callable[[str], CTTermNameAR],
     ) -> Self:
         numeric_value = find_numeric_value_by_uid(numeric_value_uid)
-        if numeric_value is None:
-            raise exceptions.ValidationException(
-                f"{cls.__name__} tried to connect to non-existent numeric value identified by uid ({numeric_value_uid})"
-            )
+        BusinessLogicException.raise_if(
+            numeric_value is None,
+            msg=f"{cls.__name__} tried to connect to non-existent Numeric Value with UID '{numeric_value_uid}'.",
+        )
 
         unit_definition = find_unit_definition_by_uid(unit_definition_uid)
-        if unit_definition is None:
-            raise exceptions.ValidationException(
-                f"{cls.__name__} tried to connect to non-existent unit definition identified by uid ({unit_definition_uid})"
-            )
+        BusinessLogicException.raise_if(
+            unit_definition is None,
+            msg=f"{cls.__name__} tried to connect to non-existent Unit Definition with UID '{unit_definition_uid}'.",
+        )
 
         time_reference = find_time_reference_by_uid(time_reference_uid)
-        if time_reference is None:
-            raise exceptions.ValidationException(
-                f"{cls.__name__} tried to connect to non-existent CTTermRoot identified by uid ({time_reference_uid})"
-            )
+        BusinessLogicException.raise_if(
+            time_reference is None,
+            msg=f"{cls.__name__} tried to connect to non-existent CT Term with UID '{time_reference_uid}'.",
+        )
 
         simple_concept_vo = cls(
             name=f"{numeric_value.name} {unit_definition.name} after {time_reference.name}",

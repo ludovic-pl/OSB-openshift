@@ -4,58 +4,59 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-fastapi = "~=0.92.0"
-uvicorn = "~=0.17.6"
+fastapi = "~=0.115.4"
+uvicorn = "~=0.32.0"
 pydantic = "~=1.10.0"
 requests = "*"
-openpyxl = "~=3.0.10"
-dict2xml = "~=1.7.1"
-GitPython = "~=3.1.27"
-Deprecated = "~=1.2.13"
-hypothesis = "~=6.54.4"
-python-jose = "~=3.3.0"
-python-dateutil="~=2.8.2"
-neomodel="~=5.3.0"
-yattag = "~=1.14.0"
+openpyxl = "~=3.1.5"
+dict2xml = "~=1.7.6"
+hypothesis = "~=6.115.6"
+python-dateutil="~=2.9.0"
+yattag = "~=1.16.0"
 python-docx = "~=1.1.2"
 colour = "~=0.1.5"
-authlib = "~=1.1.0"
-httpx = "~=0.23.0"
-starlette-context = "==0.3.4"
-python-multipart = "~=0.0.5"
-beautifulsoup4 = "~=4.11.1"
-lxml = "~=4.9.1"
-opencensus = "~=0.11.0"
-opencensus-ext-azure = "~=1.1.7"
-pyyaml = "~=6.0"
-xsdata = "==22.9"
-weasyprint = "~=62.3"
-deepdiff = "~=7.0.1"
+authlib = "~=1.3.2"
+httpx = "~=0.27.2"
+starlette-context = "==0.3.6"
+python-multipart = "~=0.0.12"
+beautifulsoup4 = "~=4.12.3"
+lxml = "~=5.3.0"
+opencensus = "~=0.11.4"
+opencensus-ext-azure = "~=1.1.13"
+pyyaml = "~=6.0.2"
+xsdata = "==24.11"
+weasyprint = "~=63.0"
+cffi = "~=1.17.1"
+deepdiff = "~=8.0.1"
 asyncache = "~=0.3.1"
-cachetools = "~=5.3.1"
-usdm = "==0.51.0"
+cachetools = "~=5.5.0"
+usdm = "==0.53.0"
+annotated-types = "~=0.6.0"
+neomodel = "~=5.4.1"
+jinja2 = "*"
 
 [dev-packages]
-pytest = "~=7.1.2"
-pytest-bdd = "~=7.0.0"
-pytest-cov = "~=3.0.0"
-pylint = "~=2.17.0"
-flake8 = "~=5.0.4"
+pytest = "~=8.3.3"
+pytest-bdd = "~=7.3.0"
+pytest-cov = "~=6.0.0"
+pylint = "~=3.3.1"
+flake8 = "~=7.1.1"
 pep8 = "~=1.7.1"
-autopep8 = "~=1.7.0"
-mypy = "~=0.971"
-pbr = "~=5.10.0"
-rope = "~=1.3.0"
-isort = "~=5.11.5"
-black = "~=23.3.0"
-pytest-asyncio = "~=0.19.0"
-pytest-forked = "~=1.4.0"
-pytest-xdist = "~=2.5.0"
-parameterized = "~=0.8.1"
-schemathesis = "~=3.17.5"
+autopep8 = "~=2.3.1"
+mypy = "~=1.13.0"
+pbr = "~=6.1.0"
+rope = "~=1.13.0"
+isort = "~=5.13.2"
+black = "~=24.10.0"
+pytest-asyncio = "~=0.24.0"
+pytest-forked = "~=1.6.0"
+pytest-xdist = "~=3.6.1"
+parameterized = "~=0.9.0"
+schemathesis = "~=3.38.5"
+allure-pytest = "==2.13.5"
 
 [requires]
-python_version = "3.11"
+python_version = "3.13.0"
 
 [scripts]
 dev = "uvicorn --host=0.0.0.0 --port=8000 clinical_mdr_api.main:app --reload"
@@ -63,22 +64,23 @@ prod = "uvicorn --host=0.0.0.0 --port=8000 --limit-concurrency=120 --workers=4 -
 test = "pytest -s"
 dist = "python setup.py bdist_wheel"
 package = "pip wheel -r requirements.txt -w dist"
-testunit = "pytest -s --cov-report html:reports/coverage-unit-html --cov-report xml:reports/coverage.xml --cov-append --cov  --junitxml=reports/unit_report.xml clinical_mdr_api/tests/unit/"
+testunit = "pytest -s --cov-report html:reports/coverage-unit-html --cov-report xml:reports/coverage.xml --cov-append --cov  --junitxml=reports/unit_report.xml clinical_mdr_api/tests/unit/ common/tests/unit"
 testint = "pytest -s -n 4 --dist loadfile --cov-report html:reports/coverage-int-html --cov-report xml:reports/coverage.xml --cov-append --cov --junitxml=reports/int_report.xml clinical_mdr_api/tests/integration/"
-testauth = "pytest -s --cov-report html:reports/coverage-auth-html --cov-report xml:reports/coverage.xml --cov-append --cov --junitxml=reports/auth_report.xml clinical_mdr_api/tests/oauth/"
+testauth = "pytest -s --cov-report html:reports/coverage-auth-html --cov-report xml:reports/coverage.xml --cov-append --cov --junitxml=reports/auth_report.xml clinical_mdr_api/tests/auth/ common/tests/auth"
 test-telemetry = "pytest -s --cov-report html:reports/coverage-telemetry-html --cov-report xml:reports/coverage.xml --cov-append --cov --junitxml=reports/telemetry_report.xml clinical_mdr_api/tests/telemetry/"
-lint = "pylint clinical_mdr_api consumer_api"
-black = "python -m black clinical_mdr_api consumer_api"
-isort = "python -m isort clinical_mdr_api consumer_api"
+testunitallure = "pytest -s --cov-report html:reports/coverage-unit --cov-report xml:reports/coverage.xml --cov-append --cov=clinical_mdr_api  --junitxml=reports/unit_report.xml --alluredir reports/allure-results clinical_mdr_api/tests/unit/"
+testintallure = "pytest -s -n 4 --dist loadfile --cov-report html:reports/coverage-int --cov-report xml:reports/coverage.xml --cov-append --cov=clinical_mdr_api --junitxml=reports/int_report.xml --alluredir reports/allure-results clinical_mdr_api/tests/integration/"
+lint = "pylint clinical_mdr_api consumer_api common"
+black = "python -m black clinical_mdr_api consumer_api common"
+isort = "python -m isort clinical_mdr_api consumer_api common"
 format = """sh -c "
-    python -m isort clinical_mdr_api consumer_api \
-    && python -m black clinical_mdr_api consumer_api \
+    python -m isort clinical_mdr_api consumer_api common \
+    && python -m black clinical_mdr_api consumer_api common \
 "
 """
 openapi = "python generate_openapi_json.py"
 schemathesis = """
     schemathesis
-        --pre-run=clinical_mdr_api.hooks.schemathesis_hooks
         run
         --checks=all
         --base-url=http://localhost:8000
@@ -89,21 +91,18 @@ schemathesis = """
         --hypothesis-suppress-health-check=too_slow,filter_too_much,data_too_large
         --junit-xml=reports/schemathesis_report.xml
         --report=reports/schemathesis_report.tgz
-        --show-errors-tracebacks
+        --show-trace
         openapi.json
 """
 build-sbom = "pipelines/scripts/build-sbom.sh"
 schemathesis-help = "schemathesis run --help"
-
-
 consumer-api-dev = "uvicorn --host=0.0.0.0 --port=8008 consumer_api.consumer_api:app --reload"
-consumer-api-lint = "pylint consumer_api"
-consumer-api-test = "pytest -s -n 1 --dist loadfile --cov-report html:consumer_api/reports/coverage-int-html --cov-report xml:consumer_api/reports/coverage.xml --cov-append --cov --junitxml=consumer_api/reports/test_report.xml --ignore=consumer_api/tests/auth consumer_api/tests"
-consumer-api-testauth = "pytest -s -n 1 --dist loadfile --cov-report html:consumer_api/reports/coverage-auth-html --cov-report xml:consumer_api/reports/coverage.xml --cov-append --cov --junitxml=consumer_api/reports/auth_report.xml consumer_api/tests/auth"
+consumer-api-lint = "pylint consumer_api common"
+consumer-api-test = "pytest -s -n 1 --dist loadfile --cov-report html:consumer_api/reports/coverage-int-html --cov-report xml:consumer_api/reports/coverage.xml --cov-append --cov --junitxml=consumer_api/reports/test_report.xml --ignore=consumer_api/tests/auth consumer_api/tests common/tests/unit"
+consumer-api-testauth = "pytest -s -n 1 --dist loadfile --cov-report html:consumer_api/reports/coverage-auth-html --cov-report xml:consumer_api/reports/coverage.xml --cov-append --cov --junitxml=consumer_api/reports/auth_report.xml consumer_api/tests/auth common/tests/auth"
 consumer-openapi = "python generate_openapi.py consumer_api.consumer_api:app consumer_api/openapi.json consumer_api/apiVersion"
 consumer-api-schemathesis = """
     schemathesis
-        --pre-run=clinical_mdr_api.hooks.schemathesis_hooks
         run
         --checks=all
         --base-url=http://localhost:8008
@@ -114,6 +113,6 @@ consumer-api-schemathesis = """
         --hypothesis-suppress-health-check=too_slow,filter_too_much,data_too_large
         --junit-xml=consumer_api/reports/schemathesis_report.xml
         --report=consumer_api/reports/schemathesis_report.tgz
-        --show-errors-tracebacks
+        --show-trace
         consumer_api/openapi.json
 """

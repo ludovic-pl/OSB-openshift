@@ -15,19 +15,21 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
+    UnitDefinitionModel,
+)
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
-unit_definitions: list[models.UnitDefinitionModel]
+unit_definitions: list[UnitDefinitionModel]
 
 
 @pytest.fixture(scope="module")
@@ -55,17 +57,16 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 UNIT_DEF_FIELDS_ALL = [
     "comment",
     "library_name",
     "uid",
-    "user_initials",
+    "author_username",
     "template_parameter",
     "display_unit",
     "us_conventional_unit",
+    "use_complex_unit_conversion",
     "conversion_factor_to_master",
     "unit_dimension",
     "ucum",
@@ -78,7 +79,7 @@ UNIT_DEF_FIELDS_ALL = [
     "end_date",
     "definition",
     "unit_subsets",
-    "molecular_weight_conv_expon",
+    "use_molecular_weight",
     "change_description",
     "si_unit",
     "name",
@@ -92,7 +93,7 @@ def test_get_unit_definition(api_client):
     response = api_client.get(f"/concepts/unit-definitions/{unit_definitions[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(UNIT_DEF_FIELDS_ALL)
@@ -142,7 +143,7 @@ def test_get_unit_definitions_pagination(api_client):
         pytest.param(3, 1, True, None, 3),
         pytest.param(3, 2, True, None, 3),
         pytest.param(10, 2, True, None, 10),
-        pytest.param(10, 3, True, None, 7),  # Total number is 27
+        pytest.param(10, 3, True, None, 8),  # Total number is 28
         pytest.param(10, 1, True, '{"name": false}', 10),
         pytest.param(10, 2, True, '{"name": true}', 10),
     ],
@@ -168,12 +169,13 @@ def test_get_unit_definitions(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
     assert len(res["items"]) == expected_result_len
-    assert res["total"] == (len(unit_definitions) + 2 if total_count else 0)
+    # Adding +3 for UnitDefinitions that are created in scope of inject_base_data
+    assert res["total"] == (len(unit_definitions) + 3 if total_count else 0)
     assert res["page"] == (page_number if page_number else 1)
     assert res["size"] == (page_size if page_size else 10)
 
@@ -229,7 +231,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -255,7 +257,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value

@@ -1,14 +1,85 @@
+# pylint: disable=too-many-lines
+
 import os
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivityGroup,
+    StudyActivityGroupEditInput,
+    StudyActivityReplaceActivityInput,
+    StudyActivitySubGroup,
+    StudyActivitySubGroupEditInput,
+    StudyElementTypes,
+    StudySelectionActivity,
+    StudySelectionActivityBatchInput,
+    StudySelectionActivityBatchOutput,
+    StudySelectionActivityCore,
+    StudySelectionActivityCreateInput,
+    StudySelectionActivityInput,
+    StudySelectionActivityInSoACreateInput,
+    StudySelectionActivityInstance,
+    StudySelectionActivityInstanceBatchCreate,
+    StudySelectionActivityInstanceBatchOutput,
+    StudySelectionActivityInstanceCreateInput,
+    StudySelectionActivityInstanceEditInput,
+    StudySelectionActivityNewOrder,
+    StudySelectionActivityRequestEditInput,
+    StudySelectionArm,
+    StudySelectionArmCreateInput,
+    StudySelectionArmInput,
+    StudySelectionArmNewOrder,
+    StudySelectionArmVersion,
+    StudySelectionArmWithConnectedBranchArms,
+    StudySelectionBranchArm,
+    StudySelectionBranchArmCreateInput,
+    StudySelectionBranchArmEditInput,
+    StudySelectionBranchArmNewOrder,
+    StudySelectionBranchArmVersion,
+    StudySelectionCohort,
+    StudySelectionCohortCreateInput,
+    StudySelectionCohortEditInput,
+    StudySelectionCohortNewOrder,
+    StudySelectionCohortVersion,
+    StudySelectionCompound,
+    StudySelectionCompoundCreateInput,
+    StudySelectionCompoundEditInput,
+    StudySelectionCompoundNewOrder,
+    StudySelectionCriteria,
+    StudySelectionCriteriaCore,
+    StudySelectionCriteriaCreateInput,
+    StudySelectionCriteriaInput,
+    StudySelectionCriteriaKeyCriteria,
+    StudySelectionCriteriaNewOrder,
+    StudySelectionCriteriaTemplateSelectInput,
+    StudySelectionElement,
+    StudySelectionElementCreateInput,
+    StudySelectionElementInput,
+    StudySelectionElementNewOrder,
+    StudySelectionElementVersion,
+    StudySelectionEndpoint,
+    StudySelectionEndpointCreateInput,
+    StudySelectionEndpointInput,
+    StudySelectionEndpointNewOrder,
+    StudySelectionEndpointTemplateSelectInput,
+    StudySelectionObjective,
+    StudySelectionObjectiveCore,
+    StudySelectionObjectiveCreateInput,
+    StudySelectionObjectiveInput,
+    StudySelectionObjectiveNewOrder,
+    StudySelectionObjectiveTemplateSelectInput,
+    StudySoAEditBatchInput,
+    StudySoAEditBatchOutput,
+    StudySoAGroup,
+    StudySoAGroupEditInput,
+)
+from clinical_mdr_api.models.syntax_instances.criteria import (
+    CriteriaUpdateWithCriteriaKeyInput,
+)
 from clinical_mdr_api.models.utils import CustomPage, GenericFilteringReturn
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.studies.study import StudyService
@@ -50,18 +121,31 @@ from clinical_mdr_api.services.studies.study_objective_selection import (
 )
 from clinical_mdr_api.services.studies.study_objectives import StudyObjectivesService
 from clinical_mdr_api.services.studies.study_soa_group import StudySoAGroupService
+from common import config
+from common.auth import rbac
+from common.exceptions import ValidationException
+from common.models.error import ErrorResponse
 
 # Mounted without a path-prefix
 router = APIRouter()
 
-studyUID = Path(None, description="The unique id of the study.")
-study_selection_uid = Path(None, description="The unique id of the study selection.")
+studyUID = Path(description="The unique id of the study.")
+study_objective_uid_path = Path(description="The unique id of the study objective.")
+study_endpoint_uid_path = Path(description="The unique id of the study endpoint.")
+study_compound_uid_path = Path(description="The unique id of the study compound.")
+study_criteria_uid_path = Path(description="The unique id of the study criteria.")
+study_activity_instance_uid_path = Path(
+    description="The unique id of the study activity instance."
+)
+study_activity_uid_path = Path(description="The unique id of the study activity.")
+study_arm_uid_path = Path(description="The unique id of the study arm.")
+study_element_uid_path = Path(description="The unique id of the study element.")
+study_branch_arm_uid_path = Path(description="The unique id of the study branch arm.")
+study_cohort_uid_path = Path(description="The unique id of the study cohort.")
 PROJECT_NAME = Query(
-    None,
     description="Optionally, the name of the project for which to return study selections.",
 )
 PROJECT_NUMBER = Query(
-    None,
     description="Optionally, the number of the project for which to return study selections.",
 )
 
@@ -75,7 +159,7 @@ PROJECT_NUMBER = Query(
     "/study-objectives",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study objectives currently selected",
-    response_model=CustomPage[models.StudySelectionObjective],
+    response_model=CustomPage[StudySelectionObjective],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -84,33 +168,43 @@ PROJECT_NUMBER = Query(
     },
 )
 def get_all_selected_objectives_for_all_studies(
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Objective"
-        "should be returned",
-    ),
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionObjective]:
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Objective"
+            "should be returned",
+        ),
+    ] = False,
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionObjective]:
     service = StudyObjectiveSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         no_brackets=no_brackets,
@@ -148,20 +242,27 @@ def get_all_selected_objectives_for_all_studies(
     },
 )
 def get_distinct_objective_values_for_header(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyObjectiveSelectionService()
     return service.get_distinct_values_for_header(
@@ -171,7 +272,7 @@ def get_distinct_objective_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -180,7 +281,7 @@ def get_distinct_objective_values_for_header(
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study objectives currently selected for study with provided uid",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=GenericFilteringReturn[models.StudySelectionObjective],
+    response_model=GenericFilteringReturn[StudySelectionObjective],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -199,7 +300,7 @@ def get_distinct_objective_values_for_header(
             "guidance_text=objective_template.guidance_text",
             "endpoint_count",
             "start_date",
-            "user_initials",
+            "author_username",
             "study_uid",
             "study_version",
         ],
@@ -214,33 +315,45 @@ def get_distinct_objective_values_for_header(
 # pylint: disable=unused-argument
 def get_all_selected_objectives(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Objective"
-        "should be returned",
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> GenericFilteringReturn[models.StudySelectionObjective]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Objective"
+            "should be returned",
+        ),
+    ] = False,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> GenericFilteringReturn[StudySelectionObjective]:
     service = StudyObjectiveSelectionService()
     return service.get_all_selection(
         study_uid=study_uid,
@@ -272,22 +385,31 @@ def get_all_selected_objectives(
     },
 )
 def get_distinct_values_for_header(
-    study_uid: str = studyUID,
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    study_uid: Annotated[str, studyUID],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyObjectiveSelectionService()
     return service.get_distinct_values_for_header(
@@ -298,7 +420,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -310,14 +432,14 @@ def get_distinct_values_for_header(
     description="""
 The following values should be return for all study objectives.
 - date_time
-- user_initials
+- author_username
 - action
 - objective_template
 - objective
 - objective_level
 - order
     """,
-    response_model=list[models.StudySelectionObjectiveCore],
+    response_model=list[StudySelectionObjectiveCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -326,8 +448,8 @@ The following values should be return for all study objectives.
     },
 )
 def get_all_objectives_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionObjectiveCore]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionObjectiveCore]:
     service = StudyObjectiveSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -336,7 +458,7 @@ def get_all_objectives_audit_trail(
     "/studies/{study_uid}/study-objectives/{study_objective_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study objective",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -348,10 +470,12 @@ def get_all_objectives_audit_trail(
     },
 )
 def get_selected_objective(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -367,14 +491,14 @@ def get_selected_objective(
     description="""
 The following values should be return for selected study objective:
 - date_time
-- user_initials
+- author_username
 - action
 - objective_template
 - objective
 - objective_level
 - order
     """,
-    response_model=list[models.StudySelectionObjectiveCore],
+    response_model=list[StudySelectionObjectiveCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -386,9 +510,9 @@ The following values should be return for selected study objective:
     },
 )
 def get_selected_objective_audit_trail(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-) -> models.StudySelectionObjectiveCore:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+) -> StudySelectionObjectiveCore:
     service = StudyObjectiveSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_objective_uid
@@ -399,7 +523,7 @@ def get_selected_objective_audit_trail(
     "/studies/{study_uid}/study-objectives",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study objective selection based on the input data, including optionally creating a library objective",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -416,19 +540,33 @@ def get_selected_objective_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_objective_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionObjectiveCreateInput
-    | models.study_selections.study_selection.StudySelectionObjectiveInput = Body(
-        description="Parameters of the selection that shall be created."
-    ),
-    create_objective: bool = Query(
-        False,
-        description="Indicates whether the specified objective should be created in the library.\n"
-        "- If this parameter is set to `true`, a `StudySelectionObjectiveCreateInput` payload needs to be sent.\n"
-        "- Otherwise, `StudySelectionObjectiveInput` payload should be sent, referencing an existing library objective by uid.",
-    ),
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionObjectiveCreateInput | StudySelectionObjectiveInput,
+        Body(description="Parameters of the selection that shall be created."),
+    ],
+    create_objective: Annotated[
+        bool,
+        Query(
+            description="Indicates whether the specified objective should be created in the library.\n"
+            "- If this parameter is set to `true`, a `StudySelectionObjectiveCreateInput` payload needs to be sent.\n"
+            "- Otherwise, `StudySelectionObjectiveInput` payload should be sent, referencing an existing library objective by uid.",
+        ),
+    ] = False,
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
+
+    ValidationException.raise_if(
+        create_objective
+        and not isinstance(selection, StudySelectionObjectiveCreateInput),
+        msg="'StudySelectionObjectiveCreateInput' payload should be sent.",
+    )
+
+    ValidationException.raise_if(
+        not create_objective
+        and not isinstance(selection, StudySelectionObjectiveInput),
+        msg="'StudySelectionObjectiveInput' payload should be sent, referencing an existing library objective by uid",
+    )
 
     if create_objective:
         return service.make_selection_create_objective(
@@ -466,7 +604,7 @@ def post_new_objective_selection_create(
     - order (Derived Integer)
     - latest version of the selected objective template/instance
     """,
-    response_model=list[models.StudySelectionObjective],
+    response_model=list[StudySelectionObjective],
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -483,13 +621,14 @@ def post_new_objective_selection_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_batch_select_objective_template(
-    study_uid: str = studyUID,
-    selection: list[
-        models.study_selections.study_selection.StudySelectionObjectiveTemplateSelectInput
-    ] = Body(
-        description="List of objects with properties needed to identify the templates to select",
-    ),
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        list[StudySelectionObjectiveTemplateSelectInput],
+        Body(
+            description="List of objects with properties needed to identify the templates to select",
+        ),
+    ],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.batch_select_objective_template(
         study_uid=study_uid, selection_create_input=selection
@@ -500,7 +639,7 @@ def post_batch_select_objective_template(
     "/studies/{study_uid}/study-objectives/preview",
     dependencies=[rbac.STUDY_WRITE],
     summary="Preview creating a study objective selection based on the input data",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -517,11 +656,14 @@ def post_batch_select_objective_template(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def preview_new_objective_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionObjectiveCreateInput = Body(
-        description="Related parameters of the selection that shall be previewed."
-    ),
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionObjectiveCreateInput,
+        Body(
+            description="Related parameters of the selection that shall be previewed."
+        ),
+    ],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.make_selection_preview_objective(
         study_uid=study_uid, selection_create_input=selection
@@ -545,8 +687,8 @@ def preview_new_objective_selection_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_objective(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
 ):
     service = StudyObjectiveSelectionService()
     service.delete_selection(
@@ -559,7 +701,7 @@ def delete_selected_objective(
     "/studies/{study_uid}/study-objectives/{study_objective_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change a order of a study objective",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -572,12 +714,13 @@ def delete_selected_objective(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_objective_selection_order(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionObjectiveNewOrder = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+    new_order_input: Annotated[
+        StudySelectionObjectiveNewOrder,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -590,7 +733,7 @@ def patch_new_objective_selection_order(
     "/studies/{study_uid}/study-objectives/{study_objective_uid}",
     dependencies=[rbac.STUDY_WRITE],
     summary="update the objective level of a study objective",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -603,12 +746,13 @@ def patch_new_objective_selection_order(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_objective_selection(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-    selection: models.StudySelectionObjectiveInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+    selection: Annotated[
+        StudySelectionObjectiveInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -621,7 +765,7 @@ def patch_update_objective_selection(
     "/studies/{study_uid}/study-objectives/{study_objective_uid}/sync-latest-version",
     dependencies=[rbac.STUDY_WRITE],
     summary="update to latest objective version study selection",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -634,9 +778,9 @@ def patch_update_objective_selection(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def sync_latest_version(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.update_selection_to_latest_version(
         study_uid=study_uid, study_selection_uid=study_objective_uid
@@ -650,7 +794,7 @@ def sync_latest_version(
     "/study-endpoints",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study endpoints currently selected",
-    response_model=CustomPage[models.StudySelectionEndpoint],
+    response_model=CustomPage[StudySelectionEndpoint],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -659,33 +803,43 @@ def sync_latest_version(
     },
 )
 def get_all_selected_endpoints_for_all_studies(
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Endpoint"
-        "should be returned",
-    ),
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionEndpoint]:
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Endpoint"
+            "should be returned",
+        ),
+    ] = False,
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionEndpoint]:
     service = StudyEndpointSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         no_brackets=no_brackets,
@@ -723,20 +877,27 @@ def get_all_selected_endpoints_for_all_studies(
     },
 )
 def get_distinct_endpoint_values_for_header(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyEndpointSelectionService()
     return service.get_distinct_values_for_header(
@@ -746,7 +907,7 @@ def get_distinct_endpoint_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -773,7 +934,7 @@ State after:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=GenericFilteringReturn[models.StudySelectionEndpoint],
+    response_model=GenericFilteringReturn[StudySelectionEndpoint],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -807,33 +968,45 @@ State after:
 # pylint: disable=unused-argument
 def get_all_selected_endpoints(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Objective"
-        "and Endpoint should be returned",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> GenericFilteringReturn[models.StudySelectionEndpoint]:
+    study_uid: Annotated[str, studyUID],
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Objective"
+            "and Endpoint should be returned",
+        ),
+    ] = False,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> GenericFilteringReturn[StudySelectionEndpoint]:
     service = StudyEndpointSelectionService()
     return service.get_all_selection(
         study_uid=study_uid,
@@ -865,22 +1038,31 @@ def get_all_selected_endpoints(
     },
 )
 def get_distinct_study_endpoint_values_for_header(
-    study_uid: str = studyUID,
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyEndpointSelectionService()
     return service.get_distinct_values_for_header(
@@ -891,7 +1073,7 @@ def get_distinct_study_endpoint_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -922,7 +1104,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to study endpoints.
     """,
-    response_model=list[models.StudySelectionEndpoint],
+    response_model=list[StudySelectionEndpoint],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -931,8 +1113,8 @@ Returned data:
     },
 )
 def get_all_endpoints_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionEndpoint]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionEndpoint]:
     service = StudyEndpointSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -958,7 +1140,7 @@ Business logic:
 State after:
  - no change
 """,
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -970,10 +1152,12 @@ State after:
     },
 )
 def get_selected_endpoint(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -1009,7 +1193,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to the specified study endpoints.
     """,
-    response_model=list[models.StudySelectionEndpoint],
+    response_model=list[StudySelectionEndpoint],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1021,9 +1205,9 @@ Returned data:
     },
 )
 def get_selected_endpoint_audit_trail(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_endpoint_uid
@@ -1034,7 +1218,7 @@ def get_selected_endpoint_audit_trail(
     "/studies/{study_uid}/study-endpoints",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creates a study endpoint selection based on the input data, including optionally creating library endpoint",
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -1051,19 +1235,33 @@ def get_selected_endpoint_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_endpoint_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionEndpointCreateInput
-    | models.study_selections.study_selection.StudySelectionEndpointInput = Body(
-        description="Parameters of the selection that shall be created."
-    ),
-    create_endpoint: bool = Query(
-        False,
-        description="Indicates whether the specified endpoint should be created in the library.\n"
-        "- If this parameter is set to `true`, a `StudySelectionEndpointCreateInput` payload needs to be sent.\n"
-        "- Otherwise, `StudySelectionEndpointInput` payload should be sent, referencing an existing library endpoint by uid.",
-    ),
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionEndpointCreateInput | StudySelectionEndpointInput,
+        Body(description="Parameters of the selection that shall be created."),
+    ],
+    create_endpoint: Annotated[
+        bool,
+        Query(
+            description="Indicates whether the specified endpoint should be created in the library.\n"
+            "- If this parameter is set to `true`, a `StudySelectionEndpointCreateInput` payload needs to be sent.\n"
+            "- Otherwise, `StudySelectionEndpointInput` payload should be sent, referencing an existing library endpoint by uid.",
+        ),
+    ] = False,
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
+
+    ValidationException.raise_if(
+        create_endpoint
+        and not isinstance(selection, StudySelectionEndpointCreateInput),
+        msg="'StudySelectionEndpointCreateInput' payload should be sent.",
+    )
+
+    ValidationException.raise_if(
+        not create_endpoint and not isinstance(selection, StudySelectionEndpointInput),
+        msg="'StudySelectionEndpointInput' payload should be sent, referencing an existing library endpoint by uid",
+    )
+
     if create_endpoint:
         return service.make_selection_create_endpoint(
             study_uid=study_uid, selection_create_input=selection
@@ -1100,7 +1298,7 @@ def post_new_endpoint_selection_create(
     - order (Derived Integer)
     - latest version of the selected endpoint template/instance
     """,
-    response_model=list[models.StudySelectionEndpoint],
+    response_model=list[StudySelectionEndpoint],
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -1117,13 +1315,14 @@ def post_new_endpoint_selection_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_batch_select_endpoint_template(
-    study_uid: str = studyUID,
-    selection: list[
-        models.study_selections.study_selection.StudySelectionEndpointTemplateSelectInput
-    ] = Body(
-        description="List of objects with properties needed to identify the templates to select",
-    ),
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        list[StudySelectionEndpointTemplateSelectInput],
+        Body(
+            description="List of objects with properties needed to identify the templates to select",
+        ),
+    ],
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.batch_select_endpoint_template(
         study_uid=study_uid, selection_create_input=selection
@@ -1134,7 +1333,7 @@ def post_batch_select_endpoint_template(
     "/studies/{study_uid}/study-endpoints/preview",
     dependencies=[rbac.STUDY_WRITE],
     summary="Preview creating a study endpoint selection based on the input data",
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1151,11 +1350,14 @@ def post_batch_select_endpoint_template(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_endpoint_selection_preview(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionEndpointCreateInput = Body(
-        description="Related parameters of the selection that shall be previewed."
-    ),
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionEndpointCreateInput,
+        Body(
+            description="Related parameters of the selection that shall be previewed."
+        ),
+    ],
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.make_selection_preview_endpoint(
         study_uid=study_uid, selection_create_input=selection
@@ -1193,8 +1395,8 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_endpoint(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
 ):
     service = StudyEndpointSelectionService()
     service.delete_selection(
@@ -1220,7 +1422,7 @@ State after:
  - Note this will change order on either the preceding or following study-endpoints as well.
  - Added new entry in the audit trail for the re-ordering of the study-endpoints.
 """,
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1237,12 +1439,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_endpoint_selection_order(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionEndpointNewOrder = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+    new_order_input: Annotated[
+        StudySelectionEndpointNewOrder,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -1270,7 +1473,7 @@ State after:
     - Replace the currently selected study endpoint based on the same functionality as POST `/studies/{study_uid}/study-endpoints`
  - Added new entry in the audit trail for the update of the study-endpoint.
 """,
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1283,12 +1486,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_endpoint_selection(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-    selection: models.StudySelectionEndpointInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionEndpoint:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+    selection: Annotated[
+        StudySelectionEndpointInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionEndpoint:
     service = StudyEndpointSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -1312,8 +1516,10 @@ def patch_update_endpoint_selection(
     },
 )
 def get_all_selected_objectives_and_endpoints_standard_docx(
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> StreamingResponse:
     StudyService().check_if_study_exists(study_uid)
     docx = StudyObjectivesService().get_standard_docx(
@@ -1343,7 +1549,7 @@ def get_all_selected_objectives_and_endpoints_standard_docx(
     },
 )
 def get_all_selected_objectives_and_endpoints_standard_html(
-    study_uid: str = studyUID,
+    study_uid: Annotated[str, studyUID],
 ) -> HTMLResponse:
     StudyService().check_if_study_exists(study_uid)
     return HTMLResponse(
@@ -1358,7 +1564,7 @@ def get_all_selected_objectives_and_endpoints_standard_html(
     "/study-compounds",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study compounds currently selected",
-    response_model=CustomPage[models.StudySelectionCompound],
+    response_model=CustomPage[StudySelectionCompound],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1367,28 +1573,36 @@ def get_all_selected_objectives_and_endpoints_standard_html(
     },
 )
 def get_all_selected_compounds_for_all_studies(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionCompound]:
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionCompound]:
     service = StudyCompoundSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         project_name=project_name,
@@ -1425,20 +1639,27 @@ def get_all_selected_compounds_for_all_studies(
     },
 )
 def get_distinct_compound_values_for_header(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyCompoundSelectionService()
     return service.get_distinct_values_for_header(
@@ -1448,7 +1669,7 @@ def get_distinct_compound_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -1475,7 +1696,7 @@ State after:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=GenericFilteringReturn[models.StudySelectionCompound],
+    response_model=GenericFilteringReturn[StudySelectionCompound],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1512,27 +1733,35 @@ State after:
 # pylint: disable=unused-argument
 def get_all_selected_compounds(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> GenericFilteringReturn[models.StudySelectionCompound]:
+    study_uid: Annotated[str, studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> GenericFilteringReturn[StudySelectionCompound]:
     service = StudyCompoundSelectionService()
     return service.get_all_selection(
         study_uid=study_uid,
@@ -1562,22 +1791,31 @@ def get_all_selected_compounds(
     },
 )
 def get_distinct_compounds_values_for_header(
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyCompoundSelectionService()
     return service.get_distinct_values_for_header(
@@ -1589,7 +1827,7 @@ def get_distinct_compounds_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -1619,7 +1857,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to study compounds.
     """,
-    response_model=list[models.StudySelectionCompound],
+    response_model=list[StudySelectionCompound],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1628,8 +1866,8 @@ Returned data:
     },
 )
 def get_all_compounds_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionCompound]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionCompound]:
     service = StudyCompoundSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -1661,7 +1899,7 @@ Possible errors:
 Returned data:
  - List of actions and changes related to the specified study compound.
     """,
-    response_model=list[models.StudySelectionCompound],
+    response_model=list[StudySelectionCompound],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1673,9 +1911,9 @@ Returned data:
     },
 )
 def get_selected_compound_audit_trail(
-    study_uid: str = studyUID,
-    study_compound_uid: str = study_selection_uid,
-) -> models.StudySelectionCompound:
+    study_uid: Annotated[str, studyUID],
+    study_compound_uid: Annotated[str, study_compound_uid_path],
+) -> StudySelectionCompound:
     service = StudyCompoundSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_compound_uid
@@ -1702,7 +1940,7 @@ Business logic:
 State after:
  - no change
 """,
-    response_model=models.StudySelectionCompound,
+    response_model=StudySelectionCompound,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1714,9 +1952,9 @@ State after:
     },
 )
 def get_selected_compound(
-    study_uid: str = studyUID,
-    study_compound_uid: str = study_selection_uid,
-) -> models.StudySelectionCompound:
+    study_uid: Annotated[str, studyUID],
+    study_compound_uid: Annotated[str, study_compound_uid_path],
+) -> StudySelectionCompound:
     service = StudyCompoundSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid, study_selection_uid=study_compound_uid
@@ -1754,7 +1992,7 @@ State after:
  - compound is added as study compound to the study.
  - Added new entry in the audit trail for the creation of the study-compound.
  """,
-    response_model=models.StudySelectionCompound,
+    response_model=StudySelectionCompound,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -1771,11 +2009,12 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_compound_selection(
-    study_uid: str = studyUID,
-    selection: models.StudySelectionCompoundCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionCompound:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionCompoundCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionCompound:
     service = StudyCompoundSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -1810,8 +2049,8 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_compound(
-    study_uid: str = studyUID,
-    study_compound_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_compound_uid: Annotated[str, study_compound_uid_path],
 ):
     service = StudyCompoundSelectionService()
     service.delete_selection(
@@ -1837,7 +2076,7 @@ State after:
  - Note this will change order on either the preceding or following study-compounds as well.
  - Added new entry in the audit trail for the re-ordering of the study-compounds.
 """,
-    response_model=models.StudySelectionCompound,
+    response_model=StudySelectionCompound,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1850,12 +2089,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_compound_selection_order(
-    study_uid: str = studyUID,
-    study_compound_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionCompoundNewOrder = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionCompound:
+    study_uid: Annotated[str, studyUID],
+    study_compound_uid: Annotated[str, study_compound_uid_path],
+    new_order_input: Annotated[
+        StudySelectionCompoundNewOrder,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionCompound:
     service = StudyCompoundSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -1894,7 +2134,7 @@ Business logic:
 State after:
  - compound or related parameters is updated for the study compound.
  - Added new entry in the audit trail for the update of the study-compound.""",
-    response_model=models.StudySelectionCompound,
+    response_model=StudySelectionCompound,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1907,12 +2147,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_compound_selection(
-    study_uid: str = studyUID,
-    study_compound_uid: str = study_selection_uid,
-    selection: models.StudySelectionCompoundEditInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionCompound:
+    study_uid: Annotated[str, studyUID],
+    study_compound_uid: Annotated[str, study_compound_uid_path],
+    selection: Annotated[
+        StudySelectionCompoundEditInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionCompound:
     service = StudyCompoundSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -1939,7 +2180,7 @@ State after:
  - Study endpoint selection exists
  - Endpoint version selected for study endpoint selection is the latest available final version.
  - Added new entry in the audit trail for the update of the study-endpoint.""",
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1952,9 +2193,9 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def sync_latest_endpoint_version(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+) -> StudySelectionObjective:
     service = StudyEndpointSelectionService()
     return service.update_selection_to_latest_version_of_endpoint(
         study_uid=study_uid, study_selection_uid=study_endpoint_uid
@@ -1979,7 +2220,7 @@ def sync_latest_endpoint_version(
      - Study endpoint selection exists
      - Timeframe version selected for study endpoint selection is the latest available final version.
      - Added new entry in the audit trail for the update of the study-endpoint.""",
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -1992,9 +2233,9 @@ def sync_latest_endpoint_version(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def sync_latest_timeframe_version(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+) -> StudySelectionObjective:
     service = StudyEndpointSelectionService()
     return service.update_selection_to_latest_version_of_timeframe(
         study_uid=study_uid, study_selection_uid=study_endpoint_uid
@@ -2019,7 +2260,7 @@ def sync_latest_timeframe_version(
      - Study endpoint selection exists
      - Timeframe and endpoint version selected for study endpoint selection is not changed.
      - Added new entry in the audit trail for the update of the study-endpoint.""",
-    response_model=models.StudySelectionEndpoint,
+    response_model=StudySelectionEndpoint,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2032,9 +2273,9 @@ def sync_latest_timeframe_version(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_endpoint_accept_version(
-    study_uid: str = studyUID,
-    study_endpoint_uid: str = study_selection_uid,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_endpoint_uid: Annotated[str, study_endpoint_uid_path],
+) -> StudySelectionObjective:
     service = StudyEndpointSelectionService()
     return service.update_selection_accept_versions(
         study_uid=study_uid, study_selection_uid=study_endpoint_uid
@@ -2059,7 +2300,7 @@ def patch_endpoint_accept_version(
      - Study endpoint selection exists
      - Objective version selected for study endpoint selection is not changed.
      - Added new entry in the audit trail for the update of the study-endpoint.""",
-    response_model=models.StudySelectionObjective,
+    response_model=StudySelectionObjective,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2072,9 +2313,9 @@ def patch_endpoint_accept_version(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_objective_accept_version(
-    study_uid: str = studyUID,
-    study_objective_uid: str = study_selection_uid,
-) -> models.StudySelectionObjective:
+    study_uid: Annotated[str, studyUID],
+    study_objective_uid: Annotated[str, study_objective_uid_path],
+) -> StudySelectionObjective:
     service = StudyObjectiveSelectionService()
     return service.update_selection_accept_version(
         study_uid=study_uid, study_selection_uid=study_objective_uid
@@ -2088,7 +2329,7 @@ def patch_objective_accept_version(
     "/study-criteria",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study criteria currently selected",
-    response_model=CustomPage[models.StudySelectionCriteria],
+    response_model=CustomPage[StudySelectionCriteria],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2097,33 +2338,43 @@ def patch_objective_accept_version(
     },
 )
 def get_all_selected_criteria_for_all_studies(
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Criteria"
-        "should be returned",
-    ),
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionCriteria]:
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Criteria"
+            "should be returned",
+        ),
+    ] = False,
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionCriteria]:
     service = StudyCriteriaSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         no_brackets=no_brackets,
@@ -2161,20 +2412,27 @@ def get_all_selected_criteria_for_all_studies(
     },
 )
 def get_distinct_criteria_values_for_header(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyCriteriaSelectionService()
     return service.get_distinct_values_for_header(
@@ -2184,7 +2442,7 @@ def get_distinct_criteria_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -2228,7 +2486,7 @@ List selected study with the following information:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.StudySelectionCriteria],
+    response_model=CustomPage[StudySelectionCriteria],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2245,7 +2503,7 @@ List selected study with the following information:
             "guidance_text=criteria.criteria_template.guidance_text",
             "key_criteria",
             "start_date",
-            "user_initials",
+            "author_username",
             "study_uid",
             "study_version",
         ],
@@ -2260,33 +2518,45 @@ List selected study with the following information:
 # pylint: disable=unused-argument
 def get_all_selected_criteria(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    no_brackets: bool = Query(
-        False,
-        description="Indicates whether brackets around Template Parameters in the Criteria"
-        "should be returned",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionCriteria]:
+    study_uid: Annotated[str, studyUID],
+    no_brackets: Annotated[
+        bool,
+        Query(
+            description="Indicates whether brackets around Template Parameters in the Criteria"
+            "should be returned",
+        ),
+    ] = False,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionCriteria]:
     service = StudyCriteriaSelectionService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -2325,20 +2595,29 @@ def get_all_selected_criteria(
     },
 )
 def get_distinct_study_criteria_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyCriteriaSelectionService()
     return service.get_distinct_values_for_header(
@@ -2347,7 +2626,7 @@ def get_distinct_study_criteria_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -2385,7 +2664,7 @@ def get_distinct_study_criteria_values_for_header(
         - Boolean indication if all expected selections have been made.
         - Boolean indication if the study criteria can be re-ordered.
     """,
-    response_model=list[models.StudySelectionCriteriaCore],
+    response_model=list[StudySelectionCriteriaCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2394,13 +2673,14 @@ def get_distinct_study_criteria_values_for_header(
     },
 )
 def get_all_criteria_audit_trail(
-    study_uid: str = studyUID,
-    criteria_type_uid: str
-    | None = Query(
-        None,
-        description="Optionally, the uid of the criteria_type for which to return study criteria audit trial.",
-    ),
-) -> list[models.StudySelectionCriteriaCore]:
+    study_uid: Annotated[str, studyUID],
+    criteria_type_uid: Annotated[
+        str | None,
+        Query(
+            description="Optionally, the uid of the criteria_type for which to return study criteria audit trial.",
+        ),
+    ] = None,
+) -> list[StudySelectionCriteriaCore]:
     service = StudyCriteriaSelectionService()
     return service.get_all_selection_audit_trail(
         study_uid=study_uid, criteria_type_uid=criteria_type_uid
@@ -2445,7 +2725,7 @@ def get_all_criteria_audit_trail(
         - Boolean indication if all expected selections have been made.
         - Boolean indication if the study criteria can be re-ordered.
     """,
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2457,10 +2737,12 @@ def get_all_criteria_audit_trail(
     },
 )
 def get_selected_criteria(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -2502,7 +2784,7 @@ def get_selected_criteria(
         - Boolean indication if all expected selections have been made.
         - Boolean indication if the study criteria can be re-ordered.
     """,
-    response_model=list[models.StudySelectionCriteriaCore],
+    response_model=list[StudySelectionCriteriaCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2514,9 +2796,9 @@ def get_selected_criteria(
     },
 )
 def get_selected_criteria_audit_trail(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-) -> models.StudySelectionCriteriaCore:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+) -> StudySelectionCriteriaCore:
     service = StudyCriteriaSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_criteria_uid
@@ -2556,7 +2838,7 @@ def get_selected_criteria_audit_trail(
         - Boolean indication if edit is possible. (study is in Draft status)
         - Boolean indication if all expected selections have been made. (expected !== required)
     """,
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -2573,19 +2855,32 @@ def get_selected_criteria_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_criteria_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionCriteriaCreateInput
-    | models.study_selections.study_selection.StudySelectionCriteriaInput = Body(
-        description="Parameters of the selection that shall be created."
-    ),
-    create_criteria: bool = Query(
-        False,
-        description="Indicates whether the specified criteria should be created in the library.\n"
-        "- If this parameter is set to `true`, a `StudySelectionCriteriaCreateInput` payload needs to be sent.\n"
-        "- Otherwise, `StudySelectionCriteriaInput` payload should be sent, referencing an existing library criteria by uid.",
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionCriteriaCreateInput | StudySelectionCriteriaInput,
+        Body(description="Parameters of the selection that shall be created."),
+    ],
+    create_criteria: Annotated[
+        bool,
+        Query(
+            description="Indicates whether the specified criteria should be created in the library.\n"
+            "- If this parameter is set to `true`, a `StudySelectionCriteriaCreateInput` payload needs to be sent.\n"
+            "- Otherwise, `StudySelectionCriteriaInput` payload should be sent, referencing an existing library criteria by uid.",
+        ),
+    ] = False,
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
+
+    ValidationException.raise_if(
+        create_criteria
+        and not isinstance(selection, StudySelectionCriteriaCreateInput),
+        msg="'StudySelectionCriteriaCreateInput' payload should be sent.",
+    )
+
+    ValidationException.raise_if(
+        not create_criteria and not isinstance(selection, StudySelectionCriteriaInput),
+        msg="'StudySelectionCriteriaInput' payload should be sent, referencing an existing library criteria by uid",
+    )
 
     if create_criteria:
         return service.make_selection_create_criteria(
@@ -2598,7 +2893,7 @@ def post_new_criteria_selection_create(
     "/studies/{study_uid}/study-criteria/preview",
     dependencies=[rbac.STUDY_WRITE],
     summary="Previews creating a study criteria selection based on the input data including creating new criteria",
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2615,11 +2910,14 @@ def post_new_criteria_selection_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def preview_new_criteria_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionCriteriaCreateInput = Body(
-        description="Related parameters of the selection that shall be previewed."
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionCriteriaCreateInput,
+        Body(
+            description="Related parameters of the selection that shall be previewed."
+        ),
+    ],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.make_selection_preview_criteria(
         study_uid=study_uid, selection_create_input=selection
@@ -2655,7 +2953,7 @@ def preview_new_criteria_selection_create(
     - order (Derived Integer)
     - latest version of the selected criteria template/instance
     """,
-    response_model=list[models.StudySelectionCriteria],
+    response_model=list[StudySelectionCriteria],
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -2672,13 +2970,14 @@ def preview_new_criteria_selection_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_batch_select_criteria_template(
-    study_uid: str = studyUID,
-    selection: list[
-        models.study_selections.study_selection.StudySelectionCriteriaTemplateSelectInput
-    ] = Body(
-        description="List of objects with properties needed to identify the templates to select",
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        list[StudySelectionCriteriaTemplateSelectInput],
+        Body(
+            description="List of objects with properties needed to identify the templates to select",
+        ),
+    ],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.batch_select_criteria_template(
         study_uid=study_uid, selection_create_input=selection
@@ -2713,7 +3012,7 @@ def post_batch_select_criteria_template(
     - order
     - latest version of the selected criteria
     """,
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2726,12 +3025,15 @@ def post_batch_select_criteria_template(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_criteria_selection(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-    criteria_data: models.CriteriaUpdateWithCriteriaKeyInput = Body(
-        description="Data necessary to create the criteria instance from the template",
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+    criteria_data: Annotated[
+        CriteriaUpdateWithCriteriaKeyInput,
+        Body(
+            description="Data necessary to create the criteria instance from the template",
+        ),
+    ],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -2776,8 +3078,8 @@ def patch_update_criteria_selection(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_criteria(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
 ):
     service = StudyCriteriaSelectionService()
     service.delete_selection(
@@ -2790,7 +3092,7 @@ def delete_selected_criteria(
     "/studies/{study_uid}/study-criteria/{study_criteria_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study criteria",
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2803,12 +3105,13 @@ def delete_selected_criteria(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_criteria_selection_order(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionCriteriaNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+    new_order_input: Annotated[
+        StudySelectionCriteriaNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -2821,7 +3124,7 @@ def patch_new_criteria_selection_order(
     "/studies/{study_uid}/study-criteria/{study_criteria_uid}/key-criteria",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the key-criteria property of a study criteria",
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2834,12 +3137,15 @@ def patch_new_criteria_selection_order(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_criteria_selection_key_criteria_property(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-    key_criteria_input: models.StudySelectionCriteriaKeyCriteria = Body(
-        description="New value to set for the key-criteria property of the selection",
-    ),
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+    key_criteria_input: Annotated[
+        StudySelectionCriteriaKeyCriteria,
+        Body(
+            description="New value to set for the key-criteria property of the selection",
+        ),
+    ],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.set_key_criteria(
         study_uid=study_uid,
@@ -2852,7 +3158,7 @@ def patch_criteria_selection_key_criteria_property(
     "/studies/{study_uid}/study-criteria/{study_criteria_uid}/sync-latest-version",
     dependencies=[rbac.STUDY_WRITE],
     summary="update to latest criteria version study selection",
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2865,9 +3171,9 @@ def patch_criteria_selection_key_criteria_property(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def sync_criteria_latest_version(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.update_selection_to_latest_version(
         study_uid=study_uid, study_selection_uid=study_criteria_uid
@@ -2882,7 +3188,7 @@ def sync_criteria_latest_version(
     Business logic:
      - Update specified criteria study-selection, setting accepted version to show that update was refused by user.
     """,
-    response_model=models.StudySelectionCriteria,
+    response_model=StudySelectionCriteria,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2895,9 +3201,9 @@ def sync_criteria_latest_version(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_criteria_accept_version(
-    study_uid: str = studyUID,
-    study_criteria_uid: str = study_selection_uid,
-) -> models.StudySelectionCriteria:
+    study_uid: Annotated[str, studyUID],
+    study_criteria_uid: Annotated[str, study_criteria_uid_path],
+) -> StudySelectionCriteria:
     service = StudyCriteriaSelectionService()
     return service.update_selection_accept_version(
         study_uid=study_uid, study_selection_uid=study_criteria_uid
@@ -2912,7 +3218,7 @@ def patch_criteria_accept_version(
     "/study-activity-instances",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activity instances currently selected",
-    response_model=CustomPage[models.StudySelectionActivityInstance],
+    response_model=CustomPage[StudySelectionActivityInstance],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -2921,52 +3227,64 @@ def patch_criteria_accept_version(
     },
 )
 def get_all_selected_activity_instances_for_all_studies(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    activity_instance_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity instance names to use as a specific filter",
-        alias="activity_instance_names[]",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionActivityInstance]:
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    activity_instance_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity instance names to use as a specific filter",
+            alias="activity_instance_names[]",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionActivityInstance]:
     service = StudyActivityInstanceSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         project_name=project_name,
@@ -2995,7 +3313,7 @@ def get_all_selected_activity_instances_for_all_studies(
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activity instances currently selected",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudySelectionActivityInstance],
+    response_model=CustomPage[StudySelectionActivityInstance],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3011,7 +3329,7 @@ def get_all_selected_activity_instances_for_all_studies(
         "defaults": [
             "study_uid",
             "order",
-            "soa_group=study_soa_group.soa_group_name",
+            "soa_group=study_soa_group.soa_group_term_name",
             "activity_group=study_activity_group.activity_group_name",
             "activity_subgroup=study_activity_subgroup.activity_subgroup_name",
             "activity=activity.name",
@@ -3029,7 +3347,7 @@ def get_all_selected_activity_instances_for_all_studies(
             "instance_class=activity_instance.activity_instance_class.name",
             "activity_items=activity_instance.activity_items",
             "modified=start_date",
-            "modified_by=user_initials",
+            "modified_by=author_username",
         ],
         "formats": [
             "text/csv",
@@ -3042,52 +3360,66 @@ def get_all_selected_activity_instances_for_all_studies(
 # pylint: disable=unused-argument
 def get_all_selected_activity_instances(
     request: Request,  # request is actually required by the allow_exports decorator
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    activity_instance_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity instance names to use as a specific filter",
-        alias="activity_instance_names[]",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionActivityInstance]:
+    study_uid: Annotated[str, studyUID],
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    activity_instance_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity instance names to use as a specific filter",
+            alias="activity_instance_names[]",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionActivityInstance]:
     service = StudyActivityInstanceSelectionService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -3128,20 +3460,29 @@ def get_all_selected_activity_instances(
     },
 )
 def get_distinct_study_activity_instances_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyActivityInstanceSelectionService()
     return service.get_distinct_values_for_header(
@@ -3150,7 +3491,7 @@ def get_distinct_study_activity_instances_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -3172,8 +3513,8 @@ def get_distinct_study_activity_instances_values_for_header(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_study_activity_instance(
-    study_uid: str = studyUID,
-    study_activity_instance_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_activity_instance_uid: Annotated[str, study_activity_instance_uid_path],
 ):
     service = StudyActivityInstanceSelectionService()
     service.delete_selection(
@@ -3186,7 +3527,7 @@ def delete_study_activity_instance(
     "/studies/{study_uid}/study-activity-instances",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study activity instance selection based on the input data",
-    response_model=models.StudySelectionActivityInstance,
+    response_model=StudySelectionActivityInstance,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -3203,11 +3544,12 @@ def delete_study_activity_instance(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_activity_instance_selection(
-    study_uid: str = studyUID,
-    selection: models.StudySelectionActivityInstanceCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionActivityInstance:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionActivityInstanceCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionActivityInstance:
     service = StudyActivityInstanceSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -3222,7 +3564,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity-instance.""",
-    response_model=models.StudySelectionActivityInstance,
+    response_model=StudySelectionActivityInstance,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3235,12 +3577,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_study_activity_instance(
-    study_uid: str = studyUID,
-    study_activity_instance_uid: str = study_selection_uid,
-    selection: models.StudySelectionActivityInstanceEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_instance_uid: Annotated[str, study_activity_instance_uid_path],
+    selection: Annotated[
+        StudySelectionActivityInstanceEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionActivity:
     service = StudyActivityInstanceSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -3256,14 +3599,14 @@ def patch_update_study_activity_instance(
     description="""
 The following values should be returned for all study activity instances:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - activity instances
 - state
 - order
     """,
-    response_model=list[models.StudySelectionActivityInstance],
+    response_model=list[StudySelectionActivityInstance],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3272,8 +3615,8 @@ The following values should be returned for all study activity instances:
     },
 )
 def get_all_study_activity_instance_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionActivityInstance]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionActivityInstance]:
     service = StudyActivityInstanceSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -3282,7 +3625,7 @@ def get_all_study_activity_instance_audit_trail(
     "/studies/{study_uid}/study-activity-instances/{study_activity_instance_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study activity instance",
-    response_model=models.StudySelectionActivityInstance,
+    response_model=StudySelectionActivityInstance,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3294,10 +3637,12 @@ def get_all_study_activity_instance_audit_trail(
     },
 )
 def get_selected_activity_instance(
-    study_uid: str = studyUID,
-    study_activity_instance_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_instance_uid: Annotated[str, study_activity_instance_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionActivity:
     service = StudyActivityInstanceSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -3310,7 +3655,7 @@ def get_selected_activity_instance(
     "/studies/{study_uid}/study-activity-instances/{study_activity_instance_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to a specific StudyActivityInstance.",
-    response_model=list[models.StudySelectionActivityInstance],
+    response_model=list[StudySelectionActivityInstance],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3322,9 +3667,9 @@ def get_selected_activity_instance(
     },
 )
 def get_specific_study_activity_instance_audit_trail(
-    study_uid: str = studyUID,
-    study_activity_instance_uid: str = study_selection_uid,
-) -> models.StudySelectionActivityInstance:
+    study_uid: Annotated[str, studyUID],
+    study_activity_instance_uid: Annotated[str, study_activity_instance_uid_path],
+) -> StudySelectionActivityInstance:
     service = StudyActivityInstanceSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_activity_instance_uid
@@ -3350,7 +3695,7 @@ def get_specific_study_activity_instance_audit_trail(
      - Study activity instance selection exists
      - Activity instance version selected for study activity instance selection is changed.
      - Added new entry in the audit trail for the update of the study-activity-instance.""",
-    response_model=models.StudySelectionActivityInstance,
+    response_model=StudySelectionActivityInstance,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -3363,13 +3708,41 @@ def get_specific_study_activity_instance_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_study_activity_instance_sync_to_latest_activity_instance(
-    study_uid: str = studyUID,
-    study_activity_instance_uid: str = study_selection_uid,
-) -> models.StudySelectionActivityInstance:
+    study_uid: Annotated[str, studyUID],
+    study_activity_instance_uid: Annotated[str, study_activity_instance_uid_path],
+) -> StudySelectionActivityInstance:
     service = StudyActivityInstanceSelectionService()
     return service.update_selection_to_latest_version(
         study_uid=study_uid, study_selection_uid=study_activity_instance_uid
     )
+
+
+@router.post(
+    "/studies/{study_uid}/study-activity-instances/batch-select",
+    dependencies=[rbac.STUDY_WRITE],
+    summary="Batch select ActivityInstance to a given Study",
+    response_model=list[StudySelectionActivityInstanceBatchOutput],
+    status_code=201,
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "Not Found - Study, footnote or SoA item is not found with the passed 'study_uid'.",
+        },
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+@decorators.validate_if_study_is_not_locked("study_uid")
+def post_new_soa_footnotes_batch_select(
+    study_uid: Annotated[str, studyUID],
+    create_payload: Annotated[
+        StudySelectionActivityInstanceBatchCreate,
+        Body(
+            description="Related parameters of the StudyActivityInstance that shall be created."
+        ),
+    ],
+) -> list[StudySelectionActivityInstanceBatchOutput]:
+    service = StudyActivityInstanceSelectionService()
+    return service.batch_create(study_uid=study_uid, create_payload=create_payload)
 
 
 #
@@ -3380,7 +3753,7 @@ def patch_study_activity_instance_sync_to_latest_activity_instance(
     "/study-activities",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activities currently selected",
-    response_model=CustomPage[models.StudySelectionActivity],
+    response_model=CustomPage[StudySelectionActivity],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3389,46 +3762,57 @@ def patch_study_activity_instance_sync_to_latest_activity_instance(
     },
 )
 def get_all_selected_activities_for_all_studies(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionEndpoint]:
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionEndpoint]:
     service = StudyActivitySelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         project_name=project_name,
@@ -3456,7 +3840,7 @@ def get_all_selected_activities_for_all_studies(
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activities currently selected",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudySelectionActivity],
+    response_model=CustomPage[StudySelectionActivity],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3472,12 +3856,12 @@ def get_all_selected_activities_for_all_studies(
         "defaults": [
             "uid=study_activity_uid",
             "order",
-            "soa_group=study_soa_group.soa_group_name",
+            "soa_group=study_soa_group.soa_group_term_name",
             "activity_group=study_activity_group.activity_group_name",
             "activity_subgroup=study_activity_subgroup.activity_subgroup_name",
             "name=activity.name",
             "start_date",
-            "user_initials",
+            "author_username",
             "study_uid",
             "study_version",
         ],
@@ -3492,46 +3876,59 @@ def get_all_selected_activities_for_all_studies(
 # pylint: disable=unused-argument
 def get_all_selected_activities(
     request: Request,  # request is actually required by the allow_exports decorator
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionActivity]:
+    study_uid: Annotated[str, studyUID],
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionActivity]:
     service = StudyActivitySelectionService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -3571,20 +3968,29 @@ def get_all_selected_activities(
     },
 )
 def get_distinct_activity_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyActivitySelectionService()
     return service.get_distinct_values_for_header(
@@ -3593,7 +3999,7 @@ def get_distinct_activity_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -3605,12 +4011,12 @@ def get_distinct_activity_values_for_header(
     description="""
 The following values should be returned for all study activities:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - order
     """,
-    response_model=list[models.StudySelectionActivityCore],
+    response_model=list[StudySelectionActivityCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3619,8 +4025,8 @@ The following values should be returned for all study activities:
     },
 )
 def get_all_activity_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionActivityCore]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionActivityCore]:
     service = StudyActivitySelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -3629,7 +4035,7 @@ def get_all_activity_audit_trail(
     "/studies/{study_uid}/study-activities/{study_activity_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study activity",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3641,10 +4047,12 @@ def get_all_activity_audit_trail(
     },
 )
 def get_selected_activity(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -3657,7 +4065,7 @@ def get_selected_activity(
     "/studies/{study_uid}/study-activities/{study_activity_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study activity.",
-    response_model=list[models.StudySelectionActivityCore],
+    response_model=list[StudySelectionActivityCore],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3669,9 +4077,9 @@ def get_selected_activity(
     },
 )
 def get_selected_activity_audit_trail(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-) -> models.StudySelectionActivityCore:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+) -> StudySelectionActivityCore:
     service = StudyActivitySelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_activity_uid
@@ -3682,7 +4090,7 @@ def get_selected_activity_audit_trail(
     "/studies/{study_uid}/study-activities",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study activity selection based on the input data",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -3699,12 +4107,17 @@ def get_selected_activity_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_activity_selection_create(
-    study_uid: str = studyUID,
-    selection: models.StudySelectionActivityCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionActivityInSoACreateInput | StudySelectionActivityCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
+    if isinstance(selection, StudySelectionActivityInSoACreateInput):
+        return service.create_study_activity_directly_in_soa(
+            study_uid=study_uid, selection_create_input=selection
+        )
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
 
@@ -3718,7 +4131,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity.""",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3731,12 +4144,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_activity_selection(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-    selection: models.StudySelectionActivityInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+    selection: Annotated[
+        StudySelectionActivityInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -3764,7 +4178,7 @@ def patch_update_activity_selection(
      - Study activity selection exists
      - Activity version selected for study activity selection is changed.
      - Added new entry in the audit trail for the update of the study-activity.""",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -3777,21 +4191,60 @@ def patch_update_activity_selection(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_study_activity_sync_to_latest_activity(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.update_selection_to_latest_version(
         study_uid=study_uid, study_selection_uid=study_activity_uid
     )
 
 
+@router.patch(
+    "/studies/{study_uid}/study-activities/{study_activity_uid}/activity-replacements",
+    dependencies=[rbac.STUDY_WRITE],
+    summary="Exchanging selected activity for given StudyActivity based on the input data",
+    response_model=StudySelectionActivity,
+    response_model_exclude_unset=True,
+    status_code=200,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "Forbidden - There already exists a selection of the activity",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "Not Found - Study or activity is not found with the passed 'study_uid'.",
+        },
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+@decorators.validate_if_study_is_not_locked("study_uid")
+def replace_selected_activity_for_study_activity(
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+    selection: Annotated[
+        StudyActivityReplaceActivityInput,
+        Body(
+            description="Parameters for the StudyActivity that will replace old StudyActivity"
+        ),
+    ],
+) -> StudySelectionActivity:
+    service = StudyActivitySelectionService()
+    return service.patch_selection(
+        study_uid=study_uid,
+        study_selection_uid=study_activity_uid,
+        selection_update_input=selection,
+    )
+
+
+# Study Activity SubGroups endpoints
 @router.get(
     "/studies/{study_uid}/study-activity-subgroups",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activity subgroups currently selected",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudyActivitySubGroup],
+    response_model=CustomPage[StudyActivitySubGroup],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3803,28 +4256,38 @@ def patch_study_activity_sync_to_latest_activity(
     },
 )
 def get_all_selected_activity_subgroups(
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudyActivitySubGroup]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudyActivitySubGroup]:
     service = StudyActivitySubGroupService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -3854,7 +4317,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity-subgroup.""",
-    response_model=models.StudyActivitySubGroup,
+    response_model=StudyActivitySubGroup,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3867,12 +4330,15 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_activity_subgroup_selection(
-    study_uid: str = studyUID,
-    study_activity_subgroup_uid: str = study_selection_uid,
-    selection: models.StudyActivitySubGroupEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudyActivitySubGroup:
+    study_uid: Annotated[str, studyUID],
+    study_activity_subgroup_uid: Annotated[
+        str, Path(description="The unique id of the study activity subgroup.")
+    ],
+    selection: Annotated[
+        StudyActivitySubGroupEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudyActivitySubGroup:
     service = StudyActivitySubGroupService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -3881,12 +4347,13 @@ def patch_update_activity_subgroup_selection(
     )
 
 
+# Study Activity Groups endpoints
 @router.get(
     "/studies/{study_uid}/study-activity-groups",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study activity groups currently selected",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudyActivityGroup],
+    response_model=CustomPage[StudyActivityGroup],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3898,28 +4365,38 @@ def patch_update_activity_subgroup_selection(
     },
 )
 def get_all_selected_activity_groups(
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudyActivityGroup]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudyActivityGroup]:
     service = StudyActivityGroupService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -3949,7 +4426,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity-group.""",
-    response_model=models.StudyActivityGroup,
+    response_model=StudyActivityGroup,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3962,12 +4439,15 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_activity_group_selection(
-    study_uid: str = studyUID,
-    study_activity_group_uid: str = study_selection_uid,
-    selection: models.StudyActivityGroupEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudyActivityGroup:
+    study_uid: Annotated[str, studyUID],
+    study_activity_group_uid: Annotated[
+        str, Path(description="The unique id of the study activity group.")
+    ],
+    selection: Annotated[
+        StudyActivityGroupEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudyActivityGroup:
     service = StudyActivityGroupService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -3976,12 +4456,13 @@ def patch_update_activity_group_selection(
     )
 
 
+# Study Activity SoAGroups endpoints
 @router.get(
     "/studies/{study_uid}/study-soa-groups",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study soa groups currently selected",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.StudySoAGroup],
+    response_model=CustomPage[StudySoAGroup],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -3993,28 +4474,38 @@ def patch_update_activity_group_selection(
     },
 )
 def get_all_selected_soa_groups(
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySoAGroup]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySoAGroup]:
     service = StudySoAGroupService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -4044,7 +4535,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-soa-group.""",
-    response_model=models.StudySoAGroup,
+    response_model=StudySoAGroup,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4057,12 +4548,15 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_soa_group_selection(
-    study_uid: str = studyUID,
-    study_soa_group_uid: str = study_selection_uid,
-    selection: models.StudySoAGroupEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudyActivityGroup:
+    study_uid: Annotated[str, studyUID],
+    study_soa_group_uid: Annotated[
+        str, Path(description="The unique id of the study soa group.")
+    ],
+    selection: Annotated[
+        StudySoAGroupEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudyActivityGroup:
     service = StudySoAGroupService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -4081,7 +4575,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity.""",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4094,12 +4588,15 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_activity_selection_request(
-    study_uid: str = studyUID,
-    study_activity_request_uid: str = study_selection_uid,
-    selection: models.StudySelectionActivityRequestEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_request_uid: Annotated[
+        str, Path(description="The unique id of the study activity request.")
+    ],
+    selection: Annotated[
+        StudySelectionActivityRequestEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -4118,7 +4615,7 @@ State before:
 Business logic:
 State after:
  - Added new entry in the audit trail for the update of the study-activity.""",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4131,9 +4628,9 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def update_activity_request_with_sponsor_activity(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.update_activity_request_with_sponsor_activity(
         study_uid=study_uid,
@@ -4158,8 +4655,8 @@ def update_activity_request_with_sponsor_activity(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_activity(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
 ):
     service = StudyActivitySelectionService()
     service.delete_selection(
@@ -4172,7 +4669,7 @@ def delete_selected_activity(
     "/studies/{study_uid}/study-activities/batch",
     dependencies=[rbac.STUDY_WRITE],
     summary="Batch create and/or edit of study activities",
-    response_model=list[models.StudySelectionActivityBatchOutput],
+    response_model=list[StudySelectionActivityBatchOutput],
     status_code=207,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -4181,18 +4678,38 @@ def delete_selected_activity(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def activity_selection_batch_operations(
-    study_uid: str = studyUID,
-    operations: list[models.StudySelectionActivityBatchInput] = Body(description=""),
-) -> list[models.StudySelectionActivityBatchOutput]:
+    study_uid: Annotated[str, studyUID],
+    operations: Annotated[list[StudySelectionActivityBatchInput], Body()],
+) -> list[StudySelectionActivityBatchOutput]:
     service = StudyActivitySelectionService()
     return service.handle_batch_operations(study_uid, operations)
+
+
+@router.post(
+    "/studies/{study_uid}/soa-edits/batch",
+    dependencies=[rbac.STUDY_WRITE],
+    summary="Batch create/edit/delete of study activities or study-activity-schedules",
+    response_model=list[StudySoAEditBatchOutput],
+    status_code=207,
+    responses={
+        404: _generic_descriptions.ERROR_404,
+        500: _generic_descriptions.ERROR_500,
+    },
+)
+@decorators.validate_if_study_is_not_locked("study_uid")
+def study_activity_and_schedule_batch_operations(
+    study_uid: Annotated[str, studyUID],
+    operations: Annotated[list[StudySoAEditBatchInput], Body()],
+) -> list[StudySoAEditBatchOutput]:
+    service = StudyActivitySelectionService()
+    return service.handle_soa_edit_batch_operations(study_uid, operations)
 
 
 @router.patch(
     "/studies/{study_uid}/study-activities/{study_activity_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study activity",
-    response_model=models.StudySelectionActivity,
+    response_model=StudySelectionActivity,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4205,12 +4722,13 @@ def activity_selection_batch_operations(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_activity_selection_order(
-    study_uid: str = studyUID,
-    study_activity_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionActivityNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionActivity:
+    study_uid: Annotated[str, studyUID],
+    study_activity_uid: Annotated[str, study_activity_uid_path],
+    new_order_input: Annotated[
+        StudySelectionActivityNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionActivity:
     service = StudyActivitySelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -4245,7 +4763,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.StudySelectionArmWithConnectedBranchArms],
+    response_model=CustomPage[StudySelectionArmWithConnectedBranchArms],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4266,7 +4784,7 @@ Possible errors:
             "number_of_subjects",
             "description",
             "start_date",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -4279,28 +4797,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all_selected_arms(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionArmWithConnectedBranchArms]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionArmWithConnectedBranchArms]:
     service = StudyArmSelectionService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -4338,19 +4866,26 @@ def get_all_selected_arms(
     },
 )
 def get_distinct_arm_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyArmSelectionService()
     return service.get_distinct_values_for_header(
@@ -4359,7 +4894,7 @@ def get_distinct_arm_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -4367,7 +4902,7 @@ def get_distinct_arm_values_for_header(
     "/study-arms",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study arms currently selected",
-    response_model=CustomPage[models.StudySelectionArmWithConnectedBranchArms],
+    response_model=CustomPage[StudySelectionArmWithConnectedBranchArms],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4376,28 +4911,36 @@ def get_distinct_arm_values_for_header(
     },
 )
 def get_all_selected_arms_for_all_studies(
-    project_name: str | None = PROJECT_NAME,
-    project_number: str | None = PROJECT_NUMBER,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-) -> CustomPage[models.StudySelectionArmWithConnectedBranchArms]:
+    project_name: Annotated[str | None, PROJECT_NAME] = None,
+    project_number: Annotated[str | None, PROJECT_NUMBER] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+) -> CustomPage[StudySelectionArmWithConnectedBranchArms]:
     service = StudyArmSelectionService()
     all_selections = service.get_all_selections_for_all_studies(
         project_name=project_name,
@@ -4429,7 +4972,7 @@ Business logic:
 
 State after:
  - Added new entry in the audit trail for the update of the study-arm.""",
-    response_model=models.StudySelectionArmWithConnectedBranchArms,
+    response_model=StudySelectionArmWithConnectedBranchArms,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4442,12 +4985,13 @@ State after:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_arm_selection(
-    study_uid: str = studyUID,
-    study_arm_uid: str = study_selection_uid,
-    selection: models.StudySelectionArmInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionArmWithConnectedBranchArms:
+    study_uid: Annotated[str, studyUID],
+    study_arm_uid: Annotated[str, study_arm_uid_path],
+    selection: Annotated[
+        StudySelectionArmInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionArmWithConnectedBranchArms:
     service = StudyArmSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -4460,7 +5004,7 @@ def patch_update_arm_selection(
     "/studies/{study_uid}/study-arms",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study arm selection based on the input data",
-    response_model=models.StudySelectionArm,
+    response_model=StudySelectionArm,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -4477,11 +5021,12 @@ def patch_update_arm_selection(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_arm_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionArmCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionArm:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionArmCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionArm:
     service = StudyArmSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -4490,7 +5035,7 @@ def post_new_arm_selection_create(
     "/studies/{study_uid}/study-arms/{study_arm_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study arm.",
-    response_model=list[models.StudySelectionArmVersion],
+    response_model=list[StudySelectionArmVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4502,9 +5047,9 @@ def post_new_arm_selection_create(
     },
 )
 def get_selected_arm_audit_trail(
-    study_uid: str = studyUID,
-    study_arm_uid: str = study_selection_uid,
-) -> list[models.StudySelectionArmVersion]:
+    study_uid: Annotated[str, studyUID],
+    study_arm_uid: Annotated[str, study_arm_uid_path],
+) -> list[StudySelectionArmVersion]:
     service = StudyArmSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_arm_uid
@@ -4515,7 +5060,7 @@ def get_selected_arm_audit_trail(
     "/studies/{study_uid}/study-arms/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of all study arms.",
-    response_model=list[models.StudySelectionArmVersion],
+    response_model=list[StudySelectionArmVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4524,8 +5069,8 @@ def get_selected_arm_audit_trail(
     },
 )
 def get_all_arm_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionArmVersion]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionArmVersion]:
     service = StudyArmSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -4534,7 +5079,7 @@ def get_all_arm_audit_trail(
     "/studies/{study_uid}/study-arms/{study_arm_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study arm",
-    response_model=models.StudySelectionArmWithConnectedBranchArms,
+    response_model=StudySelectionArmWithConnectedBranchArms,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4546,10 +5091,12 @@ def get_all_arm_audit_trail(
     },
 )
 def get_selected_arm(
-    study_uid: str = studyUID,
-    study_arm_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionArmWithConnectedBranchArms:
+    study_uid: Annotated[str, studyUID],
+    study_arm_uid: Annotated[str, study_arm_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionArmWithConnectedBranchArms:
     service = StudyArmSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -4562,7 +5109,7 @@ def get_selected_arm(
     "/studies/{study_uid}/study-arms/{study_arm_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study arm",
-    response_model=models.StudySelectionArmWithConnectedBranchArms,
+    response_model=StudySelectionArmWithConnectedBranchArms,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4575,12 +5122,13 @@ def get_selected_arm(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_arm_selection_order(
-    study_uid: str = studyUID,
-    study_arm_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionArmNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionArmWithConnectedBranchArms:
+    study_uid: Annotated[str, studyUID],
+    study_arm_uid: Annotated[str, study_arm_uid_path],
+    new_order_input: Annotated[
+        StudySelectionArmNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionArmWithConnectedBranchArms:
     service = StudyArmSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -4606,8 +5154,8 @@ def patch_new_arm_selection_order(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_arm(
-    study_uid: str = studyUID,
-    study_arm_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_arm_uid: Annotated[str, study_arm_uid_path],
 ):
     service = StudyArmSelectionService()
     service.delete_selection(study_uid=study_uid, study_selection_uid=study_arm_uid)
@@ -4621,7 +5169,7 @@ def delete_selected_arm(
     "/studies/{study_uid}/study-elements",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study element selection based on the input data",
-    response_model=models.StudySelectionElement,
+    response_model=StudySelectionElement,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -4638,11 +5186,12 @@ def delete_selected_arm(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_element_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionElementCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionElement:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionElementCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionElement:
     service = StudyElementSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -4663,7 +5212,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.StudySelectionElement],
+    response_model=CustomPage[StudySelectionElement],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4682,7 +5231,7 @@ Possible errors:
             "description",
             "planned_duration",
             "start_date",
-            "user_initials",
+            "author_username",
             "element_uid",
             "study_uid",
             "study_version",
@@ -4698,28 +5247,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all_selected_elements(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionElement]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionElement]:
     service = StudyElementSelectionService()
     all_items = service.get_all_selection(
         study_uid=study_uid,
@@ -4757,20 +5316,29 @@ def get_all_selected_elements(
     },
 )
 def get_distinct_element_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     service = StudyElementSelectionService()
     return service.get_distinct_values_for_header(
@@ -4779,7 +5347,7 @@ def get_distinct_element_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -4788,7 +5356,7 @@ def get_distinct_element_values_for_header(
     "/studies/{study_uid}/study-elements/{study_element_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study element",
-    response_model=models.StudySelectionElement,
+    response_model=StudySelectionElement,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4800,10 +5368,12 @@ def get_distinct_element_values_for_header(
     },
 )
 def get_selected_element(
-    study_uid: str = studyUID,
-    study_element_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionElement:
+    study_uid: Annotated[str, studyUID],
+    study_element_uid: Annotated[str, study_element_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionElement:
     service = StudyElementSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -4822,7 +5392,7 @@ def get_selected_element(
         Business logic:
         State after:
         - Added new entry in the audit trail for the update of the study-element.""",
-    response_model=models.StudySelectionElement,
+    response_model=StudySelectionElement,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4835,12 +5405,13 @@ def get_selected_element(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_element_selection(
-    study_uid: str = studyUID,
-    study_element_uid: str = study_selection_uid,
-    selection: models.StudySelectionElementInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionElement:
+    study_uid: Annotated[str, studyUID],
+    study_element_uid: Annotated[str, study_element_uid_path],
+    selection: Annotated[
+        StudySelectionElementInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionElement:
     service = StudyElementSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -4853,7 +5424,7 @@ def patch_update_element_selection(
     "/studies/{study_uid}/study-elements/{study_element_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study element.",
-    response_model=list[models.StudySelectionElementVersion],
+    response_model=list[StudySelectionElementVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4865,9 +5436,9 @@ def patch_update_element_selection(
     },
 )
 def get_selected_element_audit_trail(
-    study_uid: str = studyUID,
-    study_element_uid: str = study_selection_uid,
-) -> list[models.StudySelectionElementVersion]:
+    study_uid: Annotated[str, studyUID],
+    study_element_uid: Annotated[str, study_element_uid_path],
+) -> list[StudySelectionElementVersion]:
     service = StudyElementSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_element_uid
@@ -4878,7 +5449,7 @@ def get_selected_element_audit_trail(
     "/studies/{study_uid}/study-element/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of all study element.",
-    response_model=list[models.StudySelectionElementVersion],
+    response_model=list[StudySelectionElementVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4887,8 +5458,8 @@ def get_selected_element_audit_trail(
     },
 )
 def get_all_element_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionElementVersion]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionElementVersion]:
     service = StudyElementSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -4910,8 +5481,8 @@ def get_all_element_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_element(
-    study_uid: str = studyUID,
-    study_element_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_element_uid: Annotated[str, study_element_uid_path],
 ):
     service = StudyElementSelectionService()
     service.delete_selection(study_uid=study_uid, study_selection_uid=study_element_uid)
@@ -4922,7 +5493,7 @@ def delete_selected_element(
     "/study-elements/allowed-element-configs",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all allowed config sets for element type and subtype",
-    response_model=list[models.StudyElementTypes],
+    response_model=list[StudyElementTypes],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4930,7 +5501,7 @@ def delete_selected_element(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_all_configs() -> list[models.StudyElementTypes]:
+def get_all_configs() -> list[StudyElementTypes]:
     service = StudyElementSelectionService()
     return service.get_allowed_configs()
 
@@ -4939,7 +5510,7 @@ def get_all_configs() -> list[models.StudyElementTypes]:
     "/studies/{study_uid}/study-elements/{study_element_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study element",
-    response_model=models.StudySelectionElement,
+    response_model=StudySelectionElement,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -4952,12 +5523,13 @@ def get_all_configs() -> list[models.StudyElementTypes]:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_element_selection_order(
-    study_uid: str = studyUID,
-    study_element_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionElementNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionElement:
+    study_uid: Annotated[str, studyUID],
+    study_element_uid: Annotated[str, study_element_uid_path],
+    new_order_input: Annotated[
+        StudySelectionElementNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionElement:
     service = StudyElementSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -4973,7 +5545,7 @@ def patch_new_element_selection_order(
     "/studies/{study_uid}/study-branch-arms",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study branch arm selection based on the input data",
-    response_model=models.StudySelectionBranchArm,
+    response_model=StudySelectionBranchArm,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -4990,11 +5562,12 @@ def patch_new_element_selection_order(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_branch_arm_selection_create(
-    study_uid: str = studyUID,
-    selection: models.study_selections.study_selection.StudySelectionBranchArmCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionBranchArm:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionBranchArmCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionBranchArm:
     service = StudyBranchArmSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -5022,7 +5595,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.StudySelectionBranchArm],
+    response_model=list[StudySelectionBranchArm],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5042,7 +5615,7 @@ Possible errors:
             "number_of_subjects",
             "description",
             "start_date",
-            "user_initials",
+            "author_username",
             "study_uid",
             "study_version",
         ],
@@ -5057,9 +5630,11 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all_selected_branch_arms(
     request: Request,  # request is actually required by the allow_exports decorator
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudySelectionBranchArm]:
+    study_uid: Annotated[str, studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudySelectionBranchArm]:
     service = StudyBranchArmSelectionService()
     return service.get_all_selection(
         study_uid=study_uid, study_value_version=study_value_version
@@ -5070,7 +5645,7 @@ def get_all_selected_branch_arms(
     "/studies/{study_uid}/study-branch-arms/{study_branch_arm_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study branch arm",
-    response_model=models.StudySelectionBranchArm,
+    response_model=StudySelectionBranchArm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5082,10 +5657,12 @@ def get_all_selected_branch_arms(
     },
 )
 def get_selected_branch_arm(
-    study_uid: str = studyUID,
-    study_branch_arm_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionBranchArm:
+    study_uid: Annotated[str, studyUID],
+    study_branch_arm_uid: Annotated[str, study_branch_arm_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionBranchArm:
     service = StudyBranchArmSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -5104,7 +5681,7 @@ def get_selected_branch_arm(
             Business logic:
             State after:
             - Added new entry in the audit trail for the update of the study-branch-arm.""",
-    response_model=models.StudySelectionBranchArm,
+    response_model=StudySelectionBranchArm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5117,12 +5694,13 @@ def get_selected_branch_arm(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_branch_arm_selection(
-    study_uid: str = studyUID,
-    study_branch_arm_uid: str = study_selection_uid,
-    selection: models.StudySelectionBranchArmEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionBranchArm:
+    study_uid: Annotated[str, studyUID],
+    study_branch_arm_uid: Annotated[str, study_branch_arm_uid_path],
+    selection: Annotated[
+        StudySelectionBranchArmEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionBranchArm:
     service = StudyBranchArmSelectionService()
     selection.branch_arm_uid = study_branch_arm_uid
     return service.patch_selection(
@@ -5135,7 +5713,7 @@ def patch_update_branch_arm_selection(
     "/studies/{study_uid}/study-branch-arms/{study_branch_arm_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study branch-arm.",
-    response_model=list[models.StudySelectionBranchArmVersion],
+    response_model=list[StudySelectionBranchArmVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5147,9 +5725,9 @@ def patch_update_branch_arm_selection(
     },
 )
 def get_selected_branch_arm_audit_trail(
-    study_uid: str = studyUID,
-    study_branch_arm_uid: str = study_selection_uid,
-) -> list[models.StudySelectionBranchArmVersion]:
+    study_uid: Annotated[str, studyUID],
+    study_branch_arm_uid: Annotated[str, study_branch_arm_uid_path],
+) -> list[StudySelectionBranchArmVersion]:
     service = StudyBranchArmSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_branch_arm_uid
@@ -5160,7 +5738,7 @@ def get_selected_branch_arm_audit_trail(
     "/studies/{study_uid}/study-branch-arm/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of all study branch-arm.",
-    response_model=list[models.StudySelectionBranchArmVersion],
+    response_model=list[StudySelectionBranchArmVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5169,8 +5747,8 @@ def get_selected_branch_arm_audit_trail(
     },
 )
 def get_all_branch_arm_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionBranchArmVersion]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionBranchArmVersion]:
     service = StudyBranchArmSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -5192,8 +5770,8 @@ def get_all_branch_arm_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_branch_arm(
-    study_uid: str = studyUID,
-    study_branch_arm_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_branch_arm_uid: Annotated[str, study_branch_arm_uid_path],
 ):
     service = StudyBranchArmSelectionService()
     service.delete_selection(
@@ -5206,7 +5784,7 @@ def delete_selected_branch_arm(
     "/studies/{study_uid}/study-branch-arms/{study_branch_arm_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study branch arm",
-    response_model=models.StudySelectionBranchArm,
+    response_model=StudySelectionBranchArm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5219,12 +5797,13 @@ def delete_selected_branch_arm(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_branch_arm_selection_order(
-    study_uid: str = studyUID,
-    study_branch_arm_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionBranchArmNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionBranchArm:
+    study_uid: Annotated[str, studyUID],
+    study_branch_arm_uid: Annotated[str, study_branch_arm_uid_path],
+    new_order_input: Annotated[
+        StudySelectionBranchArmNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionBranchArm:
     service = StudyBranchArmSelectionService()
     return service.set_new_order(
         study_uid=study_uid,
@@ -5254,7 +5833,7 @@ def patch_new_branch_arm_selection_order(
     Possible errors:
     - Invalid study-uid.
 """,
-    response_model=list[models.StudySelectionBranchArm],
+    response_model=list[StudySelectionBranchArm],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5265,8 +5844,10 @@ def patch_new_branch_arm_selection_order(
 def get_all_selected_branch_arms_within_arm(
     study_uid: str,
     arm_uid: str,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> list[models.StudySelectionBranchArm]:
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> list[StudySelectionBranchArm]:
     service = StudyBranchArmSelectionService()
     return service.get_all_selection_within_arm(
         study_uid=study_uid,
@@ -5282,7 +5863,7 @@ def get_all_selected_branch_arms_within_arm(
     "/studies/{study_uid}/study-cohorts",
     dependencies=[rbac.STUDY_WRITE],
     summary="Creating a study cohort selection based on the input data",
-    response_model=models.StudySelectionCohort,
+    response_model=StudySelectionCohort,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -5299,11 +5880,12 @@ def get_all_selected_branch_arms_within_arm(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_cohort_selection_create(
-    study_uid: str = studyUID,
-    selection: models.StudySelectionCohortCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> models.StudySelectionCohort:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudySelectionCohortCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudySelectionCohort:
     service = StudyCohortSelectionService()
     return service.make_selection(study_uid=study_uid, selection_create_input=selection)
 
@@ -5331,7 +5913,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.StudySelectionCohort],
+    response_model=CustomPage[StudySelectionCohort],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5352,7 +5934,7 @@ Possible errors:
             "number_of_subjects",
             "description",
             "start_date",
-            "user_initials",
+            "author_username",
             "study_uid",
             "study_version",
         ],
@@ -5367,33 +5949,44 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all_selected_cohorts(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    arm_uid: str
-    | None = Query(
-        None,
-        description="The unique id of the study arm for which specified study cohorts should be returned",
-    ),
-    study_uid: str = studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[models.StudySelectionCohort]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    arm_uid: Annotated[
+        str | None,
+        Query(
+            description="The unique id of the study arm for which specified study cohorts should be returned",
+        ),
+    ] = None,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudySelectionCohort]:
     service = StudyCohortSelectionService()
 
     all_selections = service.get_all_selection(
@@ -5419,7 +6012,7 @@ def get_all_selected_cohorts(
     "/studies/{study_uid}/study-cohorts/{study_cohort_uid}",
     dependencies=[rbac.STUDY_READ],
     summary="Returns specific study cohort",
-    response_model=models.StudySelectionCohort,
+    response_model=StudySelectionCohort,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5431,10 +6024,12 @@ def get_all_selected_cohorts(
     },
 )
 def get_selected_cohort(
-    study_uid: str = studyUID,
-    study_cohort_uid: str = study_selection_uid,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> models.StudySelectionCohort:
+    study_uid: Annotated[str, studyUID],
+    study_cohort_uid: Annotated[str, study_cohort_uid_path],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudySelectionCohort:
     service = StudyCohortSelectionService()
     return service.get_specific_selection(
         study_uid=study_uid,
@@ -5453,7 +6048,7 @@ def get_selected_cohort(
             Business logic:
             State after:
             - Added new entry in the audit trail for the update of the study-cohort.""",
-    response_model=models.StudySelectionCohort,
+    response_model=StudySelectionCohort,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5466,12 +6061,13 @@ def get_selected_cohort(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_cohort_selection(
-    study_uid: str = studyUID,
-    study_cohort_uid: str = study_selection_uid,
-    selection: models.StudySelectionCohortEditInput = Body(
-        description="Related parameters of the selection that shall be updated."
-    ),
-) -> models.StudySelectionCohort:
+    study_uid: Annotated[str, studyUID],
+    study_cohort_uid: Annotated[str, study_cohort_uid_path],
+    selection: Annotated[
+        StudySelectionCohortEditInput,
+        Body(description="Related parameters of the selection that shall be updated."),
+    ],
+) -> StudySelectionCohort:
     service = StudyCohortSelectionService()
     return service.patch_selection(
         study_uid=study_uid,
@@ -5484,7 +6080,7 @@ def patch_update_cohort_selection(
     "/studies/{study_uid}/study-cohorts/{study_cohort_uid}/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of a specific study study-cohorts.",
-    response_model=list[models.StudySelectionCohortVersion],
+    response_model=list[StudySelectionCohortVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5496,9 +6092,9 @@ def patch_update_cohort_selection(
     },
 )
 def get_selected_cohort_audit_trail(
-    study_uid: str = studyUID,
-    study_cohort_uid: str = study_selection_uid,
-) -> list[models.StudySelectionCohortVersion]:
+    study_uid: Annotated[str, studyUID],
+    study_cohort_uid: Annotated[str, study_cohort_uid_path],
+) -> list[StudySelectionCohortVersion]:
     service = StudyCohortSelectionService()
     return service.get_specific_selection_audit_trail(
         study_uid=study_uid, study_selection_uid=study_cohort_uid
@@ -5509,7 +6105,7 @@ def get_selected_cohort_audit_trail(
     "/studies/{study_uid}/study-cohort/audit-trail",
     dependencies=[rbac.STUDY_READ],
     summary="List audit trail related to definition of all study study-cohort.",
-    response_model=list[models.StudySelectionCohortVersion],
+    response_model=list[StudySelectionCohortVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5518,8 +6114,8 @@ def get_selected_cohort_audit_trail(
     },
 )
 def get_all_cohort_audit_trail(
-    study_uid: str = studyUID,
-) -> list[models.StudySelectionCohortVersion]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudySelectionCohortVersion]:
     service = StudyCohortSelectionService()
     return service.get_all_selection_audit_trail(study_uid=study_uid)
 
@@ -5541,8 +6137,8 @@ def get_all_cohort_audit_trail(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_selected_cohort(
-    study_uid: str = studyUID,
-    study_cohort_uid: str = study_selection_uid,
+    study_uid: Annotated[str, studyUID],
+    study_cohort_uid: Annotated[str, study_cohort_uid_path],
 ):
     service = StudyCohortSelectionService()
     service.delete_selection(study_uid=study_uid, study_selection_uid=study_cohort_uid)
@@ -5553,7 +6149,7 @@ def delete_selected_cohort(
     "/studies/{study_uid}/study-cohorts/{study_cohort_uid}/order",
     dependencies=[rbac.STUDY_WRITE],
     summary="Change the order of a study cohort",
-    response_model=models.StudySelectionCohort,
+    response_model=StudySelectionCohort,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -5566,12 +6162,13 @@ def delete_selected_cohort(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_new_cohort_selection_order(
-    study_uid: str = studyUID,
-    study_cohort_uid: str = study_selection_uid,
-    new_order_input: models.StudySelectionCohortNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
-) -> models.StudySelectionCohort:
+    study_uid: Annotated[str, studyUID],
+    study_cohort_uid: Annotated[str, study_cohort_uid_path],
+    new_order_input: Annotated[
+        StudySelectionCohortNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
+) -> StudySelectionCohort:
     service = StudyCohortSelectionService()
     return service.set_new_order(
         study_uid=study_uid,

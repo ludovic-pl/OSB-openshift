@@ -1,11 +1,11 @@
 """Activity hierarchies router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Response, status
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.concepts.activities.activity import (
     Activity,
     ActivityCreateInput,
@@ -14,20 +14,21 @@ from clinical_mdr_api.models.concepts.activities.activity import (
     ActivityOverview,
     ActivityRequestRejectInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers.responses import YAMLResponse
 from clinical_mdr_api.services.concepts.activities.activity_service import (
     ActivityService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts/activities"
 router = APIRouter()
 
-ActivityUID = Path(None, description="The unique id of the Activity")
+ActivityUID = Path(description="The unique id of the Activity")
 
 
 @router.get(
@@ -47,7 +48,7 @@ State after:
 Possible errors:
  - Invalid library name specified.
 
-{_generic_descriptions.DATA_EXPORTS_HEADER}  
+{_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
     response_model=CustomPage[Activity],
     response_model_exclude_unset=True,
@@ -62,6 +63,7 @@ Possible errors:
         "defaults": [
             "uid",
             "name",
+            "synonyms",
             "activity_group.name=activity_groupings.activity_group_name",
             "activity_subgroup.name=activity_groupings.activity_subgroup_name",
             "sentence_case_name=name_sentence_case",
@@ -83,58 +85,71 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activities(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    activity_subgroup_uid: str
-    | None = Query(
-        None,
-        description="The unique id of the activity sub group to use as a specific filter",
-    ),
-    activity_group_uid: str
-    | None = Query(
-        None,
-        description="The unique id of the activity group to use as a specific filter",
-    ),
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    activity_subgroup_uid: Annotated[
+        str | None,
+        Query(
+            description="The unique id of the activity sub group to use as a specific filter",
+        ),
+    ] = None,
+    activity_group_uid: Annotated[
+        str | None,
+        Query(
+            description="The unique id of the activity group to use as a specific filter",
+        ),
+    ] = None,
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     activity_service = ActivityService()
     results = activity_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -170,7 +185,7 @@ State after:
 Possible errors:
  - Invalid library name specified.
 
-{_generic_descriptions.DATA_EXPORTS_HEADER}  
+{_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
     response_model=CustomPage[Activity],
     response_model_exclude_unset=True,
@@ -185,6 +200,7 @@ Possible errors:
         "defaults": [
             "uid",
             "name",
+            "synonyms",
             "activity_group=activity_group.name",
             "activity_subgroup=activity_subgroup.name",
             "start_date",
@@ -202,52 +218,62 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activities_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    activity_subgroup_uid: str
-    | None = Query(
-        None,
-        description="The unique id of the activity sub group to use as a specific filter",
-    ),
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    activity_subgroup_uid: Annotated[
+        str | None,
+        Query(
+            description="The unique id of the activity sub group to use as a specific filter",
+        ),
+    ] = None,
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     activity_service = ActivityService()
     results = activity_service.get_all_concept_versions(
-        library=library,
+        library=library_name,
         sort_by={"start_date": False},
         page_number=page_number,
         page_size=page_size,
@@ -281,46 +307,56 @@ def get_activities_versions(
     },
 )
 def get_distinct_values_for_header(
-    library: str | None = Query(None, description="The library name"),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_group_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity group names to use as a specific filter",
-        alias="activity_group_names[]",
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_group_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity group names to use as a specific filter",
+            alias="activity_group_names[]",
+        ),
+    ] = None,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     activity_service = ActivityService()
     return activity_service.get_distinct_values_for_header(
-        library=library,
+        library=library_name,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         activity_names=activity_names,
         activity_subgroup_names=activity_subgroup_names,
         activity_group_names=activity_group_names,
@@ -354,7 +390,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_activity(activity_uid: str = ActivityUID):
+def get_activity(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     return activity_service.get_by_uid(uid=activity_uid)
 
@@ -403,11 +439,11 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activity_overview(
     request: Request,  # request is actually required by the allow_exports decorator
-    activity_uid: str = ActivityUID,
-    version: str
-    | None = Query(
-        None, description="Select specific version, omit to view latest version"
-    ),
+    activity_uid: Annotated[str, ActivityUID],
+    version: Annotated[
+        str | None,
+        Query(description="Select specific version, omit to view latest version"),
+    ] = None,
 ):
     activity_service = ActivityService()
     return activity_service.get_activity_overview(
@@ -445,7 +481,7 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_cosmos_activity_overview(
     request: Request,  # request is actually required by the allow_exports decorator
-    activity_uid: str = ActivityUID,
+    activity_uid: Annotated[str, ActivityUID],
 ):
     activity_service = ActivityService()
     return YAMLResponse(
@@ -482,7 +518,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(activity_uid: str = ActivityUID):
+def get_versions(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     return activity_service.get_version_history(uid=activity_uid)
 
@@ -519,15 +555,15 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    activity_create_input: ActivityCreateInput = Body(description=""),
+    activity_create_input: Annotated[ActivityCreateInput, Body()],
 ):
     activity_service = ActivityService()
     return activity_service.create(concept_input=activity_create_input)
@@ -565,15 +601,15 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create_sponsor_activity_from_activity_request(
-    activity_create_input: ActivityFromRequestInput = Body(description=""),
+    activity_create_input: Annotated[ActivityFromRequestInput, Body()],
 ):
     activity_service = ActivityService()
     return activity_service.replace_requested_activity_with_sponsor(
@@ -607,7 +643,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The activity does not exist.\n"
+            "- The activity doesn't exist.\n"
             "- The activity is not in final state.\n",
         },
         404: _generic_descriptions.ERROR_404,
@@ -615,8 +651,8 @@ Possible errors:
     },
 )
 def reject_activity_request(
-    activity_uid: str = ActivityUID,
-    activity_request_rejection_input: ActivityRequestRejectInput = Body(description=""),
+    activity_uid: Annotated[str, ActivityUID],
+    activity_request_rejection_input: Annotated[ActivityRequestRejectInput, Body()],
 ):
     activity_service = ActivityService()
     return activity_service.reject_activity_request(
@@ -657,7 +693,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity is not in draft status.\n"
             "- The activity had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -667,8 +703,8 @@ Possible errors:
     },
 )
 def edit(
-    activity_uid: str = ActivityUID,
-    activity_edit_input: ActivityEditInput = Body(description=""),
+    activity_uid: Annotated[str, ActivityUID],
+    activity_edit_input: Annotated[ActivityEditInput, Body()],
 ):
     activity_service = ActivityService()
     return activity_service.edit_draft(
@@ -702,7 +738,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create activities.\n",
+            "- The library doesn't allow to create activities.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -713,7 +749,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def new_version(activity_uid: str = ActivityUID):
+def new_version(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     return activity_service.create_new_version(uid=activity_uid)
 
@@ -750,7 +786,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity is not in draft status.\n"
-            "- The library does not allow to approve activity.\n",
+            "- The library doesn't allow to approve activity.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -760,9 +796,10 @@ Possible errors:
     },
 )
 def approve(
-    activity_uid: str = ActivityUID,
-    cascade_edit_and_approve: bool
-    | None = Query(False, description="Approve all linked activity instances"),
+    activity_uid: Annotated[str, ActivityUID],
+    cascade_edit_and_approve: Annotated[
+        bool | None, Query(description="Approve all linked activity instances")
+    ] = False,
 ):
     activity_service = ActivityService()
     return activity_service.approve(
@@ -808,7 +845,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(activity_uid: str = ActivityUID):
+def inactivate(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     return activity_service.inactivate_final(uid=activity_uid)
 
@@ -851,7 +888,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(activity_uid: str = ActivityUID):
+def reactivate(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     return activity_service.reactivate_retired(uid=activity_uid)
 
@@ -884,7 +921,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity is not in draft status.\n"
             "- The activity was already in final state or is in use.\n"
-            "- The library does not allow to delete activity.",
+            "- The library doesn't allow to delete activity.",
         },
         404: {
             "model": ErrorResponse,
@@ -893,7 +930,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_activity(activity_uid: str = ActivityUID):
+def delete_activity(activity_uid: Annotated[str, ActivityUID]):
     activity_service = ActivityService()
     activity_service.soft_delete(uid=activity_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -3,7 +3,6 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.concepts.simple_concepts.simple_concept_generic_repository import (
     SimpleConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.concepts import (
     NumericValueWithUnitRoot,
     NumericValueWithUnitValue,
@@ -27,6 +26,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.models.concepts.concept import (
     NumericValueWithUnit as NumericValueWithUnitAPIModel,
 )
+from common.utils import convert_to_datetime
 
 
 class NumericValueWithUnitRepository(
@@ -90,7 +90,8 @@ class NumericValueWithUnitRepository(
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -135,9 +136,10 @@ class NumericValueWithUnitRepository(
         self, value: float, unit_definition_uid: str
     ) -> str | None:
         cypher_query = f"""
-            MATCH (or:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED]->(ov:{self.value_class.__label__} {{value: $value}})-[:HAS_UNIT_DEFINITION]->(unit_root:UnitDefinitionRoot {{uid: $unit_definition_uid}})
-            RETURN or.uid
-        """
+MATCH (or:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED]->(ov:{self.value_class.__label__} {{value: $value}})
+-[:HAS_UNIT_DEFINITION]->(unit_root:UnitDefinitionRoot {{uid: $unit_definition_uid}})
+RETURN or.uid
+"""
         items, _ = db.cypher_query(
             cypher_query, {"value": value, "unit_definition_uid": unit_definition_uid}
         )

@@ -77,7 +77,7 @@ class CriteriaPreInstanceAR(PreInstanceAR):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         template: ParametrizedTemplateVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -90,7 +90,9 @@ class CriteriaPreInstanceAR(PreInstanceAR):
         categories: list[SimpleCTTermNameAndAttributes] | None = None,
         sub_categories: list[SimpleCTTermNameAndAttributes] | None = None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         generated_uid = generate_uid_callback()
 
@@ -111,7 +113,7 @@ class CriteriaPreInstanceAR(PreInstanceAR):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str,
         template: ParametrizedTemplateVO,
         guidance_text: str | None = None,
@@ -120,6 +122,8 @@ class CriteriaPreInstanceAR(PreInstanceAR):
         Creates a new draft version for the object.
         """
         if self._template != template or self.guidance_text != guidance_text:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._template = template
             self.guidance_text = guidance_text

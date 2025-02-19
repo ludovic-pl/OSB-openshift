@@ -1,39 +1,38 @@
 from neomodel import db  # type: ignore
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domains.brands.brand import BrandAR
-from clinical_mdr_api.models import BrandCreateInput
-from clinical_mdr_api.oauth.user import user
+from clinical_mdr_api.models.brands.brand import Brand, BrandCreateInput
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
+from common.auth.user import user
+from common.exceptions import NotFoundException
 
 
 class BrandService:
     def __init__(self):
-        self.user_id = user().id()
+        self.author_id = user().id()
         self.repos = MetaRepository()
 
-    def get_all_brands(self) -> list[models.Brand]:
+    def get_all_brands(self) -> list[Brand]:
         try:
             all_brands = self.repos.brand_repository.find_all()
             self.repos.brand_repository.close()
-            return [models.Brand.from_brand_ar(brand_ar) for brand_ar in all_brands]
+            return [Brand.from_brand_ar(brand_ar) for brand_ar in all_brands]
         finally:
             self.repos.close()
 
-    def get_brand(self, uid: str) -> models.Brand:
+    def get_brand(self, uid: str) -> Brand:
         repos = MetaRepository()
         try:
-            brand = models.Brand.from_uid(uid, repos.brand_repository.find_by_uid)
-            if brand is None:
-                raise exceptions.NotFoundException(
-                    f"Brand with the specified uid '{uid}' could not be found.",
-                )
+            brand = Brand.from_uid(uid, repos.brand_repository.find_by_uid)
+
+            NotFoundException.raise_if(brand is None, "Brand", uid)
+
             return brand
         finally:
             self.repos.close()
 
     @db.transaction
-    def create(self, brand_create_input: BrandCreateInput) -> models.Brand:
+    def create(self, brand_create_input: BrandCreateInput) -> Brand:
         try:
             brand_ar = BrandAR.from_input_values(
                 name=brand_create_input.name,
@@ -45,12 +44,10 @@ class BrandService:
                 brand_create_input.name
             )
             if existing_brand:
-                return models.Brand.from_brand_ar(existing_brand)
+                return Brand.from_brand_ar(existing_brand)
 
             self.repos.brand_repository.save(brand_ar)
-            return models.Brand.from_uid(
-                brand_ar.uid, self.repos.brand_repository.find_by_uid
-            )
+            return Brand.from_uid(brand_ar.uid, self.repos.brand_repository.find_by_uid)
         finally:
             self.repos.close()
 

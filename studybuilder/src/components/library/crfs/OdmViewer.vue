@@ -4,7 +4,7 @@
     <v-row v-if="!doc" class="mt-2 ml-2">
       <v-col cols="2">
         <v-select
-          v-model="params.target_type"
+          v-model="data.target_type"
           :items="types"
           :label="$t('OdmViewer.odm_element_type')"
           density="compact"
@@ -17,7 +17,7 @@
       </v-col>
       <v-col cols="2">
         <v-select
-          v-model="params.target_uid"
+          v-model="data.target_uid"
           :items="elements"
           :label="$t('OdmViewer.odm_element_name')"
           density="compact"
@@ -40,7 +40,7 @@
       <v-col cols="5">
         <v-row>
           <v-radio-group
-            v-model="params.stylesheet"
+            v-model="data.stylesheet"
             :label="$t('OdmViewer.stylesheet')"
             row
             class="mt-7"
@@ -49,7 +49,7 @@
             <v-radio :label="$t('OdmViewer.sdtm')" value="sdtm" />
           </v-radio-group>
           <v-btn
-            v-show="params.target_uid && params.stylesheet"
+            v-show="data.target_uid && data.stylesheet"
             class="mt-7"
             size="small"
             color="primary"
@@ -160,7 +160,7 @@ const element_statuses = [
 const elements = ref([])
 let xml = ''
 const doc = ref(null)
-const params = ref({
+const data = ref({
   target_type: 'study_event',
   stylesheet: 'sdtm',
   export_to: 'v1',
@@ -200,34 +200,35 @@ onMounted(() => {
 })
 
 function automaticLoad() {
-  params.value.target_type = route.params.type
-  params.value.target_uid = route.params.uid
+  data.value.target_type = route.params.type
+  data.value.target_uid = route.params.uid
   setElements()
-  if (params.value.target_type && params.value.target_uid) {
+  if (data.value.target_type && data.value.target_uid) {
     loadXml()
   }
 }
 
 function setElements() {
-  if (params.value.target_type) {
-    switch (params.value.target_type) {
+  if (data.value.target_type) {
+    const params = { page_size: 0 }
+    switch (data.value.target_type) {
       case 'study_event':
-        crfs.get('study-events').then((resp) => {
+        crfs.get('study-events', { params }).then((resp) => {
           elements.value = resp.data.items
         })
         return
       case 'form':
-        crfs.get('forms').then((resp) => {
+        crfs.get('forms', { params }).then((resp) => {
           elements.value = resp.data.items
         })
         return
       case 'item_group':
-        crfs.get('item-groups').then((resp) => {
+        crfs.get('item-groups', { params }).then((resp) => {
           elements.value = resp.data.items
         })
         return
       case 'item':
-        crfs.get('items').then((resp) => {
+        crfs.get('items', { params }).then((resp) => {
           elements.value = resp.data.items
         })
     }
@@ -237,12 +238,12 @@ function setElements() {
 async function loadXml() {
   doc.value = ''
   loading.value = true
-  params.value.status = element_status.value.toLowerCase()
-  crfs.getXml(params.value).then((resp) => {
+  data.value.status = element_status.value.toLowerCase()
+  crfs.getXml(data.value).then((resp) => {
     const parser = new DOMParser()
     xml = parser.parseFromString(resp.data, 'application/xml')
     const xsltProcessor = new XSLTProcessor()
-    crfs.getXsl(params.value.stylesheet).then((resp) => {
+    crfs.getXsl(data.value.stylesheet).then((resp) => {
       const xmlDoc = parser.parseFromString(resp.data, 'text/xml')
       xsltProcessor.importStylesheet(xmlDoc)
       doc.value = new XMLSerializer().serializeToString(
@@ -263,8 +264,8 @@ async function loadXml() {
     name: 'Crfs',
     params: {
       tab: 'odm-viewer',
-      type: params.value.target_type,
-      uid: params.value.target_uid,
+      type: data.value.target_type,
+      uid: data.value.target_uid,
     },
   })
   url = `${window.location.href}`
@@ -273,24 +274,24 @@ async function loadXml() {
 
 function getDownloadFileName() {
   const stylesheet =
-    params.value.stylesheet === 'odm_template_sdtmcrf.xsl'
+  data.value.stylesheet === 'odm_template_sdtmcrf.xsl'
       ? '_sdtm_crf_'
       : '_blank_crf_'
   const templateName = elements.value.filter(
-    (el) => el.uid === params.value.target_uid
+    (el) => el.uid === data.value.target_uid
   )[0].name
   return `${templateName + stylesheet + DateTime.local().toFormat('yyyy-MM-dd HH:mm')}`
 }
 
 function downloadHtml() {
   htmlDownloadLoading.value = true
-  exportLoader.downloadFile(doc, 'text/html', getDownloadFileName())
+  exportLoader.downloadFile(doc.value, 'text/html', getDownloadFileName())
   htmlDownloadLoading.value = false
 }
 
 function downloadXml() {
   xmlDownloadLoading.value = true
-  crfs.getXml(params.value).then((resp) => {
+  crfs.getXml(data.value).then((resp) => {
     exportLoader.downloadFile(resp.data, 'text/xml', getDownloadFileName())
     xmlDownloadLoading.value = false
   })
@@ -298,7 +299,7 @@ function downloadXml() {
 
 function downloadPdf() {
   pdfDownloadLoading.value = true
-  crfs.getPdf(params.value).then((resp) => {
+  crfs.getPdf(data.value).then((resp) => {
     exportLoader.downloadFile(
       resp.data,
       'application/pdf',

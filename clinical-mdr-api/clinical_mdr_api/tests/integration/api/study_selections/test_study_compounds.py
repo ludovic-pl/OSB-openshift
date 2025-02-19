@@ -17,20 +17,25 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.concepts.compound import Compound
 from clinical_mdr_api.models.concepts.compound_alias import CompoundAlias
+from clinical_mdr_api.models.concepts.concept import LagTime, NumericValueWithUnit
 from clinical_mdr_api.models.concepts.medicinal_product import MedicinalProduct
 from clinical_mdr_api.models.concepts.pharmaceutical_product import (
     PharmaceuticalProduct,
 )
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudySelectionCompound,
+)
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -40,15 +45,15 @@ BASE_URL = "/studies/{study_uid}/study-compounds"
 rand: str
 CREATE_STUDY_COMPOUND_PAYLOAD_OK: dict
 study: Study
-ct_term_dosage: models.CTTerm
-ct_term_delivery_device: models.CTTerm
-ct_term_dose_frequency: models.CTTerm
-ct_term_dispenser: models.CTTerm
-ct_term_roa: models.CTTerm
-strength_value: models.NumericValueWithUnit
-dose_value: models.NumericValueWithUnit
-lag_time: models.LagTime
-half_life: models.NumericValueWithUnit
+ct_term_dosage: CTTerm
+ct_term_delivery_device: CTTerm
+ct_term_dose_frequency: CTTerm
+ct_term_dispenser: CTTerm
+ct_term_roa: CTTerm
+strength_value: NumericValueWithUnit
+dose_value: NumericValueWithUnit
+lag_time: LagTime
+half_life: NumericValueWithUnit
 compound: Compound
 compound2: Compound
 compound_alias: CompoundAlias
@@ -60,7 +65,7 @@ medicinal_product: MedicinalProduct
 medicinal_product1: MedicinalProduct
 medicinal_product2: MedicinalProduct
 medicinal_products_all: list[MedicinalProduct]
-study_compounds_all: list[models.StudySelectionCompound]
+study_compounds_all: list[StudySelectionCompound]
 
 
 initialize_ct_data_map = {
@@ -244,7 +249,7 @@ STUDY_COMPOUND_FIELDS_ALL = [
     "medicinal_product",
     "type_of_treatment",
     "start_date",
-    "user_initials",
+    "author_username",
     "order",
     "study_version",
     "project_number",
@@ -277,7 +282,7 @@ STUDY_COMPOUND_FIELDS_AUDIT_TRAIL_ALL = [
     "type_of_treatment",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "order",
     "dispenser",
     "dose_frequency",
@@ -295,7 +300,7 @@ STUDY_COMPOUND_FIELDS_AUDIT_TRAIL_NOT_NULL = [
     "compound_alias",
     "medicinal_product",
     "start_date",
-    "user_initials",
+    "author_username",
     "order",
     "change_type",
 ]
@@ -305,7 +310,7 @@ def test_get_study_compounds(api_client):
     response = api_client.get(f"{BASE_URL}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res["items"]:
@@ -318,7 +323,7 @@ def test_get_study_compound_by_id(api_client):
     response = api_client.get(f"{BASE_URL}/{study_compounds_all[0].study_compound_uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     TestUtils.assert_response_shape_ok(
@@ -356,7 +361,7 @@ def test_create_and_remove_study_compound_selection(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Check fields included in the response
     TestUtils.assert_response_shape_ok(
@@ -366,22 +371,22 @@ def test_create_and_remove_study_compound_selection(api_client):
     response = api_client.get(f"{BASE_URL}/{res['study_compound_uid']}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Delete the created study compound
     response = api_client.delete(f"{BASE_URL}/{res['study_compound_uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the study compound has been deleted
     response = api_client.get(f"{BASE_URL}/{res['study_compound_uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_get_study_compounds_for_all_studies(api_client):
     response = api_client.get("/study-compounds?total_count=true&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert len(res["items"]) == len(study_compounds_all)
@@ -405,11 +410,11 @@ def test_get_study_compounds_for_all_studies(api_client):
     ],
 )
 def test_get_study_compounds_headers(api_client, field_name, expected_returned_values):
-    url = f"{BASE_URL}/headers?field_name={field_name}&result_count=100"
+    url = f"{BASE_URL}/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) >= len(expected_returned_values)
 
     for val in expected_returned_values:
@@ -436,11 +441,11 @@ def test_get_study_compounds_headers(api_client, field_name, expected_returned_v
 def test_get_study_compounds_headers_for_all_studies(
     api_client, field_name, expected_returned_values
 ):
-    url = f"/study-compounds/headers?field_name={field_name}&result_count=100"
+    url = f"/study-compounds/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) >= len(expected_returned_values)
 
     for val in expected_returned_values:
@@ -459,7 +464,7 @@ def test_change_order_of_study_compound(api_client):
     url = f"{BASE_URL}/{study_compounds_all[0].study_compound_uid}/order"
     response = api_client.patch(url, json={"new_order": 2})
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["order"] == 2
     assert res["study_compound_uid"] == study_compounds_all[0].study_compound_uid
@@ -468,7 +473,7 @@ def test_change_order_of_study_compound(api_client):
     url = BASE_URL
     response = api_client.get(url)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check that the order has been changed
     assert res["items"][0]["order"] == 1
@@ -508,7 +513,7 @@ def test_change_order_of_study_compound_minus_one(api_client):
     # Try to set order to -1 => Order will be set to 1
     response = api_client.patch(url, json={"new_order": -1})
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["order"] == 1
     assert res["study_compound_uid"] == study_compounds_all[0].study_compound_uid
@@ -517,7 +522,7 @@ def test_change_order_of_study_compound_minus_one(api_client):
     url = BASE_URL
     response = api_client.get(url)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check that the order has been changed
     assert res["items"][0]["order"] == 1
@@ -557,7 +562,7 @@ def test_change_order_of_study_compound_100(api_client):
     # Try to set order to 100 => Order will be set to 5 (i.e. to the total number of study compounds)
     response = api_client.patch(url, json={"new_order": 100})
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["order"] == len(study_compounds_all)
     assert res["study_compound_uid"] == study_compounds_all[0].study_compound_uid
@@ -566,7 +571,7 @@ def test_change_order_of_study_compound_100(api_client):
     url = BASE_URL
     response = api_client.get(url)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check that the order has been changed
     assert res["items"][0]["order"] == 1
@@ -613,7 +618,7 @@ def test_patch_study_compounds_medicinal_product(api_client):
         },
     )
     initial_study_compound = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Modify the medicinal product of the just-created study compound
     url = f"{BASE_URL}/{initial_study_compound['study_compound_uid']}"
@@ -622,7 +627,7 @@ def test_patch_study_compounds_medicinal_product(api_client):
     )
 
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["medicinal_product"]["uid"] == medicinal_products_all[1].uid
     assert res["study_compound_uid"] == initial_study_compound["study_compound_uid"]
@@ -630,7 +635,7 @@ def test_patch_study_compounds_medicinal_product(api_client):
     # Get the updated study compound and assert that only the medicinal product has been changed
     response = api_client.get(url)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["medicinal_product"]["uid"] == medicinal_products_all[1].uid
     assert res["compound"] == initial_study_compound["compound"]
     assert res["compound_alias"] == initial_study_compound["compound_alias"]
@@ -667,14 +672,14 @@ def test_patch_study_compounds_compound_alias(api_client):
         },
     )
     initial_study_compound = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Modify the compound alias of the just-created study compound
     url = f"{BASE_URL}/{initial_study_compound['study_compound_uid']}"
     response = api_client.patch(url, json={"compound_alias_uid": compound_alias1a.uid})
 
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["compound_alias"]["uid"] == compound_alias1a.uid
     assert res["study_compound_uid"] == initial_study_compound["study_compound_uid"]
@@ -682,7 +687,7 @@ def test_patch_study_compounds_compound_alias(api_client):
     # Get the updated study compound and assert that only the compound/compound alias have been changed
     response = api_client.get(url)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["medicinal_product"] == initial_study_compound["medicinal_product"]
     assert res["compound"]["uid"] == compound.uid
     assert res["compound_alias"]["uid"] == compound_alias1a.uid
@@ -712,7 +717,7 @@ def test_get_study_compounds_audit_trail(api_client):
         f"{BASE_URL}/{study_compounds_all[0].study_compound_uid}/audit-trail",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res:
@@ -728,7 +733,7 @@ def test_get_study_compounds_audit_trail(api_client):
         f"{BASE_URL}/audit-trail",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res:
@@ -749,12 +754,12 @@ def test_compound_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get audit trail
     response = api_client.get(f"{BASE_URL}/audit-trail/")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
     compound_uid = res[0]["study_compound_uid"]
 
@@ -763,14 +768,14 @@ def test_compound_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"{BASE_URL}",
@@ -779,31 +784,28 @@ def test_compound_modify_actions_on_locked_study(api_client):
             "medicinal_product_uid": medicinal_product1.uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
     # edit compound
     response = api_client.patch(
         f"{BASE_URL}/{compound_uid}",
         json={"type_of_treatment_uid": "CTTerm_000001"},
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(f"{BASE_URL}/audit-trail/")
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert response.status_code == 200
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(f"{BASE_URL}/{compound_uid}")
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_get_compounds_data_for_specific_study_version(api_client):
@@ -813,12 +815,12 @@ def test_get_compounds_data_for_specific_study_version(api_client):
     # get compound data for first lock
     response = api_client.get(f"{BASE_URL}/")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_old = res
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.post(
         f"{BASE_URL}",
@@ -828,7 +830,7 @@ def test_get_compounds_data_for_specific_study_version(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # check the study compounds for version 1 is same as first locked
     res_new = api_client.get(
@@ -886,24 +888,24 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     payload = copy.deepcopy(CREATE_STUDY_COMPOUND_PAYLOAD_OK)
     payload["compound_alias_uid"] = "NON_EXISTING_UID"
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
-    res = response.json()
+    assert_response_status_code(response, 400)
 
-    assert response.status_code == 400
+    res = response.json()
     assert (
         res["message"]
-        == "There is no approved compound alias identified by provided uid (NON_EXISTING_UID)"
+        == "There is no approved Compound Alias with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create study compound with non-existing medicinal product
     payload = copy.deepcopy(CREATE_STUDY_COMPOUND_PAYLOAD_OK)
     payload["medicinal_product_uid"] = "NON_EXISTING_UID"
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
-    res = response.json()
+    assert_response_status_code(response, 400)
 
-    assert response.status_code == 400
+    res = response.json()
     assert (
         res["message"]
-        == "There is no approved medicinal product identified by provided uid (NON_EXISTING_UID)"
+        == "There is no approved Medicinal Product with UID 'NON_EXISTING_UID'."
     )
 
     # Try to create study compound with missing compound alias uid
@@ -911,7 +913,7 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     del payload["compound_alias_uid"]
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert response.json() == {
         "detail": [
             {
@@ -926,7 +928,7 @@ def test_negative_create_medicinal_product_wrong_links(api_client):
     del payload["medicinal_product_uid"]
     response = api_client.post(BASE_URL, data=json.dumps(payload), headers=HEADERS)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert response.json() == {
         "detail": [
             {

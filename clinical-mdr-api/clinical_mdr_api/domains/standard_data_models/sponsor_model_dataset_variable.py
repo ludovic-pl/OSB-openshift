@@ -137,11 +137,11 @@ class SponsorModelDatasetVariableMetadataVO(LibraryItemMetadataVO):
 
     # pylint: disable=arguments-renamed
     @classmethod
-    def get_initial_item_metadata(cls, author: str, version: str) -> Self:
+    def get_initial_item_metadata(cls, author_id: str, version: str) -> Self:
         return cls(
             _change_description="Approved version",
             _status=LibraryItemStatus.FINAL,
-            _author=author,
+            _author_id=author_id,
             _start_date=datetime.datetime.now(datetime.timezone.utc),
             _end_date=None,
             _major_version=version,
@@ -191,12 +191,12 @@ class SponsorModelDatasetVariableAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         sponsor_model_dataset_variable_vo: SponsorModelDatasetVariableVO,
         library: LibraryVO,
     ) -> Self:
         item_metadata = SponsorModelDatasetVariableMetadataVO.get_initial_item_metadata(
-            author=author,
+            author_id=author_id,
             version=sponsor_model_dataset_variable_vo.sponsor_model_version_number,
         )
 

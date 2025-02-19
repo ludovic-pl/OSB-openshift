@@ -19,7 +19,7 @@
             {{ $t('StudyActivity.flowchart_group') }}
           </v-col>
           <v-col cols="2">
-            {{ activity.study_soa_group.soa_group_name }}
+            {{ activity.study_soa_group.soa_group_term_name }}
           </v-col>
         </v-row>
         <v-row>

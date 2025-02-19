@@ -16,14 +16,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import CTTerm
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -69,8 +69,6 @@ def test_data():
     )
     yield
 
-    drop_db(db_name)
-
 
 def test_disease_milestone_modify_actions_on_locked_study(api_client):
     global disease_milestone_uid
@@ -85,14 +83,14 @@ def test_disease_milestone_modify_actions_on_locked_study(api_client):
     )
     res = response.json()
     disease_milestone_uid = res["uid"]
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get all disease milestones
     response = api_client.get(
         f"/studies/{study.uid}/study-disease-milestones/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # update study title to be able to lock it
@@ -100,14 +98,14 @@ def test_disease_milestone_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-disease-milestones",
@@ -118,24 +116,24 @@ def test_disease_milestone_modify_actions_on_locked_study(api_client):
             "disease_milestone_type": disease_milestone_type_term.term_uid,
         },
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     response = api_client.patch(
         f"/studies/{study.uid}/study-disease-milestones/{disease_milestone_uid}",
         json={"repetition_indicator": False},
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-disease-milestones/audit-trail/",
     )
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert response.status_code == 200
     for i, _ in enumerate(old_res):
         old_res[i]["study_version"] = mock.ANY
     assert old_res == res
@@ -144,11 +142,8 @@ def test_disease_milestone_modify_actions_on_locked_study(api_client):
     response = api_client.delete(
         f"/studies/{study.uid}/study-disease-milestones/{disease_milestone_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_get_disease_milestone_data_for_specific_study_version(api_client):
@@ -159,7 +154,7 @@ def test_get_disease_milestone_data_for_specific_study_version(api_client):
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     # add another disease milestone
     response = api_client.post(
         f"/studies/{study.uid}/study-disease-milestones",
@@ -170,13 +165,13 @@ def test_get_disease_milestone_data_for_specific_study_version(api_client):
             "disease_milestone_type": disease_milestone_type_term2.term_uid,
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.patch(
         f"/studies/{study.uid}/study-disease-milestones/{disease_milestone_uid}",
         json={"repetition_indicator": False},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # check the study disease milestone for version 1 is same as first locked
     res_new = api_client.get(

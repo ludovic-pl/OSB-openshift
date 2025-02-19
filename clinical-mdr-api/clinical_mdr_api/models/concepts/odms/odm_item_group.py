@@ -1,6 +1,6 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field, validator
+from pydantic import Field, validator
 
 from clinical_mdr_api.domains.concepts.activities.activity_sub_group import (
     ActivitySubGroupAR,
@@ -54,18 +54,20 @@ from clinical_mdr_api.models.concepts.odms.odm_vendor_element import (
 from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleCTTermAttributes,
 )
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
 from clinical_mdr_api.models.validators import validate_string_represents_boolean
-from clinical_mdr_api.utils import booltostr
+from common import config
+from common.utils import booltostr
 
 
 class OdmItemGroup(ConceptModel):
     oid: str | None
-    repeating: str | None = Field(None, nullable=True)
-    is_reference_data: str | None = Field(None, nullable=True)
-    sas_dataset_name: str | None = Field(None, nullable=True)
-    origin: str | None = Field(None, nullable=True)
-    purpose: str | None = Field(None, nullable=True)
-    comment: str | None = Field(None, nullable=True)
+    repeating: Annotated[str | None, Field(nullable=True)] = None
+    is_reference_data: Annotated[str | None, Field(nullable=True)] = None
+    sas_dataset_name: Annotated[str | None, Field(nullable=True)] = None
+    origin: Annotated[str | None, Field(nullable=True)] = None
+    purpose: Annotated[str | None, Field(nullable=True)] = None
+    comment: Annotated[str | None, Field(nullable=True)] = None
     descriptions: list[OdmDescriptionSimpleModel]
     aliases: list[OdmAliasSimpleModel]
     sdtm_domains: list[SimpleCTTermAttributes]
@@ -116,7 +118,7 @@ class OdmItemGroup(ConceptModel):
             status=odm_item_group_ar.item_metadata.status.value,
             version=odm_item_group_ar.item_metadata.version,
             change_description=odm_item_group_ar.item_metadata.change_description,
-            user_initials=odm_item_group_ar.item_metadata.user_initials,
+            author_username=odm_item_group_ar.item_metadata.author_username,
             descriptions=sorted(
                 [
                     OdmDescriptionSimpleModel.from_odm_description_uid(
@@ -236,16 +238,20 @@ class OdmItemGroupRefModel(BaseModel):
                     mandatory=odm_item_group_ref_vo.mandatory,
                     collection_exception_condition_oid=odm_item_group_ref_vo.collection_exception_condition_oid,
                     vendor=OdmRefVendor(
-                        attributes=[
-                            OdmRefVendorAttributeModel.from_uid(
-                                uid=attribute["uid"],
-                                value=attribute["value"],
-                                find_odm_vendor_attribute_by_uid=find_odm_vendor_attribute_by_uid,
-                            )
-                            for attribute in odm_item_group_ref_vo.vendor["attributes"]
-                        ]
-                        if odm_item_group_ref_vo.vendor
-                        else [],
+                        attributes=(
+                            [
+                                OdmRefVendorAttributeModel.from_uid(
+                                    uid=attribute["uid"],
+                                    value=attribute["value"],
+                                    find_odm_vendor_attribute_by_uid=find_odm_vendor_attribute_by_uid,
+                                )
+                                for attribute in odm_item_group_ref_vo.vendor[
+                                    "attributes"
+                                ]
+                            ]
+                            if odm_item_group_ref_vo.vendor
+                            else []
+                        ),
                     ),
                 )
             else:
@@ -262,20 +268,20 @@ class OdmItemGroupRefModel(BaseModel):
             odm_item_group_ref_model = None
         return odm_item_group_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    oid: str | None = Field(None, title="oid", description="")
-    name: str | None = Field(None, title="name", description="")
-    order_number: int | None = Field(None, title="order_number", description="")
-    mandatory: str | None = Field(None, title="mandatory", description="")
-    collection_exception_condition_oid: str | None = Field(
-        None, title="collection_exception_condition_oid", description=""
+    uid: Annotated[str, Field()]
+    oid: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field(nullable=True)] = None
+    order_number: Annotated[int | None, Field(nullable=True)] = None
+    mandatory: Annotated[str | None, Field(nullable=True)] = None
+    collection_exception_condition_oid: Annotated[str | None, Field(nullable=True)] = (
+        None
     )
-    vendor: OdmRefVendor = Field(title="vendor", description="")
+    vendor: Annotated[OdmRefVendor, Field()]
 
 
 class OdmItemGroupPostInput(ConceptPostInput):
     oid: str | None
-    repeating: str
+    repeating: Annotated[str, Field(min_length=1)]
     is_reference_data: str | None
     sas_dataset_name: str | None
     origin: str | None
@@ -307,13 +313,13 @@ class OdmItemGroupPatchInput(ConceptPatchInput):
     )(validate_string_represents_boolean)
 
 
-class OdmItemGroupActivitySubGroupPostInput(BaseModel):
-    uid: str
+class OdmItemGroupActivitySubGroupPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
 
 
-class OdmItemGroupItemPostInput(BaseModel):
-    uid: str
-    order_number: int
+class OdmItemGroupItemPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    order_number: Annotated[int, Field(gt=0, lt=config.MAX_INT_NEO4J)]
     mandatory: str
     key_sequence: str
     method_oid: str | None
@@ -329,11 +335,13 @@ class OdmItemGroupVersion(OdmItemGroup):
     Class for storing OdmItemGroup and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

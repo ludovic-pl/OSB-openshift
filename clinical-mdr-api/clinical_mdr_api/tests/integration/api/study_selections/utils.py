@@ -3,6 +3,7 @@ from datetime import date
 from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 
 def ct_term_retrieval_at_date_test_common(
@@ -42,14 +43,14 @@ def ct_term_retrieval_at_date_test_common(
             study_selection_ctterm_uid_input_key: initial_ct_term_study_standard_test.term_uid,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get ct_packages
     response = api_client.get(
         "/ct/packages",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     ct_package_uid = res[0]["uid"]
     ct_package_effective_date = res[0]["effective_date"]
 
@@ -62,14 +63,14 @@ def ct_term_retrieval_at_date_test_common(
     )
     res = response.json()
     study_standard_version_uid = res["uid"]
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study selection with new standard version
     response = api_client.get(
         f"/studies/{study_for_queried_effective_date.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert (
         res[study_selection_ctterm_keys]["queried_effective_date"][:10]
@@ -88,14 +89,14 @@ def ct_term_retrieval_at_date_test_common(
             "ct_package_uid": old_package.uid,
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get study selection with new standard version with old package
     response = api_client.get(
         f"/studies/{study_for_queried_effective_date.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res[study_selection_ctterm_keys]["queried_effective_date"] is None
     assert res[study_selection_ctterm_keys]["date_conflict"] is True

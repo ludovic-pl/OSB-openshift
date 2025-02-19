@@ -1,29 +1,30 @@
 """Compound aliases router"""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.concepts.compound_alias import (
     CompoundAlias,
     CompoundAliasCreateInput,
     CompoundAliasEditInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.compound_alias_service import (
     CompoundAliasService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts"
 router = APIRouter()
 
-CompoundAliasUID = Path(None, description="The unique id of the compound alias")
+CompoundAliasUID = Path(description="The unique id of the compound alias")
 
 
 @router.get(
@@ -76,30 +77,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = CompoundAliasService()
     results = service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -130,7 +139,7 @@ State after:
 Possible errors:
  - Invalid library name specified.
 
-{_generic_descriptions.DATA_EXPORTS_HEADER}  
+{_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
     response_model=CustomPage[CompoundAlias],
     response_model_exclude_unset=True,
@@ -163,29 +172,35 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_compounds_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = CompoundAliasService()
     results = service.get_all_concept_versions(
-        library=library,
+        library=library_name,
         sort_by={"start_date": False},
         page_number=page_number,
         page_size=page_size,
@@ -215,28 +230,35 @@ def get_compounds_versions(
     },
 )
 def get_distinct_values_for_header(
-    library: str | None = Query(None, description="The library name"),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = CompoundAliasService()
     return service.get_distinct_values_for_header(
-        library=library,
+        library=library_name,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -266,7 +288,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get(compound_alias_uid: str = CompoundAliasUID):
+def get(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.get_by_uid(uid=compound_alias_uid)
 
@@ -299,7 +321,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(compound_alias_uid: str = CompoundAliasUID):
+def get_versions(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.get_version_history(uid=compound_alias_uid)
 
@@ -335,14 +357,14 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    compound_create_input: CompoundAliasCreateInput = Body(description=""),
+    compound_create_input: Annotated[CompoundAliasCreateInput, Body()],
 ):
     service = CompoundAliasService()
     return service.create(concept_input=compound_create_input)
@@ -379,7 +401,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The compound alias is not in draft status.\n"
             "- The compound alias had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -389,8 +411,8 @@ Possible errors:
     },
 )
 def edit(
-    compound_alias_uid: str = CompoundAliasUID,
-    compound_edit_input: CompoundAliasEditInput = Body(description=""),
+    compound_alias_uid: Annotated[str, CompoundAliasUID],
+    compound_edit_input: Annotated[CompoundAliasEditInput, Body()],
 ):
     service = CompoundAliasService()
     return service.edit_draft(
@@ -427,7 +449,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The compound alias is not in draft status.\n"
-            "- The library does not allow compound alias approval.\n",
+            "- The library doesn't allow compound alias approval.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -436,7 +458,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(compound_alias_uid: str = CompoundAliasUID):
+def approve(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.approve(uid=compound_alias_uid)
 
@@ -466,7 +488,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create compound aliases.\n",
+            "- The library doesn't allow to create compound aliases.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -477,7 +499,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_new_version(compound_alias_uid: str = CompoundAliasUID):
+def create_new_version(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.create_new_version(uid=compound_alias_uid)
 
@@ -519,7 +541,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(compound_alias_uid: str = CompoundAliasUID):
+def inactivate(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.inactivate_final(uid=compound_alias_uid)
 
@@ -561,7 +583,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(compound_alias_uid: str = CompoundAliasUID):
+def reactivate(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     return service.reactivate_retired(uid=compound_alias_uid)
 
@@ -596,7 +618,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The compound alias is not in draft status.\n"
             "- The compound alias was already in final state or is in use.\n"
-            "- The library does not allow to delete compound alias.",
+            "- The library doesn't allow to delete compound alias.",
         },
         404: {
             "model": ErrorResponse,
@@ -605,6 +627,6 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(compound_alias_uid: str = CompoundAliasUID):
+def delete(compound_alias_uid: Annotated[str, CompoundAliasUID]):
     service = CompoundAliasService()
     service.soft_delete(uid=compound_alias_uid)

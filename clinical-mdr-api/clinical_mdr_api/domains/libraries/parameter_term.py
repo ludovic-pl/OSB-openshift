@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import extract_parameters
+from clinical_mdr_api.utils import extract_parameters
+from common.exceptions import ValidationException
 
 
 @dataclass(frozen=True)
@@ -32,21 +32,23 @@ class SimpleParameterTermVO(ParameterTermVO):
         cls,
         *,
         uid: str,
-        parameter_term_by_uid_lookup_callback: Callable[[str], str | None]
-        | None = None,
+        parameter_term_by_uid_lookup_callback: (
+            Callable[[str], str | None] | None
+        ) = None,
         value: str | None = None,
     ) -> Self:
+        labels = None
+
         if value is None:
-            if parameter_term_by_uid_lookup_callback is None:
-                raise exceptions.ValidationException(
-                    "parameter_term_by_uid_lookup_callback is required when value is None"
-                )
+            ValidationException.raise_if(
+                parameter_term_by_uid_lookup_callback is None,
+                msg="parameter_term_by_uid_lookup_callback is required when value is None",
+            )
             value, labels = parameter_term_by_uid_lookup_callback(uid)
-            if value is None:
-                raise exceptions.ValidationException(
-                    # f"Unknown template parameter uid ({uid})."
-                    "One or more of the specified template parameters can not be found."
-                )
+            ValidationException.raise_if(
+                value is None,
+                msg="One or more of the specified template parameters can not be found.",
+            )
         return cls(uid=uid, value=value, labels=labels)
 
 
@@ -114,21 +116,23 @@ class ParameterTermEntryVO:
         parameter_term_uid_exists_for_parameter_callback: Callable[[str, str], bool],
         conjunction_exists_callback: Callable[[str], bool],
     ) -> Self:
-        if not parameter_exists_callback(parameter_name):
-            raise exceptions.ValidationException(
-                f"Unknown parameter name: {parameter_name}"
-            )
+        ValidationException.raise_if_not(
+            parameter_exists_callback(parameter_name),
+            msg=f"Unknown parameter name: {parameter_name}",
+        )
 
         for parameter_term in parameters:
-            if not parameter_term_uid_exists_for_parameter_callback(
-                parameter_name, parameter_term.uid, parameter_term.value
-            ):
-                raise exceptions.ValidationException(
-                    f"Parameter term {parameter_term.uid} ('{parameter_term.value}') not valid for parameter '{parameter_name}'"
-                )
+            ValidationException.raise_if_not(
+                parameter_term_uid_exists_for_parameter_callback(
+                    parameter_name, parameter_term.uid, parameter_term.value
+                ),
+                msg=f"Parameter term {parameter_term.uid} ('{parameter_term.value}') not valid for parameter '{parameter_name}'",
+            )
 
-        if not conjunction_exists_callback(conjunction):
-            raise exceptions.ValidationException(f"Unknown conjunction: {conjunction}")
+        ValidationException.raise_if_not(
+            conjunction_exists_callback(conjunction),
+            msg=f"Unknown conjunction: {conjunction}",
+        )
 
         return cls(
             parameter_name=parameter_name,

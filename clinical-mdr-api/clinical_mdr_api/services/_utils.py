@@ -1,19 +1,16 @@
 import functools
-import json
-import re
 from collections.abc import Hashable
 from dataclasses import dataclass
 from enum import Enum
 from time import time
 from typing import AbstractSet, Any, Callable, Mapping, MutableMapping, Self, TypeVar
 
+import neomodel.sync_.core
 from pydantic import BaseModel
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.libraries.library_repository import (
     LibraryRepository,
 )
-from clinical_mdr_api.domains._utils import extract_parameters
 from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
     UnitDefinitionAR,
 )
@@ -28,7 +25,9 @@ from clinical_mdr_api.repositories._utils import (
     FilterDict,
     FilterOperator,
 )
-from clinical_mdr_api.telemetry import trace_calls
+from clinical_mdr_api.utils import extract_parameters
+from common.exceptions import ValidationException
+from common.telemetry import trace_calls
 
 
 def is_library_editable(name: str) -> bool:
@@ -42,7 +41,7 @@ def is_library_editable(name: str) -> bool:
         bool: True if the library is editable, False if it is not editable.
 
     Raises:
-        NotFoundException: If the library does not exist.
+        NotFoundException: If the library doesn't exist.
 
     Example:
         >>> is_library_editable("Sponsor")
@@ -107,10 +106,6 @@ def get_input_or_new_value(
     return f"{prefix}{initials}{sep}{int(time())}"
 
 
-def to_dict(obj):
-    return json.loads(json.dumps(obj, default=vars))
-
-
 def object_diff(objt1, objt2=None):
     """
     Calculate difference table between pydantic objects
@@ -147,11 +142,6 @@ def calculate_diffs(result_list, version_object_class):
         return_list.append(otv)
 
     return list(reversed(return_list))
-
-
-def camel_to_snake(name: str) -> str:
-    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
 
 def fill_missing_values_in_base_model_from_reference_base_model(
@@ -258,15 +248,19 @@ class FieldsDirective:
 
         _nested_fields_directives: MutableMapping[str, FieldsDirective] = {}
         for nested_field in _nested_include_specs.keys() | _nested_exclude_specs.keys():
-            _nested_fields_directives[
-                nested_field
-            ] = cls._from_include_and_exclude_spec_sets(
-                include_spec_set=_nested_include_specs[nested_field]
-                if nested_field in _nested_include_specs
-                else set(),
-                exclude_spec_set=_nested_exclude_specs[nested_field]
-                if nested_field in _nested_exclude_specs
-                else set(),
+            _nested_fields_directives[nested_field] = (
+                cls._from_include_and_exclude_spec_sets(
+                    include_spec_set=(
+                        _nested_include_specs[nested_field]
+                        if nested_field in _nested_include_specs
+                        else set()
+                    ),
+                    exclude_spec_set=(
+                        _nested_exclude_specs[nested_field]
+                        if nested_field in _nested_exclude_specs
+                        else set()
+                    ),
+                )
             )
 
         return cls(
@@ -331,10 +325,12 @@ class FieldsDirective:
         if dot_position_in_field_path > 0:
             path_before_dot = field_path[0:dot_position_in_field_path]
             path_after_dot = field_path[dot_position_in_field_path + 1 :]
-            if not self.is_field_included(path_before_dot):
-                raise exceptions.ValidationException(
-                    "Cannot get fields directive for children of the field which is not included"
-                )
+
+            ValidationException.raise_if_not(
+                self.is_field_included(path_before_dot),
+                msg="Cannot get fields directive for children of the field which is not included",
+            )
+
             if path_before_dot not in self._nested_fields_directives:
                 # if there's no specific we return "anything goes" directive
                 return _ANYTHING_GOES_FIELDS_DIRECTIVE
@@ -343,10 +339,11 @@ class FieldsDirective:
                 path_before_dot
             ].get_fields_directive_for_children_of_field(path_after_dot)
 
-        if not self.is_field_included(field_path):
-            raise exceptions.ValidationException(
-                "Cannot get fields directive for children of the field which is not included"
-            )
+        ValidationException.raise_if_not(
+            self.is_field_included(field_path),
+            msg="Cannot get fields directive for children of the field which is not included",
+        )
+
         if field_path not in self._nested_fields_directives:
             # if there's no specific we return "anything goes" directive
             return _ANYTHING_GOES_FIELDS_DIRECTIVE
@@ -404,25 +401,6 @@ def create_duration_object_from_api_input(
         duration = f"P{str(value)}{duration_unit[0].upper()}"
         return duration
     return None
-
-
-def normalize_string(string: str | None) -> str | None:
-    """
-    Normalizes a string by stripping whitespace and returning None if the resulting string is empty.
-
-    Args:
-        string (str | None): The string to normalize.
-
-    Returns:
-        str | None: The normalized string, or None if the resulting string is empty.
-
-    Example:
-        >>> normalize_string("   hello world   ")
-        "hello world"
-    """
-    if string:
-        string = string.strip()
-    return string or None
 
 
 @trace_calls
@@ -574,9 +552,7 @@ def generic_item_filtering(
                     filtered_items.append(item)
                     uids.add(item.uid)
     else:
-        raise exceptions.ValidationException(
-            f"Invalid filter_operator: {filter_operator}"
-        )
+        raise ValidationException(msg=f"Invalid filter_operator: {filter_operator}")
     # Do sorting
     for sort_key, sort_order in sort_by.items():
         filtered_items.sort(
@@ -639,7 +615,7 @@ def service_level_generic_header_filtering(
     filter_operator: FilterOperator = FilterOperator.AND,
     search_string: str = "",
     filter_by: dict | None = None,
-    result_count: int = 10,
+    page_size: int = 10,
 ) -> list[Any]:
     """
     Filters and returns a list of values for a specific field in a list of dictionaries.
@@ -650,7 +626,7 @@ def service_level_generic_header_filtering(
         filter_operator (FilterOperator, optional): The filter operator to use (AND or OR).
         search_string (str, optional): A search string to filter by. Defaults to "".
         filter_by (dict | None, optional): A dictionary of filter elements to apply. Defaults to None.
-        result_count (int, optional): The maximum number of results to return. Defaults to 10.
+        page_size (int, optional): The maximum number of results to return. Defaults to 10.
 
     Returns:
         list[Hashable]: A list of unique values extracted from the specified field.
@@ -749,7 +725,7 @@ def service_level_generic_header_filtering(
             return_values.append(value_to_return)
 
     # Limit results returned
-    return_values = return_values[:result_count]
+    return_values = return_values[:page_size]
     return return_values
 
 
@@ -764,7 +740,7 @@ def extract_properties_for_wildcard(item, prefix: str = ""):
     # item can be None - ignore if it is
     if item:
         # We only want to extract the property keys from one of the items in the list
-        if isinstance(item, (list, tuple)) and len(item) > 0:
+        if isinstance(item, list | tuple) and len(item) > 0:
             return extract_properties_for_wildcard(item[0], prefix[:-1])
         # Otherwise, let's iterate over all the attributes of the single item we have
         for attribute, attr_desc in item.__fields__.items():
@@ -798,13 +774,12 @@ def extract_properties_for_wildcard(item, prefix: str = ""):
 def filter_aggregated_items(item, filter_key, filter_values, filter_operator):
     if filter_key == "*":
         # Only accept requests with default operator (set to equal by FilterDict class) or specified contains operator
-        if (
+        ValidationException.raise_if(
             ComparisonOperator(filter_operator) != ComparisonOperator.EQUALS
-            and ComparisonOperator(filter_operator) != ComparisonOperator.CONTAINS
-        ):
-            raise exceptions.NotFoundException(
-                "Only the default 'contains' operator is supported for wildcard filtering."
-            )
+            and ComparisonOperator(filter_operator) != ComparisonOperator.CONTAINS,
+            msg="Only the default 'contains' operator is supported for wildcard filtering.",
+        )
+
         property_list = extract_properties_for_wildcard(item)
         property_list_filter_match = [
             filter_aggregated_items(
@@ -876,12 +851,13 @@ def apply_filter_operator(
                 <= str(value).lower()
                 <= filter_values[1].lower()
             )
-    # An empty filter_values list means that the returned item's property value should be null
-    if ComparisonOperator(operator) == ComparisonOperator.EQUALS:
-        return value is None
-    raise exceptions.ValidationException(
-        "Filtering on a null value can be only be used with the 'equal' operator."
+
+    ValidationException.raise_if(
+        ComparisonOperator(operator) != ComparisonOperator.EQUALS,
+        msg="Filtering on a null value can only be used with the 'equal' operator.",
     )
+    # An empty filter_values list means that the returned item's property value should be null
+    return value is None
 
 
 # Recursive getattr to access properties in nested objects
@@ -895,7 +871,7 @@ def rgetattr(obj, attr, *args):
         *args: Optional additional arguments to pass to the getattr function.
 
     Returns:
-        list | Any | None: The value of the attribute, or None if the attribute does not exist.
+        list | Any | None: The value of the attribute, or None if the attribute doesn't exist.
     """
 
     def _getattr(obj, attr):
@@ -991,17 +967,11 @@ def calculate_diffs_history(
     return data
 
 
-def raise_404_if_none(val: Any, message: str):
-    """Raises NotFoundException if the supplied object is None"""
-    if not val:
-        raise exceptions.NotFoundException(message)
-
-
 def validate_is_dict(object_label, value):
-    if not isinstance(value, dict):
-        raise exceptions.ValidationException(
-            f"`{object_label}: {value}` is not a valid dictionary"
-        )
+    ValidationException.raise_if_not(
+        isinstance(value, dict),
+        msg=f"`{object_label}: {value}` is not a valid dictionary",
+    )
 
 
 def extract_filtering_values(filters, parameter_name, single_value=False):
@@ -1010,16 +980,22 @@ def extract_filtering_values(filters, parameter_name, single_value=False):
     extract the value(s) and remove the parameter from the filters.
     If single_value is True, check that there is only one value, and return it.
     """
-    if filters and parameter_name in filters:
-        operator = filters[parameter_name].get("op", ComparisonOperator.EQUALS.value)
-        if operator == ComparisonOperator.EQUALS.value:
-            values = filters[parameter_name]["v"]
-            if single_value and len(values) > 1:
-                return None
-            if values:
-                values = values[0]
-            del filters[parameter_name]
-            return values
+    if filters:
+        ValidationException.raise_if_not(
+            isinstance(filters, dict), msg="Invalid filters, must be a dict"
+        )
+        if parameter_name in filters:
+            operator = filters[parameter_name].get(
+                "op", ComparisonOperator.EQUALS.value
+            )
+            if operator == ComparisonOperator.EQUALS.value:
+                values = filters[parameter_name]["v"]
+                if single_value and len(values) > 1:
+                    return None
+                if values:
+                    values = values[0]
+                del filters[parameter_name]
+                return values
     return None
 
 
@@ -1047,3 +1023,26 @@ def build_simple_filters(
             simple_sort_by = None
         return {"filter_by": simple_filter_by, "sort_by": simple_sort_by}
     return None
+
+
+class AggregatedTransactionProxy(neomodel.sync_.core.TransactionProxy):
+    """context manager to manage database transaction if there is no active transaction in progress, else do nothing"""
+
+    __manage_transaction = None
+
+    def __enter__(self):
+        self.__manage_transaction = (
+            getattr(self.db, "_active_transaction", None) is None
+        )
+        if self.__manage_transaction:
+            return super().__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.__manage_transaction:
+            super().__exit__(exc_type, exc_value, traceback)
+
+
+def ensure_transaction(db: neomodel.sync_.core.Database) -> Callable:
+    """decorator to ensure a database transaction: starts a new transaction if not already in an active transaction"""
+    return AggregatedTransactionProxy(db)

@@ -101,12 +101,36 @@
         </v-row>
         <v-row>
           <v-col cols="2" class="font-weight-bold">
-            {{ $t('ActivityForms.nci_concept_id') }}
+            {{ $t('ActivityInstanceOverview.nci_concept_id') }}
           </v-col>
           <v-col cols="10">
             <NCIConceptLink
               :concept-id="itemOverview.activity_instance.nci_concept_id"
             />
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="2" class="font-weight-bold">
+            {{ $t('ActivityInstanceOverview.nci_concept_name') }}
+          </v-col>
+          <v-col cols="10">
+            {{ itemOverview.activity_instance.nci_concept_name }}
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="2" class="font-weight-bold">
+            {{ $t('ActivityInstanceOverview.is_research_lab') }}
+          </v-col>
+          <v-col cols="10">
+            {{ $filters.yesno(itemOverview.activity_instance.is_research_lab) }}
+          </v-col>
+        </v-row>
+        <v-row v-if="showMolecularWeight(itemOverview)">
+          <v-col cols="2" class="font-weight-bold">
+            {{ $t('ActivityInstanceOverview.molecular_weight') }}
+          </v-col>
+          <v-col cols="10">
+            {{ itemOverview.activity_instance.molecular_weight }}
           </v-col>
         </v-row>
         <v-row>
@@ -322,6 +346,7 @@
 
 <script>
 import ActivitiesInstantiationsForm from '@/components/library/ActivitiesInstantiationsForm.vue'
+import constants from '@/constants/parameters'
 import BaseActivityOverview from './BaseActivityOverview.vue'
 import StatusChip from '@/components/tools/StatusChip.vue'
 import NCIConceptLink from '@/components//tools/NCIConceptLink.vue'
@@ -365,6 +390,14 @@ export default {
           externalFilterSource: 'concepts/activities/activity-sub-groups$name',
         },
         { title: this.$t('ActivityTable.instance'), key: 'name' },
+        {
+          title: this.$t('ActivityTable.is_research_lab'),
+          key: 'is_research_lab',
+        },
+        {
+          title: this.$t('ActivityTable.molecular_weight'),
+          key: 'molecular_weight',
+        },
         { title: this.$t('_global.definition'), key: 'definition' },
         { title: this.$t('ActivityTable.topic_code'), key: 'topic_code' },
         { title: this.$t('ActivityTable.adam_code'), key: 'adam_param_code' },
@@ -385,7 +418,7 @@ export default {
           key: 'is_legacy_usage',
         },
         { title: this.$t('_global.modified'), key: 'start_date' },
-        { title: this.$t('_global.modified_by'), key: 'user_initials' },
+        { title: this.$t('_global.modified_by'), key: 'author_username' },
         { title: this.$t('_global.status'), key: 'status' },
         { title: this.$t('_global.version'), key: 'version' },
       ],
@@ -418,6 +451,19 @@ export default {
     )
   },
   methods: {
+    showMolecularWeight(item) {
+      return (
+        item.activity_instance.activity_instance_class.name ==
+          constants.NUMERIC_FINDING &&
+        item.activity_items.some((activity_item) => {
+          return activity_item.unit_definitions.some((unit_definition) => {
+            return unit_definition.dimension_name
+              .toLowerCase()
+              .includes('concentration')
+          })
+        })
+      )
+    },
     allVersions(item) {
       var all_versions = [...item.all_versions].sort().reverse()
       return all_versions

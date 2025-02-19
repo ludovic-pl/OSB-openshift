@@ -6,7 +6,7 @@
     :form-observer-getter="getObserver"
     :help-items="helpItems"
     :extra-step-validation="extraValidation"
-    @close="cancel"
+    @close="close"
     @save="submit"
   >
     <template #[`step.activities`]="{ step }">
@@ -111,6 +111,25 @@
               clearable
             />
           </v-col>
+          <v-col cols="8">
+            <v-text-field
+              v-model="form.nci_concept_name"
+              :label="$t('ActivityTable.nci_concept_name')"
+              data-cy="instanceform-nciconceptname-field"
+              density="compact"
+              clearable
+            />
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="8">
+            <v-text-field
+              v-model="form.molecular_weight"
+              :label="$t('ActivityForms.molecular_weight')"
+              data-cy="instanceform-molecularweight-field"
+              type="number"
+            />
+          </v-col>
         </v-row>
         <v-row>
           <v-col cols="8">
@@ -142,6 +161,10 @@
             <v-checkbox
               v-model="form.is_default_selected_for_activity"
               :label="$t('ActivityForms.is_default_selected_for_activity')"
+            />
+            <v-checkbox
+              v-model="form.is_research_lab"
+              :label="$t('ActivityForms.is_research_lab')"
             />
           </v-col>
           <v-col>
@@ -314,14 +337,17 @@ export default {
         activity_instance_class_uid: value.activity_instance_class.uid,
         name_sentence_case: value.name_sentence_case,
         nci_concept_id: value.nci_concept_id,
+        nci_concept_name: value.nci_concept_name,
+        molecular_weight: value.molecular_weight,
         definition: value.definition,
         change_description: value.change_description,
         activity_sub_groups: value.activity_sub_groups,
         topic_code: value.topic_code,
         adam_param_code: value.adam_param_code,
+        is_research_lab: value.is_research_lab,
         is_required_for_activity: value.is_required_for_activity,
         is_default_selected_for_activity:
-          value.is_default_selected_for_activity,
+        value.is_default_selected_for_activity,
         is_data_sharing: value.is_data_sharing,
         is_legacy_usage: value.is_legacy_usage,
         activity_groupings: [],
@@ -350,25 +376,6 @@ export default {
         return false
       }
       return true
-    },
-    async cancel() {
-      if (this.formStore.isEmpty || this.formStore.isEqual(this.form)) {
-        this.close()
-      } else {
-        const options = {
-          type: 'warning',
-          cancelLabel: this.$t('_global.cancel'),
-          agreeLabel: this.$t('_global.continue'),
-        }
-        if (
-          await this.$refs.confirm.open(
-            this.$t('_global.cancel_changes'),
-            options
-          )
-        ) {
-          this.close()
-        }
-      }
     },
     close() {
       this.$emit('close')

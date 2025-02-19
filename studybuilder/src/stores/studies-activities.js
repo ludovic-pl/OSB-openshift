@@ -11,7 +11,7 @@ export const useStudyActivitiesStore = defineStore('studyActivities', {
     sortedStudyActivities: (state) => {
       const result = {}
       for (const studyActivity of state.studyActivities) {
-        const fgroup = studyActivity.study_soa_group.soa_group_name
+        const fgroup = studyActivity.study_soa_group.soa_group_term_name
         if (!result[fgroup]) {
           result[fgroup] = {}
         }
@@ -69,6 +69,9 @@ export const useStudyActivitiesStore = defineStore('studyActivities', {
     },
     updateStudyActivityInstance(studyUid, instanceUid, data) {
       return study.updateStudyActivityInstance(studyUid, instanceUid, data)
+    },
+    batchSelectStudyActivityInstances(studyUid, data) {
+      return study.batchSelectStudyActivityInstances(studyUid, data)
     },
   },
 })

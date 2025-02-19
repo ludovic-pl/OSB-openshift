@@ -37,7 +37,7 @@
       "status": "Final",
       "study_count": null,
       "uid": "Criteria_000005",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "criteria_type": {
@@ -56,7 +56,7 @@
       "start_date": "2022-10-18T10:16:18.825000",
       "status": "Final",
       "term_uid": "C25370_EXCLUSION",
-      "user_initials": "TESTUSER",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "key_criteria": false,
@@ -67,7 +67,7 @@
     "start_date": "2022-10-20T06:28:01.781445",
     "study_criteria_uid": "StudyCriteria_000004",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -143,7 +143,7 @@
       "status": "Final",
       "study_count": null,
       "uid": "Criteria_000003",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "criteria_type": {
@@ -162,7 +162,7 @@
       "start_date": "2022-10-18T10:16:18.810000",
       "status": "Final",
       "term_uid": "C25532_INCLUSION",
-      "user_initials": "TESTUSER",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "key_criteria": false,
@@ -173,7 +173,7 @@
     "start_date": "2022-10-20T06:18:30.849797",
     "study_criteria_uid": "StudyCriteria_000002",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -225,7 +225,7 @@
       "status": "Final",
       "study_count": null,
       "uid": "Criteria_000004",
-      "user_initials": "MT",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "criteria_type": {
@@ -244,7 +244,7 @@
       "start_date": "2022-10-18T10:16:18.810000",
       "status": "Final",
       "term_uid": "C25532_INCLUSION",
-      "user_initials": "TESTUSER",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "key_criteria": false,
@@ -255,6 +255,6 @@
     "start_date": "2022-10-20T06:20:45.742125",
     "study_criteria_uid": "StudyCriteria_000003",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   }
 ]

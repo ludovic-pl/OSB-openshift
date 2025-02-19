@@ -2,7 +2,6 @@ from datetime import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories.study_selections.study_branch_arm_repository import (
     SelectionHistoryBranchArm,
 )
@@ -12,9 +11,15 @@ from clinical_mdr_api.domains.study_selections.study_selection_branch_arm import
 )
 from clinical_mdr_api.models.study_selections.study_selection import (
     StudyDesignCellBatchInput,
+    StudyDesignCellBatchOutput,
     StudyDesignCellEditInput,
+    StudySelectionArm,
+    StudySelectionBranchArm,
+    StudySelectionBranchArmCreateInput,
+    StudySelectionBranchArmEditInput,
+    StudySelectionBranchArmHistory,
+    StudySelectionBranchArmVersion,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
@@ -22,6 +27,8 @@ from clinical_mdr_api.services._utils import (
 )
 from clinical_mdr_api.services.studies.study_design_cell import StudyDesignCellService
 from clinical_mdr_api.services.studies.study_selection_base import StudySelectionMixin
+from common import exceptions
+from common.auth.user import user
 
 
 class StudyBranchArmSelectionService(StudySelectionMixin):
@@ -35,7 +42,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         self,
         study_selection: StudySelectionBranchArmAR,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionBranchArm]:
+    ) -> list[StudySelectionBranchArm]:
         result = []
         terms_at_specific_datetime = self._extract_study_standards_effective_date(
             study_uid=study_selection.study_uid,
@@ -62,8 +69,8 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         study_uid: str,
         study_value_version: str | None = None,
         terms_at_specific_datetime: datetime | None = None,
-    ) -> models.StudySelectionBranchArm:
-        return models.StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
+    ) -> StudySelectionBranchArm:
+        return StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
             study_uid,
             study_selection,
             order,
@@ -77,7 +84,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         self,
         study_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionBranchArm]:
+    ) -> list[StudySelectionBranchArm]:
         repos = MetaRepository()
         try:
             branch_arm_selection_ar = repos.study_branch_arm_repository.find_by_study(
@@ -95,7 +102,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         study_uid: str,
         study_arm_uid: str,
         study_value_version: str | None = None,
-    ) -> list[models.StudySelectionBranchArm]:
+    ) -> list[StudySelectionBranchArm]:
         repos = MetaRepository()
         try:
             branch_arm_selection_ar = repos.study_branch_arm_repository.find_by_arm(
@@ -133,6 +140,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                 # if the study_branch_arm is the last StudyBranchArm of its StudyArm root
                 if repos.study_branch_arm_repository.branch_arm_specific_is_last_on_arm_root(
                     study_uid=study_uid,
+                    # pylint: disable=possibly-used-before-assignment
                     arm_root_uid=selection_to_delete.arm_root_uid,
                     branch_arm_uid=study_selection_uid,
                 ):
@@ -159,7 +167,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                         ]:
                             design_cell.order -= 1
                             self._repos.study_design_cell_repository.save(
-                                design_cell, author=self.author, create=False
+                                design_cell, author_id=self.author, create=False
                             )
 
             # remove the connection
@@ -174,7 +182,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                         study_uid=study_uid,
                         design_cell_uid=i_design_cell.uid,
                         study_arm_uid=selection_to_delete.arm_root_uid,
-                        author=self.author,
+                        author_id=self.author,
                         allow_none_arm_branch_arm=True,
                     )
         finally:
@@ -183,7 +191,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
     @db.transaction
     def set_new_order(
         self, study_uid: str, study_selection_uid: str, new_order: int
-    ) -> models.StudySelectionBranchArm:
+    ) -> StudySelectionBranchArm:
         repos = self._repos
         try:
             # Load aggregate
@@ -216,8 +224,8 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
 
     def _transform_each_history_to_response_model(
         self, study_selection_history: SelectionHistoryBranchArm, study_uid: str
-    ) -> models.StudySelectionBranchArmHistory:
-        return models.StudySelectionBranchArmHistory.from_study_selection_history(
+    ) -> StudySelectionBranchArmHistory:
+        return StudySelectionBranchArmHistory.from_study_selection_history(
             study_selection_history=study_selection_history,
             study_uid=study_uid,
         )
@@ -225,7 +233,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
     @db.transaction
     def get_all_selection_audit_trail(
         self, study_uid: str
-    ) -> list[models.StudySelectionBranchArmVersion]:
+    ) -> list[StudySelectionBranchArmVersion]:
         repos = self._repos
         try:
             try:
@@ -233,7 +241,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                     repos.study_branch_arm_repository.find_selection_history(study_uid)
                 )
             except ValueError as value_error:
-                raise exceptions.NotFoundException(value_error.args[0])
+                raise exceptions.NotFoundException(msg=value_error.args[0])
 
             unique_list_uids = list({x.study_selection_uid for x in selection_history})
             unique_list_uids.sort()
@@ -251,12 +259,10 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                     for _ in ith_selection_history
                 ]
                 if not data:
-                    data = calculate_diffs(
-                        versions, models.StudySelectionBranchArmVersion
-                    )
+                    data = calculate_diffs(versions, StudySelectionBranchArmVersion)
                 else:
                     data.extend(
-                        calculate_diffs(versions, models.StudySelectionBranchArmVersion)
+                        calculate_diffs(versions, StudySelectionBranchArmVersion)
                     )
             return data
         finally:
@@ -265,7 +271,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
     @db.transaction
     def get_specific_selection_audit_trail(
         self, study_uid: str, study_selection_uid: str
-    ) -> list[models.StudySelectionBranchArmVersion]:
+    ) -> list[StudySelectionBranchArmVersion]:
         repos = self._repos
         try:
             selection_history = (
@@ -277,7 +283,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                 self._transform_each_history_to_response_model(_, study_uid).dict()
                 for _ in selection_history
             ]
-            data = calculate_diffs(versions, models.StudySelectionBranchArmVersion)
+            data = calculate_diffs(versions, StudySelectionBranchArmVersion)
             return data
         finally:
             repos.close()
@@ -288,7 +294,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         study_selection_uid: str,
         study_value_version: str | None = None,
         terms_at_specific_datetime: datetime | None = None,
-    ) -> models.StudySelectionArm:
+    ) -> StudySelectionArm:
         (
             _,
             new_selection,
@@ -299,7 +305,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
             study_value_version=study_value_version,
         )
         # Without Connected BranchArms due to only is necessary to have the StudyArm
-        return models.StudySelectionArm.from_study_selection_arm_ar_and_order(
+        return StudySelectionArm.from_study_selection_arm_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,
@@ -309,7 +315,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
 
     def _cascade_creation(
         self, study_uid: str, study_branch_arm_uid: str, study_arm_uid: str
-    ) -> list[models.StudyDesignCellBatchOutput]:
+    ) -> list[StudyDesignCellBatchOutput]:
         repos = self._repos
         design_cells_on_arm = (
             repos.study_design_cell_repository.get_design_cells_connected_to_arm(
@@ -338,8 +344,8 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
     def make_selection(
         self,
         study_uid: str,
-        selection_create_input: models.StudySelectionBranchArmCreateInput,
-    ) -> models.StudySelectionBranchArm:
+        selection_create_input: StudySelectionBranchArmCreateInput,
+    ) -> StudySelectionBranchArm:
         repos = self._repos
 
         try:
@@ -348,7 +354,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                 # create new VO to add
                 new_selection = StudySelectionBranchArmVO.from_input_values(
                     study_uid=study_uid,
-                    user_initials=self.author,
+                    author_id=self.author,
                     name=selection_create_input.name,
                     short_name=selection_create_input.short_name,
                     code=selection_create_input.code,
@@ -389,7 +395,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                     self._extract_study_standards_effective_date(study_uid=study_uid)
                 )
                 # add the Brancharm and return
-                return models.StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
+                return StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
                     study_uid=study_uid,
                     selection=new_selection,
                     order=order,
@@ -412,11 +418,11 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
 
     def _patch_prepare_new_study_branch_arm(
         self,
-        request_study_branch_arm: models.StudySelectionBranchArmEditInput,
+        request_study_branch_arm: StudySelectionBranchArmEditInput,
         current_study_branch_arm: StudySelectionBranchArmVO,
     ) -> StudySelectionBranchArmVO:
         # transform current to input model
-        transformed_current = models.StudySelectionBranchArmEditInput(
+        transformed_current = StudySelectionBranchArmEditInput(
             branch_arm_uid=current_study_branch_arm.study_selection_uid,
             name=current_study_branch_arm.name,
             short_name=current_study_branch_arm.short_name,
@@ -445,15 +451,15 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
             number_of_subjects=request_study_branch_arm.number_of_subjects,
             arm_root_uid=request_study_branch_arm.arm_uid,
             study_selection_uid=current_study_branch_arm.study_selection_uid,
-            user_initials=self.author,
+            author_id=self.author,
         )
 
     @db.transaction
     def patch_selection(
         self,
         study_uid: str,
-        selection_update_input: models.StudySelectionBranchArmEditInput,
-    ) -> models.StudySelectionBranchArm:
+        selection_update_input: StudySelectionBranchArmEditInput,
+    ) -> StudySelectionBranchArm:
         repos = self._repos
         study_selection_uid = selection_update_input.branch_arm_uid  # to delete
         try:
@@ -495,7 +501,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
                 study_uid=study_uid
             )
             # add the branch arm and return
-            return models.StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
+            return StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
                 study_uid=study_uid,
                 selection=new_selection,
                 order=order,
@@ -511,7 +517,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
         study_uid: str,
         study_selection_uid: str,
         study_value_version: str | None = None,
-    ) -> models.StudySelectionBranchArm:
+    ) -> StudySelectionBranchArm:
         (
             _,
             new_selection,
@@ -523,7 +529,7 @@ class StudyBranchArmSelectionService(StudySelectionMixin):
             study_uid=study_uid,
             study_value_version=study_value_version,
         )
-        return models.StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
+        return StudySelectionBranchArm.from_study_selection_branch_arm_ar_and_order(
             study_uid=study_uid,
             selection=new_selection,
             order=order,

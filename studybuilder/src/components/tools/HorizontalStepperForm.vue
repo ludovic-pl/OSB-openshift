@@ -22,7 +22,7 @@
         {{ $t('_global.copy_link') }}
       </v-btn>
     </v-card-title>
-    <v-card-text class="mt-4 bg-dfltBackground">
+    <v-card-text class="mt-4 mb-12 pb-12 bg-dfltBackground">
       <v-stepper
         v-model="currentStep"
         bg-color="white"
@@ -38,136 +38,8 @@
         >
           <v-sheet elevation="0" class="ma-2 pa-4">
             <v-row>
-              <v-col
-                v-if="step.belowDisplay"
-                cols="12"
-                class="d-flex align-start justify-end py-4"
-              >
-                <div v-if="currentStep === 1">
-                  <slot name="actions" />
-                </div>
-                <div class="mx-2">
-                  <v-btn
-                    v-if="currentStep < steps.length"
-                    :data-cy="steps[index].name + '-continue-button'"
-                    color="secondary"
-                    class="ml-2"
-                    :loading="loadingContinue"
-                    elevation="2"
-                    width="120px"
-                    @click="goToStep(index + 1, index + 2)"
-                  >
-                    {{ $t('_global.continue') }}
-                  </v-btn>
-                  <v-btn
-                    v-if="currentStep >= steps.length || saveFromAnyStep"
-                    :data-cy="steps[index].name + '-save-button'"
-                    color="secondary"
-                    class="ml-2"
-                    :loading="loading"
-                    elevation="2"
-                    width="120px"
-                    @click="submit"
-                  >
-                    {{ $t('_global.save') }}
-                  </v-btn>
-                  <slot
-                    :name="`step.${steps[index].name}.actions.middle`"
-                    :step="index + 1"
-                  />
-                  <v-btn
-                    class="secondary-btn"
-                    variant="outlined"
-                    elevation="2"
-                    width="120px"
-                    @click="cancel"
-                  >
-                    {{ $t('_global.cancel') }}
-                  </v-btn>
-                  <v-btn
-                    v-if="currentStep > 1"
-                    class="secondary-btn ml-2"
-                    variant="outlined"
-                    elevation="2"
-                    width="120px"
-                    @click="currentStep = index"
-                  >
-                    {{ $t('_global.previous') }}
-                  </v-btn>
-                  <slot
-                    :name="`step.${steps[index].name}.afterActions`"
-                    :step="index + 1"
-                  />
-                </div>
-              </v-col>
-              <v-col :cols="step.belowDisplay ? 12 : 10" class="pr-0">
+              <v-col :cols="12" class="pr-0">
                 <slot :name="`step.${steps[index].name}`" :step="index + 1" />
-              </v-col>
-              <v-col
-                v-if="!step.belowDisplay"
-                cols="2"
-                class="d-flex align-start justify-end py-4"
-              >
-                <div v-if="currentStep === 1">
-                  <slot name="actions" />
-                </div>
-                <div class="mx-2">
-                  <v-col v-if="currentStep < steps.length" cols="12">
-                    <v-btn
-                      :data-cy="steps[index].name + '-continue-button'"
-                      color="secondary"
-                      :loading="loadingContinue"
-                      elevation="2"
-                      width="120px"
-                      @click="goToStep(index + 1, index + 2)"
-                    >
-                      {{ $t('_global.continue') }}
-                    </v-btn>
-                  </v-col>
-                  <v-col
-                    v-if="currentStep >= steps.length || saveFromAnyStep"
-                    cols="12"
-                  >
-                    <v-btn
-                      :data-cy="steps[index].name + '-save-button'"
-                      color="secondary"
-                      :loading="loading"
-                      elevation="2"
-                      width="120px"
-                      @click.stop="submit"
-                    >
-                      {{ $t('_global.save') }}
-                    </v-btn>
-                  </v-col>
-                  <v-col cols="12">
-                    <v-btn
-                      class="secondary-btn"
-                      variant="outlined"
-                      elevation="2"
-                      width="120px"
-                      @click="cancel"
-                    >
-                      {{ $t('_global.cancel') }}
-                    </v-btn>
-                  </v-col>
-                  <v-col v-if="currentStep > 1" cols="12">
-                    <v-btn
-                      class="secondary-btn"
-                      variant="outlined"
-                      elevation="2"
-                      width="120px"
-                      @click="currentStep = index"
-                    >
-                      {{ $t('_global.previous') }}
-                    </v-btn>
-                  </v-col>
-                  <v-col cols="12">
-                    <slot
-                      :name="`step.${steps[index].name}.afterActions`"
-                      :step="index + 1"
-                    />
-                  </v-col>
-                </div>
               </v-col>
               <slot
                 :name="`step.${steps[index].name}.after`"
@@ -178,6 +50,72 @@
         </template>
       </v-stepper>
     </v-card-text>
+    <v-card-actions class="bg-white fixed-actions border-t-thin">
+      <v-col>
+        <v-btn
+          class="secondary-btn"
+          variant="outlined"
+          width="120px"
+          rounded="xl"
+          @click="cancel"
+        >
+          {{ $t('_global.cancel') }}
+        </v-btn>
+      </v-col>
+      <v-spacer/>
+      <div v-if="currentStep === 1">
+        <slot name="actions" />
+      </div>
+      <div class="mx-2">
+        <v-row>
+          <v-col v-if="currentStep > 1">
+            <v-btn
+              class="secondary-btn"
+              variant="outlined"
+              width="120px"
+              rounded="xl"
+              @click="currentStep -= 1"
+            >
+              {{ $t('_global.previous') }}
+            </v-btn>
+          </v-col>
+          <v-col v-if="currentStep < steps.length">
+            <v-btn
+              data-cy="continue-button"
+              color="secondary"
+              :loading="loadingContinue"
+              variant="flat"
+              width="120px"
+              rounded="xl"
+              @click="goToNextStep()"
+            >
+              {{ $t('_global.continue') }}
+            </v-btn>
+          </v-col>
+          <v-col
+            v-if="currentStep >= steps.length || saveFromAnyStep"
+          >
+            <v-btn
+              data-cy="save-button"
+              color="secondary"
+              :loading="loading"
+              variant="flat"
+              width="120px"
+              rounded="xl"
+              @click.stop="submit"
+            >
+              {{ $t('_global.save') }}
+            </v-btn>
+          </v-col>
+          <v-col>
+            <slot
+              :name="`step.${steps[currentStep - 1].name}.afterActions`"
+              :step="currentStep + 1"
+            />
+          </v-col>
+        </v-row>
+      </div>
+    </v-card-actions>
     <ConfirmDialog ref="confirm" :text-cols="6" :action-cols="5" />
     <template v-if="debug">
       <div class="debug">
@@ -320,18 +258,18 @@ async function validateStepObserver(step) {
   }
   return true
 }
-async function goToStep(step, nextStep) {
-  if (!(await validateStepObserver(step))) {
+async function goToNextStep() {
+  if (!(await validateStepObserver(currentStep.value))) {
     return
   }
   if (props.extraStepValidation) {
-    if (!(await props.extraStepValidation(step))) {
+    if (!(await props.extraStepValidation(currentStep.value))) {
       return
     }
   }
-  currentStep.value = nextStep
+  currentStep.value += 1
   nextTick(() => {
-    emit('stepLoaded', nextStep)
+    emit('stepLoaded', currentStep.value)
   })
 }
 async function submit() {

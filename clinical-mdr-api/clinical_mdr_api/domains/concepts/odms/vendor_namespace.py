@@ -86,7 +86,7 @@ class OdmVendorNamespaceAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmVendorNamespaceVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -94,7 +94,9 @@ class OdmVendorNamespaceAR(OdmARBase):
             [str, str, bool], bool
         ] = lambda x, y, z: True,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             concept_exists_by_callback=concept_exists_by_callback,
@@ -109,7 +111,7 @@ class OdmVendorNamespaceAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmVendorNamespaceVO,
         concept_exists_by_callback: Callable[
@@ -127,5 +129,7 @@ class OdmVendorNamespaceAR(OdmARBase):
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

@@ -281,7 +281,7 @@ class SponsorModels(BaseImporter):
                         if row[headers.index("qualifiers")]
                         else None
                     ),
-                    "comment": row[headers.index("comment")],
+                    "comment": row[headers.index("comment")] or None,
                     "ig_comment": row[headers.index("IGcomment")],
                     "map_var_flag": self.parse_bool(row[headers.index("map_var_flag")]),
                     "fixed_mapping": row[headers.index("fixed_mapping")],
@@ -345,7 +345,7 @@ class SponsorModels(BaseImporter):
                         ),
                         "state": row[headers.index("State")],
                         "source_ig": row[headers.index("Standardref")],
-                        "comment": row[headers.index("comment")],
+                        "comment": row[headers.index("comment")] or None,
                         "ig_comment": row[headers.index("IGcomment")],
                         "map_domain_flag": self.parse_bool(
                             row[headers.index("map_domain_flag")]
@@ -413,7 +413,7 @@ class SponsorModels(BaseImporter):
                         if row[headers.index("qualifiers")]
                         else None
                     ),
-                    "comment": row[headers.index("comment")],
+                    "comment": row[headers.index("comment")] or None,
                     "ig_comment": row[headers.index("IGcomment")],
                     "map_var_flag": self.parse_bool(row[headers.index("map_var_flag")]),
                     "fixed_mapping": row[headers.index("fixed_mapping")],

@@ -9,9 +9,14 @@ import logging
 import pytest
 from _pytest.fixtures import FixtureRequest
 
-from clinical_mdr_api import exceptions, models
-from clinical_mdr_api.config import STUDY_ENDPOINT_TP_NAME
 from clinical_mdr_api.models import study_selections
+from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
+    UnitDefinitionModel,
+)
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudySelectionEndpoint,
+)
+from clinical_mdr_api.models.syntax_instances.timeframe import Timeframe
 from clinical_mdr_api.models.syntax_templates.template_parameter_multi_select_input import (
     TemplateParameterMultiSelectInput,
 )
@@ -30,6 +35,8 @@ from clinical_mdr_api.tests.integration.utils.api import (
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common import exceptions
+from common.config import STUDY_ENDPOINT_TP_NAME
 
 AUTHOR = "TEST"
 
@@ -37,11 +44,11 @@ log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 study_uid: str
-unit_definitions: list[models.UnitDefinitionModel]
+unit_definitions: list[UnitDefinitionModel]
 unit_separator: str
-timeframe: models.Timeframe
-study_endpoint: models.StudySelectionEndpoint
-study_endpoint_2: models.StudySelectionEndpoint
+timeframe: Timeframe
+study_endpoint: StudySelectionEndpoint
+study_endpoint_2: StudySelectionEndpoint
 
 
 @pytest.fixture(scope="function")

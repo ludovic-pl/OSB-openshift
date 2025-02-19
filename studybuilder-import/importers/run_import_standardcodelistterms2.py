@@ -76,6 +76,7 @@ MDR_MIGRATION_REPEATING_VISIT_FREQUENCY = load_env(
     "MDR_MIGRATION_REPEATING_VISIT_FREQUENCY"
 )
 
+
 # Import terms to standard codelists in sponsor library
 class StandardCodelistTerms2(BaseImporter):
     logging_name = "standard_codelistterms2"
@@ -115,7 +116,7 @@ class StandardCodelistTerms2(BaseImporter):
                     "code_submission_value": row["CT_SUBMVAL"],
                     "name_submission_value": name_submval,
                     "nci_preferred_name": row.get("NCI_PREFERRED_NAME", "UNK"),
-                    "definition": row["DEFINITION"],
+                    "definition": row["DEFINITION"] or "TBD",
                     "sponsor_preferred_name": row["CT_NAME"],
                     "sponsor_preferred_name_sentence_case": name_sentence_case,
                     "library_name": "Sponsor",
@@ -191,7 +192,10 @@ class StandardCodelistTerms2(BaseImporter):
             (MDR_MIGRATION_FINDING_CATEGORIES, "Finding Category Definition"),
             (MDR_MIGRATION_FINDING_SUBCATEGORIES, "Finding Subcategory Definition"),
             (MDR_MIGRATION_INTERVENTION_CATEGORIES, "Intervention Category Definition"),
-            (MDR_MIGRATION_INTERVENTION_SUBCATEGORIES, "Intervention Subcategory Definition"),
+            (
+                MDR_MIGRATION_INTERVENTION_SUBCATEGORIES,
+                "Intervention Subcategory Definition",
+            ),
             (MDR_MIGRATION_FOOTNOTE_TYPE, "Footnote Type"),
             (MDR_MIGRATION_REPEATING_VISIT_FREQUENCY, "Repeating Visit Frequency"),
         ]
@@ -202,7 +206,9 @@ class StandardCodelistTerms2(BaseImporter):
                 self.log.info(f"Skipping codelist '{codelist_name}'")
                 continue
             conn = aiohttp.TCPConnector(limit=4, force_close=True)
-            async with aiohttp.ClientSession(timeout=timeout, connector=conn) as session:
+            async with aiohttp.ClientSession(
+                timeout=timeout, connector=conn
+            ) as session:
                 await self.migrate_term(
                     file_path,
                     codelist_name=codelist_name,

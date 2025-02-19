@@ -1,6 +1,7 @@
 """
 Tests for /studies/{study_uid}/study-soa-footnotes endpoints
 """
+
 import json
 import logging
 from functools import reduce
@@ -9,22 +10,33 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
-from clinical_mdr_api.domains.study_selections.study_soa_footnote import SoAItemType
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models import Footnote, FootnoteTemplate, StudyVisit
+from clinical_mdr_api.models.concepts.activities.activity import Activity
+from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
+from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
+    ActivitySubGroup,
+)
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
-from clinical_mdr_api.models.study_selections.study_soa_footnote import (
+from clinical_mdr_api.models.study_selections.study_selection import (
     ReferencedItem,
-    StudySoAFootnote,
+    StudyActivitySchedule,
+    StudySelectionActivity,
 )
+from clinical_mdr_api.models.study_selections.study_soa_footnote import StudySoAFootnote
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
+from clinical_mdr_api.models.syntax_instances.footnote import Footnote
+from clinical_mdr_api.models.syntax_templates.footnote_template import FootnoteTemplate
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -37,6 +49,7 @@ from clinical_mdr_api.tests.integration.utils.factory_visit import (
     generate_default_input_data_for_visit,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 # pylint: disable=unused-argument
 # pylint: disable=redefined-outer-name
@@ -54,25 +67,25 @@ second_study: Study
 footnotes: list[Footnote]
 footnote_templates: list[FootnoteTemplate]
 soa_footnotes: list[StudySoAFootnote]
-ct_term_schedule_of_activities: models.CTTerm
-dictionary_term_indication: models.DictionaryTerm
-indications_codelist: models.DictionaryCodelist
+ct_term_schedule_of_activities: CTTerm
+dictionary_term_indication: DictionaryTerm
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-activity: models.Activity
-activity_group: models.ActivityGroup
-activity_subgroup: models.ActivitySubGroup
-text_value_1: models.TextValue
-text_value_2: models.TextValue
-sa_randomized: models.StudySelectionActivity
-randomized_sas: models.StudyActivitySchedule
-sa_body_mes: models.StudySelectionActivity
-body_mes_sas: models.StudyActivitySchedule
-sa_weight: models.StudySelectionActivity
-weight_sas: models.StudyActivitySchedule
+activity: Activity
+activity_group: ActivityGroup
+activity_subgroup: ActivitySubGroup
+text_value_1: TextValue
+text_value_2: TextValue
+sa_randomized: StudySelectionActivity
+randomized_sas: StudyActivitySchedule
+sa_body_mes: StudySelectionActivity
+body_mes_sas: StudyActivitySchedule
+sa_weight: StudySelectionActivity
+weight_sas: StudyActivitySchedule
 study_epoch: StudyEpoch
 first_visit: StudyVisit
 second_visit: StudyVisit
-sa_weight: models.StudySelectionActivity
+sa_weight: StudySelectionActivity
 
 
 @pytest.fixture(scope="module")
@@ -232,8 +245,7 @@ def test_data():
     study_epoch = create_study_epoch("EpochSubType_0001", study_uid=study.uid)
     visits_basic_data = generate_default_input_data_for_visit().copy()
     anchor_visit = visits_basic_data.copy()
-    anchor_visit.update({"is_global_anchor_visit": True})
-    anchor_visit.update({"time_value": 0})
+    anchor_visit.update({"is_global_anchor_visit": True, "time_value": 0})
     first_visit = TestUtils.create_study_visit(
         study_uid=study.uid, study_epoch_uid=study_epoch.uid, **anchor_visit
     )
@@ -333,8 +345,6 @@ def test_data():
     soa_footnotes.append(weight_sas_footnote)
     yield
 
-    drop_db(db_name)
-
 
 STUDY_FOOTNOTE_FIELDS_ALL = [
     "uid",
@@ -365,7 +375,7 @@ def test_get_study_soa_footnote(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(STUDY_FOOTNOTE_FIELDS_ALL)
@@ -448,7 +458,7 @@ def test_get_study_soa_footnotes(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -498,7 +508,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         nested_path = None
@@ -547,7 +557,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
 
@@ -578,7 +588,7 @@ def test_filtering_exact(
 
 def test_footnote_reordering_when_adding_new_footnote(api_client):
     response = api_client.get(f"/studies/{study.uid}/study-soa-footnotes")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
 
     assert len(res) == 2
@@ -619,12 +629,12 @@ def test_footnote_reordering_when_adding_new_footnote(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{body_mes_sas_footnote.uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["order"] == 2
 
     response = api_client.get(f"/studies/{study.uid}/study-soa-footnotes")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
 
     assert len(res) == 3
@@ -680,12 +690,12 @@ def test_edit(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[0].uid}",
         json={"footnote_template_uid": footnote_templates[1].uid},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[0].uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["template"]["uid"] == footnote_templates[1].uid
 
@@ -693,7 +703,7 @@ def test_edit(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[1].uid}"
     )
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["order"] == 3
 
@@ -708,9 +718,9 @@ def test_edit(api_client):
             ]
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.get(f"/studies/{study.uid}/study-soa-footnotes")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res[0]["referenced_items"][0]["item_uid"] == first_visit.uid
     assert res[0]["referenced_items"][0]["item_type"] == SoAItemType.STUDY_VISIT.value
@@ -729,7 +739,7 @@ def test_edit(api_client):
     )
 
     response = api_client.get(f"/studies/{study.uid}/study-soa-footnotes")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
     assert res[0]["referenced_items"][0]["item_uid"] == study_epoch.uid
     assert res[0]["referenced_items"][0]["item_type"] == SoAItemType.STUDY_EPOCH.value
@@ -741,20 +751,20 @@ def test_delete(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[0].uid}"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     response = api_client.delete(
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[0].uid}"
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnotes[0].uid}"
     )
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
     response = api_client.get(f"/studies/{study.uid}/study-soa-footnotes")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()["items"]
 
     # removed the first element make sure that the orders are reassigned
@@ -765,7 +775,7 @@ def test_batch_create(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes?total_count=True"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     amount_of_soa_footnotes = res["total"]
 
@@ -820,12 +830,12 @@ def test_batch_create(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/batch-select",
         json=batch_input,
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes?total_count=True"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["total"] == amount_of_soa_footnotes + len(batch_input)
     for idx, soa_footnote in enumerate(res["items"], start=1):
@@ -836,19 +846,19 @@ def test_get_all_across_studies(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes?total_count=True"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     total_in_first_study = res["total"]
 
     response = api_client.get(
         f"/studies/{second_study.uid}/study-soa-footnotes?total_count=True"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     total_in_second_study = res["total"]
 
     response = api_client.get("/study-soa-footnotes?total_count=True")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     total_across_studies = res["total"]
     assert total_across_studies == total_in_second_study + total_in_first_study
@@ -880,7 +890,7 @@ def test_preview_study_soa_footnote(api_client):
             "referenced_items": [],
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["footnote"]["parameter_terms"][0]["terms"][0]["uid"] == text_value1.uid
     assert res["footnote"]["template"]["uid"] == footnote_templates[0].uid
@@ -899,13 +909,13 @@ def test_preview_study_soa_footnote(api_client):
     ],
 )
 def test_headers(api_client, field_name):
-    url = f"/studies/{study.uid}/study-soa-footnotes/headers?field_name={field_name}&result_count=100"
+    url = f"/studies/{study.uid}/study-soa-footnotes/headers?field_name={field_name}&page_size=100"
     response = api_client.get(
         url,
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
 
     nested_path = None
@@ -971,7 +981,7 @@ def test_audit_trail_specific_soa_footnote(api_client):
             "referenced_items": [],
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     uid = res["uid"]
     response = api_client.patch(
@@ -985,11 +995,11 @@ def test_audit_trail_specific_soa_footnote(api_client):
             ]
         },
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{uid}/audit-trail"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
 
     assert len(res) == 3
@@ -1016,7 +1026,7 @@ def test_add_footnotes_to_subgroup_and_group(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{soa_footnote.uid}",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert (
         res["referenced_items"][0]["item_uid"]
@@ -1038,7 +1048,7 @@ def test_add_footnotes_to_subgroup_and_group(api_client):
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes",
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
 
 def test_modify_actions_on_locked_study(api_client):
@@ -1081,7 +1091,7 @@ def test_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["referenced_items"] == [
         {"item_name": None, "item_type": "StudyVisit", "item_uid": "StudyVisit_000001"},
         {"item_name": None, "item_type": "StudyEpoch", "item_uid": "StudyEpoch_000002"},
@@ -1101,35 +1111,35 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/StudySoAFootnote_000008"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock = res
 
     response = api_client.get(
         f"/studies/{study.uid}/study-visits/StudyVisit_000001",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_visit = res
 
     response = api_client.get(
         f"/studies/{study.uid}/study-epochs/StudyEpoch_000002",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_epoch = res
 
     response = api_client.get(
         f"/studies/{study.uid}/study-activities/StudyActivity_000001",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_activity = res
 
     response = api_client.get(
         f"/studies/{study.uid}/study-activity-schedules",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_activity_schedule = res
 
     # update study title to be able to lock it
@@ -1137,28 +1147,25 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # test cannot delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-soa-footnotes/StudySoAFootnote_000008"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study soa footnote
     response = api_client.patch(
@@ -1173,7 +1180,7 @@ def test_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["referenced_items"] == [
         {"item_name": None, "item_type": "StudyVisit", "item_uid": "StudyVisit_000002"},
     ]
@@ -1181,29 +1188,29 @@ def test_modify_actions_on_locked_study(api_client):
     response = api_client.delete(
         f"/studies/{study.uid}/study-visits/{first_visit.uid}",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.delete(
         f"/studies/{study.uid}/study-epochs/{_study_epoch.uid}",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.delete(
         f"/studies/{study.uid}/study-activities/StudyActivity_000001",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.delete(
         f"/studies/{study.uid}/study-activity-schedules/{weight_sas.study_activity_schedule_uid}",
     )
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # get all study soa footnotes of a specific study version
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock["study_version"] = mock.ANY
     assert res["items"][2] == before_unlock
 
@@ -1212,7 +1219,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/StudySoAFootnote_000008?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == before_unlock
 
     # get study soa footnote headers of specific study version
@@ -1220,7 +1227,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/headers?field_name=referenced_items.item_name&study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     header_items = [
         "Epoch Subtype",
         "V1",
@@ -1237,7 +1244,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-visits/StudyVisit_000001?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_visit["study_version"] = mock.ANY
     assert res == before_unlock_visit
 
@@ -1245,7 +1252,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-epochs/StudyEpoch_000002?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_epoch["study_version"] = mock.ANY
     assert res == before_unlock_epoch
 
@@ -1253,7 +1260,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-activities/StudyActivity_000001?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock_activity["study_version"] = mock.ANY
     assert res == before_unlock_activity
 
@@ -1261,7 +1268,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-activity-schedules?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     for i, _ in enumerate(before_unlock_activity_schedule):
         before_unlock_activity_schedule[i]["study_version"] = mock.ANY
     assert res == before_unlock_activity_schedule
@@ -1271,7 +1278,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"][2]["referenced_items"] == [
         {"item_name": "V1", "item_type": "StudyVisit", "item_uid": "StudyVisit_000002"},
     ]
@@ -1281,7 +1288,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/StudySoAFootnote_000008",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["referenced_items"] == [
         {"item_name": "V1", "item_type": "StudyVisit", "item_uid": "StudyVisit_000002"},
     ]
@@ -1291,7 +1298,7 @@ def test_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-soa-footnotes/headers?field_name=referenced_items.item_name",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == ["Epoch Subtype", "V1", "Body Measurements", "General"]
 
 
@@ -1308,7 +1315,7 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     library_template_footnote_uid = res["footnote"]["template"]["uid"]
     initial_footnote_name = res["footnote"]["template"]["name"]
 
@@ -1329,7 +1336,7 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
     # check that the Library item has been changed
     response = api_client.get(f"/footnote-templates/{library_template_footnote_uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == text_value_2_name
 
     # check that the StudySelection StudySoAFootnote hasn't been updated
@@ -1337,7 +1344,7 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["footnote"]["template"]["name"] == initial_footnote_name
 
     # check that the StudySelection can approve the current version
@@ -1345,7 +1352,7 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}/accept-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["accepted_version"] is True
     assert res["footnote"]["template"]["name"] == initial_footnote_name
     assert res["latest_footnote"]["template"]["name"] == text_value_2_name
@@ -1353,7 +1360,7 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}/audit-trail"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     counting_before_sync = len(res)
 
@@ -1362,12 +1369,12 @@ def test_update_footnote_library_items_of_relationship_to_value_nodes(api_client
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}/sync-latest-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["footnote"]["template"]["name"] == text_value_2_name
 
     response = api_client.get(
         f"/studies/{study.uid}/study-soa-footnotes/{study_soa_footnote_uid}/audit-trail"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert len(res) == counting_before_sync + 1

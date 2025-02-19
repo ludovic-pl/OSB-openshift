@@ -21,7 +21,7 @@
       "start_date": "2022-10-18T12:53:44.934884",
       "status": "Final",
       "term_uid": "CTTerm_000140",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000007",
@@ -42,7 +42,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -66,7 +66,7 @@
       "start_date": "2022-10-18T12:53:45.054037",
       "status": "Final",
       "term_uid": "CTTerm_000141",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000009",
@@ -81,7 +81,7 @@
     "status": null,
     "study_compound_dosing_count": 1,
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -105,7 +105,7 @@
       "start_date": "2022-10-18T12:53:45.054037",
       "status": "Final",
       "term_uid": "CTTerm_000141",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000011",
@@ -120,7 +120,7 @@
     "status": null,
     "study_compound_dosing_count": 1,
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -144,7 +144,7 @@
       "start_date": "2022-10-18T12:53:45.246135",
       "status": "Final",
       "term_uid": "CTTerm_000143",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000013",
@@ -159,6 +159,6 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   }
 ]

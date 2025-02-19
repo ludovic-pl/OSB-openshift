@@ -633,6 +633,7 @@ watch(
   () => props.headers,
   (value) => {
     shownColumns.value = value
+    selectedColumns.value = value
   }
 )
 watch(
@@ -691,10 +692,10 @@ onMounted(() => {
   if (props.items && props.items.length) {
     loading.value = false
   }
-  // For now we will implement saving of latest filtering only for Library Activities, it might change in the future
+  // For now we will implement saving of latest filtering only for Library and Studies Activities, it might change in the future
   if (
     filteringParams.value.tableName === window.location.pathname &&
-    window.location.pathname.indexOf('library/activities') > 0
+    (window.location.pathname.indexOf('library/activities') > 0 || window.location.pathname.indexOf('activities/list'))
   ) {
     const map = JSON.parse(filteringParams.value.apiParams)
     for (const key in map) {
@@ -886,8 +887,8 @@ function filterTable(options) {
         ', "op": "bw"' +
         savedFilters.substring(bracketIndex)
     }
-    // For now we will implement saving of latest filtering only for Library Activities, it might change in the future
-    if (window.location.pathname.indexOf('library/activities') >= 0) {
+    // For now we will implement saving of latest filtering only for Library and Studies Activities, it might change in the future
+    if (window.location.pathname.indexOf('library/activities') >= 0 || window.location.pathname.indexOf('activities/list')) {
       filteringParamsStore.setFilteringParams({
         filters: savedFilters,
         tableName: window.location.pathname,

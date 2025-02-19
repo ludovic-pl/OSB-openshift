@@ -1,24 +1,30 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.compound import CompoundAR
-from clinical_mdr_api.models import Library
-from clinical_mdr_api.models.concepts.concept import Concept, ConceptInput
+from clinical_mdr_api.models.concepts.concept import (
+    Concept,
+    ExtendedConceptPatchInput,
+    ExtendedConceptPostInput,
+)
+from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.utils import BaseModel
 
 
 class Compound(Concept):
-    possible_actions: list[str] = Field(
-        ...,
-        description=(
-            "Holds those actions that can be performed on Compounds. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on Compounds. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            ),
         ),
-    )
+    ]
 
     is_sponsor_compound: bool | None = True
-    external_id: str | None = None
+    external_id: Annotated[str | None, Field(nullable=True)] = None
 
     @classmethod
     def from_compound_ar(
@@ -39,7 +45,7 @@ class Compound(Concept):
             status=compound_ar.item_metadata.status.value,
             version=compound_ar.item_metadata.version,
             change_description=compound_ar.item_metadata.change_description,
-            user_initials=compound_ar.item_metadata.user_initials,
+            author_username=compound_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in compound_ar.get_possible_actions()]
             ),
@@ -59,8 +65,8 @@ class SimpleCompound(BaseModel):
 
         return simple_compound_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str = Field(..., title="name", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str, Field()]
 
     @classmethod
     def from_compound_ar(cls, compound_ar: CompoundAR) -> Self:
@@ -70,23 +76,25 @@ class SimpleCompound(BaseModel):
         )
 
 
-class CompoundCreateInput(ConceptInput):
+class CompoundCreateInput(ExtendedConceptPostInput):
     is_sponsor_compound: bool = True
-    external_id: str | None = None
+    external_id: Annotated[str | None, Field(min_length=1)] = None
 
 
-class CompoundEditInput(ConceptInput):
+class CompoundEditInput(ExtendedConceptPatchInput):
     is_sponsor_compound: bool | None
-    external_id: str | None = None
-    change_description: str
+    external_id: Annotated[str | None, Field(min_length=1)] = None
+    change_description: Annotated[str, Field(min_length=1)]
 
 
 class CompoundVersion(Compound):
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

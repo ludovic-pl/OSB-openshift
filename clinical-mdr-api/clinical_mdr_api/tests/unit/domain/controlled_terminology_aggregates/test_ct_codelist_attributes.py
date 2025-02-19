@@ -8,7 +8,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 def create_random_ct_codelist_attributes_vo(
@@ -42,7 +42,7 @@ def create_random_ct_codelist_attributes_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
     return random_ct_codelist_attributes_ar
 
@@ -73,7 +73,7 @@ class TestCTCodelistAttributeAR(unittest.TestCase):
         ct_codelist_attributes_ar = create_random_ct_codelist_attributes_ar()
 
         # when
-        ct_codelist_attributes_ar.approve(author="TODO")
+        ct_codelist_attributes_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(ct_codelist_attributes_ar.item_metadata._end_date)
@@ -86,10 +86,10 @@ class TestCTCodelistAttributeAR(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         ct_codelist_attributes_ar = create_random_ct_codelist_attributes_ar()
-        ct_codelist_attributes_ar.approve(author="TODO")
+        ct_codelist_attributes_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        ct_codelist_attributes_ar.create_new_version(author="TODO")
+        ct_codelist_attributes_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(ct_codelist_attributes_ar.item_metadata._end_date)
@@ -103,13 +103,13 @@ class TestCTCodelistAttributeAR(unittest.TestCase):
         # given
         ct_codelist_attributes_ar = create_random_ct_codelist_attributes_ar()
 
-        ct_codelist_attributes_ar.approve(author="Test")
-        ct_codelist_attributes_ar.create_new_version(author="TODO")
+        ct_codelist_attributes_ar.approve(author_id="Test")
+        ct_codelist_attributes_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         codelist_name_vo = create_random_ct_codelist_attributes_vo()
         ct_codelist_attributes_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             ct_codelist_vo=codelist_name_vo,
             codelist_exists_by_name_callback=lambda _: False,
@@ -123,7 +123,7 @@ class TestCTCodelistAttributeAR(unittest.TestCase):
         self.assertEqual(
             ct_codelist_attributes_ar.item_metadata.status, LibraryItemStatus.DRAFT
         )
-        self.assertEqual(ct_codelist_attributes_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(ct_codelist_attributes_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(
             ct_codelist_attributes_ar.item_metadata.change_description, "Test"
         )

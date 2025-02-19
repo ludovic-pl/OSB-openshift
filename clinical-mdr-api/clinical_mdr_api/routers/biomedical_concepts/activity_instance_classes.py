@@ -1,30 +1,31 @@
 """ActivityInstanceClass hierarchies router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Response, status
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.biomedical_concepts.activity_instance_class import (
     ActivityInstanceClass,
     ActivityInstanceClassInput,
     ActivityInstanceClassMappingInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.biomedical_concepts.activity_instance_class import (
     ActivityInstanceClassService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/activity-instance-classes"
 router = APIRouter()
 
 ActivityInstanceClassUID = Path(
-    None, description="The unique id of the ActivityInstanceClass"
+    description="The unique id of the ActivityInstanceClass"
 )
 
 
@@ -69,25 +70,33 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activity_instance_classes(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     results = activity_instance_class_service.get_all_items(
@@ -120,18 +129,25 @@ def get_activity_instance_classes(
     },
 )
 def get_distinct_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.get_distinct_values_for_header(
@@ -139,7 +155,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -166,7 +182,7 @@ Possible errors:
     },
 )
 def get_activity(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.get_by_uid(uid=activity_instance_class_uid)
@@ -202,7 +218,7 @@ Possible errors:
     },
 )
 def get_versions(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.get_version_history(
@@ -240,14 +256,14 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    activity_instance_class_input: ActivityInstanceClassInput = Body(description=""),
+    activity_instance_class_input: Annotated[ActivityInstanceClassInput, Body()],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.create(
@@ -286,7 +302,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The instance class is not in draft status.\n"
             "- The instance class had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -296,8 +312,8 @@ Possible errors:
     },
 )
 def edit(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
-    activity_instance_class_input: ActivityInstanceClassInput = Body(description=""),
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
+    activity_instance_class_input: Annotated[ActivityInstanceClassInput, Body()],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.edit_draft(
@@ -333,10 +349,13 @@ Possible errors:
     },
 )
 def patch_mappings(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
-    mapping_input: ActivityInstanceClassMappingInput = Body(
-        description="The uid of dataset classes to map activity instance class to."
-    ),
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
+    mapping_input: Annotated[
+        ActivityInstanceClassMappingInput,
+        Body(
+            description="The uid of dataset classes to map activity instance class to."
+        ),
+    ],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.patch_mappings(
@@ -370,7 +389,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create activity instance classes.\n",
+            "- The library doesn't allow to create activity instance classes.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -382,7 +401,7 @@ Possible errors:
     },
 )
 def new_version(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.create_new_version(
@@ -420,7 +439,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instance class is not in draft status.\n"
-            "- The library does not allow to approve activity instance class.\n",
+            "- The library doesn't allow to approve activity instance class.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -429,7 +448,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(activity_instance_class_uid: str = ActivityInstanceClassUID):
+def approve(activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID]):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.approve(uid=activity_instance_class_uid)
 
@@ -473,7 +492,7 @@ Possible errors:
     },
 )
 def inactivate(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.inactivate_final(
@@ -520,7 +539,7 @@ Possible errors:
     },
 )
 def reactivate(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     return activity_instance_class_service.reactivate_retired(
@@ -558,7 +577,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity instance class is not in draft status.\n"
             "- The activity instance class was already in final state or is in use.\n"
-            "- The library does not allow to delete activity instance class.",
+            "- The library doesn't allow to delete activity instance class.",
         },
         404: {
             "model": ErrorResponse,
@@ -568,7 +587,7 @@ Possible errors:
     },
 )
 def delete_activity_instance_class(
-    activity_instance_class_uid: str = ActivityInstanceClassUID,
+    activity_instance_class_uid: Annotated[str, ActivityInstanceClassUID],
 ):
     activity_instance_class_service = ActivityInstanceClassService()
     activity_instance_class_service.soft_delete(uid=activity_instance_class_uid)

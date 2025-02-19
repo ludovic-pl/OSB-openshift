@@ -1,31 +1,31 @@
 """pharmaceutical_products router"""
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.concepts.pharmaceutical_product import (
     PharmaceuticalProduct,
     PharmaceuticalProductCreateInput,
     PharmaceuticalProductEditInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.pharmaceutical_products_service import (
     PharmaceuticalProductService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts"
 router = APIRouter()
 
 PharmaceuticalProductUID = Path(
-    None, description="The unique id of the pharmaceutical product"
+    description="The unique id of the pharmaceutical product"
 )
 
 
@@ -78,30 +78,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_pharmaceutical_products(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description=_generic_descriptions.LIBRARY_NAME),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     results = pharmaceutical_product_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -132,7 +140,7 @@ State after:
 Possible errors:
  - Invalid library name specified.
 
-{_generic_descriptions.DATA_EXPORTS_HEADER}  
+{_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
     response_model=CustomPage[PharmaceuticalProduct],
     response_model_exclude_unset=True,
@@ -165,29 +173,35 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_pharmaceutical_products_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     service = PharmaceuticalProductService()
     results = service.get_all_concept_versions(
-        library=library,
+        library=library_name,
         sort_by={"start_date": False},
         page_number=page_number,
         page_size=page_size,
@@ -217,28 +231,35 @@ def get_pharmaceutical_products_versions(
     },
 )
 def get_distinct_values_for_header(
-    library: str | None = Query(None, description=_generic_descriptions.LIBRARY_NAME),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.get_distinct_values_for_header(
-        library=library,
+        library=library_name,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -258,7 +279,7 @@ Possible errors:
     },
 )
 def get_activity(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.get_by_uid(uid=pharmaceutical_product_uid)
@@ -293,7 +314,7 @@ Possible errors:
     },
 )
 def get_versions(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.get_version_history(
@@ -334,16 +355,16 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    pharmaceutical_product_create_input: PharmaceuticalProductCreateInput = Body(
-        description=""
-    ),
+    pharmaceutical_product_create_input: Annotated[
+        PharmaceuticalProductCreateInput, Body()
+    ],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.create(
@@ -382,7 +403,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The pharmaceutical product is not in draft status.\n"
             "- The pharmaceutical product had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -392,10 +413,10 @@ Possible errors:
     },
 )
 def edit(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
-    pharmaceutical_product_edit_input: PharmaceuticalProductEditInput = Body(
-        description=""
-    ),
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
+    pharmaceutical_product_edit_input: Annotated[
+        PharmaceuticalProductEditInput, Body()
+    ],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.edit_draft(
@@ -433,7 +454,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The pharmaceutical product is not in draft status.\n"
-            "- The library does not allow pharmaceutical product approval.\n",
+            "- The library doesn't allow pharmaceutical product approval.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -443,7 +464,7 @@ Possible errors:
     },
 )
 def approve(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.approve(uid=pharmaceutical_product_uid)
@@ -474,7 +495,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create pharmaceutical products.\n",
+            "- The library doesn't allow to create pharmaceutical products.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -486,7 +507,7 @@ Possible errors:
     },
 )
 def create_new_version(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.create_new_version(
@@ -532,7 +553,7 @@ Possible errors:
     },
 )
 def inactivate(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.inactivate_final(
@@ -578,7 +599,7 @@ Possible errors:
     },
 )
 def reactivate(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     return pharmaceutical_product_service.reactivate_retired(
@@ -616,7 +637,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The pharmaceutical product is not in draft status.\n"
             "- The pharmaceutical product was already in final state or is in use.\n"
-            "- The library does not allow to delete pharmaceutical product.",
+            "- The library doesn't allow to delete pharmaceutical product.",
         },
         404: {
             "model": ErrorResponse,
@@ -626,7 +647,7 @@ Possible errors:
     },
 )
 def delete(
-    pharmaceutical_product_uid: str = PharmaceuticalProductUID,
+    pharmaceutical_product_uid: Annotated[str, PharmaceuticalProductUID],
 ):
     pharmaceutical_product_service = PharmaceuticalProductService()
     pharmaceutical_product_service.soft_delete(uid=pharmaceutical_product_uid)

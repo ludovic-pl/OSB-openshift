@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, Self
+from typing import Annotated, Any, Callable, Self
 
 from pydantic.fields import Field
 
@@ -19,39 +19,47 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class FootnoteTemplateWithType(FootnoteTemplateNameUidLibrary):
-    type: CTTermNameAndAttributes | None = Field(None)
+    type: Annotated[CTTermNameAndAttributes | None, Field(nullable=True)] = None
 
 
 class Footnote(BaseModel):
     uid: str
-    name: str | None = Field(None, nullable=True)
-    name_plain: str | None = Field(None, nullable=True)
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-    possible_actions: list[str] | None = Field(
-        None,
-        description=(
-            "Holds those actions that can be performed on the footnote. "
-            "Actions are: None"
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_plain: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    possible_actions: Annotated[
+        list[str] | None,
+        Field(
+            description=(
+                "Holds those actions that can be performed on the footnote. "
+                "Actions are: None"
+            ),
+            remove_from_wildcard=True,
+            exclude_from_orm=True,
+            nullable=True,
         ),
-        remove_from_wildcard=True,
-        exclude_from_orm=True,
-    )
+    ] = None
     template: FootnoteTemplateWithType | None
-    parameter_terms: list[MultiTemplateParameterTerm] | None = Field(
-        None,
-        description="Holds the parameter terms that are used within the footnote. The terms are ordered as they occur in the footnote name.",
-    )
+    parameter_terms: Annotated[
+        list[MultiTemplateParameterTerm] | None,
+        Field(
+            description="Holds the parameter terms that are used within the footnote. The terms are ordered as they occur in the footnote name.",
+            nullable=True,
+        ),
+    ] = None
     library: Library | None = None
-    study_count: int = Field(0, description="Count of studies referencing footnote")
+    study_count: Annotated[
+        int, Field(description="Count of studies referencing footnote")
+    ] = 0
 
     @classmethod
     def from_footnote_ar(
@@ -85,7 +93,7 @@ class Footnote(BaseModel):
             status=footnote_ar.item_metadata.status.value,
             version=footnote_ar.item_metadata.version,
             change_description=footnote_ar.item_metadata.change_description,
-            user_initials=footnote_ar.item_metadata.user_initials,
+            author_username=footnote_ar.item_metadata.author_username,
             possible_actions=sorted(
                 {_.value for _ in footnote_ar.get_possible_actions()}
             ),
@@ -140,7 +148,7 @@ class FootnoteWithType(Footnote):
             status=footnote_ar.item_metadata.status.value,
             version=footnote_ar.item_metadata.version,
             change_description=footnote_ar.item_metadata.change_description,
-            user_initials=footnote_ar.item_metadata.user_initials,
+            author_username=footnote_ar.item_metadata.author_username,
             possible_actions=sorted(
                 {_.value for _ in footnote_ar.get_possible_actions()}
             ),
@@ -168,42 +176,55 @@ class FootnoteVersion(FootnoteWithType):
     Class for storing Footnote and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the footnote (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the footnote (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class FootnoteParameterInput(BaseModel):
-    parameter_terms: list[TemplateParameterMultiSelectInput] = Field(
-        ...,
-        title="parameter_terms",
-        description="An ordered list of selected parameter terms that are used to replace the parameters of the footnote template.",
-    )
+class FootnoteEditInput(PatchInputModel):
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the footnote template.",
+        ),
+    ]
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
-class FootnoteEditInput(FootnoteParameterInput):
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
-
-
-class FootnoteCreateInput(FootnoteParameterInput):
-    footnote_template_uid: str = Field(
-        ...,
-        title="footnote_template_uid",
-        description="The unique id of the footnote template that is used as the basis for the new footnote.",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="If specified: The name of the library to which the footnote will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* footnote can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
-        "If not specified: The library of the footnote template will be used.",
-    )
+class FootnoteCreateInput(PostInputModel):
+    parameter_terms: Annotated[
+        list[TemplateParameterMultiSelectInput],
+        Field(
+            description="An ordered list of selected parameter terms that are used to replace the parameters of the footnote template.",
+        ),
+    ]
+    footnote_template_uid: Annotated[
+        str,
+        Field(
+            description="The unique id of the footnote template that is used as the basis for the new footnote.",
+            min_length=1,
+        ),
+    ]
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the footnote will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* footnote can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true. \n\n"
+            "If not specified: The library of the footnote template will be used.",
+            min_length=1,
+        ),
+    ] = None

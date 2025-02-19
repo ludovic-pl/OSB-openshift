@@ -16,32 +16,35 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.syntax_templates.endpoint_template import EndpointTemplate
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 endpoint_templates: list[EndpointTemplate]
-ct_term_inclusion: models.CTTerm
-dictionary_term_indication: models.DictionaryTerm
-ct_term_category: models.CTTerm
-ct_term_subcategory: models.CTTerm
-indications_codelist: models.DictionaryCodelist
+ct_term_inclusion: CTTerm
+dictionary_term_indication: DictionaryTerm
+ct_term_category: CTTerm
+ct_term_subcategory: CTTerm
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-text_value_1: models.TextValue
-text_value_2: models.TextValue
+text_value_1: TextValue
+text_value_2: TextValue
 
 URL = "endpoint-templates"
 
@@ -198,8 +201,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 ENDPOINT_TEMPLATE_FIELDS_ALL = [
     "name",
@@ -212,7 +213,7 @@ ENDPOINT_TEMPLATE_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameters",
     "library",
@@ -233,7 +234,7 @@ def test_get_endpoint_template(api_client):
     response = api_client.get(f"{URL}/{endpoint_templates[1].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(ENDPOINT_TEMPLATE_FIELDS_ALL)
@@ -349,7 +350,7 @@ def test_get_endpoint_templates(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -381,7 +382,7 @@ def test_get_all_parameters_of_endpoint_template(api_client):
     response = api_client.get(f"{URL}/{endpoint_templates[0].uid}/parameters")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["name"] == "TextValue"
     assert len(res[0]["terms"]) == 2
@@ -391,7 +392,7 @@ def test_get_versions_of_endpoint_template(api_client):
     response = api_client.get(f"{URL}/{endpoint_templates[1].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == endpoint_templates[1].uid
@@ -480,7 +481,7 @@ def test_get_all_final_versions_of_endpoint_template(api_client):
     response = api_client.get(f"{URL}/{endpoint_templates[1].uid}/releases")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 1
     assert res[0]["uid"] == endpoint_templates[1].uid
@@ -550,7 +551,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -589,7 +590,7 @@ def test_filtering_exact(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -611,10 +612,10 @@ def test_filtering_exact(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for endpoint_template in endpoint_templates:
         value = getattr(endpoint_template, field_name)
@@ -636,7 +637,7 @@ def test_pre_validate_endpoint_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Endpoint Template name: %s", res)
 
-    assert response.status_code == 202
+    assert_response_status_code(response, 202)
 
 
 def test_create_endpoint_template(api_client):
@@ -652,7 +653,7 @@ def test_create_endpoint_template(api_client):
     res = response.json()
     log.info("Created Endpoint Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "default_name [TextValue]"
@@ -712,7 +713,7 @@ def test_create_new_version_of_endpoint_template(api_client):
     res = response.json()
     log.info("Created new version of Endpoint Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "new test name"
@@ -764,7 +765,7 @@ def test_get_specific_version_of_endpoint_template(api_client):
     response = api_client.get(f"{URL}/{endpoint_templates[4].uid}/versions/1.1")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == endpoint_templates[4].uid
     assert res["sequence_id"] == "E5"
@@ -834,7 +835,7 @@ def test_change_endpoint_template_indexings(api_client):
     res = response.json()
     log.info("Changed Endpoint Template indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "Default-AAA name with [TextValue]"
@@ -931,7 +932,7 @@ def test_remove_endpoint_template_indexings(api_client):
     res = response.json()
     log.info("Removed Endpoint Template indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["name"] == "Default-AAA name with [TextValue]"
@@ -950,7 +951,7 @@ def test_delete_endpoint_template(api_client):
     response = api_client.delete(f"{URL}/{endpoint_templates[2].uid}")
     log.info("Deleted Endpoint Template: %s", endpoint_templates[2].uid)
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_endpoint_template(api_client):
@@ -958,7 +959,7 @@ def test_approve_endpoint_template(api_client):
     res = response.json()
     log.info("Approved Endpoint Template: %s", endpoint_templates[3].uid)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == endpoint_templates[3].uid
     assert res["sequence_id"] == "E4"
     assert res["name"] == "Default-XXX name with [TextValue]"
@@ -1047,7 +1048,7 @@ def test_cascade_approve_endpoint_template(api_client):
     res = response.json()
     log.info("Approved Endpoint Template: %s", endpoint_templates[5].uid)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == endpoint_templates[5].uid
     assert res["sequence_id"] == "E6"
     assert res["name"] == "cascade check [TextValue]"
@@ -1112,7 +1113,7 @@ def test_inactivate_endpoint_template(api_client):
     response = api_client.delete(f"{URL}/{endpoint_templates[5].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == endpoint_templates[5].uid
     assert res["sequence_id"] == "E6"
     assert res["indications"][0]["term_uid"] == dictionary_term_indication.term_uid
@@ -1168,14 +1169,14 @@ def test_current_final_endpoint_template(api_client):
         f"""{URL}?status=Final&filters={{"sequence_id": {{"v": ["E6"], "op": "eq"}}}}"""
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res["items"]
 
     response = api_client.get(
         f"""{URL}/headers?field_name=sequence_id&status=Final&filters={{"sequence_id": {{"v": ["E6"], "op": "eq"}}}}"""
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res
 
 
@@ -1183,7 +1184,7 @@ def test_reactivate_endpoint_template(api_client):
     response = api_client.post(f"{URL}/{endpoint_templates[5].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == endpoint_templates[5].uid
     assert res["sequence_id"] == "E6"
     assert res["indications"][0]["term_uid"] == dictionary_term_indication.term_uid
@@ -1239,7 +1240,7 @@ def test_endpoint_template_audit_trail(api_client):
     res = response.json()
     log.info("EndpointTemplate Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 54
     expected_uids = [
         "EndpointTemplate_000006",
@@ -1315,7 +1316,7 @@ def test_endpoint_template_sequence_id_generation(api_client):
     res = response.json()
     log.info("Created Endpoint Template: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"] == "U-E1"
     assert res["name"] == "user defined [TextValue]"
@@ -1378,11 +1379,8 @@ def test_cannot_create_endpoint_template_with_existing_name(api_client):
     res = response.json()
     log.info("Didn't Create Endpoint Template: %s", res)
 
-    assert response.status_code == 400
-    assert (
-        res["message"]
-        == f"Duplicate templates not allowed - template exists: {data['name']}"
-    )
+    assert_response_status_code(response, 409)
+    assert res["message"] == f"Resource with Name '{data['name']}' already exists."
 
 
 def test_cannot_update_endpoint_template_to_an_existing_name(api_client):
@@ -1394,11 +1392,8 @@ def test_cannot_update_endpoint_template_to_an_existing_name(api_client):
     res = response.json()
     log.info("Didn't Update Endpoint Template: %s", res)
 
-    assert response.status_code == 400
-    assert (
-        res["message"]
-        == f"Duplicate templates not allowed - template exists: {data['name']}"
-    )
+    assert_response_status_code(response, 409)
+    assert res["message"] == f"Resource with Name '{data['name']}' already exists."
 
 
 def test_cannot_update_endpoint_template_without_change_description(api_client):
@@ -1407,7 +1402,7 @@ def test_cannot_update_endpoint_template_without_change_description(api_client):
     res = response.json()
     log.info("Didn't Update Endpoint Template: %s", res)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert res["detail"] == [
         {
             "loc": ["body", "change_description"],
@@ -1426,8 +1421,8 @@ def test_cannot_update_endpoint_template_in_final_status(api_client):
     res = response.json()
     log.info("Didn't Update Endpoint Template: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == "The object is not in draft status."
+    assert_response_status_code(response, 400)
+    assert res["message"] == "The object isn't in draft status."
 
 
 def test_cannot_change_parameter_numbers_of_endpoint_template_after_approval(
@@ -1441,7 +1436,7 @@ def test_cannot_change_parameter_numbers_of_endpoint_template_after_approval(
     res = response.json()
     log.info("Didn't Change Endpoint Template parameter numbers: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
         == "You cannot change number or order of template parameters for a previously approved template."
@@ -1454,7 +1449,7 @@ def test_pre_validate_invalid_endpoint_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Endpoint Temaplate name: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert res["message"] == f"Template string syntax incorrect: {data['name']}"
 
     data = {"name": "Lacking closing bracket ["}
@@ -1462,7 +1457,7 @@ def test_pre_validate_invalid_endpoint_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Endpoint Template name: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert res["message"] == f"Template string syntax incorrect: {data['name']}"
 
     data = {"name": " "}
@@ -1470,8 +1465,17 @@ def test_pre_validate_invalid_endpoint_template_name(api_client):
     res = response.json()
     log.info("Pre Validated Endpoint Template name: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == f"Template string syntax incorrect: {data['name']}"
+    assert_response_status_code(response, 422)
+    assert res == {
+        "detail": [
+            {
+                "loc": ["body", "name"],
+                "msg": "ensure this value has at least 1 characters",
+                "type": "value_error.any_str.min_length",
+                "ctx": {"limit_value": 1},
+            }
+        ]
+    }
 
 
 @pytest.mark.parametrize(

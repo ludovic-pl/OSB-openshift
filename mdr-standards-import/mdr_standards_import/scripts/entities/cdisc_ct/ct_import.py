@@ -7,10 +7,10 @@ from mdr_standards_import.scripts.utils import are_sets_equal, make_uid_from_con
 
 
 class CTImport:
-    def __init__(self, effective_date: str, user_initials: str):
+    def __init__(self, effective_date: str, author_id: str):
         self.effective_date: str = effective_date
         self.import_date_time: str = datetime.datetime.now().astimezone().isoformat()
-        self.user_initials: str = user_initials
+        self.author_id: str = author_id
         self.automatic_resolution_done: bool = False
 
         self.__packages: list[Package] = []
@@ -65,13 +65,13 @@ class CTImport:
     def __check_packages(self):
         for package in self.__packages:
             self.__inconsistencies.extend(
-                package.get_inconsistencies(self.user_initials)
+                package.get_inconsistencies(self.author_id)
             )
 
     def __check_codelists(self):
         for codelist in self.__codelists.values():
             self.__inconsistencies.extend(
-                codelist.get_inconsistencies(self.user_initials)
+                codelist.get_inconsistencies(self.author_id)
             )
 
             package_names: set[str] = set()
@@ -97,11 +97,11 @@ class CTImport:
                 inconsistency = Inconsistency(
                     Inconsistency.inconsistent_terms_tagline,
                     message,
-                    self.user_initials,
+                    self.author_id,
                 )
                 inconsistency.set_affected_codelist(codelist)
                 self.__inconsistencies.append(inconsistency)
 
     def __check_terms(self):
         for term in self.__terms.values():
-            self.__inconsistencies.extend(term.get_inconsistencies(self.user_initials))
+            self.__inconsistencies.extend(term.get_inconsistencies(self.author_id))

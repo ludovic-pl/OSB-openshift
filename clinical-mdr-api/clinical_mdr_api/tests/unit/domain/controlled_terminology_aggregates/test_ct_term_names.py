@@ -10,7 +10,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 def create_random_ct_term_name_vo(codelist_uid: str = random_str()) -> CTTermNameVO:
@@ -38,7 +38,7 @@ def create_random_ct_term_name_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
     return random_ct_term_name_ar
 
@@ -60,7 +60,7 @@ def create_random_ct_term_name_ars(
                 library=LibraryVO.from_repository_values(
                     library_name=library, is_editable=is_editable
                 ),
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
             )
         )
     return random_ct_term_name_ars
@@ -84,7 +84,7 @@ class TestCTTermNameAR(unittest.TestCase):
         ct_term_name_ar = create_random_ct_term_name_ar()
 
         # when
-        ct_term_name_ar.approve(author="TODO")
+        ct_term_name_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(ct_term_name_ar.item_metadata._end_date)
@@ -95,10 +95,10 @@ class TestCTTermNameAR(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         ct_term_name_ar = create_random_ct_term_name_ar()
-        ct_term_name_ar.approve(author="TODO")
+        ct_term_name_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        ct_term_name_ar.create_new_version(author="TODO")
+        ct_term_name_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(ct_term_name_ar.item_metadata._end_date)
@@ -110,13 +110,13 @@ class TestCTTermNameAR(unittest.TestCase):
         # given
         ct_term_name_ar = create_random_ct_term_name_ar()
 
-        ct_term_name_ar.approve(author="Test")
-        ct_term_name_ar.create_new_version(author="TODO")
+        ct_term_name_ar.approve(author_id="Test")
+        ct_term_name_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         ct_term_vo = create_random_ct_term_name_vo()
         ct_term_name_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             ct_term_vo=ct_term_vo,
             term_exists_by_name_in_codelists_callback=lambda x, y: False,
@@ -127,7 +127,7 @@ class TestCTTermNameAR(unittest.TestCase):
         self.assertIsNotNone(ct_term_name_ar.item_metadata.start_date)
         self.assertEqual(ct_term_name_ar.item_metadata.version, "1.2")
         self.assertEqual(ct_term_name_ar.item_metadata.status, LibraryItemStatus.DRAFT)
-        self.assertEqual(ct_term_name_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(ct_term_name_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(ct_term_name_ar.item_metadata.change_description, "Test")
         self.assertEqual(
             ct_term_name_ar.ct_term_vo.codelists[0].codelist_uid,

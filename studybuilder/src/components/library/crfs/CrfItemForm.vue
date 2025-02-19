@@ -672,12 +672,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFItemGroups.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFItemGroups.alias_details') },
       ],
@@ -686,12 +684,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFItemGroups.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFItemGroups.alias_details') },
         { name: 'change_description', title: this.$t('CRFForms.change_desc') },
@@ -1178,10 +1174,10 @@ export default {
       let elements = []
       let attributes = []
       let eleAttributes = []
-      this.selectedExtensions = this.selectedExtensions.filter(ex => {
+      this.selectedExtensions = this.selectedExtensions.filter((ex) => {
         return ex.library_name
       })
-      this.selectedExtensions.forEach(ex => {
+      this.selectedExtensions.forEach((ex) => {
         if (ex.type) {
           attributes.push(ex)
         } else {
@@ -1231,6 +1227,7 @@ export default {
       const descArray = []
       this.desc.forEach((e) => {
         if (e.uid) {
+          e.change_description = this.$t('CRFItems.description_change_description')
           descArray.push(e)
         } else {
           e.library_name = constants.LIBRARY_SPONSOR
@@ -1240,6 +1237,7 @@ export default {
       if (!this.engDescription.name) {
         this.engDescription.name = this.form.name
       }
+      this.engDescription.change_description = this.$t('CRFItems.description_change_description')
       descArray.push(this.engDescription)
       this.form.descriptions = descArray
     },
@@ -1282,8 +1280,12 @@ export default {
       }
       this.form.change_description = this.$t('_global.draft_change')
       this.checkIfNumeric()
-      item.vendor_attributes.forEach(attr => attr.type = 'attr')
-      this.selectedExtensions = [...item.vendor_attributes, ...item.vendor_element_attributes, ...item.vendor_elements]
+      item.vendor_attributes.forEach((attr) => (attr.type = 'attr'))
+      this.selectedExtensions = [
+        ...item.vendor_attributes,
+        ...item.vendor_element_attributes,
+        ...item.vendor_elements,
+      ]
     },
     getAliasDisplay(item) {
       return `${item.context} - ${item.name}`
@@ -1303,7 +1305,7 @@ export default {
         page_number: this.options.page,
         page_size: this.options.itemsPerPage,
         total_count: true,
-        library: this.library,
+        library_name: this.library,
       }
       if (this.filters !== undefined) {
         params.filters = this.filters

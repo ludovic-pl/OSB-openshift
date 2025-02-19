@@ -91,6 +91,9 @@
       <template #[`item.nci_concept_id`]="{ item }">
         <NCIConceptLink :concept-id="item.nci_concept_id" />
       </template>
+      <template #[`item.synonyms`]="{ item }">
+        <div v-html="synonymsDisplay(item.synonyms)" />
+      </template>
       <template #[`item.status`]="{ item }">
         <StatusChip :status="item.status" />
       </template>
@@ -108,6 +111,9 @@
       </template>
       <template #[`item.activities.name`]="{ item }">
         {{ activitiesDisplay(item) }}
+      </template>
+      <template #[`item.is_research_lab`]="{ item }">
+        {{ $filters.yesno(item.is_research_lab) }}
       </template>
       <template #[`item.is_data_collected`]="{ item }">
         {{ $filters.yesno(item.is_data_collected) }}
@@ -451,8 +457,16 @@ const activitiesHeaders = [
     key: 'name_sentence_case',
   },
   {
+    title: t('ActivityTable.synonyms'),
+    key: 'synonyms',
+  },
+  {
     title: t('ActivityTable.nci_concept_id'),
     key: 'nci_concept_id',
+  },
+  {
+    title: t('ActivityTable.nci_concept_name'),
+    key: 'nci_concept_name',
   },
   { title: t('ActivityTable.abbreviation'), key: 'abbreviation' },
   {
@@ -464,26 +478,44 @@ const activitiesHeaders = [
     key: 'is_used_by_legacy_instances',
   },
   { title: t('_global.modified'), key: 'start_date' },
+  { title: t('_global.modified_by'), key: 'author_username' },
   { title: t('_global.status'), key: 'status' },
   { title: t('_global.version'), key: 'version' },
 ]
 const instantiationsHeaders = [
   { title: '', key: 'possible_actions', width: '1%', noFilter: true },
   { title: t('_global.library'), key: 'library_name' },
+  { title: t('ActivityTable.activity_group'), key: 'activity_group.name' },
   {
-    title: t('ActivityTable.type'),
-    key: 'activity_instance_class.name',
+    title: t('ActivityTable.activity_subgroup'),
+    key: 'activity_subgroup.name',
   },
   {
     title: t('ActivityTable.activity'),
     key: 'activity_name',
     disableColumnFilters: true,
   },
+  {
+    title: t('ActivityTable.type'),
+    key: 'activity_instance_class.name',
+  },
   { title: t('ActivityTable.instance'), key: 'name' },
   { title: t('_global.definition'), key: 'definition' },
   {
     title: t('ActivityTable.nci_concept_id'),
     key: 'nci_concept_id',
+  },
+  {
+    title: t('ActivityTable.nci_concept_name'),
+    key: 'nci_concept_name',
+  },
+  {
+    title: t('ActivityTable.is_research_lab'),
+    key: 'is_research_lab',
+  },
+  {
+    title: t('ActivityTable.molecular_weight'),
+    key: 'molecular_weight',
   },
   { title: t('ActivityTable.topic_code'), key: 'topic_code' },
   { title: t('ActivityTable.adam_code'), key: 'adam_param_code' },
@@ -504,7 +536,7 @@ const instantiationsHeaders = [
     key: 'is_legacy_usage',
   },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('_global.modified_by'), key: 'user_initials' },
+  { title: t('_global.modified_by'), key: 'author_username' },
   { title: t('_global.status'), key: 'status' },
   { title: t('_global.version'), key: 'version' },
 ]
@@ -543,7 +575,7 @@ const requestedHeaders = [
   },
   { title: t('ActivityTable.study_id'), key: 'requester_study_id' },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('_global.modified_by'), key: 'user_initials' },
+  { title: t('_global.modified_by'), key: 'author_username' },
   { title: t('_global.status'), key: 'status' },
   { title: t('_global.version'), key: 'version' },
 ]
@@ -732,7 +764,7 @@ function fetchActivities(filters, options, filtersUpdated) {
   }
   params.filters = {}
   if (props.requested) {
-    params.library = libConstants.LIBRARY_REQUESTED
+    params.library_name = libConstants.LIBRARY_REQUESTED
   }
   if (
     savedFilters.value &&
@@ -903,11 +935,23 @@ function isExpand() {
 }
 
 function subGroupsDisplay(item) {
+  if (!item.activity_subgroup || !item.activity_subgroup.name) {
+    return '';
+  }
+
+  if (Array.isArray(item.activity_subgroup.name)) {
+    return item.activity_subgroup.name.map((name) => `&#9679; ${name}`).join('</br>');
+  }
+
+  return `&#9679; ${item.activity_subgroup.name}`;
+}
+
+function synonymsDisplay(item) {
   let display = ''
-  if (item.activity_subgroup.name === '') {
+  if (!item) {
     return ''
   } else {
-    item.activity_subgroup.name.forEach((element) => {
+    item.forEach((element) => {
       display += '&#9679; ' + element + '</br>'
     })
     return display
@@ -915,15 +959,15 @@ function subGroupsDisplay(item) {
 }
 
 function groupsDisplay(item) {
-  let display = ''
-  if (item.activity_group.name === '') {
-    return ''
-  } else {
-    item.activity_group.name.forEach((element) => {
-      display += '&#9679; ' + element + '</br>'
-    })
-    return display
+  if (!item.activity_group || !item.activity_group.name) {
+    return '';
   }
+
+  if (Array.isArray(item.activity_group.name)) {
+    return item.activity_group.name.map((name) => `&#9679; ${name}`).join('</br>');
+  }
+
+  return `&#9679; ${item.activity_group.name}`;
 }
 
 function activitiesDisplay(item) {
@@ -997,7 +1041,7 @@ function newItemVersion(item, source) {
 
 function showForm() {
   switch (props.source) {
-    case 'activities':
+      case 'activities':
       if (props.requested) {
         showRequestedActivityForm.value = true
       } else {
@@ -1108,8 +1152,6 @@ function setDefaultFilters() {
       { title: t('ActivityTable.topic_code'), key: 'topic_code' },
       { title: t('ActivityTable.is_legacy_usage'), key: 'is_legacy_usage' },
     ]
-  } else if (props.source !== 'activities-by-grouping') {
-    return [{ title: t('_global.status'), key: 'status' }]
   }
 }
 </script>

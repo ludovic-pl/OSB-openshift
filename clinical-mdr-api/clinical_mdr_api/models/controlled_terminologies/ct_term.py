@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, Self, Sequence
+from typing import Annotated, Any, Callable, Self, Sequence
 
 from pydantic import Field
 
@@ -15,7 +15,8 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term_codelist import (
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term_name import CTTermName
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
+from common import config
 
 
 class CTTerm(BaseModel):
@@ -47,126 +48,79 @@ class CTTerm(BaseModel):
             ),
         )
 
-    term_uid: str = Field(
-        ...,
-        title="term_uid",
-        description="",
-    )
+    @classmethod
+    def from_ct_term_name_and_attributes(
+        cls, ct_term_name_and_attributes: "CTTermNameAndAttributes"
+    ) -> Self:
+        return cls(
+            term_uid=ct_term_name_and_attributes.term_uid,
+            catalogue_name=ct_term_name_and_attributes.catalogue_name,
+            codelists=ct_term_name_and_attributes.codelists,
+            concept_id=ct_term_name_and_attributes.attributes.concept_id,
+            code_submission_value=ct_term_name_and_attributes.attributes.code_submission_value,
+            name_submission_value=ct_term_name_and_attributes.attributes.name_submission_value,
+            nci_preferred_name=ct_term_name_and_attributes.attributes.nci_preferred_name,
+            definition=ct_term_name_and_attributes.attributes.definition,
+            library_name=ct_term_name_and_attributes.library_name,
+            sponsor_preferred_name=ct_term_name_and_attributes.name.sponsor_preferred_name,
+            sponsor_preferred_name_sentence_case=ct_term_name_and_attributes.name.sponsor_preferred_name_sentence_case,
+            possible_actions=ct_term_name_and_attributes.attributes.possible_actions,
+        )
 
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
+    term_uid: Annotated[str, Field()]
 
-    codelists: list[CTTermCodelist] = Field(
-        [],
-        title="codelists",
-        description="",
-    )
+    catalogue_name: Annotated[str, Field()]
 
-    concept_id: str | None = Field(
-        None, title="concept_id", description="", nullable=True
-    )
+    codelists: Annotated[list[CTTermCodelist], Field()] = []
 
-    code_submission_value: str | None = Field(
-        None, title="code_submission_value", description="", nullable=True
-    )
+    concept_id: Annotated[str | None, Field(nullable=True)] = None
 
-    name_submission_value: str | None = Field(
-        None,
-        title="name_submission_value",
-        description="",
-        nullable=True,
-    )
+    code_submission_value: Annotated[str | None, Field(nullable=True)] = None
 
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
+    name_submission_value: Annotated[str | None, Field(nullable=True)] = None
 
-    definition: str = Field(
-        ..., title="definition", description="", remove_from_wildcard=True
-    )
+    nci_preferred_name: Annotated[str, Field()]
 
-    sponsor_preferred_name: str = Field(
-        ...,
-        title="sponsor_preferred_name",
-        description="",
-    )
+    definition: Annotated[str, Field(remove_from_wildcard=True)]
 
-    sponsor_preferred_name_sentence_case: str = Field(
-        ...,
-        title="sponsor_preferred_name_sentence_case",
-        description="",
-    )
+    sponsor_preferred_name: Annotated[str, Field()]
+
+    sponsor_preferred_name_sentence_case: Annotated[str, Field()]
 
     library_name: str
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the CTTerm. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the CTTerm. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ] = []
 
 
-class CTTermCreateInput(BaseModel):
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
+class CTTermCreateInput(PostInputModel):
+    catalogue_name: Annotated[str, Field(min_length=1)]
+
+    codelist_uid: Annotated[str, Field(min_length=1)]
+
+    code_submission_value: Annotated[str, Field(min_length=1)]
+
+    name_submission_value: Annotated[str | None, Field(nullable=True, min_length=1)] = (
+        None
     )
 
-    codelist_uid: str = Field(
-        ...,
-        title="codelist_uid",
-        description="",
-    )
+    nci_preferred_name: Annotated[str, Field(min_length=1)]
 
-    code_submission_value: str = Field(
-        ...,
-        title="code_submission_value",
-        description="",
-    )
+    definition: Annotated[str, Field(min_length=1)]
 
-    name_submission_value: str | None = Field(
-        None,
-        title="name_submission_value",
-        description="",
-        nullable=True,
-    )
+    sponsor_preferred_name: Annotated[str, Field(min_length=1)]
 
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
-
-    definition: str = Field(
-        ...,
-        title="definition",
-        description="",
-    )
-
-    sponsor_preferred_name: str = Field(
-        ...,
-        title="sponsor_preferred_name",
-        description="",
-    )
-
-    sponsor_preferred_name_sentence_case: str = Field(
-        ...,
-        title="sponsor_preferred_name_sentence_case",
-        description="",
-    )
-    order: int | None = Field(999999, title="order", description="", nullable=True)
-    library_name: str = Field(
-        ...,
-        title="library_name",
-        description="",
-    )
+    sponsor_preferred_name_sentence_case: Annotated[str, Field(min_length=1)]
+    order: Annotated[
+        int | None, Field(nullable=True, gt=0, lt=config.MAX_INT_NEO4J)
+    ] = 999999
+    library_name: Annotated[str, Field(min_length=1)]
 
 
 class CTTermNameAndAttributes(BaseModel):
@@ -200,48 +154,20 @@ class CTTermNameAndAttributes(BaseModel):
 
         return term_name_and_attributes
 
-    term_uid: str = Field(
-        ...,
-        title="term_uid",
-        description="",
-    )
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
-    codelists: list[CTTermCodelist] = Field(
-        [],
-        title="codelists",
-        description="",
-    )
+    term_uid: Annotated[str, Field()]
+    catalogue_name: Annotated[str, Field()]
+    codelists: Annotated[list[CTTermCodelist], Field()] = []
 
-    library_name: str | None = Field(None, nullable=True)
+    library_name: Annotated[str | None, Field(nullable=True)] = None
 
-    name: CTTermName = Field(
-        ...,
-        title="CTTermName",
-        description="",
-    )
+    name: Annotated[CTTermName, Field()]
 
-    attributes: CTTermAttributes = Field(
-        ...,
-        title="CTTermAttributes",
-        description="",
-    )
+    attributes: Annotated[CTTermAttributes, Field()]
 
 
 class CTTermNewOrder(BaseModel):
-    codelist_uid: str = Field(
-        ...,
-        title="codelist_uid",
-        description="",
-    )
-    new_order: int = Field(
-        999999,
-        title="new_order",
-        description="",
-    )
+    codelist_uid: Annotated[str, Field(min_length=1)]
+    new_order: Annotated[int, Field()] = 999999
 
 
 class SimpleCTTermAttributes(BaseModel):
@@ -266,13 +192,9 @@ class SimpleCTTermAttributes(BaseModel):
             term_model = None
         return term_model
 
-    uid: str = Field(..., title="uid", description="")
-    code_submission_value: str | None = Field(
-        None, title="code_submission_value", description="", nullable=True
-    )
-    preferred_term: str | None = Field(
-        None, title="preferred_term", description="", nullable=True
-    )
+    uid: Annotated[str, Field()]
+    code_submission_value: Annotated[str | None, Field(nullable=True)] = None
+    preferred_term: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleCTTermNameWithConflictFlag(BaseModel):
@@ -328,14 +250,10 @@ class SimpleCTTermNameWithConflictFlag(BaseModel):
                     )
         return simple_ctterm_models
 
-    term_uid: str = Field(..., title="term_uid", description="")
-    sponsor_preferred_name: str | None = Field(
-        None, title="name", description="", nullable=True
-    )
-    queried_effective_date: datetime | None = Field(
-        None, title="queried_effective_date", description=""
-    )
-    date_conflict: bool | None = Field(None, title="date_conflict", description="")
+    term_uid: Annotated[str, Field()]
+    sponsor_preferred_name: Annotated[str | None, Field(nullable=True)] = None
+    queried_effective_date: Annotated[datetime | None, Field(nullable=True)] = None
+    date_conflict: Annotated[bool | None, Field(nullable=True)] = None
 
 
 class SimpleTermModel(BaseModel):
@@ -370,46 +288,31 @@ class SimpleTermModel(BaseModel):
             simple_term_model = None
         return simple_term_model
 
-    term_uid: str = Field(..., title="term_uid", description="")
-    name: str | None = Field(None, title="name", description="", nullable=True)
+    term_uid: str
+    name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleDictionaryTermModel(SimpleTermModel):
-    dictionary_id: str | None = Field(
-        None,
-        title="dictionary_id",
-        description="Id if item in the external dictionary",
-        nullable=True,
-    )
+    dictionary_id: Annotated[
+        str | None,
+        Field(
+            description="Id if item in the external dictionary",
+            nullable=True,
+        ),
+    ] = None
 
 
 class SimpleTermName(BaseModel):
-    sponsor_preferred_name: str = Field(
-        ..., title="sponsor_preferred_name", description=""
-    )
-    sponsor_preferred_name_sentence_case: str = Field(
-        ..., title="sponsor_preferred_name_sentence_case", description=""
-    )
+    sponsor_preferred_name: Annotated[str, Field()]
+    sponsor_preferred_name_sentence_case: Annotated[str, Field()]
 
 
 class SimpleTermAttributes(BaseModel):
-    code_submission_value: str | None = Field(
-        None, title="code_submission_value", description="", nullable=True
-    )
-    nci_preferred_name: str | None = Field(
-        None, title="nci_preferred_name", description="", nullable=True
-    )
+    code_submission_value: Annotated[str | None, Field(nullable=True)] = None
+    nci_preferred_name: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleCTTermNameAndAttributes(BaseModel):
-    term_uid: str = Field(..., title="term_uid", description="")
-    name: SimpleTermName = Field(
-        ...,
-        title="SimpleTermName",
-        description="",
-    )
-    attributes: SimpleTermAttributes = Field(
-        ...,
-        title="SimpleTermAttributes",
-        description="",
-    )
+    term_uid: Annotated[str, Field()]
+    name: Annotated[SimpleTermName, Field()]
+    attributes: Annotated[SimpleTermAttributes, Field()]

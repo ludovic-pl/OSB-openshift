@@ -1,12 +1,12 @@
 from datetime import datetime
 from io import BytesIO
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Path, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from clinical_mdr_api.domains._utils import ObjectStatus
 from clinical_mdr_api.domains.concepts.utils import ExporterType, TargetType
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services.concepts.odms.odm_clinspark_import import (
     OdmClinicalXmlImporterService,
@@ -26,6 +26,7 @@ from clinical_mdr_api.services.concepts.odms.odm_xml_stylesheets import (
 from clinical_mdr_api.services.concepts.unit_definitions.unit_definition import (
     UnitDefinitionService,
 )
+from common.auth import rbac
 
 # Prefixed with "/concepts/odms/metadata"
 router = APIRouter()
@@ -47,7 +48,6 @@ If `parent` is empty or `*` is given then the mapping will apply to all occurren
     "/xmls/export",
     dependencies=[rbac.LIBRARY_READ],
     summary="Export ODM XML",
-    description="",
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -55,22 +55,28 @@ If `parent` is empty or `*` is given then the mapping will apply to all occurren
     },
 )
 def get_odm_document(
+    unit_definition_service: Annotated[
+        UnitDefinitionService, Depends(UnitDefinitionService)
+    ],
     target_uid: str,
     target_type: TargetType,
-    status: ObjectStatus = Query(ObjectStatus.LATEST_FINAL),
-    allowed_namespaces: list[str] = Query(
-        [],
-        description="Names of the Vendor Namespaces to export. If not specified, all Vendor Namespaces available will be exported.",
-    ),
-    pdf: bool = Query(False, description="Whether or not to export the ODM as a PDF."),
+    allowed_namespaces: Annotated[
+        list[str] | None,
+        Query(
+            description="Names of the Vendor Namespaces to export. If not specified, all Vendor Namespaces available will be exported."
+        ),
+    ] = None,
+    status: Annotated[ObjectStatus, Query()] = ObjectStatus.LATEST_FINAL,
+    pdf: Annotated[
+        bool, Query(description="Whether or not to export the ODM as a PDF.")
+    ] = False,
     stylesheet: str | None = None,
-    mapper_file: UploadFile
-    | None = File(
-        default=None,
-        description=MAPPER_DESCRIPTION,
-    ),
-    unit_definition_service: UnitDefinitionService = Depends(),
+    mapper_file: Annotated[
+        UploadFile | None, File(description=MAPPER_DESCRIPTION)
+    ] = None,
 ):
+    if allowed_namespaces is None:
+        allowed_namespaces = {}
     odm_xml_export_service = OdmXmlExporterService(
         target_uid,
         target_type,
@@ -103,7 +109,6 @@ def get_odm_document(
     "/csvs/export",
     dependencies=[rbac.LIBRARY_READ],
     summary="Export ODM CSV",
-    description="",
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -126,7 +131,6 @@ def get_odm_csv(target_uid: str, target_type: TargetType):
     "/xmls/import",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Import ODM XML",
-    description="",
     status_code=201,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -134,18 +138,18 @@ def get_odm_csv(target_uid: str, target_type: TargetType):
     },
 )
 def store_odm_xml(
-    xml_file: UploadFile = File(
-        description="The ODM XML file to upload. Supports ODM V1.",
-    ),
-    exporter: ExporterType = Query(
-        ExporterType.OSB,
-        description="The system that exported this ODM XML file.",
-    ),
-    mapper_file: UploadFile
-    | None = File(
-        default=None,
-        description=MAPPER_DESCRIPTION,
-    ),
+    xml_file: Annotated[
+        UploadFile, File(description="The ODM XML file to upload. Supports ODM V1.")
+    ],
+    exporter: Annotated[
+        ExporterType,
+        Query(
+            description="The system that exported this ODM XML file.",
+        ),
+    ] = ExporterType.OSB,
+    mapper_file: Annotated[
+        UploadFile | None, File(description=MAPPER_DESCRIPTION)
+    ] = None,
 ):
     if exporter == ExporterType.OSB:
         odm_xml_importer_service = OdmXmlImporterService(xml_file, mapper_file)
@@ -159,7 +163,6 @@ def store_odm_xml(
     "/xmls/stylesheets",
     dependencies=[rbac.LIBRARY_READ],
     summary="Listing of all available ODM XML Stylesheet names",
-    description="",
     response_model=list[str],
     status_code=200,
     responses={
@@ -175,7 +178,6 @@ def get_available_stylesheet_names():
     "/xmls/stylesheets/{stylesheet}",
     dependencies=[rbac.LIBRARY_READ],
     summary="Get a specific ODM XML Stylesheet",
-    description="",
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -183,10 +185,7 @@ def get_available_stylesheet_names():
     },
 )
 def get_specific_stylesheet(
-    stylesheet: str = Path(
-        ...,
-        description="Name of the ODM XML Stylesheet.",
-    ),
+    stylesheet: Annotated[str, Path(description="Name of the ODM XML Stylesheet.")],
 ):
     rs = OdmXmlStylesheetService.get_specific_stylesheet(stylesheet)
     return Response(content=rs, media_type="application/xml")

@@ -1,5 +1,7 @@
 from neomodel import (
+    ArrayProperty,
     BooleanProperty,
+    FloatProperty,
     One,
     OneOrMore,
     RelationshipFrom,
@@ -117,6 +119,7 @@ class ActivityGrouping(ClinicalMdrNodeWithUID):
 
 
 class ActivityValue(ConceptValue):
+    synonyms = ArrayProperty(StringProperty())
     is_data_collected = BooleanProperty()
     is_multiple_selection_allowed = BooleanProperty(default=True)
     has_latest_value = RelationshipFrom("ActivityRoot", "LATEST", model=ClinicalMdrRel)
@@ -185,6 +188,8 @@ class ActivityItem(ClinicalMdrNode):
 
 
 class ActivityInstanceValue(ConceptValue):
+    is_research_lab = BooleanProperty()
+    molecular_weight = FloatProperty()
     topic_code = StringProperty()
     adam_param_code = StringProperty()
     is_required_for_activity = BooleanProperty()

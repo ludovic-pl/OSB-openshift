@@ -2,14 +2,13 @@
 
 # pylint: disable=unused-import,redefined-outer-name,unused-argument
 
-import datetime
 import logging
 
 import pytest
 from neomodel import db
 
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
-from clinical_mdr_api.models import ClinicalProgramme, Project
+from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.models.study_selections.study import Study
 from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
 from clinical_mdr_api.models.study_selections.study_selection import (
@@ -18,18 +17,28 @@ from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionArm,
     StudySelectionElement,
 )
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
 from clinical_mdr_api.tests.integration.utils import data_library
 from clinical_mdr_api.tests.integration.utils.data_library import (
     get_codelist_with_term_cypher,
     inject_base_data,
+)
+from clinical_mdr_api.tests.integration.utils.factory_activity import (
+    create_study_activity,
 )
 from clinical_mdr_api.tests.integration.utils.factory_controlled_terminology import (
     create_codelist,
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.factory_epoch import (
+    create_study_epoch,
     create_study_epoch_codelists_ret_cat_and_lib,
 )
+from clinical_mdr_api.tests.integration.utils.factory_visit import (
+    create_study_visit_codelists,
+    generate_default_input_data_for_visit,
+)
+from clinical_mdr_api.tests.integration.utils.method_library import create_library_data
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
 
 __all__ = [
@@ -40,6 +49,7 @@ __all__ = [
     "study_elements",
     "study_design_cells",
     "study_activities",
+    "study_visits",
 ]
 
 log = logging.getLogger(__name__)
@@ -232,3 +242,46 @@ def study_activities(request, tst_study) -> list[StudySelectionActivity]:
         )
         for activity in activities_all
     ]
+
+
+@pytest.fixture(scope="module")
+def study_visits(request, tst_study, study_activities) -> list[StudyVisit]:
+    general_activity_group = TestUtils.create_activity_group(name="General")
+    randomisation_activity_subgroup = TestUtils.create_activity_subgroup(
+        name="Randomisation", activity_groups=[general_activity_group.uid]
+    )
+    randomized_activity = TestUtils.create_activity(
+        name="Randomized",
+        activity_subgroups=[randomisation_activity_subgroup.uid],
+        activity_groups=[general_activity_group.uid],
+        library_name="Sponsor",
+    )
+
+    visit_to_create = generate_default_input_data_for_visit().copy()
+    visit_to_create.update({"time_value": 10})
+
+    # create_study_epoch_codelists_ret_cat_and_lib(use_test_utils=True)
+    create_study_visit_codelists(
+        use_test_utils=True, create_unit_definitions=False, create_epoch_codelist=False
+    )
+
+    study_epoch = create_study_epoch("EpochSubType_0001", study_uid=tst_study.uid)
+
+    first_visit = TestUtils.create_study_visit(
+        study_uid=tst_study.uid, study_epoch_uid=study_epoch.uid, **visit_to_create
+    )
+    # Randomized Study Activity
+    sa_randomized = create_study_activity(
+        study_uid=tst_study.uid,
+        activity_uid=randomized_activity.uid,
+        activity_subgroup_uid=randomisation_activity_subgroup.uid,
+        activity_group_uid=general_activity_group.uid,
+        soa_group_term_uid="term_efficacy_uid",
+    )
+    TestUtils.create_study_activity_schedule(
+        study_uid=tst_study.uid,
+        study_activity_uid=sa_randomized.study_activity_uid,
+        study_visit_uid=first_visit.uid,
+    )
+
+    return [first_visit]

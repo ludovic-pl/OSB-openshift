@@ -3,12 +3,13 @@ import unittest
 import pytest
 from parameterized import parameterized
 
-from clinical_mdr_api import exceptions
+from clinical_mdr_api import utils
 from clinical_mdr_api.domains import _utils
 from clinical_mdr_api.domains.libraries.parameter_term import (
     ParameterTermEntryVO,
     SimpleParameterTermVO,
 )
+from common import exceptions
 
 
 class TestServiceUtils(unittest.TestCase):
@@ -55,7 +56,12 @@ class TestServiceUtils(unittest.TestCase):
 
     def test_get_iso_lang_data_raises_exception(self):
         self.assertRaises(
-            KeyError, _utils.get_iso_lang_data, "AK", "639-1", "639-3", False
+            exceptions.ValidationException,
+            _utils.get_iso_lang_data,
+            "AK",
+            "639-1",
+            "639-3",
+            False,
         )
         self.assertRaises(
             KeyError, _utils.get_iso_lang_data, "ak", "639-1", "NonExistingKey"
@@ -68,7 +74,11 @@ class TestServiceUtils(unittest.TestCase):
             "639-3",
         )
         self.assertRaises(
-            KeyError, _utils.get_iso_lang_data, "NonExistingValue", "639-1", "639-3"
+            exceptions.ValidationException,
+            _utils.get_iso_lang_data,
+            "NonExistingValue",
+            "639-1",
+            "639-3",
         )
         self.assertRaises(TypeError, _utils.get_iso_lang_data, 1, "639-1", "639-3")
 
@@ -90,7 +100,7 @@ class TestServiceUtils(unittest.TestCase):
         ]
     )
     def test_strip_html(self, html, expected):
-        assert _utils.strip_html(html) == expected
+        assert utils.strip_html(html) == expected
 
     @parameterized.expand(
         [
@@ -102,7 +112,7 @@ class TestServiceUtils(unittest.TestCase):
         ]
     )
     def test_convert_to_plain(self, text, expected):
-        assert _utils.convert_to_plain(text) == expected
+        assert utils.convert_to_plain(text) == expected
 
     @parameterized.expand(
         [
@@ -112,7 +122,7 @@ class TestServiceUtils(unittest.TestCase):
         ]
     )
     def test_extract_parameters(self, name, expected):
-        assert _utils.extract_parameters(name) == expected
+        assert utils.extract_parameters(name) == expected
 
     @parameterized.expand(
         [
@@ -141,7 +151,7 @@ class TestServiceUtils(unittest.TestCase):
         ]
     )
     def test_factorize_dict(self, data, expected):
-        assert _utils.factorize_dict(data) == expected
+        assert utils.factorize_dict(data) == expected
 
     @parameterized.expand(
         [
@@ -150,7 +160,7 @@ class TestServiceUtils(unittest.TestCase):
         ]
     )
     def test_defactorize_dict(self, data, expected):
-        assert _utils.defactorize_dict(data) == expected
+        assert utils.defactorize_dict(data) == expected
 
 
 @pytest.mark.parametrize(
@@ -170,7 +180,7 @@ class TestServiceUtils(unittest.TestCase):
     ],
 )
 def test_normalize_string(inpt: str | None, result: str | None):
-    assert _utils.normalize_string(inpt) == result
+    assert utils.normalize_string(inpt) == result
 
 
 @pytest.mark.parametrize(
@@ -183,7 +193,7 @@ def test_normalize_string(inpt: str | None, result: str | None):
 )
 def test_normalize_string_exceptions(inpt: str | None, exception_class):
     with pytest.raises(exception_class):
-        _utils.normalize_string(inpt)
+        utils.normalize_string(inpt)
 
 
 @parameterized.expand(

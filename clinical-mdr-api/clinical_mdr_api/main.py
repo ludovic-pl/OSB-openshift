@@ -1,5 +1,7 @@
 """Application main file."""
+
 import logging
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request, Security, status
@@ -14,13 +16,13 @@ from pydantic import ValidationError
 from starlette.middleware import Middleware
 from starlette_context.middleware import RawContextMiddleware
 
-from clinical_mdr_api import config, exceptions
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth.config import OAUTH_ENABLED, SWAGGER_UI_INIT_OAUTH
-from clinical_mdr_api.oauth.dependencies import dummy_user_auth, validate_token
-from clinical_mdr_api.oauth.discovery import reconfigure_with_openid_discovery
-from clinical_mdr_api.telemetry.traceback_middleware import ExceptionTracebackMiddleware
 from clinical_mdr_api.utils.api_version import get_api_version
+from common import config, exceptions
+from common.auth.config import OAUTH_ENABLED, SWAGGER_UI_INIT_OAUTH
+from common.auth.dependencies import dummy_user_auth, validate_token
+from common.auth.discovery import reconfigure_with_openid_discovery
+from common.models.error import ErrorResponse
+from common.telemetry.traceback_middleware import ExceptionTracebackMiddleware
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +53,8 @@ else:
 
 # Tracing middleware
 if not config.TRACING_DISABLED:
-    from clinical_mdr_api.telemetry.request_metrics import patch_neomodel_database
-    from clinical_mdr_api.telemetry.tracing_middleware import TracingMiddleware
+    from common.telemetry.request_metrics import patch_neomodel_database
+    from common.telemetry.tracing_middleware import TracingMiddleware
 
     middlewares.append(
         Middleware(
@@ -84,10 +86,19 @@ middlewares.append(
 middlewares.append(Middleware(ExceptionTracebackMiddleware))
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if OAUTH_ENABLED:
+        # Reconfiguring Swagger UI settings with OpenID Connect discovery
+        await reconfigure_with_openid_discovery()
+    yield
+
+
 # Create app
 app = FastAPI(
     middleware=middlewares,
     dependencies=global_dependencies,
+    lifespan=lifespan,
     swagger_ui_init_oauth=SWAGGER_UI_INIT_OAUTH,
     title=config.settings.app_name,
     version=get_api_version(),
@@ -132,11 +143,8 @@ System information is provided by a separate [System Information](./system/docs)
 """,
 )
 
-
-@app.on_event("startup")
-async def openid_discovery_on_startup():
-    if OAUTH_ENABLED:
-        await reconfigure_with_openid_discovery()
+# TODO: This is a temporary workaround as schemathesis doesnt support openapi 3.1.0 yet; this should be removed when schemathesis supports 3.1.0
+app.openapi_version = "3.0.2"
 
 
 @app.exception_handler(exceptions.MDRApiBaseException)
@@ -169,8 +177,20 @@ def pydantic_validation_error_handler(request: Request, exception: ValidationErr
     )
 
 
+@app.exception_handler(ValueError)
+def value_error_handler(request: Request, exception: ValueError):
+    """Returns `400 Bad Request` http error status code in case ValueError is raised"""
+
+    ExceptionTracebackMiddleware.add_traceback_attributes(exception)
+
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=jsonable_encoder(ErrorResponse(request, exception)),
+    )
+
+
 # Late import of routers, because they do run code on import, and we want monkey-patching like tracing to work
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position,ungrouped-imports
 from clinical_mdr_api import routers
 
 # Include routers here
@@ -544,6 +564,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
+        openapi_version=app.openapi_version,
         description=app.description,
         routes=app.routes,
     )

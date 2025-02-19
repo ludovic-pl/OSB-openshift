@@ -26,7 +26,7 @@ from mdr_standards_import.scripts.import_scripts.cdisc_data_models.import_csv_da
 )
 from mdr_standards_import.scripts.utils import (
     get_directory_name,
-    get_user_initials,
+    get_author_id,
     get_cdisc_neo4j_driver,
     get_ordered_data_model_versions,
 )
@@ -36,7 +36,7 @@ CDISC_IMPORT_DATABASE = environ.get("NEO4J_CDISC_IMPORT_DATABASE", "cdisc")
 
 
 def wrapper_import_cdisc_data_models_into_cdisc_db(
-    user_initials: str, json_data_directory: str = ""
+    author_id: str, json_data_directory: str = ""
 ):
     """
     Calls the import step to transform the JSON files into the CDISC graph structure.
@@ -63,7 +63,7 @@ def wrapper_import_cdisc_data_models_into_cdisc_db(
                     data_directory=json_data_directory,
                     cdisc_import_neo4j_driver=cdisc_neo4j_driver,
                     cdisc_import_db_name=CDISC_IMPORT_DATABASE,
-                    user_initials=user_initials,
+                    author_id=author_id,
                 )
             elif catalogue in ["FBDEIG", "NN-VEEVA-EDC-IG"]:
                 # Already imported by above condition
@@ -76,11 +76,11 @@ def wrapper_import_cdisc_data_models_into_cdisc_db(
                     data_directory=json_data_directory,
                     cdisc_import_neo4j_driver=cdisc_neo4j_driver,
                     cdisc_import_db_name=CDISC_IMPORT_DATABASE,
-                    user_initials=user_initials,
+                    author_id=author_id,
                 )
 
     cdisc_neo4j_driver.close()
 
 
 if __name__ == "__main__":
-    wrapper_import_cdisc_data_models_into_cdisc_db(get_user_initials(1), get_directory_name(2, "cdisc_data_models"))
+    wrapper_import_cdisc_data_models_into_cdisc_db(get_author_id(1), get_directory_name(2, "cdisc_data_models"))

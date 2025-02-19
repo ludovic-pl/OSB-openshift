@@ -4,12 +4,8 @@ from functools import reduce
 from operator import add
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains._utils import (
     capitalize_first_letter_if_template_parameter,
-    convert_to_plain,
-    extract_parameters,
-    strip_html,
 )
 from clinical_mdr_api.domains.libraries.parameter_term import ParameterTermEntryVO
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
@@ -23,6 +19,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleCTTermNameAndAttributes,
 )
+from clinical_mdr_api.utils import convert_to_plain, extract_parameters, strip_html
+from common.exceptions import NotFoundException
 
 
 @dataclass(frozen=True)
@@ -81,10 +79,10 @@ class ParametrizedTemplateVO:
         """
         template = get_final_template_vo_by_template_uid_callback(template_uid)
 
-        if template is None:
-            raise exceptions.ValidationException(
-                f"The template with uid '{template_uid}' was not found. Make sure that there is a latest 'Final' version."
-            )
+        NotFoundException.raise_if(
+            template is None,
+            msg=f"Template with UID '{template_uid}' doesn't exist. Make sure that there is a latest 'Final' version.",
+        )
 
         return cls(
             template_name=template.name,
@@ -321,7 +319,7 @@ class ParametrizedTemplateARBase(LibraryItemAggregateRootBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         template: ParametrizedTemplateVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -329,7 +327,9 @@ class ParametrizedTemplateARBase(LibraryItemAggregateRootBase):
             lambda _: None
         ),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         generated_uid = generate_uid_callback()
 
@@ -342,18 +342,20 @@ class ParametrizedTemplateARBase(LibraryItemAggregateRootBase):
         )
 
     def edit_draft(
-        self, author: str, change_description: str, template: ParametrizedTemplateVO
+        self, author_id: str, change_description: str, template: ParametrizedTemplateVO
     ):
         """
         Creates a new draft version for the object.
         """
         if self._template != template:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._template = template
 
     def cascade_update(
         self,
-        author: str,
+        author_id: str,
         date: datetime.datetime,
         new_template_name: str,
         change_description: str = CASCADING_UPDATE_LABEL,
@@ -366,7 +368,7 @@ class ParametrizedTemplateARBase(LibraryItemAggregateRootBase):
             library_name=self._template.library_name,
         )
         self._item_metadata = self._item_metadata.new_version_start_date(
-            author=author, change_description=change_description, date=date
+            author_id=author_id, change_description=change_description, date=date
         )
 
     @property

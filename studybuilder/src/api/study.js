@@ -366,6 +366,12 @@ export default {
       data
     )
   },
+  batchSelectStudyActivityInstances(studyUid, data) {
+    return repository.post(
+      `studies/${studyUid}/study-activity-instances/batch-select`,
+      data
+    )
+  },
   getStudyActivityInstancesAuditTrail(studyUid) {
     return repository.get(
       `studies/${studyUid}/study-activity-instances/audit-trail`
@@ -378,6 +384,12 @@ export default {
   },
   createStudyActivity(studyUid, data) {
     return repository.post(`studies/${studyUid}/study-activities`, data)
+  },
+  exchangeStudyActivity(studyUid, activityUid, data) {
+    return repository.patch(
+      `studies/${studyUid}/study-activities/${activityUid}/activity-replacements`,
+      data
+    )
   },
   async updateStudyActivity(studyUid, studyActivityUid, data) {
     return await repository.patch(
@@ -437,6 +449,11 @@ export default {
       `studies/${studyUid}/study-activities/${studyActivityUid}/activity-requests-approvals`
     )
   },
+  updateToLatestActivityVersion(studyUid, studyActivityUid) {
+    return repository.post(
+      `studies/${studyUid}/study-activities/${studyActivityUid}/sync-latest-version`
+    )
+  },
   getStudyActivitySchedules(studyUid, options) {
     const params = {
       ...options,
@@ -456,6 +473,12 @@ export default {
   studyActivityScheduleBatchOperations(studyUid, data) {
     return repository.post(
       `studies/${studyUid}/study-activity-schedules/batch`,
+      data
+    )
+  },
+  studyActivitySoaEditsBatchOperations(studyUid, data) {
+    return repository.post(
+      `studies/${studyUid}/soa-edits/batch`,
       data
     )
   },
@@ -481,7 +504,9 @@ export default {
         },
       }
     } else {
-      JSON.parse(params.filters)['criteria_type.sponsor_preferred_name_sentence_case'] = {
+      JSON.parse(params.filters)[
+        'criteria_type.sponsor_preferred_name_sentence_case'
+      ] = {
         v: [criteriaType.name.sponsor_preferred_name_sentence_case],
       }
     }
@@ -794,7 +819,7 @@ export default {
   selectStudyFootnote(studyUid, footnoteUid, referencedItems) {
     const data = {
       footnote_uid: footnoteUid,
-      referenced_items: referencedItems
+      referenced_items: referencedItems,
     }
     return repository.post(
       `${resource}/${studyUid}/study-soa-footnotes?create_footnote=false`,
@@ -837,6 +862,9 @@ export default {
   getDdfUsdmJson(studyUid) {
     return repository.get(`ddf/v3/studyDefinitions/${studyUid}`)
   },
+  getDdfIchM11(studyUid) {
+    return repository.get(`ddf/v3/studyDefinitions/${studyUid}/m11`)
+  },
   getStudyStandardVersions(studyUid) {
     return repository.get(`${resource}/${studyUid}/study-standard-versions`)
   },
@@ -868,13 +896,12 @@ export default {
     )
   },
   getPharmaCm(studyUid) {
-    return repository.get(
-      `${resource}/${studyUid}/pharma-cm`
-    )
+    return repository.get(`${resource}/${studyUid}/pharma-cm`)
   },
   getPharmaCmXml(studyUid) {
-    return repository.get(
-      `${resource}/${studyUid}/pharma-cm.xml`
-    )
-  }
+    return repository.get(`${resource}/${studyUid}/pharma-cm.xml`)
+  },
+  getStructureOverview(params) {
+    return repository.get(`${resource}/structure-overview`, { params })
+  },
 }

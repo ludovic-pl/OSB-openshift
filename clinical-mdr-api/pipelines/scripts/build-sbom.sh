@@ -31,12 +31,13 @@ else
 fi
 
 [ -n "$search_dirs" ] || fatal "Can't find Python package directory"
-[ -d "$search_dirs" ] || fatal "Python package directory does not exist: $search_dirs"
+[ -d "$search_dirs" ] || fatal "Python package directory doesn't exist: $search_dirs"
 [ -n "$FALLBACK_LICENSE_DIR" ] || fatal "Fallback license directory not set"
 [ -d "$FALLBACK_LICENSE_DIR" ] || fatal "Fallback license directory not exists: $FALLBACK_LICENSE_DIR"
 [ -r "$FALLBACK_LICENSE_DIR" ] || fatal "Fallback license directory is not readable: $FALLBACK_LICENSE_DIR"
 
 
+echo -e '\xEF\xBB\xBF'  # UTF-8 BOM
 cat <<EOF
 ## Installed packages
 
@@ -46,10 +47,14 @@ package_list="$(mktemp)" || fatal "Couldn't get a temporary file"
 temp_files="$temp_files $package_list"
 pip list --format freeze > "$package_list"
 
-pipenv graph | sed 's/^\b/- /' || {
-    echo "|       Package        | Version  |"
-    echo "|----------------------|----------|"
-    awk -F == '{ printf("| %-20s | %-8s |\n", $1, $2) }' "$package_list"
+{
+#    echo '```'
+#    pipenv graph
+#    echo '```'
+#} || {
+    echo "|            Package             |       Version        |"
+    echo "|--------------------------------|----------------------|"
+    awk -F == '{ printf("| %-30s | %-20s |\n", $1, $2) }' "$package_list"
 }
 
 

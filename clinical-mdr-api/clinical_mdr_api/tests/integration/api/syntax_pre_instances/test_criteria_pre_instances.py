@@ -16,8 +16,11 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.syntax_pre_instances.criteria_pre_instance import (
     CriteriaPreInstance,
 )
@@ -27,25 +30,25 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     MultiTemplateParameterTerm,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 criteria_pre_instances: list[CriteriaPreInstance]
 criteria_template: CriteriaTemplate
-ct_term_inclusion: models.CTTerm
-dictionary_term_indication: models.DictionaryTerm
-ct_term_category: models.CTTerm
-ct_term_subcategory: models.CTTerm
-indications_codelist: models.DictionaryCodelist
+ct_term_inclusion: CTTerm
+dictionary_term_indication: DictionaryTerm
+ct_term_category: CTTerm
+ct_term_subcategory: CTTerm
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-text_value_1: models.TextValue
-text_value_2: models.TextValue
+text_value_1: TextValue
+text_value_2: TextValue
 
 URL = "criteria-pre-instances"
 
@@ -235,8 +238,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 CRITERIA_PRE_INSTANCE_FIELDS_ALL = [
     "name",
@@ -252,7 +253,7 @@ CRITERIA_PRE_INSTANCE_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameter_terms",
     "library",
@@ -275,7 +276,7 @@ def test_get_criteria(api_client):
     response = api_client.get(f"{URL}/{criteria_pre_instances[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(CRITERIA_PRE_INSTANCE_FIELDS_ALL)
@@ -392,7 +393,7 @@ def test_get_criteria_pre_instances(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -424,7 +425,7 @@ def test_get_versions_of_criteria_pre_instance(api_client):
     response = api_client.get(f"{URL}/{criteria_pre_instances[1].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == criteria_pre_instances[1].uid
@@ -518,7 +519,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -535,10 +536,10 @@ def test_filtering_wildcard(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for criteria_pre_instance in criteria_pre_instances:
         value = getattr(criteria_pre_instance, field_name)
@@ -559,7 +560,7 @@ def test_create_new_version_of_criteria_pre_instance(api_client):
     res = response.json()
     log.info("Created new version of Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -636,7 +637,7 @@ def test_update_criteria_pre_instance1(api_client):
     res = response.json()
     log.info("Updated Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -700,7 +701,7 @@ def test_update_criteria_pre_instance1(api_client):
 
     response = api_client.get(f"{URL}/{criteria_pre_instances[3].uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == criteria_pre_instances[3].uid
     assert res["sequence_id"] == "CI1P4"
     assert res["guidance_text"] == "new guidance text"
@@ -735,7 +736,7 @@ def test_update_criteria_pre_instance2(api_client):
     res = response.json()
     log.info("Updated Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -799,7 +800,7 @@ def test_update_criteria_pre_instance2(api_client):
 
     response = api_client.get(f"{URL}/{criteria_pre_instances[3].uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == criteria_pre_instances[3].uid
     assert res["sequence_id"] == "CI1P4"
     assert res["guidance_text"] == "haha guidance text"
@@ -834,7 +835,7 @@ def test_update_criteria_pre_instance3(api_client):
     res = response.json()
     log.info("Updated Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -898,7 +899,7 @@ def test_update_criteria_pre_instance3(api_client):
 
     response = api_client.get(f"{URL}/{criteria_pre_instances[3].uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == criteria_pre_instances[3].uid
     assert res["sequence_id"] == "CI1P4"
     assert res["guidance_text"] == "Default guidance text"
@@ -930,7 +931,7 @@ def test_change_criteria_pre_instance_indexings(api_client):
     res = response.json()
     log.info("Changed Criteria Pre-Instance indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -1031,7 +1032,7 @@ def test_remove_criteria_pre_instance_indexings(api_client):
     res = response.json()
     log.info("Removed Criteria Pre-Instance indexings: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["sequence_id"]
     assert res["template_uid"] == criteria_template.uid
@@ -1054,14 +1055,14 @@ def test_delete_criteria_pre_instance(api_client):
     response = api_client.delete(f"{URL}/{criteria_pre_instances[3].uid}")
     log.info("Deleted Criteria Pre-Instance: %s", criteria_pre_instances[3].uid)
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_criteria_pre_instance(api_client):
     response = api_client.post(f"{URL}/{criteria_pre_instances[4].uid}/approvals")
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == criteria_pre_instances[4].uid
     assert res["sequence_id"] == "CI1P5"
     assert res["template_uid"] == criteria_template.uid
@@ -1113,7 +1114,7 @@ def test_inactivate_criteria_pre_instance(api_client):
     response = api_client.delete(f"{URL}/{criteria_pre_instances[4].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == criteria_pre_instances[4].uid
     assert res["sequence_id"] == "CI1P5"
     assert res["guidance_text"] == criteria_template.guidance_text
@@ -1161,7 +1162,7 @@ def test_reactivate_criteria_pre_instance(api_client):
     response = api_client.post(f"{URL}/{criteria_pre_instances[4].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == criteria_pre_instances[4].uid
     assert res["sequence_id"] == "CI1P5"
     assert res["guidance_text"] == criteria_template.guidance_text
@@ -1210,7 +1211,7 @@ def test_criteria_pre_instance_audit_trail(api_client):
     res = response.json()
     log.info("CriteriaPreInstance Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 51
     expected_uids = [
         "CriteriaPreInstance_000005",
@@ -1296,7 +1297,7 @@ def test_create_pre_instance_criteria_template(api_client):
     res = response.json()
     log.info("Created Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "CI1P26"
     assert res["template_uid"] == criteria_template.uid
@@ -1391,7 +1392,7 @@ def test_keep_original_case_of_unit_definition_parameter_if_it_is_in_the_start_o
     res = response.json()
     log.info("Created Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["name"] == f"[{_unit.name}] test ignore case"
 
 
@@ -1434,7 +1435,7 @@ def test_criteria_pre_instance_sequence_id_generation(api_client):
     res = response.json()
     log.info("Created Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "CE1P1"
     assert res["template_uid"] == template.uid
@@ -1536,7 +1537,7 @@ def test_criteria_pre_instance_template_parameter_rules(api_client):
     res = response.json()
     log.info("Created Criteria Pre-Instance: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert "PreInstance" in res["uid"]
     assert res["sequence_id"] == "CI3P1"
     assert res["template_uid"] == template.uid

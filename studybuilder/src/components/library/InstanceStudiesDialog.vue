@@ -1,5 +1,5 @@
 <template>
-  <v-card color="dfltBackground">
+  <v-card elevation="0" rounded="xl">
     <v-card-title>
       <span class="dialog-title">{{
         $t('InstanceStudiesDialog.title', { type })
@@ -48,9 +48,16 @@
         </template>
       </v-data-table>
     </v-card-text>
+    <v-divider />
     <v-card-actions>
       <v-spacer />
-      <v-btn color="secondary" @click="close">
+      <v-btn 
+        color="secondary"
+        variant="outlined"
+        elevation="0"
+        rounded
+        @click="close"
+      >
         {{ $t('_global.close') }}
       </v-btn>
     </v-card-actions>
@@ -140,12 +147,10 @@ export default {
       this.$emit('close')
     },
     goToStudy(study) {
-      this.selectStudy({ studyObj: study })
       this.$router.push({
         name: 'StudyPurpose',
         params: { study_id: study.uid, tab: this.type + 's' },
       })
-      this.$router.go()
     },
   },
 }

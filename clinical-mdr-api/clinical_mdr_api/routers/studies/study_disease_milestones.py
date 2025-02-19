@@ -1,24 +1,24 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Body, Path, Query, Request, Response, status
 from pydantic.types import Json
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections import study_disease_milestone
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.services.studies.study_disease_milestone import (
     StudyDiseaseMilestoneService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
-studyUID = Path(..., description="The unique id of the study.")
+studyUID = Path(description="The unique id of the study.")
 
 study_disease_milestone_uid_description = Path(
-    None, description="The unique id of the study disease_milestone."
+    description="The unique id of the study disease_milestone."
 )
 
 
@@ -65,7 +65,7 @@ Possible errors:
             "uid",
             "order",
             "disease_milestone_type",
-            "disease_milestone_type_named",
+            "disease_milestone_type_name",
             "disease_milestone_type_definition",
             "repetition_indicator",
             "study_uid",
@@ -82,27 +82,37 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_uid: str = Path(description="the study"),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ) -> CustomPage[study_disease_milestone.StudyDiseaseMilestone]:
     disease_milestone_service = StudyDiseaseMilestoneService()
     all_items = disease_milestone_service.get_all_disease_milestones(
@@ -142,20 +152,29 @@ def get_all(
 )
 # pylint: disable=unused-argument
 def get_distinct_values_for_header(
-    study_uid: str = studyUID,  # TODO: Use this argument!
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    study_uid: Annotated[str, studyUID],  # TODO: Use this argument!
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     service = StudyDiseaseMilestoneService()
     return service.get_distinct_values_for_header(
@@ -163,7 +182,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -197,7 +216,7 @@ Possible errors:
     },
 )
 def get_study_disease_milestones_all_audit_trail(
-    study_uid: str = studyUID,
+    study_uid: Annotated[str, studyUID],
 ) -> list[study_disease_milestone.StudyDiseaseMilestoneVersion]:
     service = StudyDiseaseMilestoneService()
     return service.audit_trail_all_disease_milestones(study_uid)
@@ -239,8 +258,10 @@ Possible errors:
 )
 # pylint: disable=unused-argument
 def get_study_disease_milestone(
-    study_uid: str = studyUID,
-    study_disease_milestone_uid: str = study_disease_milestone_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_disease_milestone_uid: Annotated[
+        str, study_disease_milestone_uid_description
+    ],
 ) -> study_disease_milestone.StudyDiseaseMilestone:
     service = StudyDiseaseMilestoneService()
     return service.find_by_uid(study_disease_milestone_uid)
@@ -276,8 +297,10 @@ Possible errors:
     },
 )
 def get_study_disease_milestone_audit_trail(
-    study_uid: str = studyUID,
-    study_disease_milestone_uid: str = study_disease_milestone_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_disease_milestone_uid: Annotated[
+        str, study_disease_milestone_uid_description
+    ],
 ) -> list[study_disease_milestone.StudyDiseaseMilestoneVersion]:
     service = StudyDiseaseMilestoneService()
     return service.audit_trail(
@@ -321,10 +344,11 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_disease_milestone_create(
-    study_uid: str = studyUID,
-    selection: study_disease_milestone.StudyDiseaseMilestoneCreateInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        study_disease_milestone.StudyDiseaseMilestoneCreateInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_disease_milestone.StudyDiseaseMilestone:
     service = StudyDiseaseMilestoneService()
     return service.create(study_uid=study_uid, study_disease_milestone_input=selection)
@@ -357,7 +381,7 @@ Possible errors:
         204: {"description": "No Content - The selection was successfully deleted."},
         404: {
             "model": ErrorResponse,
-            "description": "Not Found - the study or disease_milestone does not exist.",
+            "description": "Not Found - the study or disease_milestone doesn't exist.",
         },
         500: _generic_descriptions.ERROR_500,
     },
@@ -365,8 +389,10 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def delete_study_disease_milestone(
-    study_uid: str = studyUID,  # TODO: Use this argument!
-    study_disease_milestone_uid: str = study_disease_milestone_uid_description,
+    study_uid: Annotated[str, studyUID],  # TODO: Use this argument!
+    study_disease_milestone_uid: Annotated[
+        str, study_disease_milestone_uid_description
+    ],
 ):
     service = StudyDiseaseMilestoneService()
 
@@ -418,11 +444,14 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def patch_reorder(
-    study_uid: str = studyUID,  # TODO: Use this argument!
-    study_disease_milestone_uid: str = study_disease_milestone_uid_description,
-    new_order_input: study_disease_milestone.StudySelectionDiseaseMilestoneNewOrder = Body(
-        description="New value to set for the order property of the selection"
-    ),
+    study_uid: Annotated[str, studyUID],  # TODO: Use this argument!
+    study_disease_milestone_uid: Annotated[
+        str, study_disease_milestone_uid_description
+    ],
+    new_order_input: Annotated[
+        study_disease_milestone.StudySelectionDiseaseMilestoneNewOrder,
+        Body(description="New value to set for the order property of the selection"),
+    ],
 ) -> study_disease_milestone.StudyDiseaseMilestone:
     service = StudyDiseaseMilestoneService()
     return service.reorder(
@@ -466,11 +495,14 @@ Possible errors:
 @decorators.validate_if_study_is_not_locked("study_uid")
 # pylint: disable=unused-argument
 def patch_update_disease_milestone(
-    study_uid: str = studyUID,
-    study_disease_milestone_uid: str = study_disease_milestone_uid_description,
-    selection: study_disease_milestone.StudyDiseaseMilestoneEditInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
+    study_uid: Annotated[str, studyUID],
+    study_disease_milestone_uid: Annotated[
+        str, study_disease_milestone_uid_description
+    ],
+    selection: Annotated[
+        study_disease_milestone.StudyDiseaseMilestoneEditInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
 ) -> study_disease_milestone.StudyDiseaseMilestone:
     service = StudyDiseaseMilestoneService()
     return service.edit(

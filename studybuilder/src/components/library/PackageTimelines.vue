@@ -1,5 +1,6 @@
 <template>
-  <v-tabs v-model="tab" bg-color="dfltBackground">
+  <slot v-if="_isEmpty(packages)" name="empty" />
+  <v-tabs v-if="!_isEmpty(packages)" v-model="tab" bg-color="dfltBackground">
     <v-tab
       v-for="(pckgs, catalogue) in packages"
       :key="catalogue"
@@ -9,7 +10,7 @@
       {{ catalogue }}
     </v-tab>
   </v-tabs>
-  <v-window v-model="tab">
+  <v-window v-if="!_isEmpty(packages)" v-model="tab">
     <v-window-item
       v-for="(cataloguePackages, catalogue) in packages"
       :key="`${catalogue}-${tabKeys[catalogue]}`"
@@ -35,6 +36,7 @@ import { nextTick, ref, onMounted, watch } from 'vue'
 import { useCtCataloguesStore } from '@/stores/library-ctcatalogues'
 import { useTabKeys } from '@/composables/tabKeys'
 import { DateTime } from 'luxon'
+import _isEmpty from 'lodash/isEmpty'
 import controlledTerminology from '@/api/controlledTerminology'
 import PackageTimeline from './PackageTimeline.vue'
 
@@ -58,7 +60,7 @@ const emit = defineEmits(['addPackage', 'catalogueChanged', 'packageChanged'])
 const ctCataloguesStore = useCtCataloguesStore()
 const { tabKeys, updateTabKey } = useTabKeys()
 
-const packages = ref([])
+const packages = ref({})
 const tab = ref(null)
 const timelineRefs = ref({})
 
@@ -85,7 +87,7 @@ function fetchPackages() {
     packages.value = sortPackages(resp.data)
     if (props.catalogueName) {
       tab.value = props.catalogueName
-    } else {
+    } else if (!_isEmpty(packages.value)) {
       tab.value = Object.keys(packages.value)[0]
     }
   })

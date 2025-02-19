@@ -12,7 +12,7 @@
         "study_element_name": "Follow-up",
         "transition_rule": null,
         "start_date": "2022-05-17T13:49:17.040117",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "study_uid": "Study_999999",
@@ -27,7 +27,7 @@
         "study_element_name": "Observation",
         "transition_rule": null,
         "start_date": "2022-05-17T13:49:16.983171",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "study_uid": "Study_999999",
@@ -42,7 +42,7 @@
         "study_element_name": "Screening",
         "transition_rule": null,
         "start_date": "2022-05-17T13:49:16.748282",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "study_uid": "Study_999999",
@@ -57,7 +57,7 @@
         "study_element_name": "Follow-up",
         "transition_rule": null,
         "start_date": "2022-05-16T09:20:39.354975",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "study_uid": "Study_999999",
@@ -72,7 +72,7 @@
         "study_element_name": "Observation",
         "transition_rule": null,
         "start_date": "2022-05-16T09:20:39.299165",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     },
     {
         "study_uid": "Study_999999",
@@ -87,6 +87,6 @@
         "study_element_name": "Screening",
         "transition_rule": null,
         "start_date": "2022-05-16T09:20:39.248042",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
     }
 ]

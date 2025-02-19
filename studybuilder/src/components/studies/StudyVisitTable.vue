@@ -214,7 +214,7 @@
           />
         </div>
         <div v-else>
-          {{ item.repeating_frequency_name }}
+          <CTTermDisplay :term="item.repeating_frequency" />
         </div>
       </template>
       <template #[`item.visit_window`]="{ item }">
@@ -578,8 +578,8 @@ const actions = ref([
     label: t('StudyVisitTable.duplicate'),
     icon: 'mdi-plus-box-multiple-outline',
     iconColor: 'primary',
-    condition: (item) =>
-      item.visit_class !== visitConstants.CLASS_MANUALLY_DEFINED_VISIT,
+    condition: (item) => 
+      ![visitConstants.CLASS_NON_VISIT, visitConstants.CLASS_UNSCHEDULED_VISIT, visitConstants.CLASS_MANUALLY_DEFINED_VISIT, visitConstants.CLASS_SPECIAL_VISIT].includes(item.visit_class) && item.visit_subclass !== visitConstants.SUBCLASS_ANCHOR_VISIT_IN_GROUP_OF_SUBV,
     click: openDuplicateForm,
     accessRole: roles.STUDY_WRITE,
   },
@@ -651,7 +651,7 @@ const headers = ref([
   { title: t('StudyVisitForm.study_week_label'), key: 'study_week_label' },
   { title: t('StudyVisitForm.week_in_study'), key: 'week_in_study_label' },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('StudyVisitForm.modified_user'), key: 'user_initials' },
+  { title: t('StudyVisitForm.modified_user'), key: 'author_username' },
 ])
 const defaultColumns = ref([
   { title: '', key: 'actions', width: '1%' },
@@ -714,7 +714,7 @@ const defaultColumns = ref([
   { title: t('StudyVisitForm.study_week_label'), key: 'study_week_label' },
   { title: t('StudyVisitForm.week_in_study'), key: 'week_in_study_label' },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('StudyVisitForm.modified_user'), key: 'user_initials' },
+  { title: t('StudyVisitForm.modified_user'), key: 'author_username' },
 ])
 const editHeaders = ref([
   { title: '', key: 'actions', width: '1%' },
@@ -730,7 +730,7 @@ const editHeaders = ref([
     title: t('StudyVisitForm.global_anchor_visit'),
     key: 'is_global_anchor_visit',
   },
-  { title: t('StudyVisitForm.contact_mode'), key: 'visit_contact_mode_name' },
+  { title: t('StudyVisitForm.contact_mode'), key: 'visit_contact_mode.sponsor_preferred_name' },
   { title: t('StudyVisitForm.time_reference'), key: 'time_reference_name' },
   { title: t('StudyVisitForm.time_value'), key: 'time_value', width: '10%' },
   { title: t('StudyVisitForm.visit_name'), key: 'visit_name' },
@@ -786,8 +786,7 @@ const lineChartOptions = ref({
           return (
             context.dataset.label,
             [
-              context.dataset.contact_mode,
-              context.dataset.visit_type,
+              `${context.dataset.contact_mode}, ${context.dataset.visit_type}`,
               `${context.dataset.study_day}, ${context.dataset.week}`,
             ]
           )
@@ -905,7 +904,7 @@ const barChartStyles = computed(() => {
 const lineChartStyles = computed(() => {
   return {
     position: 'relative',
-    height: '90px',
+    height: '60px',
   }
 })
 const exportDataUrl = computed(() => {
@@ -1184,6 +1183,7 @@ function buildChart() {
       })
     }
   })
+  let sameWeek
   timeLineVisits.value.forEach((el) => {
     const value =
       preferredTimeUnit.value === studyConstants.STUDY_TIME_UNIT_DAY
@@ -1193,17 +1193,19 @@ function buildChart() {
       data: [
         {
           x: value,
-          y: 0,
+          y: sameWeek === el.study_week_label ? 0 : 1,
           r: 7,
         },
       ],
       study_day: el.study_day_label,
       label: el.visit_name,
       backgroundColor: 'rgb(6, 57, 112)',
-      contact_mode: el.visit_contact_mode_name,
+      contact_mode: el.visit_contact_mode.sponsor_preferred_name,
       visit_type: el.visit_type_name,
       week: el.study_week_label,
+      
     })
+    sameWeek = el.study_week_label
   })
   if (timeLineVisits.value.length > 0) {
     const lastVisitDay =

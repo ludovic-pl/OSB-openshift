@@ -13,11 +13,11 @@ from clinical_mdr_api.models.biomedical_concepts.activity_item_class import (
     ActivityItemClassMappingInput,
     ActivityItemClassVersion,
 )
-from clinical_mdr_api.services._utils import raise_404_if_none
 from clinical_mdr_api.services.neomodel_ext_generic import (
     NeomodelExtGenericService,
     _AggregateRootType,
 )
+from common.exceptions import NotFoundException
 
 
 class ActivityItemClassService(NeomodelExtGenericService):
@@ -37,7 +37,7 @@ class ActivityItemClassService(NeomodelExtGenericService):
         self, item_input: ActivityItemClassCreateInput, library: LibraryVO
     ) -> _AggregateRootType:
         return ActivityItemClassAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             activity_item_class_vo=ActivityItemClassVO.from_repository_values(
                 name=item_input.name,
                 definition=item_input.definition,
@@ -59,7 +59,7 @@ class ActivityItemClassService(NeomodelExtGenericService):
         self, item: ActivityItemClassAR, item_edit_input: ActivityItemClassEditInput
     ) -> ActivityItemClassAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=item_edit_input.change_description,
             activity_item_class_vo=ActivityItemClassVO.from_repository_values(
                 name=item_edit_input.name,
@@ -68,12 +68,16 @@ class ActivityItemClassService(NeomodelExtGenericService):
                 order=item_edit_input.order,
                 mandatory=item_edit_input.mandatory,
                 activity_instance_class_uids=item_edit_input.activity_instance_class_uids,
-                role_uid=item_edit_input.role_uid
-                if item_edit_input.role_uid
-                else item.activity_item_class_vo.role_uid,
-                data_type_uid=item_edit_input.data_type_uid
-                if item_edit_input.data_type_uid
-                else item.activity_item_class_vo.data_type_uid,
+                role_uid=(
+                    item_edit_input.role_uid
+                    if item_edit_input.role_uid
+                    else item.activity_item_class_vo.role_uid
+                ),
+                data_type_uid=(
+                    item_edit_input.data_type_uid
+                    if item_edit_input.data_type_uid
+                    else item.activity_item_class_vo.data_type_uid
+                ),
             ),
             activity_instance_class_exists=self._repos.activity_instance_class_repository.check_exists_final_version,
             activity_item_class_exists_by_name_callback=self._repos.activity_item_class_repository.check_exists_by_name,
@@ -87,10 +91,8 @@ class ActivityItemClassService(NeomodelExtGenericService):
         activity_item_class = self._repos.activity_item_class_repository.find_by_uid(
             uid
         )
-        raise_404_if_none(
-            activity_item_class,
-            f"Activity item class with uid '{uid}' does not exist.",
-        )
+
+        NotFoundException.raise_if_not(activity_item_class, "Activity Item Class", uid)
 
         try:
             self._repos.activity_item_class_repository.patch_mappings(

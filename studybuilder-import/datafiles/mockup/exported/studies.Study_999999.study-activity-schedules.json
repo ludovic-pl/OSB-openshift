@@ -8,7 +8,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -19,7 +19,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000003",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -30,7 +30,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 3",
     "study_visit_uid": "StudyVisit_000003",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -41,7 +41,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000002",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -52,7 +52,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 2",
     "study_visit_uid": "StudyVisit_000002",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -63,7 +63,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -74,7 +74,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -85,7 +85,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -96,7 +96,7 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "note": null,
@@ -107,6 +107,6 @@
     "study_uid": "Study_999999",
     "study_visit_name": "Visit 1",
     "study_visit_uid": "StudyVisit_000001",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

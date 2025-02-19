@@ -9,7 +9,11 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
     ObjectAction,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException, ValidationException
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
+)
 
 
 @dataclass(frozen=True)
@@ -18,7 +22,7 @@ class ConceptVO:
     The ConceptVO acts as the value object for a single ActivityInstance value object
     """
 
-    name: str
+    name: str | None
     name_sentence_case: str | None
     definition: str | None
     abbreviation: str | None
@@ -33,8 +37,10 @@ class ConceptVO:
         error_message: str,
     ):
         existing_node_uid = lookup_callback(property_name, value)
-        if existing_node_uid and existing_node_uid != uid:
-            raise ValidationException(error_message)
+
+        AlreadyExistsException.raise_if(
+            existing_node_uid and existing_node_uid != uid, msg=error_message
+        )
 
     @classmethod
     def duplication_check(
@@ -77,10 +83,9 @@ class ConceptVO:
             ):
                 duplicates.append(f"{property_name}: {property_value}")
 
-        if duplicates:
-            raise BusinessLogicException(
-                f"""{object_name} with {duplicates} already exists."""
-            )
+        AlreadyExistsException.raise_if(
+            duplicates, msg=f"{object_name} with {duplicates} already exists."
+        )
 
     def check_concepts_exist(
         self,
@@ -128,16 +133,17 @@ class ConceptVO:
                     )
                 )
 
-        if errors:
-            raise BusinessLogicException(
-                f"{object_name} tried to connect to non-existent concepts {errors}."
-            )
+        BusinessLogicException.raise_if(
+            errors,
+            msg=f"{object_name} tried to connect to non-existent concepts {errors}.",
+        )
 
     def validate_name_sentence_case(self):
-        if self.name_sentence_case.lower() != self.name.lower():
-            raise ValidationException(
-                f"Lowercase versions of '{self.name}' and '{self.name_sentence_case}' must be equal"
-            )
+        ValidationException.raise_if(
+            self.name_sentence_case is None
+            or self.name_sentence_case.lower() != self.name.lower(),
+            msg=f"Lowercase versions of '{self.name}' and '{self.name_sentence_case}' must be equal",
+        )
 
 
 # pylint: disable=invalid-name
@@ -182,7 +188,7 @@ class ConceptARBase(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         concept_vo: _ConceptVOType,
         library: LibraryVO,
         concept_exists_by_callback: Callable[
@@ -190,11 +196,15 @@ class ConceptARBase(LibraryItemAggregateRootBase):
         ] = lambda x, y, z: True,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
-        if not library.is_editable:
-            raise BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
+
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
+
         ConceptVO.duplication_check(
             [("name", concept_vo.name, None)], concept_exists_by_callback
         )
@@ -208,7 +218,7 @@ class ConceptARBase(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: _ConceptVOType,
         concept_exists_by_callback: Callable[
@@ -222,14 +232,16 @@ class ConceptARBase(LibraryItemAggregateRootBase):
             [("name", concept_vo.name, self.name)], concept_exists_by_callback
         )
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self.concept_vo = concept_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """

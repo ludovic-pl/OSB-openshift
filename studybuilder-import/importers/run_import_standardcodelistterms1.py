@@ -39,7 +39,7 @@ epoch_sub_type = lambda row, headers: {
         "code_submission_value": row[headers.index("GEN_EPOCH_SUB_TYPE_CD")],
         "name_submission_value": row[headers.index("GEN_EPOCH_SUB_TYPE_CD")],
         "nci_preferred_name": "UNK",
-        "definition": "",
+        "definition": row[headers.index("DEFINITION")] or "TBD",
         "sponsor_preferred_name": row[headers.index("GEN_EPOCH_SUB_TYPE")],
         "sponsor_preferred_name_sentence_case": row[
             headers.index("GEN_EPOCH_SUB_TYPE")
@@ -58,7 +58,7 @@ epoch = {
             "code_submission_value": row[headers.index("GEN_EPOCH_CD")],
             "name_submission_value": row[headers.index("GEN_EPOCH_CD")],
             "nci_preferred_name": "UNK",
-            "definition": "",
+            "definition": "TBD",
             "sponsor_preferred_name": row[headers.index("GEN_EPOCH_LB")],
             "sponsor_preferred_name_sentence_case": row[
                 headers.index("GEN_EPOCH_LB")
@@ -164,17 +164,17 @@ class StandardCodelistTerms1(BaseImporter):
             new_codelist_name = row[headers.index("new_codelist_name")]
             if legacy_codelist_id == "" or legacy_codelist_id == None:
                 if new_codelist_name == self.objective_level_cl_name:
-                    self.sponsor_codelist_legacy_name_map[
-                        "ObjectiveLevel"
-                    ] = new_codelist_name
+                    self.sponsor_codelist_legacy_name_map["ObjectiveLevel"] = (
+                        new_codelist_name
+                    )
                 elif new_codelist_name == self.endpoint_level_cl_name:
-                    self.sponsor_codelist_legacy_name_map[
-                        "EndpointLevel"
-                    ] = new_codelist_name
+                    self.sponsor_codelist_legacy_name_map["EndpointLevel"] = (
+                        new_codelist_name
+                    )
             else:
-                self.sponsor_codelist_legacy_name_map[
-                    legacy_codelist_id
-                ] = new_codelist_name
+                self.sponsor_codelist_legacy_name_map[legacy_codelist_id] = (
+                    new_codelist_name
+                )
 
     @open_file()
     def handle_epoch_subtype(self, csvfile):
@@ -325,7 +325,9 @@ class StandardCodelistTerms1(BaseImporter):
     def handle_epoch(self, csvfile):
         readCSV = csv.reader(csvfile, delimiter=",")
         headers = next(readCSV)
-        parent_sub_type_terms = self.api.get_terms_for_codelist_name(self.epoch_subtype_cl_name)
+        parent_sub_type_terms = self.api.get_terms_for_codelist_name(
+            self.epoch_subtype_cl_name
+        )
         all_epoch_terms = self.api.get_terms_for_codelist_name(self.epoch_cl_name)
         for row in readCSV:
             parent_term_uid = find_term_by_name(
@@ -540,7 +542,7 @@ class StandardCodelistTerms1(BaseImporter):
                     "code_submission_value": row[headers.index("CD_VAL")],
                     "name_submission_value": row[headers.index("CD_VAL")],
                     "nci_preferred_name": "UNK",
-                    "definition": "",
+                    "definition": row[headers.index("DEFINITION")] or "TBD",
                     "sponsor_preferred_name": row[headers.index("CD_VAL_LB")],
                     "sponsor_preferred_name_sentence_case": row[
                         headers.index("CD_VAL_LB")
@@ -592,8 +594,8 @@ class StandardCodelistTerms1(BaseImporter):
                     "catalogue_name": "SDTM CT",
                     "name": new_codelist_name,
                     "submission_value": row[headers.index("submission_value")],
-                    "nci_preferred_name": row[headers.index("preferred_term")],
-                    "definition": row[headers.index("definition")],
+                    "nci_preferred_name": row[headers.index("preferred_term")] or "TBD",
+                    "definition": row[headers.index("definition")] or "TBD",
                     "extensible": extensible,
                     "sponsor_preferred_name": row[headers.index("new_codelist_name")],
                     "template_parameter": template_parameter,

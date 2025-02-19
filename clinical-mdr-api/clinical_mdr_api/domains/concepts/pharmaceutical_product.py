@@ -3,12 +3,12 @@ from typing import Callable, Self
 
 from deepdiff import DeepDiff
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -47,28 +47,28 @@ class IngredientVO:
         lag_time_exists_callback: Callable[[str], bool],
         active_substance_exists_callback: Callable[[str], bool],
     ):
-        if not active_substance_exists_callback(self.active_substance_uid):
-            raise exceptions.ValidationException(
-                f"{type(self).__name__} tried to connect to non-existent active substance identified by uid ({self.active_substance_uid})"
-            )
+        BusinessLogicException.raise_if_not(
+            active_substance_exists_callback(self.active_substance_uid),
+            msg=f"{type(self).__name__} tried to connect to non-existent Active Substance with UID '{self.active_substance_uid}'.",
+        )
 
         if self.strength_uid:
-            if not numeric_value_exists_callback(self.strength_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent strength value identified by uid ({self.strength_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                numeric_value_exists_callback(self.strength_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent Strength with UID '{self.strength_uid}'.",
+            )
 
         if self.half_life_uid:
-            if not numeric_value_exists_callback(self.half_life_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent half-life value identified by uid ({self.half_life_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                numeric_value_exists_callback(self.half_life_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent Half-Life with UID '{self.half_life_uid}'.",
+            )
 
         for lag_time_uid in self.lag_time_uids:
-            if not lag_time_exists_callback(lag_time_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent lag-time identified by uid ({lag_time_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                lag_time_exists_callback(lag_time_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent Lag-Time with UID '{lag_time_uid}'.",
+            )
 
 
 @dataclass(frozen=True)
@@ -127,10 +127,10 @@ class PharmaceuticalProductVO(ConceptVO):
             dosage_form_uids=dosage_form_uids,
             route_of_administration_uids=route_of_administration_uids,
             formulations=formulations,
-            name="",
-            name_sentence_case="",
-            definition="",
-            abbreviation="",
+            name=None,
+            name_sentence_case=None,
+            definition=None,
+            abbreviation=None,
             is_template_parameter=False,
         )
 
@@ -152,21 +152,20 @@ class PharmaceuticalProductVO(ConceptVO):
             uid=uid,
             property_name="external_id",
             value=self.external_id,
-            error_message=f"PharmaceuticalProduct with external_id ({self.external_id}) already exists",
+            error_message=f"Pharmaceutical Product with external_id '{self.external_id}' already exists.",
         )
 
         for dosage_form_uid in self.dosage_form_uids:
-            if not ct_term_exists_callback(dosage_form_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent or non-final dosage form identified by uid ({dosage_form_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                ct_term_exists_callback(dosage_form_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent or non-final Dosage Form with UID '{dosage_form_uid}'.",
+            )
 
         for route_of_administration_uid in self.route_of_administration_uids:
-            if not ct_term_exists_callback(route_of_administration_uid):
-                raise exceptions.ValidationException(
-                    f"{type(self).__name__} tried to connect to non-existent or non-final "
-                    f"route of administration identified by uid ({route_of_administration_uid})"
-                )
+            BusinessLogicException.raise_if_not(
+                ct_term_exists_callback(route_of_administration_uid),
+                msg=f"{type(self).__name__} tried to connect to non-existent or non-final Route of Administration with UID '{route_of_administration_uid}'.",
+            )
         for formulation in self.formulations:
             formulation.validate(
                 numeric_value_exists_callback=numeric_value_exists_callback,
@@ -190,7 +189,7 @@ class PharmaceuticalProductAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: PharmaceuticalProductVO,
         library: LibraryVO,
         pharmaceutical_product_uid_by_property_value_callback: Callable[
@@ -202,13 +201,15 @@ class PharmaceuticalProductAR(ConceptARBase):
         active_substance_exists_callback: Callable[[str], bool],
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
         uid = generate_uid_callback()
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
             uid=uid,
@@ -229,7 +230,7 @@ class PharmaceuticalProductAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: PharmaceuticalProductVO,
         concept_exists_by_callback: Callable[[str, str], str] | None = None,
@@ -251,5 +252,7 @@ class PharmaceuticalProductAR(ConceptARBase):
         )
 
         if DeepDiff(self._concept_vo, concept_vo, ignore_order=True):
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

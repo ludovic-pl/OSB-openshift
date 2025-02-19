@@ -1,6 +1,6 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.activities.activity_group import ActivityGroupAR
 from clinical_mdr_api.domains.concepts.odms.alias import OdmAliasAR
@@ -47,15 +47,19 @@ from clinical_mdr_api.models.concepts.odms.odm_vendor_element import (
 from clinical_mdr_api.models.controlled_terminologies.ct_term import (
     SimpleCTTermAttributes,
 )
-from clinical_mdr_api.utils import booltostr
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
+from common import config
+from common.utils import booltostr
 
 
 class OdmForm(ConceptModel):
-    oid: str | None = Field(None, nullable=True)
-    repeating: str | None = Field(None, nullable=True)
-    sdtm_version: str | None = Field(None, nullable=True)
-    scope: SimpleCTTermAttributes | None = Field(None, nullable=True)
-    descriptions: list[OdmDescriptionSimpleModel] = Field(None, nullable=True)
+    oid: Annotated[str | None, Field(nullable=True)] = None
+    repeating: Annotated[str | None, Field(nullable=True)] = None
+    sdtm_version: Annotated[str | None, Field(nullable=True)] = None
+    scope: Annotated[SimpleCTTermAttributes | None, Field(nullable=True)] = None
+    descriptions: Annotated[
+        list[OdmDescriptionSimpleModel] | None, Field(nullable=True)
+    ] = None
     aliases: list[OdmAliasSimpleModel]
     activity_groups: list[ActivityHierarchySimpleModel]
     item_groups: list[OdmItemGroupRefModel]
@@ -96,7 +100,7 @@ class OdmForm(ConceptModel):
             status=odm_form_ar.item_metadata.status.value,
             version=odm_form_ar.item_metadata.version,
             change_description=odm_form_ar.item_metadata.change_description,
-            user_initials=odm_form_ar.item_metadata.user_initials,
+            author_username=odm_form_ar.item_metadata.author_username,
             scope=SimpleCTTermAttributes.from_term_uid(
                 uid=odm_form_ar.concept_vo.scope_uid,
                 find_term_by_uid=find_term_callback,
@@ -222,20 +226,20 @@ class OdmFormRefModel(BaseModel):
             odm_form_ref_model = None
         return odm_form_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    order_number: int | None = Field(None, title="order_number", description="")
-    mandatory: str | None = Field(None, title="mandatory", description="")
-    locked: str | None = Field(None, title="locked", description="")
-    collection_exception_condition_oid: str | None = Field(
-        None, title="collection_exception_condition_oid", description=""
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    order_number: Annotated[int | None, Field(nullable=True)] = None
+    mandatory: Annotated[str | None, Field(nullable=True)] = None
+    locked: Annotated[str | None, Field(nullable=True)] = None
+    collection_exception_condition_oid: Annotated[str | None, Field(nullable=True)] = (
+        None
     )
 
 
 class OdmFormPostInput(ConceptPostInput):
     oid: str | None
     sdtm_version: str | None
-    repeating: str
+    repeating: Annotated[str, Field(min_length=1)]
     scope_uid: str | None = None
     descriptions: list[OdmDescriptionPostInput | str]
     alias_uids: list[str]
@@ -250,16 +254,16 @@ class OdmFormPatchInput(ConceptPatchInput):
     alias_uids: list[str]
 
 
-class OdmFormItemGroupPostInput(BaseModel):
-    uid: str
-    order_number: int
-    mandatory: str
+class OdmFormItemGroupPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
+    order_number: Annotated[int, Field(gt=0, lt=config.MAX_INT_NEO4J)]
+    mandatory: Annotated[str, Field(min_length=1)]
     collection_exception_condition_oid: str | None
     vendor: OdmRefVendorPostInput
 
 
-class OdmFormActivityGroupPostInput(BaseModel):
-    uid: str
+class OdmFormActivityGroupPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
 
 
 class OdmFormVersion(OdmForm):
@@ -267,11 +271,13 @@ class OdmFormVersion(OdmForm):
     Class for storing OdmForm and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

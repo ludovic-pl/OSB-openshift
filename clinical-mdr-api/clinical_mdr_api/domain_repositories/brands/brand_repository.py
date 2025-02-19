@@ -3,13 +3,13 @@ from threading import Lock
 from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domain_repositories.generic_repository import (
     RepositoryClosureData,
 )
 from clinical_mdr_api.domain_repositories.models.brand import Brand
 from clinical_mdr_api.domains.brands.brand import BrandAR
 from clinical_mdr_api.repositories._utils import sb_clear_cache
+from common import config
 
 
 class BrandRepository:

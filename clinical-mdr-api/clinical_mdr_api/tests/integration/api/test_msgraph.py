@@ -2,7 +2,6 @@
 
 import pytest
 
-from clinical_mdr_api import config
 from clinical_mdr_api.services.integrations import msgraph
 from clinical_mdr_api.tests.integration.services.test_msgraph import (
     USERS,
@@ -13,6 +12,7 @@ from clinical_mdr_api.tests.utils.checks import (
     assert_response_content_type,
     assert_response_status_code,
 )
+from common import config
 
 
 @pytest.fixture
@@ -157,7 +157,7 @@ def test_get_users_invalid_pattern_regex(api_client, mocked_msgraph_service, pat
     params = {"search": pattern} if pattern else None
     response = api_client.get("/integrations/ms-graph/users", params=params)
 
-    assert_response_status_code(response, 400)
+    assert_response_status_code(response, 422)
     assert_response_content_type(response)
 
     payload = response.json()

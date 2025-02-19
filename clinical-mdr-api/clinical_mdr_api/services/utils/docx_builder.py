@@ -17,7 +17,7 @@ from docx.shared import Inches
 from docx.table import Table, _Cell, _Row
 from docx.text.paragraph import Paragraph
 
-from clinical_mdr_api.telemetry import trace_calls
+from common.telemetry import trace_calls
 
 BLOCK_ELEMENTS_TO_PARAGRAPH = {"p", "div", "li", "dd", "dt"}
 INLINE_ELEMENTS_TO_FONT_PROPERTIES = {"b", "em", "i", "sub", "sup", "s", "strong", "u"}

@@ -6,17 +6,17 @@ from clinical_mdr_api.domains.study_selections.study_selection_endpoint import (
     EndpointUnitItem,
     EndpointUnits,
 )
-from clinical_mdr_api.models import (
-    CTTermName,
-    Endpoint,
-    Objective,
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTermName
+from clinical_mdr_api.models.study_selections.study_selection import (
     StudySelectionEndpoint,
     StudySelectionObjective,
-    Timeframe,
 )
+from clinical_mdr_api.models.syntax_instances.endpoint import Endpoint
+from clinical_mdr_api.models.syntax_instances.objective import Objective
+from clinical_mdr_api.models.syntax_instances.timeframe import Timeframe
 from clinical_mdr_api.services.studies.study_objectives import StudyObjectivesService
 
-USER_INITIALS = "unknown-user"
+AUTHOR_USERNAME = "unknown-user"
 STUDY_UID = "Study_000001"
 
 DATETIME_799 = datetime.datetime(2022, 9, 14, 15, 43, 32, 610799)
@@ -93,7 +93,7 @@ STUDY_OBJECTIVE_3 = StudySelectionObjective(
     objective_level=TERM_PRI_OBJ,
     objective=OBJECTIVE_3,
     start_date=DATETIME_874,
-    user_initials=USER_INITIALS,
+    author_username=AUTHOR_USERNAME,
     latest_objective=None,
 )
 
@@ -110,7 +110,7 @@ STUDY_ENDPOINT_1 = StudySelectionEndpoint(
     endpoint=None,
     timeframe=None,
     start_date=DATETIME_799,
-    user_initials=USER_INITIALS,
+    author_username=AUTHOR_USERNAME,
 )
 STUDY_ENDPOINT_20 = StudySelectionEndpoint(
     study_uid=STUDY_UID,
@@ -123,7 +123,7 @@ STUDY_ENDPOINT_20 = StudySelectionEndpoint(
     endpoint=ENDPOINT_4,
     timeframe=TIMEFRAME_2,
     start_date=DATETIME_811,
-    user_initials=USER_INITIALS,
+    author_username=AUTHOR_USERNAME,
 )
 STUDY_ENDPOINT_17 = StudySelectionEndpoint(
     study_uid=STUDY_UID,
@@ -136,7 +136,7 @@ STUDY_ENDPOINT_17 = StudySelectionEndpoint(
     endpoint=ENDPOINT_3,
     timeframe=TIMEFRAME_1,
     start_date=DATETIME_668,
-    user_initials=USER_INITIALS,
+    author_username=AUTHOR_USERNAME,
 )
 
 STUDY_ENDPOINTS = (

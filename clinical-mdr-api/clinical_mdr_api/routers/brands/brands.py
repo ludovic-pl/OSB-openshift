@@ -1,15 +1,17 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Path, Response, status
 
-from clinical_mdr_api import models
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.models.brands.brand import Brand, BrandCreateInput
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services.brands.brand import BrandService
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/brands"
 router = APIRouter()
 
-BrandUID = Path(None, description="The unique id of brand")
+BrandUID = Path(description="The unique id of brand")
 Service = BrandService
 
 
@@ -17,14 +19,14 @@ Service = BrandService
     "",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all brands.",
-    response_model=list[models.Brand],
+    response_model=list[Brand],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_brands() -> list[models.Brand]:
+def get_brands() -> list[Brand]:
     return Service().get_all_brands()
 
 
@@ -32,7 +34,7 @@ def get_brands() -> list[models.Brand]:
     "/{brand_uid}",
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns the brand identified by the specified 'brand_uid'.",
-    response_model=models.Brand,
+    response_model=Brand,
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -40,8 +42,8 @@ def get_brands() -> list[models.Brand]:
     },
 )
 def get_brand(
-    brand_uid: str = BrandUID,
-) -> models.Brand:
+    brand_uid: Annotated[str, BrandUID],
+) -> Brand:
     return Service().get_brand(brand_uid)
 
 
@@ -49,7 +51,7 @@ def get_brand(
     "",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Creates a new brand.",
-    response_model=models.Brand,
+    response_model=Brand,
     status_code=201,
     responses={
         201: {"description": "Created - The brand was successfully created."},
@@ -62,10 +64,11 @@ def get_brand(
     },
 )
 def create(
-    brand_create_input: models.BrandCreateInput = Body(
-        description="Related parameters of the brand that shall be created."
-    ),
-) -> models.Brand:
+    brand_create_input: Annotated[
+        BrandCreateInput,
+        Body(description="Related parameters of the brand that shall be created."),
+    ],
+) -> Brand:
     return Service().create(brand_create_input)
 
 
@@ -80,6 +83,6 @@ def create(
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(brand_uid: str = BrandUID) -> None:
+def delete(brand_uid: Annotated[str, BrandUID]) -> Response:
     Service().delete(brand_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -2,8 +2,6 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import SDTM_CT_CATALOGUE_NAME
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.models.study_selections.study_epoch import (
     StudyEpoch,
@@ -15,12 +13,15 @@ from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_CT_CATALOGUE_CYPHER,
     STARTUP_STUDY_LIST_CYPHER,
+    fix_study_preferred_time_unit,
 )
 from clinical_mdr_api.tests.integration.utils.method_library import (
     create_study_epoch,
     create_study_epoch_codelists_ret_cat_and_lib,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common import exceptions
+from common.config import SDTM_CT_CATALOGUE_NAME
 
 
 class TestStudyEpochManagement(unittest.TestCase):
@@ -39,6 +40,8 @@ class TestStudyEpochManagement(unittest.TestCase):
             study_uid=self.study.uid, create_codelists_and_terms_for_package=False
         )
         create_study_epoch_codelists_ret_cat_and_lib()
+
+        fix_study_preferred_time_unit(self.study.uid)
 
     def test__list_epoch_studies(self):
         epoch_service = StudyEpochService()

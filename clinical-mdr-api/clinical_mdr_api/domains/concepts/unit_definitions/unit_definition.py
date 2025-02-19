@@ -2,8 +2,6 @@ import math
 from dataclasses import dataclass
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import are_floats_equal, normalize_string
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import CTTermNameAR
 from clinical_mdr_api.domains.versioned_object_aggregate import (
@@ -11,7 +9,12 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
     ObjectAction,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from clinical_mdr_api.utils import are_floats_equal, normalize_string
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
+)
 
 CONCENTRATION_UNIT_DIMENSION_VALUE = "Concentration"
 
@@ -35,8 +38,9 @@ class UnitDefinitionValueVO(ConceptVO):
     master_unit: bool
     si_unit: bool
     us_conventional_unit: bool
+    use_complex_unit_conversion: bool
     legacy_code: str | None
-    molecular_weight_conv_expon: int | None
+    use_molecular_weight: bool | None
     conversion_factor_to_master: float | None
     order: int | None
     comment: str | None
@@ -52,12 +56,13 @@ class UnitDefinitionValueVO(ConceptVO):
         master_unit: bool,
         si_unit: bool,
         us_conventional_unit: bool,
+        use_complex_unit_conversion: bool,
         ct_units: list[str],
         unit_subsets: list[str],
         ucum_uid: str | None,
         unit_dimension_uid: str | None,
         legacy_code: str | None,
-        molecular_weight_conv_expon: int | None,
+        use_molecular_weight: bool | None,
         conversion_factor_to_master: float | None,
         comment: str | None,
         order: int | None,
@@ -69,59 +74,52 @@ class UnitDefinitionValueVO(ConceptVO):
         ucum_uid = normalize_string(ucum_uid)
         unit_dimension_uid = normalize_string(unit_dimension_uid)
 
-        if conversion_factor_to_master is not None and math.isnan(
-            conversion_factor_to_master
-        ):
-            raise exceptions.ValidationException(
-                "conversion factor to master if specified cannot be NaN value."
-            )
+        ValidationException.raise_if(
+            conversion_factor_to_master is not None
+            and math.isnan(conversion_factor_to_master),
+            msg="conversion factor to master if specified cannot be NaN value.",
+        )
 
-        if master_unit and (
-            conversion_factor_to_master is None
-            or not are_floats_equal(conversion_factor_to_master, 1.0)
-        ):
-            raise exceptions.ValidationException(
-                f"conversion factor to master must be 1.0 for master unit (provided value: {conversion_factor_to_master})"
-            )
+        ValidationException.raise_if(
+            master_unit
+            and (
+                conversion_factor_to_master is None
+                or not are_floats_equal(conversion_factor_to_master, 1.0)
+            ),
+            msg=f"conversion factor to master must be 1.0 for master unit (provided value: {conversion_factor_to_master})",
+        )
 
-        if (
-            molecular_weight_conv_expon is not None
-            and molecular_weight_conv_expon != 0
-            and molecular_weight_conv_expon != 1
-        ):
-            raise exceptions.ValidationException(
-                f"molecular weight conv expon (if specified) can be 0 or 1 (provided value: {molecular_weight_conv_expon})"
-            )
+        ValidationException.raise_if(
+            unit_dimension_uid is not None and not find_term_by_uid(unit_dimension_uid),
+            msg=f"Unknown CT dimension uid: {unit_dimension_uid}",
+        )
 
-        if unit_dimension_uid is not None and not find_term_by_uid(unit_dimension_uid):
-            raise exceptions.ValidationException(
-                f"Unknown CT dimension uid: {unit_dimension_uid}"
-            )
-
-        if (
+        ValidationException.raise_if(
             unit_dimension_uid is not None
             and find_term_by_uid(unit_dimension_uid).name
             == CONCENTRATION_UNIT_DIMENSION_VALUE
-            and molecular_weight_conv_expon is None
-        ):
-            raise exceptions.ValidationException(
-                "molecular weight conv expon must be provided with a value when unit dimension is set to 'Concentration'."
-            )
+            and use_molecular_weight is None,
+            msg="use_molecular_weight must be provided with a value when unit dimension is set to 'Concentration'.",
+        )
 
         for unit_ct_uid in ct_units:
-            if unit_ct_uid is not None and not unit_ct_uid_exists_callback(unit_ct_uid):
-                raise exceptions.ValidationException(
-                    f"Unknown CT unit uid: {unit_ct_uid}"
-                )
+            ValidationException.raise_if(
+                unit_ct_uid is not None
+                and not unit_ct_uid_exists_callback(unit_ct_uid),
+                msg=f"Unknown CT unit uid: {unit_ct_uid}",
+            )
 
         for unit_subset in unit_subsets:
-            if unit_subset is not None and not unit_ct_uid_exists_callback(unit_subset):
-                raise exceptions.ValidationException(
-                    f"Unknown Unit Subset uid: {unit_subset}"
-                )
+            ValidationException.raise_if(
+                unit_subset is not None
+                and not unit_ct_uid_exists_callback(unit_subset),
+                msg=f"Unknown Unit Subset uid: {unit_subset}",
+            )
 
-        if ucum_uid is not None and not ucum_uid_exists_callback(ucum_uid):
-            raise exceptions.ValidationException(f"Unknown ucum uid: {ucum_uid}")
+        ValidationException.raise_if(
+            ucum_uid is not None and not ucum_uid_exists_callback(ucum_uid),
+            msg=f"Unknown ucum uid: {ucum_uid}",
+        )
 
         return cls.from_repository_values(
             name=normalize_string(name),
@@ -139,8 +137,9 @@ class UnitDefinitionValueVO(ConceptVO):
             master_unit=master_unit,
             si_unit=si_unit,
             us_conventional_unit=us_conventional_unit,
+            use_complex_unit_conversion=use_complex_unit_conversion,
             legacy_code=normalize_string(legacy_code),
-            molecular_weight_conv_expon=molecular_weight_conv_expon,
+            use_molecular_weight=use_molecular_weight,
             conversion_factor_to_master=conversion_factor_to_master,
             order=order,
             comment=comment,
@@ -158,6 +157,7 @@ class UnitDefinitionValueVO(ConceptVO):
         master_unit: bool,
         si_unit: bool,
         us_conventional_unit: bool,
+        use_complex_unit_conversion: bool,
         ct_units: list[CTTerm],
         unit_subsets: list[CTTerm],
         ucum_uid: str | None,
@@ -165,7 +165,7 @@ class UnitDefinitionValueVO(ConceptVO):
         ucum_name: str | None,
         unit_dimension_name: str | None,
         legacy_code: str | None,
-        molecular_weight_conv_expon: int | None,
+        use_molecular_weight: bool | None,
         conversion_factor_to_master: float | None,
         order: int | None,
         comment: str | None,
@@ -188,8 +188,9 @@ class UnitDefinitionValueVO(ConceptVO):
             master_unit=master_unit,
             si_unit=si_unit,
             us_conventional_unit=us_conventional_unit,
+            use_complex_unit_conversion=use_complex_unit_conversion,
             legacy_code=legacy_code,
-            molecular_weight_conv_expon=molecular_weight_conv_expon,
+            use_molecular_weight=use_molecular_weight,
             conversion_factor_to_master=conversion_factor_to_master,
             order=order,
             comment=comment,
@@ -211,13 +212,13 @@ class UnitDefinitionAR(ConceptARBase):
     def name(self) -> str:
         return self.concept_vo.name
 
-    def create_new_version(self, author: str):
-        super()._create_new_version(author)
+    def create_new_version(self, author_id: str):
+        super()._create_new_version(author_id)
 
     def edit_draft(
         self,
         *,
-        author: str,
+        author_id: str,
         change_description: str,
         new_unit_definition_value: UnitDefinitionValueVO | None = None,
         concept_exists_by_callback: Callable[[str, str, bool], bool] | None = None,
@@ -234,36 +235,37 @@ class UnitDefinitionAR(ConceptARBase):
             "Unit Definition",
         )
 
-        if (
-            new_unit_definition_value.legacy_code is not None
-            and new_unit_definition_value.legacy_code != self.concept_vo.legacy_code
-            and unit_definition_exists_by_legacy_code(
-                new_unit_definition_value.legacy_code
-            )
-        ):
-            raise BusinessLogicException(
-                f"Attempt to change Unit Definition legacy code into non-unique value: {new_unit_definition_value.legacy_code}"
-            )
+        BusinessLogicException.raise_if(
+            (
+                new_unit_definition_value.legacy_code is not None
+                and new_unit_definition_value.legacy_code != self.concept_vo.legacy_code
+                and unit_definition_exists_by_legacy_code(
+                    new_unit_definition_value.legacy_code
+                )
+            ),
+            msg=f"Attempt to change Unit Definition legacy code into non-unique value: {new_unit_definition_value.legacy_code}",
+        )
 
-        if (
-            new_unit_definition_value.unit_dimension_uid is not None
-            and new_unit_definition_value.master_unit
-            and (
-                not self.concept_vo.master_unit
-                or new_unit_definition_value.unit_dimension_uid
-                != self.concept_vo.unit_dimension_uid
-            )
-            and master_unit_exists_for_dimension_predicate(
-                new_unit_definition_value.unit_dimension_uid
-            )
-        ):
-            raise BusinessLogicException(
-                f"Attempt to make '{self.uid}' another master unit in dimension '{new_unit_definition_value.unit_dimension_uid}'."
-            )
+        BusinessLogicException.raise_if(
+            (
+                new_unit_definition_value.unit_dimension_uid is not None
+                and new_unit_definition_value.master_unit
+                and (
+                    not self.concept_vo.master_unit
+                    or new_unit_definition_value.unit_dimension_uid
+                    != self.concept_vo.unit_dimension_uid
+                )
+                and master_unit_exists_for_dimension_predicate(
+                    new_unit_definition_value.unit_dimension_uid
+                )
+            ),
+            msg=f"Attempt to make '{self.uid}' another master unit in dimension '{new_unit_definition_value.unit_dimension_uid}'.",
+        )
 
         if self._concept_vo != new_unit_definition_value:
             super()._edit_draft(
-                author=author, change_description=normalize_string(change_description)
+                author_id=author_id,
+                change_description=normalize_string(change_description),
             )
             self._concept_vo = new_unit_definition_value
 
@@ -272,7 +274,7 @@ class UnitDefinitionAR(ConceptARBase):
         cls,
         *,
         unit_definition_value: UnitDefinitionValueVO,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         concept_exists_by_callback: Callable[
             [str, str, bool], bool
@@ -287,27 +289,27 @@ class UnitDefinitionAR(ConceptARBase):
             "Unit Definition",
         )
 
-        if (
+        AlreadyExistsException.raise_if(
             unit_definition_value.legacy_code is not None
-            and unit_definition_exists_by_legacy_code(unit_definition_value.legacy_code)
-        ):
-            raise BusinessLogicException(
-                f"Attempt to create an unit definition with non-unique legacy code: {unit_definition_value.legacy_code}"
-            )
+            and unit_definition_exists_by_legacy_code(
+                unit_definition_value.legacy_code
+            ),
+            "Unit Definition",
+            unit_definition_value.legacy_code,
+            "Legacy Code",
+        )
 
-        if (
+        BusinessLogicException.raise_if(
             unit_definition_value.unit_dimension_uid is not None
             and unit_definition_value.master_unit
             and master_unit_exists_for_dimension_predicate(
                 unit_definition_value.unit_dimension_uid
-            )
-        ):
-            raise BusinessLogicException(
-                f"Attempt to create another master unit in dimension '{unit_definition_value.unit_dimension_uid}'."
-            )
+            ),
+            msg=f"Attempt to create another master unit in dimension '{unit_definition_value.unit_dimension_uid}'.",
+        )
 
         result: Self = cls._from_input_values(
-            author=author,
+            author_id=author_id,
             library=library,
             uid_supplier=uid_supplier,
             _concept_vo=unit_definition_value,

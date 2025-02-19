@@ -1,4 +1,5 @@
 """System router."""
+
 import os
 
 from fastapi import APIRouter, HTTPException
@@ -44,10 +45,10 @@ def healthcheck():
 @router.get(
     "/information/sbom.md",
     summary="Returns SBOM as markdown text",
-    response_class=PlainTextResponse,
+    response_class=FileResponse,
     status_code=200,
 )
-def get_sbom_md() -> str:
+def get_sbom_md() -> FileResponse:
     filename = "sbom.md"
     filepath = os.path.join(APP_ROOT_DIR, filename)
     if not os.path.isfile(filepath):
@@ -58,10 +59,10 @@ def get_sbom_md() -> str:
 @router.get(
     "/information/license.md",
     summary="Returns license as markdown text",
-    response_class=PlainTextResponse,
+    response_class=FileResponse,
     status_code=200,
 )
-def get_license_md() -> str:
+def get_license_md() -> FileResponse:
     filename = "LICENSE.md"
     filepath = os.path.join(APP_ROOT_DIR, filename)
     if not os.path.isfile(filepath):

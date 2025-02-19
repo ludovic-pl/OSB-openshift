@@ -220,7 +220,6 @@
           :items="endpointTemplates"
           hide-default-switches
           hide-actions-menu
-          :items-per-page="15"
           :items-length="total"
           :column-data-resource="
             preInstanceMode ? 'endpoint-pre-instances' : 'endpoint-templates'
@@ -1017,11 +1016,10 @@ export default {
       }
       return true
     },
-    getEndpointTemplates(filters, sort, filtersUpdated) {
+    getEndpointTemplates(filters, options, filtersUpdated) {
       const params = filteringParameters.prepareParameters(
-        this.options,
+        options,
         filters,
-        sort,
         filtersUpdated
       )
       if (params.filters) {

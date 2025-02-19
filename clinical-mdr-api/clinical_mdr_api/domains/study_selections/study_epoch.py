@@ -2,15 +2,6 @@ import datetime
 from dataclasses import dataclass, field
 from typing import Mapping
 
-from clinical_mdr_api.config import (
-    BASIC_EPOCH_NAME,
-    FIXED_WEEK_PERIOD,
-    NON_VISIT_NUMBER,
-    PREVIOUS_VISIT_NAME,
-    STUDY_VISIT_TYPE_INFORMATION_VISIT,
-    UNSCHEDULED_VISIT_NUMBER,
-    VISIT_0_NUMBER,
-)
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
@@ -20,6 +11,15 @@ from clinical_mdr_api.domains.study_selections.study_visit import (
     VisitSubclass,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term_name import CTTermName
+from common.config import (
+    BASIC_EPOCH_NAME,
+    FIXED_WEEK_PERIOD,
+    NON_VISIT_NUMBER,
+    PREVIOUS_VISIT_NAME,
+    STUDY_VISIT_TYPE_INFORMATION_VISIT,
+    UNSCHEDULED_VISIT_NUMBER,
+    VISIT_0_NUMBER,
+)
 
 StudyEpochType: dict[str, CTTermName] = {}
 
@@ -43,7 +43,7 @@ class StudyEpochVO:
 
     status: StudyStatus
     start_date: datetime.datetime
-    author: str
+    author_id: str
 
     duration: int | None = None
     duration_unit: str | None = None
@@ -234,8 +234,11 @@ class TimelineAR:
             number: int
 
         anchors = {}
+        # There can be multiple Visits with same VisitType that can work as TimeRef
+        # If Study contains multiple such Visits, the first occurence of the Visit with given VisitType
+        # that works as TimeRef will be picked to be an anchor for the other visits
         for visit in self._visits:
-            anchors[visit.visit_type.sponsor_preferred_name] = visit
+            anchors.setdefault(visit.visit_type.sponsor_preferred_name, visit)
 
         subvisit_sets = {}
         amount_of_subvisits_for_visit = {}
@@ -273,14 +276,14 @@ class TimelineAR:
         )
         last_visit_num = 1
         order = 1
-        for visit in ordered_visits:
+        for idx, visit in enumerate(ordered_visits):
             if (
                 visit.visit_type.sponsor_preferred_name
                 == STUDY_VISIT_TYPE_INFORMATION_VISIT
+                and idx == 0
             ):
-                if visit == ordered_visits[0]:
-                    visit.set_order_and_number(VISIT_0_NUMBER, VISIT_0_NUMBER)
-                    continue
+                visit.set_order_and_number(VISIT_0_NUMBER, VISIT_0_NUMBER)
+                continue
             if visit.visit_class == VisitClass.NON_VISIT:
                 visit.set_order_and_number(NON_VISIT_NUMBER, NON_VISIT_NUMBER)
             elif visit.visit_class == VisitClass.UNSCHEDULED_VISIT:
@@ -312,6 +315,10 @@ class TimelineAR:
                     amount_of_subvisits_for_visit.get(visit.visit_sublabel_reference, 0)
                     + 1
                 )
+                visit.set_order_and_number(
+                    order,
+                    visit.subvisit_anchor.visit_number,
+                )
             elif visit.visit_class not in [
                 VisitClass.MANUALLY_DEFINED_VISIT,
                 VisitClass.SPECIAL_VISIT,
@@ -326,10 +333,6 @@ class TimelineAR:
             ):
                 # we have to assign subvisit numbers after we assign anchor visit numbers because some of subvisits may
                 # happen before the anchor visit in group of subvisits and that will influence numbering
-                visit.set_order_and_number(
-                    visit.subvisit_anchor.visit_order,
-                    visit.subvisit_anchor.visit_number,
-                )
                 visits = subvisit_sets[visit.visit_sublabel_reference]
                 amount_of_subvists = amount_of_subvisits_for_visit[
                     visit.visit_sublabel_reference
@@ -471,12 +474,11 @@ class TimelineAR:
 
     def update_visit(self, visit: StudyVisitVO):
         """
-        Updates visits to a list of visits - used for preparation of adding new visit - creates order for updated
+        Updates visits to a list of visits - used for preparation of adding new visit
         """
         new_visits = [v for v in self._visits if v.uid != visit.uid]
         new_visits.append(visit)
         self._visits = new_visits
-        self._visits = self.ordered_study_visits
 
     @property
     def ordered_study_visits(self):

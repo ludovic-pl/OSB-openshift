@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase, ConceptVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -50,7 +50,7 @@ class CompoundVO(ConceptVO):
             uid=uid,
             property_name="name",
             value=self.name,
-            error_message=f"Compound with name ({self.name}) already exists",
+            error_message=f"Compound with Name '{self.name}' already exists.",
         )
 
         self.validate_uniqueness(
@@ -58,7 +58,7 @@ class CompoundVO(ConceptVO):
             uid=uid,
             property_name="name_sentence_case",
             value=self.name_sentence_case,
-            error_message=f"Compound with name sentence case ({self.name_sentence_case}) already exists",
+            error_message=f"Compound with Name Sentence Case '{self.name_sentence_case}' already exists.",
         )
 
         self.validate_uniqueness(
@@ -66,7 +66,7 @@ class CompoundVO(ConceptVO):
             uid=uid,
             property_name="external_id",
             value=self.external_id,
-            error_message=f"Compound with external_id ({self.external_id}) already exists",
+            error_message=f"Compound with external_id '{self.external_id}' already exists.",
         )
 
 
@@ -84,19 +84,21 @@ class CompoundAR(ConceptARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: CompoundVO,
         library: LibraryVO,
         compound_uid_by_property_value_callback: Callable[[str, str], str],
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
         uid = generate_uid_callback()
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         concept_vo.validate(
             uid=uid,
@@ -113,12 +115,13 @@ class CompoundAR(ConceptARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: CompoundVO,
         concept_exists_by_callback: Callable[[str, str, bool], bool] | None = None,
-        compound_uid_by_property_value_callback: Callable[[str, str], str]
-        | None = None,
+        compound_uid_by_property_value_callback: (
+            Callable[[str, str], str] | None
+        ) = None,
     ) -> None:
         """
         Creates a new draft version for the object.
@@ -129,5 +132,7 @@ class CompoundAR(ConceptARBase):
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo

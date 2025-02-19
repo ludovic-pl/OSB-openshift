@@ -47,6 +47,7 @@ from clinical_mdr_api.tests.integration.utils.utils import (
 from clinical_mdr_api.tests.unit.domain.controlled_terminology_aggregates.test_ct_codelist_attributes import (
     create_random_ct_codelist_attributes_vo,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
 
 
 def get_catalogue_name_library_name(use_test_utils: bool = False):
@@ -68,7 +69,7 @@ def create_codelist(name, uid, catalogue, library):
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=True
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
     CTCodelistAttributesRepository().save(ct_codelist_attributes_ar)
     CTCodelistAttributesService().approve(uid)
@@ -81,7 +82,7 @@ def create_codelist(name, uid, catalogue, library):
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=True
         ),
-        author="TODO",
+        author_id=AUTHOR_ID,
     )
     CTCodelistNameRepository().save(ct_codelist)
     item = CTCodelistNameService().approve(uid)
@@ -104,7 +105,7 @@ def create_ct_term(
         library_name=library_name, is_editable=True
     )
     ct_term_attributes_ar = CTTermAttributesAR.from_input_values(
-        author="TOOD",
+        author_id=AUTHOR_ID,
         ct_term_attributes_vo=CTTermAttributesVO.from_input_values(
             codelists=[
                 CTTermCodelistVO(
@@ -142,7 +143,7 @@ def create_ct_term(
         generate_uid_callback=lambda: uid,
         ct_term_name_vo=term_vo,
         library=library,
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
     CTTermNameRepository().save(ct_term)
     CTTermNameService().approve(uid)

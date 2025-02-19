@@ -61,7 +61,7 @@ class Codelist:
             return []
         return self.__attributes_set
 
-    def get_inconsistencies(self, user_initials: str):
+    def get_inconsistencies(self, author_id: str):
         inconsistencies = []
         if len(self.__terms) == 0:
             print(
@@ -85,7 +85,7 @@ class Codelist:
             inconsistency = Inconsistency(
                 Inconsistency.inconsistent_codelist_attributes_tagline,
                 message,
-                user_initials,
+                author_id,
             )
             inconsistency.set_affected_codelist(self)
             inconsistencies.append(inconsistency)
@@ -97,7 +97,7 @@ class Codelist:
                 expected_other_name=self.get_other_expected_name(),
             )
             inconsistency = Inconsistency(
-                Inconsistency.unexpected_codelist_name_tagline, message, user_initials
+                Inconsistency.unexpected_codelist_name_tagline, message, author_id
             )
             inconsistency.set_affected_codelist(self)
             inconsistencies.append(inconsistency)

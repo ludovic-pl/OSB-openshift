@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
@@ -12,46 +12,53 @@ from clinical_mdr_api.models.controlled_terminologies.ct_term import (
 )
 from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.syntax_pre_instances.generic_pre_instance import (
-    PreInstanceInput,
+    PreInstancePatchInput,
+    PreInstancePostInput,
 )
 from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
     IndexedTemplateParameterTerm,
     MultiTemplateParameterTerm,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel
 
 
 class CriteriaPreInstance(BaseModel):
     uid: str
-    sequence_id: str | None = Field(None, nullable=True)
+    sequence_id: Annotated[str | None, Field(nullable=True)] = None
     template_uid: str
     template_name: str
-    template_type_uid: str | None = Field(None, nullable=True)
-    guidance_text: str | None = Field(None, nullable=True)
-    name: str | None = Field(None, nullable=True)
-    name_plain: str | None = Field(None, nullable=True)
-    start_date: datetime | None = Field(None, nullable=True)
-    end_date: datetime | None = Field(None, nullable=True)
-    status: str | None = Field(None, nullable=True)
-    version: str | None = Field(None, nullable=True)
-    change_description: str | None = Field(None, nullable=True)
-    user_initials: str | None = Field(None, nullable=True)
-    parameter_terms: list[MultiTemplateParameterTerm] = Field(
-        [],
-        description="Holds the parameter terms that are used within the criteria. The terms are ordered as they occur in the criteria name.",
-    )
-    indications: list[SimpleTermModel] = Field(
-        [],
-        description="The study indications, conditions, diseases or disorders in scope for the pre-instance.",
-    )
-    categories: list[SimpleCTTermNameAndAttributes] = Field(
-        [], description="A list of categories the pre-instance belongs to."
-    )
-    sub_categories: list[SimpleCTTermNameAndAttributes] = Field(
-        [], description="A list of sub-categories the pre-instance belongs to."
-    )
-    library: Library | None = Field(None, nullable=True)
-    possible_actions: list[str] = Field([])
+    template_type_uid: Annotated[str | None, Field(nullable=True)] = None
+    guidance_text: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field(nullable=True)] = None
+    name_plain: Annotated[str | None, Field(nullable=True)] = None
+    start_date: Annotated[datetime | None, Field(nullable=True)] = None
+    end_date: Annotated[datetime | None, Field(nullable=True)] = None
+    status: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
+    change_description: Annotated[str | None, Field(nullable=True)] = None
+    author_username: Annotated[str | None, Field(nullable=True)] = None
+    parameter_terms: Annotated[
+        list[MultiTemplateParameterTerm],
+        Field(
+            description="Holds the parameter terms that are used within the criteria. The terms are ordered as they occur in the criteria name.",
+        ),
+    ] = []
+    indications: Annotated[
+        list[SimpleTermModel],
+        Field(
+            description="The study indications, conditions, diseases or disorders in scope for the pre-instance.",
+        ),
+    ] = []
+    categories: Annotated[
+        list[SimpleCTTermNameAndAttributes],
+        Field(description="A list of categories the pre-instance belongs to."),
+    ] = []
+    sub_categories: Annotated[
+        list[SimpleCTTermNameAndAttributes],
+        Field(description="A list of sub-categories the pre-instance belongs to."),
+    ] = []
+    library: Annotated[Library | None, Field(nullable=True)] = None
+    possible_actions: Annotated[list[str], Field()] = []
 
     @classmethod
     def from_criteria_pre_instance_ar(
@@ -93,7 +100,7 @@ class CriteriaPreInstance(BaseModel):
             status=criteria_pre_instance_ar.item_metadata.status.value,
             version=criteria_pre_instance_ar.item_metadata.version,
             change_description=criteria_pre_instance_ar.item_metadata.change_description,
-            user_initials=criteria_pre_instance_ar.item_metadata.user_initials,
+            author_username=criteria_pre_instance_ar.item_metadata.author_username,
             library=Library.from_library_vo(criteria_pre_instance_ar.library),
             parameter_terms=parameter_terms,
             indications=criteria_pre_instance_ar.indications,
@@ -105,37 +112,49 @@ class CriteriaPreInstance(BaseModel):
         )
 
 
-class CriteriaPreInstanceIndexingsInput(BaseModel):
-    indication_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the study indications, conditions, diseases or disorders to attach the pre-instance to.",
-    )
-    category_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the categories to attach the pre-instance to.",
-    )
-    sub_category_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the sub_categories to attach the pre-instance to.",
-    )
+class CriteriaPreInstanceIndexingsInput(PatchInputModel):
+    indication_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the study indications, conditions, diseases or disorders to attach the pre-instance to.",
+        ),
+    ] = None
+    category_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the categories to attach the pre-instance to.",
+        ),
+    ] = None
+    sub_category_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the sub_categories to attach the pre-instance to."
+        ),
+    ] = None
 
 
-class CriteriaPreInstanceCreateInput(PreInstanceInput):
+class CriteriaPreInstanceCreateInput(PreInstancePostInput):
     indication_uids: list[str]
     category_uids: list[str]
     sub_category_uids: list[str]
 
 
-class CriteriaPreInstanceEditInput(PreInstanceInput):
-    guidance_text: str | None = Field(
-        None,
-        description="Guidance text or None. If None is provided then the value will be inherited from the parent template.",
-        nullable=True,
-    )
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
+class CriteriaPreInstanceEditInput(PreInstancePatchInput):
+    guidance_text: Annotated[
+        str | None,
+        Field(
+            description="Guidance text or None. If None is provided then the value will be inherited from the parent template.",
+            nullable=True,
+            min_length=1,
+        ),
+    ] = None
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
 class CriteriaPreInstanceVersion(CriteriaPreInstance):
@@ -143,11 +162,13 @@ class CriteriaPreInstanceVersion(CriteriaPreInstance):
     Class for storing Criteria Pre-Instances and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the criteria (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the criteria (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

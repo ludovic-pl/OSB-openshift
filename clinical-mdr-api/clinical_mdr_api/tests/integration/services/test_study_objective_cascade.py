@@ -3,7 +3,6 @@ from typing import Any
 
 from neomodel import db
 
-from clinical_mdr_api.config import SDTM_CT_CATALOGUE_NAME
 from clinical_mdr_api.domain_repositories.models.generic import Library
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.domain_repositories.models.syntax import (
@@ -45,8 +44,10 @@ from clinical_mdr_api.tests.integration.utils.api import inject_and_clear_db
 from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_PARAMETERS_CYPHER,
     STARTUP_STUDY_OBJECTIVE_CYPHER,
+    fix_study_preferred_time_unit,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from common.config import SDTM_CT_CATALOGUE_NAME
 
 
 class TestStudyObjectiveUpversion(unittest.TestCase):
@@ -85,7 +86,7 @@ class TestStudyObjectiveUpversion(unittest.TestCase):
             name_plain=f"Changed Test {self.TPR_LABEL}",
         )
         self.item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
-            author="Test"
+            author_id="Test"
         )
         self.ar = ObjectiveTemplateAR(
             _uid=self.tfr.root_class.get_next_free_uid_and_increment_counter(),
@@ -99,24 +100,26 @@ class TestStudyObjectiveUpversion(unittest.TestCase):
         self.ar: ObjectiveTemplateAR = self.tfr.find_by_uid(
             self.ar.uid, for_update=True
         )
-        self.ar.approve(author="TEST")
+        self.ar.approve(author_id="TEST")
         self.tfr.save(self.ar)
 
         self.ar: ObjectiveTemplateAR = self.tfr.find_by_uid(
             self.ar.uid, for_update=True
         )
         self.ar.create_new_version(
-            author="TEST", change_description="Change", template=self.template_vo
+            author_id="TEST", change_description="Change", template=self.template_vo
         )
-        self.ar.approve(author="TEST")
+        self.ar.approve(author_id="TEST")
         self.tfr.save(self.ar)
+
+        fix_study_preferred_time_unit("study_root")
 
     def modify_objective_template(self):
         self.ar: ObjectiveTemplateAR = self.tfr.find_by_uid(
             self.ar.uid, for_update=True
         )
         self.ar.create_new_version(
-            author="TEST", change_description="Change", template=self.ntv
+            author_id="TEST", change_description="Change", template=self.ntv
         )
         self.tfr.save(self.ar)
 

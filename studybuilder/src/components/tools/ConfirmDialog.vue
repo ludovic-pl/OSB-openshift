@@ -28,7 +28,6 @@
               data-cy="cancel-popup"
               class="mr-4"
               rounded="xl"
-              elevation="2"
               @click="cancel"
             >
               {{ options.cancelLabel }}
@@ -39,7 +38,6 @@
                 :color="btnClasses"
                 rounded="xl"
                 data-cy="continue-popup"
-                elevation="2"
                 @click="agree"
               >
                 {{ options.agreeLabel }}
@@ -48,7 +46,6 @@
                 v-else
                 data-cy="continue-popup"
                 variant="outlined"
-                elevation="2"
                 rounded="xl"
                 @click="agreeAndRedirect"
               >

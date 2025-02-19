@@ -2,9 +2,10 @@ import datetime
 from dataclasses import dataclass
 from typing import Callable
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
 from clinical_mdr_api.domains.study_selections import study_selection_base
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import ValidationException
 
 
 @dataclass(frozen=True)
@@ -17,12 +18,14 @@ class StudySoAGroupVO(study_selection_base.StudySelectionBaseVO):
     study_uid: str
     study_selection_uid: str
     soa_group_term_uid: str
+    soa_group_term_name: str | None
     show_soa_group_in_protocol_flowchart: bool
     order: int | None
     study_activity_group_uids: list[str] | None
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
 
     @classmethod
@@ -30,7 +33,8 @@ class StudySoAGroupVO(study_selection_base.StudySelectionBaseVO):
         cls,
         study_uid: str,
         soa_group_term_uid: str,
-        user_initials: str,
+        author_id: str,
+        soa_group_term_name: str | None = None,
         order: int | None = None,
         study_activity_group_uids: list[str] | None = None,
         show_soa_group_in_protocol_flowchart: bool = False,
@@ -48,12 +52,14 @@ class StudySoAGroupVO(study_selection_base.StudySelectionBaseVO):
         return cls(
             study_uid=normalize_string(study_uid),
             soa_group_term_uid=normalize_string(soa_group_term_uid),
+            soa_group_term_name=normalize_string(soa_group_term_name),
             show_soa_group_in_protocol_flowchart=show_soa_group_in_protocol_flowchart,
             order=order,
             study_activity_group_uids=study_activity_group_uids,
             start_date=start_date,
             study_selection_uid=normalize_string(study_selection_uid),
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
         )
 
@@ -63,10 +69,10 @@ class StudySoAGroupVO(study_selection_base.StudySelectionBaseVO):
         ct_term_level_exist_callback: Callable[[str], bool] = (lambda _: True),
     ) -> None:
         # Checks if there exists an activity which is approved with activity_uid
-        if not ct_term_level_exist_callback(self.soa_group_term_uid):
-            raise exceptions.ValidationException(
-                f"There is no approved SoA group identified by provided term uid ({self.soa_group_term_uid})"
-            )
+        ValidationException.raise_if_not(
+            ct_term_level_exist_callback(self.soa_group_term_uid),
+            msg=f"There is no approved SoA Group Term with UID '{self.soa_group_term_uid}'.",
+        )
 
 
 @dataclass

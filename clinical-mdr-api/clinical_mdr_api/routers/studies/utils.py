@@ -4,26 +4,22 @@ from fastapi import Path
 
 # Useful type declarations
 
-studyUID = Path(None, description="The unique id of the study.")
+studyUID = Path(description="The unique id of the study.")
 
-study_selection_uid = Path(None, description="The unique id of the study selection.")
+study_selection_uid = Path(description="The unique id of the study selection.")
 
-study_design_cell_uid = Path(
-    None, description="The unique id of the study design cell."
-)
+study_design_cell_uid = Path(description="The unique id of the study design cell.")
 
 study_activity_schedule_uid = Path(
-    None, description="The unique id of the study activity schedule."
+    description="The unique id of the study activity schedule."
 )
 
 study_activity_instruction_uid = Path(
-    None, description="The unique id of the study activity instruction."
+    description="The unique id of the study activity instruction."
 )
 
 study_compound_dosing_uid = Path(
-    None, description="The unique id of the study compound dosing."
+    description="The unique id of the study compound dosing."
 )
 
-study_soa_footnote_uid = Path(
-    None, description="The unique id of the study soa footnote."
-)
+study_soa_footnote_uid = Path(description="The unique id of the study soa footnote.")

@@ -3,8 +3,7 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot, StudyValue
 from clinical_mdr_api.domain_repositories.models.study_audit_trail import (
     Create,
@@ -21,7 +20,8 @@ from clinical_mdr_api.domains.study_selections.study_selection_criteria import (
     StudySelectionCriteriaAR,
     StudySelectionCriteriaVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -30,7 +30,7 @@ class SelectionHistory:
 
     study_selection_uid: str
     syntax_object_uid: str
-    user_initials: str
+    author_id: str
     change_type: str
     start_date: datetime.datetime
     criteria_type_uid: str | None
@@ -112,14 +112,14 @@ class StudySelectionCriteriaRepository:
             CALL {{
                 WITH sc
                 MATCH (sc)-[:HAS_SELECTED_CRITERIA]->(:CriteriaValue)<-[ver]-(cr:CriteriaRoot)<-[:HAS_CRITERIA]-(:CriteriaTemplateRoot)-[:HAS_TYPE]->(term:CTTermRoot)
-                WHERE ver.status = "Final" {criteria_type_query} 
+                WHERE ver.status = "Final" {criteria_type_query}
                 RETURN ver as ver, cr as obj, term.uid as term_uid, true as is_instance
                 ORDER BY ver.start_date DESC
                 LIMIT 1
             UNION
                 WITH sc
                 MATCH (sc)-[:HAS_SELECTED_CRITERIA_TEMPLATE]->(:CriteriaTemplateValue)<-[ver]-(ctr:CriteriaTemplateRoot)-[:HAS_TYPE]->(term:CTTermRoot)
-                WHERE ver.status = "Final" {criteria_type_query} 
+                WHERE ver.status = "Final" {criteria_type_query}
                 RETURN ver as ver, ctr as obj, term.uid as term_uid, false as is_instance
                 ORDER BY ver.start_date DESC
                 LIMIT 1
@@ -135,7 +135,7 @@ class StudySelectionCriteriaRepository:
                 sc.accepted_version AS accepted_version,
                 obj.uid AS syntax_object_uid,
                 sa.date AS start_date,
-                sa.user_initials AS user_initials,
+                sa.author_id AS author_id,
                 ver.version AS syntax_object_version,
                 is_instance AS is_instance,
                 sc.key_criteria as key_criteria
@@ -143,7 +143,7 @@ class StudySelectionCriteriaRepository:
 
         all_criteria_selections = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in helpers.db_result_to_list(all_criteria_selections):
+        for selection in utils.db_result_to_list(all_criteria_selections):
             acv = selection.get("accepted_version", False)
             if acv is None:
                 acv = False
@@ -157,7 +157,7 @@ class StudySelectionCriteriaRepository:
                 is_instance=selection["is_instance"],
                 key_criteria=selection["key_criteria"],
                 start_date=convert_to_datetime(value=selection["start_date"]),
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
                 accepted_version=acv,
             )
             all_selections.append(selection_vo)
@@ -251,15 +251,15 @@ class StudySelectionCriteriaRepository:
             tuple[StudyRoot, StudyValue]: Returned node objects
 
         Raises:
-            VersioningException: Returns an error if the study cannot be reordered or get new items
+            BusinessLogicException: Returns an error if the study cannot be reordered or get new items
         """
         study_root_node = StudyRoot.nodes.get(uid=study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         return study_root_node, latest_study_value_node
 
@@ -318,11 +318,11 @@ class StudySelectionCriteriaRepository:
 
         return selections_to_remove, selections_to_add
 
-    def save(self, study_selection: StudySelectionCriteriaAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionCriteriaAR, author_id: str) -> None:
         """
         Persist the set of selected study criteria from the aggregate to the database
         :param study_selection:
-        :param author:
+        :param author_id:
         """
         assert study_selection.repository_closure_data is not None
 
@@ -371,7 +371,7 @@ class StudySelectionCriteriaRepository:
                     study_selection, selected_object.study_selection_uid
                 )
                 audit_node = self._set_before_audit_info(
-                    audit_node, last_study_selection_node, study_root_node, author
+                    audit_node, last_study_selection_node, study_root_node, author_id
                 )
                 audit_trail_nodes[selected_object.study_selection_uid] = audit_node
                 if isinstance(audit_node, Delete):
@@ -392,7 +392,7 @@ class StudySelectionCriteriaRepository:
                     audit_node = audit_trail_nodes[selected_object.study_selection_uid]
                 else:
                     audit_node = Create()
-                    audit_node.user_initials = selected_object.user_initials
+                    audit_node.author_id = selected_object.author_id
                     audit_node.date = selected_object.start_date
                     audit_node.save()
                     study_root_node.audit_trail.connect(audit_node)
@@ -419,9 +419,9 @@ class StudySelectionCriteriaRepository:
         audit_node: StudyAction,
         study_criteria_selection_node: StudyCriteria,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -541,7 +541,7 @@ class StudySelectionCriteriaRepository:
                 obj.uid AS syntax_object_uid,
                 asa.date AS start_date,
                 asa.status AS status,
-                asa.user_initials AS user_initials,
+                asa.author_id AS author_id,
                 labels(asa) AS change_type,
                 bsa.date AS end_date,
                 ver.version AS syntax_object_version,
@@ -558,7 +558,8 @@ class StudySelectionCriteriaRepository:
             },
         )
         result = []
-        for res in helpers.db_result_to_list(specific_criteria_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_criteria_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -570,7 +571,7 @@ class StudySelectionCriteriaRepository:
                 SelectionHistory(
                     study_selection_uid=res["study_selection_uid"],
                     syntax_object_uid=res["syntax_object_uid"],
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     start_date=convert_to_datetime(value=res["start_date"]),
                     criteria_type_uid=res["criteria_type_uid"],

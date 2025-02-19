@@ -17,6 +17,7 @@ MDR_MIGRATION_ODM_ITEMGROUPS = load_env("MDR_MIGRATION_ODM_ITEMGROUPS")
 MDR_MIGRATION_ODM_ITEMS = load_env("MDR_MIGRATION_ODM_ITEMS")
 MDR_MIGRATION_ODM_ALIAS = load_env("MDR_MIGRATION_ODM_ALIAS")
 
+
 # name, prefix, namespace
 def odm_vendor_namespace(data):
     return {
@@ -84,9 +85,9 @@ def odm_form(data, alias_uids):
                     "name": data["name"],
                     "library_name": data["library"],
                     "language": data["language"],
-                    "description": data["description"],
-                    "instruction": data["instruction"],
-                    "sponsor_instruction": "",
+                    "description": data["description"] or None,
+                    "instruction": data["instruction"] or None,
+                    "sponsor_instruction": None,
                 }
             ],
             "alias_uids": alias_uids,
@@ -98,6 +99,7 @@ def odm_form(data, alias_uids):
 #        "sdtmVersion": "string",
 #        "scope_uid": "string",
 
+
 # library,oid,name,prompt,repeating,isreferencedata,sasdatasetname,domain,origin,purpose,comment,language,description,instruction
 def odm_itemgroup(data, alias_uids, domain_uids):
     return {
@@ -107,9 +109,9 @@ def odm_itemgroup(data, alias_uids, domain_uids):
             "library_name": data["library"],
             "oid": data["oid"],
             "repeating": "yes" if data["repeating"].lower() == "true" else "no",
-            "is_reference_data": "yes"
-            if data["isreferencedata"].lower() == "true"
-            else "no",
+            "is_reference_data": (
+                "yes" if data["isreferencedata"].lower() == "true" else "no"
+            ),
             "sas_dataset_name": data["sasdatasetname"],
             "origin": data["origin"],
             "purpose": data["purpose"],
@@ -120,9 +122,9 @@ def odm_itemgroup(data, alias_uids, domain_uids):
                     "name": data["name"],
                     "library_name": data["library"],
                     "language": data["language"],
-                    "description": data["description"],
-                    "instruction": data["instruction"],
-                    "sponsor_instruction": "",
+                    "description": data["description"] or None,
+                    "instruction": data["instruction"] or None,
+                    "sponsor_instruction": None,
                 },
             ],
             "alias_uids": alias_uids,
@@ -153,9 +155,9 @@ def odm_item(data, alias_uids, units, terms):
                     "name": data["name"],
                     "library_name": data["library"],
                     "language": data["language"],
-                    "description": data["description"],
-                    "instruction": data["instruction"],
-                    "sponsor_instruction": "",
+                    "description": data["description"] or None,
+                    "instruction": data["instruction"] or None,
+                    "sponsor_instruction": None,
                 },
             ],
             "alias_uids": alias_uids,

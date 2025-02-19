@@ -42,6 +42,7 @@ from clinical_mdr_api.tests.integration.utils.data_library import (
     STARTUP_STUDY_FIELD_CYPHER,
     inject_base_data,
 )
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID
 
 
 class StudyFieldsConcurrencyTest(unittest.TestCase):
@@ -53,7 +54,7 @@ class StudyFieldsConcurrencyTest(unittest.TestCase):
     _repos = MetaRepository()
 
     library_name = "Sponsor"
-    user_initials = "TEST"
+    author_id = "TEST"
 
     studies_repository: StudyDefinitionRepository
     study_title_repository: StudyTitleRepository
@@ -152,7 +153,7 @@ class StudyFieldsConcurrencyTest(unittest.TestCase):
                 generate_uid_callback=lambda: "C49802",
                 ct_term_attributes_vo=ct_term_attributes_vo,
                 library=library_vo,
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
             )
             self.ct_term_attributes_repository.save(self.ct_term_attributes_ar)
 
@@ -160,7 +161,9 @@ class StudyFieldsConcurrencyTest(unittest.TestCase):
             ct_term_attributes_ar = self.ct_term_attributes_repository.find_by_uid(
                 "C49802", for_update=True
             )
-            ct_term_attributes_ar.approve(author="TODO Initials")
+            ct_term_attributes_ar.approve(
+                author_id=AUTHOR_ID,
+            )
             self.ct_term_attributes_repository.save(ct_term_attributes_ar)
 
         with db.transaction:
@@ -181,14 +184,14 @@ class StudyFieldsConcurrencyTest(unittest.TestCase):
                 generate_uid_callback=lambda: "C49802",
                 ct_term_name_vo=ct_term_name_vo,
                 library=library_vo,
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
             )
 
             self.ct_term_names_repository.save(self.ct_term_name_ar)
 
     def test_add_study_field_not_waiting_for_ct_term_approval(self):
         """
-        The intended functionality is that adding study fields does not need concurrency checks,
+        The intended functionality is that adding study fields doesn't need concurrency checks,
         we confirm no shared locks are grabbed.
         """
         self.set_up_base_graph_for_studies()
@@ -208,7 +211,9 @@ class StudyFieldsConcurrencyTest(unittest.TestCase):
         ct_term_name_ar = self.ct_term_names_repository.find_by_uid(
             "C49802", for_update=True
         )
-        ct_term_name_ar.approve(author="TODO Initials")
+        ct_term_name_ar.approve(
+            author_id=AUTHOR_ID,
+        )
         self.ct_term_names_repository.save(ct_term_name_ar)
 
     def add_study_field_without_save(self):

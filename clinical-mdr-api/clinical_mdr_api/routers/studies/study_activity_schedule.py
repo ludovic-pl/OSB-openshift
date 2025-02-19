@@ -1,21 +1,29 @@
+from typing import Annotated
+
 from fastapi import Body, Query, Response, status
 
-from clinical_mdr_api import models
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.oauth import rbac
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivitySchedule,
+    StudyActivityScheduleBatchInput,
+    StudyActivityScheduleBatchOutput,
+    StudyActivityScheduleCreateInput,
+    StudyActivityScheduleHistory,
+)
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.routers import study_router as router
 from clinical_mdr_api.routers.studies import utils
 from clinical_mdr_api.services.studies.study_activity_schedule import (
     StudyActivityScheduleService,
 )
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 
 @router.get(
     "/studies/{study_uid}/study-activity-schedules",
     dependencies=[rbac.STUDY_READ],
     summary="List all study activity schedules currently defined for the study",
-    response_model=list[models.StudyActivitySchedule],
+    response_model=list[StudyActivitySchedule],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -27,14 +35,17 @@ from clinical_mdr_api.services.studies.study_activity_schedule import (
     },
 )
 def get_all_selected_activities(
-    study_uid: str = utils.studyUID,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    operational: bool
-    | None = Query(
-        False,
-        description="List scheduled study activity instances instead of study activities",
-    ),
-) -> list[models.StudyActivitySchedule]:
+    study_uid: Annotated[str, utils.studyUID],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    operational: Annotated[
+        bool | None,
+        Query(
+            description="List scheduled study activity instances instead of study activities",
+        ),
+    ] = False,
+) -> list[StudyActivitySchedule]:
     service = StudyActivityScheduleService()
     return service.get_all_schedules(
         study_uid=study_uid,
@@ -47,7 +58,7 @@ def get_all_selected_activities(
     "/studies/{study_uid}/study-activity-schedules",
     dependencies=[rbac.STUDY_WRITE],
     summary="Add a study activity schedule to a study",
-    response_model=models.StudyActivitySchedule,
+    response_model=StudyActivitySchedule,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -63,11 +74,12 @@ def get_all_selected_activities(
     },
 )
 def post_new_activity_schedule_create(
-    study_uid: str = utils.studyUID,
-    selection: models.StudyActivityScheduleCreateInput = Body(
-        description="Related parameters of the schedule that shall be created."
-    ),
-) -> models.StudyActivitySchedule:
+    study_uid: Annotated[str, utils.studyUID],
+    selection: Annotated[
+        StudyActivityScheduleCreateInput,
+        Body(description="Related parameters of the schedule that shall be created."),
+    ],
+) -> StudyActivitySchedule:
     service = StudyActivityScheduleService()
     return service.create(study_uid=study_uid, schedule_input=selection)
 
@@ -88,8 +100,8 @@ def post_new_activity_schedule_create(
     },
 )
 def delete_activity_schedule(
-    study_uid: str = utils.studyUID,
-    study_activity_schedule_uid: str = utils.study_activity_schedule_uid,
+    study_uid: Annotated[str, utils.studyUID],
+    study_activity_schedule_uid: Annotated[str, utils.study_activity_schedule_uid],
 ):
     service = StudyActivityScheduleService()
     service.delete(study_uid=study_uid, schedule_uid=study_activity_schedule_uid)
@@ -103,12 +115,12 @@ def delete_activity_schedule(
     description="""
 The following values should be returned for all study activities:
 - date_time
-- user_initials
+- author_username
 - action
 - activity
 - order
     """,
-    response_model=list[models.StudyActivityScheduleHistory],
+    response_model=list[StudyActivityScheduleHistory],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -117,8 +129,8 @@ The following values should be returned for all study activities:
     },
 )
 def get_all_schedules_audit_trail(
-    study_uid: str = utils.studyUID,
-) -> list[models.StudyActivityScheduleHistory]:
+    study_uid: Annotated[str, utils.studyUID],
+) -> list[StudyActivityScheduleHistory]:
     service = StudyActivityScheduleService()
     return service.get_all_schedules_audit_trail(study_uid=study_uid)
 
@@ -127,7 +139,7 @@ def get_all_schedules_audit_trail(
     "/studies/{study_uid}/study-activity-schedules/batch",
     dependencies=[rbac.STUDY_WRITE],
     summary="Batch operations (create, delete) for study activity schedules",
-    response_model=list[models.StudyActivityScheduleBatchOutput],
+    response_model=list[StudyActivityScheduleBatchOutput],
     status_code=207,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -135,10 +147,11 @@ def get_all_schedules_audit_trail(
     },
 )
 def activity_schedule_batch_operations(
-    study_uid: str = utils.studyUID,
-    operations: list[models.StudyActivityScheduleBatchInput] = Body(
-        description="List of operation to perform"
-    ),
-) -> list[models.StudyActivityScheduleBatchOutput]:
+    study_uid: Annotated[str, utils.studyUID],
+    operations: Annotated[
+        list[StudyActivityScheduleBatchInput],
+        Body(description="List of operation to perform"),
+    ],
+) -> list[StudyActivityScheduleBatchOutput]:
     service = StudyActivityScheduleService()
     return service.handle_batch_operations(study_uid, operations)

@@ -7,8 +7,8 @@ from clinical_mdr_api.domains.concepts.activities.activity_group import (
 )
 from clinical_mdr_api.models.concepts.activities.activity_group import (
     ActivityGroup,
+    ActivityGroupCreateInput,
     ActivityGroupEditInput,
-    ActivityGroupInput,
     ActivityGroupVersion,
 )
 from clinical_mdr_api.services.concepts.concept_generic_service import (
@@ -27,10 +27,10 @@ class ActivityGroupService(ConceptGenericService[ActivityGroupAR]):
         return ActivityGroup.from_activity_ar(activity_group_ar=item_ar)
 
     def _create_aggregate_root(
-        self, concept_input: ActivityGroupInput, library
+        self, concept_input: ActivityGroupCreateInput, library
     ) -> ActivityGroupAR:
         return ActivityGroupAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=ActivityGroupVO.from_repository_values(
                 name=concept_input.name,
                 name_sentence_case=concept_input.name_sentence_case,
@@ -39,14 +39,14 @@ class ActivityGroupService(ConceptGenericService[ActivityGroupAR]):
             ),
             library=library,
             generate_uid_callback=self.repository.generate_uid,
-            concept_exists_by_callback=self._repos.activity_group_repository.exists_by,
+            concept_exists_by_library_and_name_callback=self._repos.activity_group_repository.latest_concept_in_library_exists_by_name,
         )
 
     def _edit_aggregate(
         self, item: ActivityGroupAR, concept_edit_input: ActivityGroupEditInput
     ) -> ActivityGroupAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=ActivityGroupVO.from_repository_values(
                 name=concept_edit_input.name,
@@ -54,6 +54,6 @@ class ActivityGroupService(ConceptGenericService[ActivityGroupAR]):
                 definition=concept_edit_input.definition,
                 abbreviation=concept_edit_input.abbreviation,
             ),
-            concept_exists_by_callback=self._repos.activity_group_repository.exists_by,
+            concept_exists_by_library_and_name_callback=self._repos.activity_group_repository.latest_concept_in_library_exists_by_name,
         )
         return item

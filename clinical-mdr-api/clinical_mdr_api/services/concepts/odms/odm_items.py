@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.item_repository import (
     ItemRepository,
 )
@@ -28,13 +27,15 @@ from clinical_mdr_api.models.concepts.odms.odm_item import (
     OdmItemUnitDefinitionRelationshipInput,
     OdmItemVersion,
 )
-from clinical_mdr_api.services._utils import get_input_or_new_value, normalize_string
+from clinical_mdr_api.services._utils import get_input_or_new_value
 from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
     OdmDescriptionService,
 )
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from clinical_mdr_api.utils import normalize_string
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class OdmItemService(OdmGenericService[OdmItemAR]):
@@ -68,7 +69,7 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
         self, concept_input: OdmItemPostInput, library
     ) -> OdmItemAR:
         return OdmItemAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmItemVO.from_repository_values(
                 oid=concept_input.oid,
                 name=concept_input.name,
@@ -97,6 +98,7 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
             generate_uid_callback=self.repository.generate_uid,
             odm_object_exists_callback=self._repos.odm_item_repository.odm_object_exists,
             odm_description_exists_by_callback=self._repos.odm_description_repository.exists_by,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
             unit_definition_exists_by_callback=self._repos.unit_definition_repository.exists_by,
             find_codelist_attribute_callback=self._repos.ct_codelist_attribute_repository.find_by_uid,
@@ -107,7 +109,7 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
         self, item: OdmItemAR, concept_edit_input: OdmItemPatchInput
     ) -> OdmItemAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmItemVO.from_repository_values(
                 oid=concept_edit_input.oid,
@@ -135,6 +137,7 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
             ),
             odm_object_exists_callback=self._repos.odm_item_repository.odm_object_exists,
             odm_description_exists_by_callback=self._repos.odm_description_repository.exists_by,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
             unit_definition_exists_by_callback=self._repos.unit_definition_repository.exists_by,
             find_codelist_attribute_callback=self._repos.ct_codelist_attribute_repository.find_by_uid,
@@ -145,11 +148,13 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
     @db.transaction
     def create_with_relations(self, concept_input: OdmItemPostInput) -> OdmItem:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else OdmDescriptionService()
+                .non_transactional_create(concept_input=description)
+                .uid
+            )
             for description in concept_input.descriptions
         ]
 
@@ -190,15 +195,21 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
         self, uid: str, concept_edit_input: OdmItemPatchInput
     ) -> OdmItem:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_edit(uid=description.uid, concept_edit_input=description)
-            .uid
-            if isinstance(description, OdmDescriptionBatchPatchInput)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else (
+                    OdmDescriptionService()
+                    .non_transactional_edit(
+                        uid=description.uid, concept_edit_input=description
+                    )
+                    .uid
+                    if isinstance(description, OdmDescriptionBatchPatchInput)
+                    else OdmDescriptionService()
+                    .non_transactional_create(concept_input=description)
+                    .uid
+                )
+            )
             for description in concept_edit_input.descriptions
         ]
 
@@ -266,13 +277,15 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
                 parameters={
                     "mandatory": input_term.mandatory,
                     "order": input_term.order,
-                    "display_text": input_term.display_text
-                    if not any(
-                        input_term.uid == term["term_uid"]
-                        and input_term.display_text == term["nci_preferred_name"]
-                        for term in terms
-                    )
-                    else None,
+                    "display_text": (
+                        input_term.display_text
+                        if not any(
+                            input_term.uid == term["term_uid"]
+                            and input_term.display_text == term["nci_preferred_name"]
+                            for term in terms
+                        )
+                        else None
+                    ),
                 },
             )
 
@@ -346,13 +359,15 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
     ) -> OdmItem:
         odm_item_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
-        if odm_item_ar.concept_vo.activity_uid and not override:
-            raise exceptions.BusinessLogicException(
-                "Only one activity can be linked to an ODM Item"
-            )
+        BusinessLogicException.raise_if(
+            odm_item_ar.concept_vo.activity_uid and not override,
+            msg="Only one activity can be linked to an ODM Item",
+        )
 
         if override:
             self._repos.odm_item_repository.remove_relation(
@@ -381,8 +396,10 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
     ) -> OdmItem:
         odm_item_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.are_elements_vendor_compatible(
             odm_vendor_relation_post_input, VendorElementCompatibleType.ITEM_DEF
@@ -424,8 +441,10 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
     ) -> OdmItem:
         odm_item_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.fail_if_these_attributes_cannot_be_added(
             odm_vendor_relation_post_input,
@@ -463,8 +482,10 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
     ) -> OdmItem:
         odm_item_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_item_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.fail_if_these_attributes_cannot_be_added(
             odm_vendor_relation_post_input,
@@ -513,10 +534,11 @@ class OdmItemService(OdmGenericService[OdmItemAR]):
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_item_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Item identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_item_repository.exists_by("uid", uid, True),
+            "ODM Item",
+            uid,
+        )
 
         return self._repos.odm_item_repository.get_active_relationships(
             uid, ["item_ref"]

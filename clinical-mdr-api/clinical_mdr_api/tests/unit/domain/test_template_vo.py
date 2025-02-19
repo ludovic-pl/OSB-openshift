@@ -3,7 +3,7 @@ from hypothesis import given
 from hypothesis.strategies import composite, from_regex, lists
 
 from clinical_mdr_api.domains.syntax_templates.template import TemplateVO
-from clinical_mdr_api.exceptions import ValidationException
+from common.exceptions import ValidationException
 
 
 @composite

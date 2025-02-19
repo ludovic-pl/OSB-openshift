@@ -115,7 +115,7 @@
               density="compact"
               clearable
               :disabled="
-                form.activity_groupings[0].activity_group_uid ? false : true
+                group ? false : true
               "
               :rules="[formRules.required]"
               return-object
@@ -405,10 +405,14 @@ export default {
       this.form.name_sentence_case =
         this.form.name.charAt(0).toUpperCase() + this.form.name.slice(1)
       this.form.activity_request_uid = this.editedActivity.uid
-      this.form.activity_subgroup = this.subgroup.uid
-      this.form.activity_groupings[0].activity_subgroup_uid = this.subgroup.uid
-      this.form.activity_group = this.group.uid
-      this.form.activity_groupings[0].activity_group_uid = this.group.uid
+      if (this.subgroup) {
+        this.form.activity_subgroup = this.subgroup.uid
+        this.form.activity_groupings[0].activity_subgroup_uid = this.subgroup.uid
+      }
+      if (this.group) {
+        this.form.activity_group = this.group.uid
+        this.form.activity_groupings[0].activity_group_uid = this.group.uid
+      }
       activities.createFromActivityRequest(this.form).then(
         () => {
           this.eventBusEmit('warning', {
@@ -463,7 +467,7 @@ export default {
         page_number: this.options.page,
         page_size: this.options.itemsPerPage,
         total_count: true,
-        library: 'Sponsor',
+        library_name: 'Sponsor',
         filters: `{"*":{"v":["${this.form.name}"]}}`,
       }
       activities.get(params, 'activities').then((resp) => {

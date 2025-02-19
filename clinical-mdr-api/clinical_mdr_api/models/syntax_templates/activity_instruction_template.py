@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field, conlist
 
@@ -12,104 +12,141 @@ from clinical_mdr_api.models.libraries.library import ItemCounts, Library
 from clinical_mdr_api.models.syntax_templates.template_parameter import (
     TemplateParameter,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import (
+    BaseModel,
+    InputModel,
+    PatchInputModel,
+    PostInputModel,
+)
 
 
 class ActivityInstructionTemplateName(BaseModel):
-    name: str = Field(
-        ...,
-        description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
-    )
-    name_plain: str = Field(
-        ...,
-        description="The plain text version of the name property, stripped of HTML tags",
-    )
-    guidance_text: str | None = Field(
-        None,
-        description="Optional guidance text for using the template.",
-        nullable=True,
-    )
+    name: Annotated[
+        str,
+        Field(
+            description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
+        ),
+    ]
+    name_plain: Annotated[
+        str,
+        Field(
+            description="The plain text version of the name property, stripped of HTML tags",
+        ),
+    ]
+    guidance_text: Annotated[
+        str | None,
+        Field(
+            description="Optional guidance text for using the template.", nullable=True
+        ),
+    ] = None
 
 
 class ActivityInstructionTemplateNameUid(ActivityInstructionTemplateName):
-    uid: str = Field(
-        ..., description="The unique id of the activity instruction template."
-    )
-    sequence_id: str | None = Field(None, nullable=True)
+    uid: Annotated[
+        str, Field(description="The unique id of the activity instruction template.")
+    ]
+    sequence_id: Annotated[str | None, Field(nullable=True)] = None
 
 
 class ActivityInstructionTemplateNameUidLibrary(ActivityInstructionTemplateNameUid):
-    library_name: str = Field(...)
+    library_name: Annotated[str, Field()]
 
 
 class ActivityInstructionTemplate(ActivityInstructionTemplateNameUid):
-    start_date: datetime | None = Field(
-        default_factory=datetime.utcnow,
-        description="Part of the metadata: The point in time when the (version of the) activity instruction template was created. "
-        "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
-    )
-    end_date: datetime | None = Field(
-        default_factory=datetime.utcnow,
-        description="""Part of the metadata: The point in time when the version of
-        the activity instruction template was closed (and a new one was created). """
-        "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
-        nullable=True,
-    )
-    status: str | None = Field(
-        None,
-        description="The status in which the (version of the) activity instruction template is in. "
-        "Possible values are: 'Final', 'Draft' or 'Retired'.",
-        nullable=True,
-    )
-    version: str | None = Field(
-        None,
-        description="The version number of the (version of the) activity instruction template. "
-        "The format is: <major>.<minor> where <major> and <minor> are digits. E.g. '0.1', '0.2', '1.0', ...",
-        nullable=True,
-    )
-    change_description: str | None = Field(
-        None,
-        description="A short description about what has changed compared to the previous version.",
-        nullable=True,
-    )
-    user_initials: str | None = Field(
-        None,
-        description="The initials of the user that triggered the change of the activity instruction template.",
-        nullable=True,
-    )
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the activity instruction template. "
-            "Actions are: 'approve', 'edit', 'new_version', 'inactivate', 'reactivate' and 'delete'."
+    start_date: Annotated[
+        datetime | None,
+        Field(
+            default_factory=datetime.utcnow,
+            description="Part of the metadata: The point in time when the (version of the) activity instruction template was created. "
+            "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
+            nullable=True,
         ),
-    )
-    parameters: list[TemplateParameter] = Field(
-        [],
-        description="Those parameters that are used by the activity instruction template.",
-    )
-    library: Library | None = Field(
-        None,
-        description="The library to which the activity instruction template belongs.",
-        nullable=True,
-    )
+    ]
+    end_date: Annotated[
+        datetime | None,
+        Field(
+            default_factory=datetime.utcnow,
+            description="""Part of the metadata: The point in time when the version of
+        the activity instruction template was closed (and a new one was created)]. """
+            "The format is ISO 8601 in UTC±0, e.g.: '2020-10-31T16:00:00+00:00' for October 31, 2020 at 6pm in UTC+2 timezone.",
+            nullable=True,
+        ),
+    ]
+    status: Annotated[
+        str | None,
+        Field(
+            description="The status in which the (version of the) activity instruction template is in. "
+            "Possible values are: 'Final', 'Draft' or 'Retired'.",
+            nullable=True,
+        ),
+    ] = None
+    version: Annotated[
+        str | None,
+        Field(
+            description="The version number of the (version of the) activity instruction template. "
+            "The format is: <major>.<minor> where <major> and <minor> are digits. E.g. '0.1', '0.2', '1.0', ...",
+            nullable=True,
+        ),
+    ] = None
+    change_description: Annotated[
+        str | None,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            nullable=True,
+        ),
+    ] = None
+    author_username: Annotated[
+        str | None,
+        Field(
+            nullable=True,
+        ),
+    ] = None
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the activity instruction template. "
+                "Actions are: 'approve', 'edit', 'new_version', 'inactivate', 'reactivate' and 'delete'."
+            )
+        ),
+    ] = []
+    parameters: Annotated[
+        list[TemplateParameter],
+        Field(
+            description="Those parameters that are used by the activity instruction template.",
+        ),
+    ] = []
+    library: Annotated[
+        Library | None,
+        Field(
+            description="The library to which the activity instruction template belongs.",
+            nullable=True,
+        ),
+    ] = None
 
     # Template indexings
-    indications: list[SimpleTermModel] = Field(
-        [],
-        description="The study indications, conditions, diseases or disorders in scope for the template.",
-    )
-    activities: list[SimpleNameModel] = Field(
-        [], description="The activities in scope for the template"
-    )
-    activity_groups: list[SimpleNameModel] = Field(
-        [], description="The activity groups in scope for the template"
-    )
-    activity_subgroups: list[SimpleNameModel] = Field(
-        [], description="The activity sub groups in scope for the template"
-    )
+    indications: Annotated[
+        list[SimpleTermModel],
+        Field(
+            description="The study indications, conditions, diseases or disorders in scope for the template.",
+        ),
+    ] = []
+    activities: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activities in scope for the template"),
+    ] = []
+    activity_groups: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activity groups in scope for the template"),
+    ] = []
+    activity_subgroups: Annotated[
+        list[SimpleNameModel],
+        Field(description="The activity sub groups in scope for the template"),
+    ] = []
 
-    study_count: int = Field(0, description="Count of studies referencing template")
+    study_count: Annotated[
+        int, Field(description="Count of studies referencing template")
+    ] = 0
 
     @classmethod
     def from_activity_instruction_template_ar(
@@ -126,7 +163,7 @@ class ActivityInstructionTemplate(ActivityInstructionTemplateNameUid):
             status=activity_instruction_template_ar.item_metadata.status.value,
             version=activity_instruction_template_ar.item_metadata.version,
             change_description=activity_instruction_template_ar.item_metadata.change_description,
-            user_initials=activity_instruction_template_ar.item_metadata.user_initials,
+            author_username=activity_instruction_template_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [
                     _.value
@@ -147,9 +184,13 @@ class ActivityInstructionTemplate(ActivityInstructionTemplateNameUid):
 
 
 class ActivityInstructionTemplateWithCount(ActivityInstructionTemplate):
-    counts: ItemCounts | None = Field(
-        None, description="Optional counts of activity instruction instantiations"
-    )
+    counts: Annotated[
+        ItemCounts | None,
+        Field(
+            description="Optional counts of activity instruction instantiations",
+            nullable=True,
+        ),
+    ] = None
 
     @classmethod
     def from_activity_instruction_template_ar(
@@ -173,41 +214,67 @@ class ActivityInstructionTemplateVersion(ActivityInstructionTemplate):
     Class for storing Activity Instruction Templates and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the activity instruction template (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the activity instruction template (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None
 
 
-class ActivityInstructionTemplateNameInput(BaseModel):
-    name: str = Field(
-        ...,
-        description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
-        min_length=1,
-    )
-    guidance_text: str | None = Field(
-        None, description="Optional guidance text for using the template."
-    )
+class ActivityInstructionTemplatePreValidateInput(InputModel):
+    name: Annotated[
+        str,
+        Field(
+            description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
+            min_length=1,
+        ),
+    ]
+    guidance_text: Annotated[
+        str | None,
+        Field(
+            description="Optional guidance text for using the template.", min_length=1
+        ),
+    ]
 
 
-class ActivityInstructionTemplateCreateInput(ActivityInstructionTemplateNameInput):
-    library_name: str | None = Field(
-        "Sponsor",
-        description="If specified: The name of the library to which the activity instruction template will be linked. The following rules apply: \n"
-        "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
-        "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true.",
-    )
-    indication_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the study indications, conditions, diseases or disorders to attach the template to.",
-    )
-    activity_uids: list[str] | None = Field(
-        None, description="A list of UID of the activities to attach the template to."
-    )
+class ActivityInstructionTemplateCreateInput(PostInputModel):
+    name: Annotated[
+        str,
+        Field(
+            description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
+            min_length=1,
+        ),
+    ]
+    guidance_text: Annotated[
+        str | None,
+        Field(
+            description="Optional guidance text for using the template.", min_length=1
+        ),
+    ]
+    library_name: Annotated[
+        str | None,
+        Field(
+            description="If specified: The name of the library to which the activity instruction template will be linked. The following rules apply: \n"
+            "* The library needs to be present, it will not be created with this request. The *[GET] /libraries* endpoint can help. And \n"
+            "* The library needs to allow the creation: The 'is_editable' property of the library needs to be true.",
+            min_length=1,
+        ),
+    ] = "Sponsor"
+    indication_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the study indications, conditions, diseases or disorders to attach the template to.",
+        ),
+    ] = None
+    activity_uids: Annotated[
+        list[str] | None,
+        Field(description="A list of UID of the activities to attach the template to."),
+    ] = None
     activity_group_uids: conlist(
         str,
         min_items=1,
@@ -218,26 +285,49 @@ class ActivityInstructionTemplateCreateInput(ActivityInstructionTemplateNameInpu
     )
 
 
-class ActivityInstructionTemplateEditInput(ActivityInstructionTemplateNameInput):
-    change_description: str = Field(
-        ...,
-        description="A short description about what has changed compared to the previous version.",
-    )
+class ActivityInstructionTemplateEditInput(PatchInputModel):
+    name: Annotated[
+        str,
+        Field(
+            description="The actual value/content. It may include parameters referenced by simple strings in square brackets [].",
+            min_length=1,
+        ),
+    ]
+    guidance_text: Annotated[
+        str | None,
+        Field(
+            description="Optional guidance text for using the template.", min_length=1
+        ),
+    ]
+    change_description: Annotated[
+        str,
+        Field(
+            description="A short description about what has changed compared to the previous version.",
+            min_length=1,
+        ),
+    ]
 
 
-class ActivityInstructionTemplateEditIndexingsInput(BaseModel):
-    indication_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the study indications, conditions, diseases or disorders to attach the template to.",
-    )
-    activity_uids: list[str] | None = Field(
-        None, description="A list of UID of the activities to attach the template to."
-    )
-    activity_group_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the activity groups to attach the template to.",
-    )
-    activity_subgroup_uids: list[str] | None = Field(
-        None,
-        description="A list of UID of the activity sub groups to attach the template to.",
-    )
+class ActivityInstructionTemplateEditIndexingsInput(PatchInputModel):
+    indication_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the study indications, conditions, diseases or disorders to attach the template to.",
+        ),
+    ] = None
+    activity_uids: Annotated[
+        list[str] | None,
+        Field(description="A list of UID of the activities to attach the template to."),
+    ] = None
+    activity_group_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the activity groups to attach the template to.",
+        ),
+    ] = None
+    activity_subgroup_uids: Annotated[
+        list[str] | None,
+        Field(
+            description="A list of UID of the activity sub groups to attach the template to.",
+        ),
+    ] = None

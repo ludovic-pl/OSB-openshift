@@ -1,5 +1,6 @@
 import logging
 from enum import Enum
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -18,10 +19,14 @@ class SortByStudies(Enum):
 
 
 class Study(BaseModel):
-    uid: str = Field(..., description="Study UID")
-    acronym: str | None = Field(None, description="Study acronym", nullable=True)
-    id_prefix: str = Field(..., description="Study ID prefix")
-    number: str | None = Field(None, description="Study number", nullable=True)
+    uid: Annotated[str, Field(description="Study UID")]
+    acronym: Annotated[
+        str | None, Field(description="Study acronym", nullable=True)
+    ] = None
+    id_prefix: Annotated[str, Field(description="Study ID prefix")]
+    number: Annotated[str | None, Field(description="Study number", nullable=True)] = (
+        None
+    )
 
     @classmethod
     def from_input(cls, val: dict):

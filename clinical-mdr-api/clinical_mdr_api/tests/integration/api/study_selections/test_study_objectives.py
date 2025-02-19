@@ -17,7 +17,6 @@ import pytest
 from fastapi.testclient import TestClient
 from neomodel import db
 
-from clinical_mdr_api import config as settings
 from clinical_mdr_api.domain_repositories.models.syntax import (
     ObjectiveRoot,
     ObjectiveTemplateRoot,
@@ -29,7 +28,6 @@ from clinical_mdr_api.tests.integration.api.study_selections.utils import (
     ct_term_retrieval_at_date_test_common,
 )
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
@@ -42,6 +40,8 @@ from clinical_mdr_api.tests.integration.utils.factory_controlled_terminology imp
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
+from common import config as settings
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +116,6 @@ def test_data():
     )
 
     yield
-    drop_db(db_name)
 
 
 def test_objective_modify_actions_on_locked_study(api_client):
@@ -130,7 +129,7 @@ def test_objective_modify_actions_on_locked_study(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["objective_level"]["term_uid"] == "term_root_final"
     study_objective_uid = res["study_objective_uid"]
 
@@ -139,7 +138,7 @@ def test_objective_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}/study-objectives/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # update study title to be able to lock it
@@ -147,48 +146,45 @@ def test_objective_modify_actions_on_locked_study(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         f"/studies/{study.uid}/study-objectives",
         json={"objective_uid": "Objective_000002"},
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
     # edit objective
     response = api_client.patch(
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}",
         json={"new_order": 2},
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"/studies/{study.uid}/study-objectives/audit-trail/",
     )
+    assert_response_status_code(response, 200)
     res = response.json()
-    assert response.status_code == 200
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_objective_with_objective_level_relationship(api_client):
@@ -197,7 +193,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["objective_level"]["term_uid"] == "term_root_final"
     before_unlock = res
 
@@ -206,12 +202,12 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/headers?field_name=objective_level.term_uid",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == ["term_root_final"]
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study objective
     response = api_client.patch(
@@ -223,14 +219,14 @@ def test_study_objective_with_objective_level_relationship(api_client):
     )
     res = response.json()
     assert res["objective_level"]["term_uid"] == "term_root_final5"
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # get all study objectives of a specific study version
     response = api_client.get(
         f"/studies/{study.uid}/study-objectives?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock["study_version"] = mock.ANY
     assert res["items"][0] == before_unlock
 
@@ -239,7 +235,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}?study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == before_unlock
 
     # get study objective headers of specific study version
@@ -247,7 +243,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/headers?field_name=objective_level.term_uid&study_value_version=1",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == ["term_root_final"]
 
     # get all study objectives
@@ -255,7 +251,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["items"][0]["objective_level"]["term_uid"] == "term_root_final5"
 
     # get specific study objective
@@ -263,7 +259,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["objective_level"]["term_uid"] == "term_root_final5"
 
     # get study objective headers
@@ -271,7 +267,7 @@ def test_study_objective_with_objective_level_relationship(api_client):
         f"/studies/{study.uid}/study-objectives/headers?field_name=objective_level.term_uid",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == ["term_root_final5"]
 
 
@@ -307,7 +303,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     library_template_objective_uid = res["objective"]["template"]["uid"]
     initial_objective_name = res["objective"]["name"]
 
@@ -328,7 +324,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
     # check that the Library item has been changed
     response = api_client.get(f"/objective-templates/{library_template_objective_uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == text_value_2_name
 
     # check that the StudySelection StudyObjective hasn't been updated
@@ -336,7 +332,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["objective"]["name"] == initial_objective_name
 
     # check that the StudySelection can approve the current version
@@ -344,7 +340,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}/accept-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["accepted_version"] is True
     assert res["objective"]["name"] == initial_objective_name
     assert res["latest_objective"]["name"] == text_value_2_name
@@ -354,7 +350,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     counting_before_sync = len(res)
 
     # check that the StudySelection's objective can be updated to the LATEST
@@ -362,7 +358,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/{study_objective_uid}/sync-latest-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["objective"]["name"] == text_value_2_name
 
     # get all objectives
@@ -370,7 +366,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-objectives/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == counting_before_sync + 1
 
 
@@ -390,7 +386,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     study_selection_uid_study_standard_test = res["study_objective_uid"]
     assert res["order"] == 1
     assert (
@@ -405,7 +401,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
     response = api_client.post(
         f"/ct/terms/{ctterm_uid}/names/versions",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.patch(
         f"/ct/terms/{ctterm_uid}/names",
         json={
@@ -415,7 +411,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         },
     )
     response = api_client.post(f"/ct/terms/{ctterm_uid}/names/approvals")
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study selection with ctterm latest
     response = api_client.patch(
@@ -425,7 +421,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_uid_key] == ctterm_uid
     )
@@ -439,7 +435,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         "/ct/packages",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     ct_package_uid = res[0]["uid"]
 
     # create study standard version
@@ -450,7 +446,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["ct_package"]["uid"] == ct_package_uid
 
     # get study selection with previous ctterm
@@ -458,7 +454,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         f"/studies/{study_for_ctterm_versioning.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_uid_key] == ctterm_uid
     )
@@ -475,7 +471,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_name_key]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -486,7 +482,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         f"/studies/{study_for_ctterm_versioning.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[0][study_selection_ctterm_keys][study_selection_ctterm_name_key]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -501,7 +497,7 @@ def test_study_objective_version_selecting_ct_package(api_client):
         f"/studies/{study_for_ctterm_versioning.uid}/{study_selection_breadcrumb}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[0][study_selection_ctterm_keys][study_selection_ctterm_name_key]
         == initial_ct_term_study_standard_test.sponsor_preferred_name
@@ -534,7 +530,7 @@ def test_study_objective_ct_term_retrieval_at_date(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res[study_selection_ctterm_keys]["queried_effective_date"] is None
     assert res[study_selection_ctterm_keys]["date_conflict"] is False
     study_selection_uid_study_standard_test = res["study_objective_uid"]

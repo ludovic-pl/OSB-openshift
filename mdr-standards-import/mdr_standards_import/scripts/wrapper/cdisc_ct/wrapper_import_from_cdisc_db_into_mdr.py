@@ -17,7 +17,7 @@ from mdr_standards_import.scripts.import_scripts.cdisc_ct.import_into_mdr_db imp
 )
 from mdr_standards_import.scripts.utils import (
     get_effective_date,
-    get_user_initials,
+    get_author_id,
     get_cdisc_neo4j_driver,
     get_mdr_neo4j_driver,
 )
@@ -28,7 +28,7 @@ MDR_DATABASE = environ.get("NEO4J_MDR_DATABASE", "neo4j")
 
 
 def wrapper_import_cdisc_ct_from_cdisc_db_into_mdr(
-    user_initials: str, effective_date: str
+    author_id: str, effective_date: str
 ):
     cdisc_neo4j_driver = get_cdisc_neo4j_driver()
     mdr_neo4j_driver = get_mdr_neo4j_driver()
@@ -44,7 +44,7 @@ def wrapper_import_cdisc_ct_from_cdisc_db_into_mdr(
         CDISC_IMPORT_DATABASE,
         mdr_neo4j_driver,
         MDR_DATABASE,
-        user_initials,
+        author_id,
     )
 
     mdr_neo4j_driver.close()
@@ -52,4 +52,4 @@ def wrapper_import_cdisc_ct_from_cdisc_db_into_mdr(
 
 
 if __name__ == "__main__":
-    wrapper_import_cdisc_ct_from_cdisc_db_into_mdr(get_user_initials(1), get_effective_date(2))
+    wrapper_import_cdisc_ct_from_cdisc_db_into_mdr(get_author_id(1), get_effective_date(2))

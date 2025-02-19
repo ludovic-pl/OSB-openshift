@@ -1,7 +1,6 @@
 import unittest
 from typing import Callable
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.activities.activity import (
     ActivityAR,
     ActivityGroupingVO,
@@ -11,7 +10,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
+from common import exceptions
 
 
 def create_random_activity_grouping_vo() -> ActivityGroupingVO:
@@ -25,8 +25,10 @@ def create_random_activity_vo() -> ActivityVO:
     name = random_str()
     random_activity_vo = ActivityVO.from_repository_values(
         nci_concept_id=random_str(),
+        nci_concept_name=random_str(),
         name=name,
         name_sentence_case=name,
+        synonyms=[random_str(), random_str()],
         definition=random_str(),
         abbreviation=random_str(),
         activity_groupings=[
@@ -51,7 +53,7 @@ def create_random_activity_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
         concept_exists_by_library_and_name_callback=lambda _l, _c: False,
         activity_subgroup_exists=lambda _: True,
         activity_group_exists=lambda _: True,
@@ -77,13 +79,13 @@ class TestActivity(unittest.TestCase):
         # given
         activity_ar = create_random_activity_ar()
 
-        activity_ar.approve(author="Test")
-        activity_ar.create_new_version(author="TODO")
+        activity_ar.approve(author_id="Test")
+        activity_ar.create_new_version(author_id=AUTHOR_ID)
 
         # when
         activity_vo = create_random_activity_vo()
         activity_ar.edit_draft(
-            author="TODO",
+            author_id=AUTHOR_ID,
             change_description="Test",
             concept_vo=activity_vo,
             concept_exists_by_library_and_name_callback=lambda _l, _c: False,
@@ -96,7 +98,7 @@ class TestActivity(unittest.TestCase):
         self.assertIsNotNone(activity_ar.item_metadata.start_date)
         self.assertEqual(activity_ar.item_metadata.version, "1.2")
         self.assertEqual(activity_ar.item_metadata.status, LibraryItemStatus.DRAFT)
-        self.assertEqual(activity_ar.item_metadata.user_initials, "TODO")
+        self.assertEqual(activity_ar.item_metadata.author_id, AUTHOR_ID)
         self.assertEqual(activity_ar.item_metadata.change_description, "Test")
         self.assertEqual(activity_ar.name, activity_vo.name)
         self.assertEqual(
@@ -113,7 +115,7 @@ class TestActivity(unittest.TestCase):
         activity_ar = create_random_activity_ar()
 
         # when
-        activity_ar.approve(author="TODO")
+        activity_ar.approve(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_ar.item_metadata._end_date)
@@ -124,10 +126,10 @@ class TestActivity(unittest.TestCase):
     def test__create_new_version__version_created(self):
         # given
         activity_ar = create_random_activity_ar()
-        activity_ar.approve(author="TODO")
+        activity_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_ar.create_new_version(author="TODO")
+        activity_ar.create_new_version(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_ar.item_metadata._end_date)
@@ -138,10 +140,10 @@ class TestActivity(unittest.TestCase):
     def test__inactivate_final__version_created(self):
         # given
         activity_ar = create_random_activity_ar()
-        activity_ar.approve(author="TODO")
+        activity_ar.approve(author_id=AUTHOR_ID)
 
         # when
-        activity_ar.inactivate(author="TODO")
+        activity_ar.inactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_ar.item_metadata._end_date)
@@ -152,11 +154,11 @@ class TestActivity(unittest.TestCase):
     def test__reactivate_retired__version_created(self):
         # given
         activity_ar = create_random_activity_ar()
-        activity_ar.approve(author="TODO")
-        activity_ar.inactivate(author="TODO")
+        activity_ar.approve(author_id=AUTHOR_ID)
+        activity_ar.inactivate(author_id=AUTHOR_ID)
 
         # when
-        activity_ar.reactivate(author="TODO")
+        activity_ar.reactivate(author_id=AUTHOR_ID)
 
         # then
         self.assertIsNone(activity_ar.item_metadata._end_date)
@@ -183,8 +185,10 @@ class TestActivityNegative(unittest.TestCase):
                 generate_uid_callback=random_str(),
                 concept_vo=ActivityVO.from_repository_values(
                     nci_concept_id="C123",
+                    nci_concept_name=random_str(),
                     name=name,
                     name_sentence_case="Different from name",
+                    synonyms=[random_str(), random_str()],
                     definition=random_str(),
                     abbreviation=random_str(),
                     activity_groupings=[
@@ -197,7 +201,7 @@ class TestActivityNegative(unittest.TestCase):
                 library=LibraryVO.from_repository_values(
                     library_name="library", is_editable=True
                 ),
-                author="TODO Initials",
+                author_id=AUTHOR_ID,
                 concept_exists_by_library_and_name_callback=lambda _l, _c: False,
                 activity_subgroup_exists=lambda _: True,
                 activity_group_exists=lambda _: True,
@@ -211,18 +215,20 @@ class TestActivityNegative(unittest.TestCase):
     def test__edit_draft_version__name_validation_failure(self):
         activity_ar = create_random_activity_ar()
 
-        activity_ar.approve(author="Test")
-        activity_ar.create_new_version(author="TODO")
+        activity_ar.approve(author_id="Test")
+        activity_ar.create_new_version(author_id=AUTHOR_ID)
 
         name = random_str()
         with self.assertRaises(exceptions.ValidationException) as context:
             activity_ar.edit_draft(
-                author="TODO",
+                author_id=AUTHOR_ID,
                 change_description="Test",
                 concept_vo=ActivityVO.from_repository_values(
                     nci_concept_id="C123",
+                    nci_concept_name=random_str(),
                     name=name,
                     name_sentence_case="Different from name",
+                    synonyms=[random_str(), random_str()],
                     definition=random_str(),
                     abbreviation=random_str(),
                     activity_groupings=[

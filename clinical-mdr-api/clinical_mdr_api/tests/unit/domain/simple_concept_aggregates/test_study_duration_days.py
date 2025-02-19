@@ -9,7 +9,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.tests.unit.domain.utils import random_str
+from clinical_mdr_api.tests.unit.domain.utils import AUTHOR_ID, random_str
 
 
 def create_random_study_duration_days_vo() -> StudyDurationDaysVO:
@@ -34,7 +34,7 @@ def create_random_study_duration_days_ar(
         library=LibraryVO.from_repository_values(
             library_name=library, is_editable=is_editable
         ),
-        author="TODO Initials",
+        author_id=AUTHOR_ID,
     )
 
     return random_study_duration_days_ar

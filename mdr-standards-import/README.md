@@ -8,7 +8,7 @@ Later on, other imports like UNII, SNOMED, etc. might be added.
 
 ## Setup python virtual environment
 
-* Make sure Python 3.11 and Pipenv is installed on your machine. Installation guide can be found
+* Make sure Python 3.13.0 and Pipenv is installed on your machine. Installation guide can be found
  [here](https://dev.azure.com/novonordiskit/Clinical-MDR/_git/neo4j-mdr-db?path=/README.md&version=GBUpdate_README) under section Python Getting Started.
 * Run `pipenv install`
 ---

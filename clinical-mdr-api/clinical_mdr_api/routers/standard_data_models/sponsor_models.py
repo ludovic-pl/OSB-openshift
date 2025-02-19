@@ -1,28 +1,29 @@
 """Sponsor Models router"""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.standard_data_models.sponsor_model import (
     SponsorModel,
     SponsorModelInput,
 )
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.standard_data_models.sponsor_model import (
     SponsorModelService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/standards/sponsor-models/models"
 router = APIRouter()
 
-SponsorModelUID = Path(None, description="The unique id of the SponsorModel")
+SponsorModelUID = Path(description="The unique id of the SponsorModel")
 
 
 @router.get(
@@ -58,25 +59,33 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_sponsor_models(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     sponsor_model_service = SponsorModelService()
     results = sponsor_model_service.get_all_items(
@@ -109,18 +118,25 @@ def get_sponsor_models(
     },
 )
 def get_distinct_values_for_header(
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     sponsor_model_service = SponsorModelService()
     return sponsor_model_service.get_distinct_values_for_header(
@@ -128,7 +144,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -162,17 +178,18 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "BusinessLogicException - Reasons include e.g.: \n"
-            "- The target Implementation Guide *ig_uid* does not exist in the database.\n"
-            "- The target version *ig_version_number* for the Implementation Guide *ig_uid* does not exist in the database.\n",
+            "- The target Implementation Guide *ig_uid* doesn't exist.\n"
+            "- The target version *ig_version_number* for the Implementation Guide with UID *ig_uid* doesn't exist.\n",
         },
         500: {"model": ErrorResponse, "description": "Internal Server Error"},
     },
 )
 # pylint: disable=unused-argument
 def create(
-    sponsor_model: SponsorModelInput = Body(
-        ..., description="Parameters of the Sponsor Model that shall be created."
-    ),
+    sponsor_model: Annotated[
+        SponsorModelInput,
+        Body(description="Parameters of the Sponsor Model that shall be created."),
+    ],
 ) -> SponsorModel:
     sponsor_model_service = SponsorModelService()
     return sponsor_model_service.create(item_input=sponsor_model)

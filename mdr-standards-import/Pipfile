@@ -4,16 +4,17 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-requests = "~=2.27"
-neo4j = "~=5.13"
-pytest = "~=6.2"
+requests = "*"
+neo4j = "~=5.26"
 
 [dev-packages]
-pylint = "~=2.15"
+pylint = "~=3.3.1"
 black = "*"
+pytest = "~=8.3.3"
+pytest-cov = "~=3.0.0"
 
 [requires]
-python_version = "3.11"
+python_version = "3.13.0"
 
 [scripts]
 bulk_import = "python -m mdr_standards_import.scripts.wrapper.wrapper_bulk_import"
@@ -25,5 +26,5 @@ import_cdisc_data_models_into_cdisc_db = "python -m mdr_standards_import.scripts
 import_data_models_from_cdisc_db_into_mdr = "python -m mdr_standards_import.scripts.wrapper.cdisc_data_models.wrapper_import_from_cdisc_db_into_mdr"
 download_ct_json_data_from_cdisc_api = "python -m mdr_standards_import.scripts.import_scripts.cdisc_ct.download_json_data_from_cdisc_api"
 download_data_models_json_data_from_cdisc_api = "python -m mdr_standards_import.scripts.import_scripts.cdisc_data_models.download_json_data_from_cdisc_api"
-test = "pytest"
+test = "python -m pytest -s --cov-report html:test_coverage --cov-report xml:reports/coverage.xml --cov --junitxml=reports/test_report.xml mdr_standards_import/tests"
 build-sbom = "pipelines/scripts/build-sbom.sh"

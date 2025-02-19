@@ -16,8 +16,16 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.activities.activity import Activity
+from clinical_mdr_api.models.concepts.activities.activity_group import ActivityGroup
+from clinical_mdr_api.models.concepts.activities.activity_sub_group import (
+    ActivitySubGroup,
+)
+from clinical_mdr_api.models.concepts.concept import TextValue
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.models.study_selections.study_soa_footnote import (
     StudySoAFootnoteCreateInput,
 )
@@ -29,26 +37,26 @@ from clinical_mdr_api.models.syntax_templates.template_parameter_term import (
 )
 from clinical_mdr_api.services.studies.study_soa_footnote import StudySoAFootnoteService
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
 footnotes: list[Footnote]
 footnote_template: FootnoteTemplate
-ct_term_schedule_of_activities: models.CTTerm
-dictionary_term_indication: models.DictionaryTerm
-indications_codelist: models.DictionaryCodelist
+ct_term_schedule_of_activities: CTTerm
+dictionary_term_indication: DictionaryTerm
+indications_codelist: DictionaryCodelist
 indications_library_name: str
-activity: models.Activity
-activity_group: models.ActivityGroup
-activity_subgroup: models.ActivitySubGroup
-text_value_1: models.TextValue
-text_value_2: models.TextValue
+activity: Activity
+activity_group: ActivityGroup
+activity_subgroup: ActivitySubGroup
+text_value_1: TextValue
+text_value_2: TextValue
 
 URL = "footnotes"
 
@@ -231,8 +239,6 @@ def test_data():
 
     yield
 
-    drop_db(URL + ".api")
-
 
 FOOTNOTE_FIELDS_ALL = [
     "name",
@@ -243,7 +249,7 @@ FOOTNOTE_FIELDS_ALL = [
     "change_description",
     "start_date",
     "end_date",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "parameter_terms",
     "library",
@@ -262,7 +268,7 @@ def test_get_footnote(api_client):
     response = api_client.get(f"{URL}/{footnotes[0].uid}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     fields_all_set = set(FOOTNOTE_FIELDS_ALL)
@@ -346,7 +352,7 @@ def test_get_footnotes(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -382,7 +388,7 @@ def test_get_all_parameters_of_footnote(api_client):
     response = api_client.get(f"{URL}/{footnotes[0].uid}/parameters")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["name"] == "TextValue"
     assert len(res[0]["terms"]) == 26
@@ -392,7 +398,7 @@ def test_get_versions_of_footnote(api_client):
     response = api_client.get(f"{URL}/{footnotes[1].uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 2
     assert res[0]["uid"] == footnotes[1].uid
@@ -421,7 +427,7 @@ def test_filtering_wildcard(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -444,7 +450,7 @@ def test_filtering_exact(
     response = api_client.get(f"{URL}?filters={filter_by}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -466,10 +472,10 @@ def test_filtering_exact(
     ],
 )
 def test_headers(api_client, field_name):
-    response = api_client.get(f"{URL}/headers?field_name={field_name}&result_count=100")
+    response = api_client.get(f"{URL}/headers?field_name={field_name}&page_size=100")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_result = []
     for footnote in footnotes:
         value = getattr(footnote, field_name)
@@ -489,7 +495,7 @@ def test_get_studies_of_footnote(api_client):
     response = api_client.get(f"{URL}/{footnotes[0].uid}/studies")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
     assert res[0]["uid"] == "Study_000001"
 
@@ -518,7 +524,7 @@ def test_create_footnote(api_client):
     res = response.json()
     log.info("Created Footnote: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value.name_sentence_case}]"
     assert res["template"]["uid"] == footnote_template.uid
@@ -574,7 +580,7 @@ def test_keep_original_case_of_unit_definition_parameter_if_it_is_in_the_start_o
     res = response.json()
     log.info("Created Footnote: %s", res)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["name"] == f"[{_unit.name}] test ignore case"
 
 
@@ -600,7 +606,7 @@ def test_update_footnote(api_client):
     res = response.json()
     log.info("Updated Footnote: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value_2.name_sentence_case}]"
     assert res["template"]["uid"] == footnote_template.uid
@@ -621,14 +627,14 @@ def test_delete_footnote(api_client):
     response = api_client.delete(f"{URL}/{footnotes[2].uid}")
     log.info("Deleted Footnote: %s", footnotes[2].uid)
 
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
 
 def test_approve_footnote(api_client):
     response = api_client.post(f"{URL}/{footnotes[3].uid}/approvals")
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"] == footnotes[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
@@ -638,7 +644,7 @@ def test_inactivate_footnote(api_client):
     response = api_client.delete(f"{URL}/{footnotes[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == footnotes[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Retired"
@@ -648,7 +654,7 @@ def test_reactivate_footnote(api_client):
     response = api_client.post(f"{URL}/{footnotes[3].uid}/activations")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == footnotes[3].uid
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
@@ -678,7 +684,7 @@ def test_preview_footnote(api_client):
     res = response.json()
     log.info("Previewed Footnote: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"]
     assert res["name"] == f"Default name with [{text_value.name_sentence_case}]"
     assert res["template"]["uid"] == footnote_template.uid
@@ -700,7 +706,7 @@ def test_footnote_audit_trail(api_client):
     res = response.json()
     log.info("Footnote Audit Trail: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["total"] == 44
     expected_uids = [
         "Footnote_000025",
@@ -770,7 +776,7 @@ def test_change_parameter_numbers_of_footnote_after_approval(
     res = response.json()
     log.info("Changed Footnote parameter numbers: %s", res)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not res["parameter_terms"][0]["terms"]
 
 
@@ -794,7 +800,7 @@ def test_cannot_update_footnote_without_change_description(api_client):
     res = response.json()
     log.info("Didn't Update Footnote: %s", res)
 
-    assert response.status_code == 422
+    assert_response_status_code(response, 422)
     assert res["detail"] == [
         {
             "loc": ["body", "change_description"],
@@ -820,8 +826,8 @@ def test_cannot_update_footnote_in_final_status(api_client):
     res = response.json()
     log.info("Didn't Update Footnote: %s", res)
 
-    assert response.status_code == 400
-    assert res["message"] == "The object is not in draft status."
+    assert_response_status_code(response, 400)
+    assert res["message"] == "The object isn't in draft status."
 
 
 def test_cannot_add_wrong_parameters(
@@ -849,7 +855,7 @@ def test_cannot_add_wrong_parameters(
     res = response.json()
     log.info("Didn't change Footnote parameters: %s", res)
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 422)
     assert (
         res["message"]
         == "One or more of the specified template parameters can not be found."

@@ -5,19 +5,17 @@ from typing import Any, Generic, TypeVar
 from neomodel import db
 from pydantic import BaseModel
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.controlled_terminologies.ct_codelist_generic_repository import (
     CTCodelistGenericRepository,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryItemStatus,
-    VersioningException,
-)
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository  # type: ignore
-from clinical_mdr_api.services._utils import calculate_diffs, normalize_string
+from clinical_mdr_api.services._utils import calculate_diffs
+from clinical_mdr_api.utils import normalize_string
+from common.auth.user import user
+from common.exceptions import NotFoundException
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -38,11 +36,11 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
     version_class: type
     repository_interface: type
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
-        self._repos = MetaRepository(self.user_initials)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     def __del__(self):
         self._repos.close()
@@ -94,7 +92,7 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         self.enforce_catalogue_library_package(catalogue_name, library, package)
 
@@ -106,7 +104,7 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
         )
 
         return header_values
@@ -142,21 +140,23 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
             status=status,
             for_update=for_update,
         )
-        if item is None:
-            raise exceptions.NotFoundException(
-                f"""{self.aggregate_class.__name__} with uid {codelist_uid} does not exist
-                or there's no version with requested status or version number."""
-            )
+
+        NotFoundException.raise_if(
+            item is None,
+            msg=f"{self.aggregate_class.__name__} with UID '{codelist_uid}' doesn't exist or there's no version with requested status or version number.",
+        )
+
         return item
 
     @db.transaction
     def get_version_history(self, codelist_uid) -> list[BaseModel]:
         if self.version_class is not None:
             all_versions = self.repository.get_all_versions(codelist_uid)
-            if all_versions is None:
-                raise exceptions.NotFoundException(
-                    f"{self.aggregate_class.__name__} with uid {codelist_uid} does not exist."
-                )
+
+            NotFoundException.raise_if(
+                all_versions is None, self.aggregate_class.__name__, codelist_uid
+            )
+
             versions = [
                 self._transform_aggregate_root_to_pydantic_model(codelist_ar).dict()
                 for codelist_ar in all_versions
@@ -166,28 +166,22 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
 
     @db.transaction
     def create_new_version(self, codelist_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(codelist_uid, for_update=True)
-            item.create_new_version(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(codelist_uid, for_update=True)
+        item.create_new_version(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @abc.abstractmethod
     def edit_draft(self, codelist_uid: str, codelist_input: BaseModel) -> BaseModel:
         raise NotImplementedError()
 
     def non_transactional_approve(self, codelist_uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(
-                codelist_uid=codelist_uid, for_update=True
-            )
-            item.approve(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(
+            codelist_uid=codelist_uid, for_update=True
+        )
+        item.approve(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def approve(self, codelist_uid: str) -> BaseModel:
@@ -199,27 +193,30 @@ class CTCodelistGenericService(Generic[_AggregateRootType], abc.ABC):
         library: str | None,
         package: str | None,
     ):
-        if (
+        NotFoundException.raise_if(
             catalogue_name is not None
             and not self._repos.ct_catalogue_repository.catalogue_exists(
                 normalize_string(catalogue_name)
-            )
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no catalogue identified by provided catalogue name ({catalogue_name})"
-            )
-        if library is not None and not self._repos.library_repository.library_exists(
-            normalize_string(library)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({library})"
-            )
-        if (
+            ),
+            "Catalogue",
+            catalogue_name,
+            "Name",
+        )
+        NotFoundException.raise_if(
+            library is not None
+            and not self._repos.library_repository.library_exists(
+                normalize_string(library)
+            ),
+            "Library",
+            library,
+            "Name",
+        )
+        NotFoundException.raise_if(
             package is not None
             and not self._repos.ct_package_repository.package_exists(
                 normalize_string(package)
-            )
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no package identified by provided package name ({package})"
-            )
+            ),
+            "Package",
+            package,
+            "Name",
+        )

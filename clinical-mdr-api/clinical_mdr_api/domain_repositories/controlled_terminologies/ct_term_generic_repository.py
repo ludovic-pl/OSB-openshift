@@ -6,7 +6,6 @@ from cachetools import cached
 from cachetools.keys import hashkey
 from neomodel import db
 
-from clinical_mdr_api import exceptions, models
 from clinical_mdr_api.domain_repositories._generic_repository_interface import (
     _AggregateRootType,
 )
@@ -32,13 +31,22 @@ from clinical_mdr_api.domain_repositories.models.generic import (
 from clinical_mdr_api.domain_repositories.models.syntax import SyntaxTemplateRoot
 from clinical_mdr_api.domains.controlled_terminologies.utils import TermParentType
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTermName
+from clinical_mdr_api.models.controlled_terminologies.ct_term_attributes import (
+    CTTermAttributes,
+)
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
     sb_clear_cache,
+    validate_filters_and_add_search_string,
+)
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    NotFoundException,
 )
 
 
@@ -81,8 +89,16 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
                 status: rel_data.status,
                 version: rel_data.version,
                 change_description: rel_data.change_description,
-                user_initials: rel_data.user_initials
+                author_id: rel_data.author_id
             } AS rel_data
+            CALL {
+                WITH rel_data
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = rel_data.author_id
+                // RETURN author
+                RETURN coalesce(author.username, rel_data.author_id) AS author_username 
+            }
+        WITH *             
         """
 
     def generate_uid(self) -> str:
@@ -203,10 +219,10 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         :param total_count:
         :return GenericFilteringReturn[_AggregateRootType]:
         """
-        if self.relationship_from_root not in vars(CTTermRoot):
-            raise exceptions.BusinessLogicException(
-                f"The relationship of type {self.relationship_from_root} was not found in CTTermRoot object"
-            )
+        BusinessLogicException.raise_if(
+            self.relationship_from_root not in vars(CTTermRoot),
+            msg=f"The relationship of type '{self.relationship_from_root}' was not found in CTTermRoot object",
+        )
 
         # Build match_clause
         match_clause, filter_query_parameters = self._generate_generic_match_clause(
@@ -221,9 +237,9 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         alias_clause = self.generic_alias_clause
 
         _return_model = (
-            models.CTTermAttributes
+            CTTermAttributes
             if self.is_repository_related_to_attributes()
-            else models.CTTermName
+            else CTTermName
         )
 
         query = CypherQueryBuilder(
@@ -265,10 +281,10 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
@@ -278,7 +294,7 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         :param package:
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
         # Build match_clause
@@ -293,13 +309,9 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         alias_clause = self.generic_alias_clause
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -312,7 +324,7 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
 
         query.full_query = query.build_header_query(
             header_alias=format_term_filter_sort_keys(field_name),
-            result_count=result_count,
+            page_size=page_size,
         )
 
         query.parameters.update(filter_query_parameters)
@@ -401,7 +413,7 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
             ct_term_root: CTTermRoot = CTTermRoot.nodes.get_or_none(uid=term_uid)
         else:
             ct_term_root: CTTermRoot = CTTermRoot.nodes.filter(
-                has_term__has_name_root__has_version__name=codelist_name,
+                has_term__has_name_root__has_latest_value__name=codelist_name,
             ).get_or_none(uid=term_uid)[0]
         if ct_term_root is None:
             return None
@@ -501,12 +513,11 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
             parent_node = ct_term_root_node.has_parent_subtype.get_or_none()
 
         if parent_node is not None:
-            raise exceptions.ValidationException(
-                f"The term identified by ({term_uid}) already has a "
-                f"parent type node identified by ({parent_node.uid}) "
-                f"with the relationship of type ({relationship_type.value})"
+            raise AlreadyExistsException(
+                msg=f"Term with UID '{term_uid}' already has a "
+                f"parent type node with UID '{parent_node.uid}' "
+                f"with the relationship of type '{relationship_type.value}'"
             )
-
         ct_term_root_parent_node = CTTermRoot.nodes.get_or_none(uid=parent_uid)
 
         if relationship_type == TermParentType.PARENT_TYPE:
@@ -534,11 +545,11 @@ class CTTermGenericRepository(LibraryItemRepositoryImplBase[_AggregateRootType],
         else:
             parent_node = ct_term_root_node.has_parent_subtype.get_or_none()
 
-        if parent_node is None:
-            raise exceptions.ValidationException(
-                f"The term identified by ({term_uid}) has no defined parent type node"
-                f" identified by ({parent_uid}) with the relationship of type ({relationship_type.value})"
-            )
+        NotFoundException.raise_if(
+            parent_node is None,
+            msg=f"Term with UID '{term_uid}' has no defined parent type node"
+            f" with UID '{parent_uid}' with the relationship of type '{relationship_type.value}'",
+        )
         if relationship_type == TermParentType.PARENT_TYPE:
             ct_term_root_node.has_parent_type.disconnect(parent_node)
         else:

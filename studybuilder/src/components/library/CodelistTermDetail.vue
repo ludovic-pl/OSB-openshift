@@ -587,7 +587,7 @@ export default {
     async openCTValuesHistory() {
       this.historyType = 'termAttributes'
       this.historyHeaders = [
-        { title: this.$t('CodelistTermDetail.concept_id'), key: 'term_uid' },
+        { title: this.$t('CodelistTermDetail.concept_id'), key: 'concept_id' },
         {
           title: this.$t('CodelistTermDetail.name_submission_value'),
           key: 'name_submission_value',

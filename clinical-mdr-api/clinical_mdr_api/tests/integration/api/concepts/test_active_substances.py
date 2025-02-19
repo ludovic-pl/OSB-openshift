@@ -15,22 +15,25 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.concepts.active_substance import ActiveSubstance
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_term import DictionaryTerm
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 HEADERS = {"content-type": "application/json"}
 
 # Global variables shared between fixtures and tests
-active_substances_all: list[models.ActiveSubstance]
-dictionary_term_unii: models.DictionaryTerm
-unii_codelist: models.DictionaryCodelist
+active_substances_all: list[ActiveSubstance]
+dictionary_term_unii: DictionaryTerm
+unii_codelist: DictionaryCodelist
 
 
 @pytest.fixture(scope="module")
@@ -120,7 +123,7 @@ ACTIVE_SUBSTANCE_FIELDS_ALL = [
     "status",
     "version",
     "change_description",
-    "user_initials",
+    "author_username",
     "possible_actions",
     "analyte_number",
     "short_number",
@@ -139,7 +142,7 @@ def test_get_active_substance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert set(list(res.keys())) == set(ACTIVE_SUBSTANCE_FIELDS_ALL)
@@ -168,7 +171,7 @@ def test_get_active_substances_versions(api_client):
     response = api_client.get("/concepts/active-substances/versions?total_count=true")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 10
     assert res["total"] == len(active_substances_all)
 
@@ -208,7 +211,7 @@ def test_update_active_substance_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == active_substances_all[0].uid
     assert res["analyte_number"] == active_substances_all[0].analyte_number
     assert res["short_number"] == active_substances_all[0].short_number
@@ -234,7 +237,7 @@ def test_update_active_substance_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["uid"] == active_substances_all[0].uid
     assert res["analyte_number"] == active_substances_all[0].analyte_number
     assert res["short_number"] == active_substances_all[0].short_number
@@ -263,7 +266,7 @@ def test_update_active_substance_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == active_substances_all[0].uid
     assert res["analyte_number"] == analyte_number_new
@@ -294,7 +297,7 @@ def test_update_active_substance_property(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == active_substances_all[0].uid
     assert res["analyte_number"] == analyte_number_new
@@ -334,7 +337,7 @@ def test_update_active_substance_unii(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == active_substances_all[1].uid
     assert res["short_number"] == active_substances_all[1].short_number
@@ -364,7 +367,7 @@ def test_update_active_substance_unii(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert res["uid"] == active_substances_all[1].uid
     assert res["unii"] is None
@@ -380,7 +383,7 @@ def test_get_active_substance_versioning(api_client):
     response = api_client.get(f"/concepts/active-substances/{uid}/versions")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     for item in res:
@@ -393,14 +396,14 @@ def test_get_active_substance_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"/concepts/active-substances/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.0"
     assert res["status"] == "Final"
 
     # Create new version
     response = api_client.post(f"/concepts/active-substances/{uid}/versions")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "1.1"
     assert res["status"] == "Draft"
     assert res["possible_actions"] == ["approve", "edit"]
@@ -408,7 +411,7 @@ def test_get_active_substance_versioning(api_client):
     # Approve draft version
     response = api_client.post(f"/concepts/active-substances/{uid}/approvals")
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -416,7 +419,7 @@ def test_get_active_substance_versioning(api_client):
     # Inactivate final version
     response = api_client.delete(f"/concepts/active-substances/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Retired"
     assert res["possible_actions"] == ["reactivate"]
@@ -424,7 +427,7 @@ def test_get_active_substance_versioning(api_client):
     # Reactivate retired version
     response = api_client.post(f"/concepts/active-substances/{uid}/activations")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["version"] == "2.0"
     assert res["status"] == "Final"
     assert res["possible_actions"] == ["inactivate", "new_version"]
@@ -432,7 +435,7 @@ def test_get_active_substance_versioning(api_client):
     # Get all versions, assert they are sorted by version number (newest on top)
     response = api_client.get(f"/concepts/active-substances/{uid}/versions")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res) == 6
 
@@ -521,7 +524,7 @@ def test_get_active_substances(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Check fields included in the response
     assert list(res.keys()) == ["items", "total", "page", "size"]
@@ -575,7 +578,9 @@ def test_get_active_substances_csv_xml_excel(api_client, export_format):
         pytest.param('{"*": {"v": ["aaa"]}}', "analyte_number", "analyte_number-AAA"),
         pytest.param('{"*": {"v": ["bBb"]}}', "analyte_number", "analyte_number-BBB"),
         pytest.param(
-            '{"*": {"v": ["wn-us"], "op": "co"}}', "user_initials", "unknown-user"
+            '{"*": {"v": ["unknown-user"], "op": "co"}}',
+            "author_username",
+            "unknown-user@example.com",
         ),
         pytest.param('{"*": {"v": ["Draft"]}}', "status", "Draft"),
         pytest.param('{"*": {"v": ["0.1"]}}', "version", "0.1"),
@@ -589,7 +594,7 @@ def test_filtering_wildcard(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result_prefix:
         assert len(res["items"]) > 0
         # Each returned row has a field that starts with the specified filter value
@@ -633,7 +638,7 @@ def test_filtering_exact(
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     if expected_result:
         assert len(res["items"]) > 0
         # Each returned row has a field whose value is equal to the specified filter value
@@ -654,13 +659,11 @@ def test_filtering_exact(
 def test_get_active_substances_headers(
     api_client, field_name, expected_returned_values
 ):
-    url = (
-        f"/concepts/active-substances/headers?field_name={field_name}&result_count=100"
-    )
+    url = f"/concepts/active-substances/headers?field_name={field_name}&page_size=100"
     response = api_client.get(url)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) >= len(expected_returned_values)
     for val in expected_returned_values:
         assert val in res
@@ -682,7 +685,7 @@ def test_create_and_delete_active_substance(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["analyte_number"] == "analyte_number-NEW"
     assert res["short_number"] == "short_number-NEW"
     assert res["long_number"] == "long_number-NEW"
@@ -701,11 +704,11 @@ def test_create_and_delete_active_substance(api_client):
 
     # Delete active substance
     response = api_client.delete(f"/concepts/active-substances/{res['uid']}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Check that the active substance is deleted
     response = api_client.get(f"/concepts/active-substances/{res['uid']}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
 
 
 def test_negative_delete_approved_active_substance(api_client):
@@ -713,12 +716,12 @@ def test_negative_delete_approved_active_substance(api_client):
 
     # Try to delete approved active substance
     response = api_client.delete(f"/concepts/active-substances/{item.uid}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert response.json()["message"] == "Object has been accepted"
 
     # Check that the active substance is not deleted
     response = api_client.get(f"/concepts/active-substances/{item.uid}")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
 
 def test_negative_create_active_substance_wrong_links(api_client):
@@ -733,8 +736,8 @@ def test_negative_create_active_substance_wrong_links(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         res["message"]
-        == "ActiveSubstanceVO tried to connect to non existing UNII term identified by uid (NON_EXISTING_UID)"
+        == "ActiveSubstanceVO tried to connect to non existing UNII Term with UID 'NON_EXISTING_UID'."
     )

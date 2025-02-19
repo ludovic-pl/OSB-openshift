@@ -110,7 +110,7 @@ def test_ct_config_values(db, logger):
         "end_date",
         "status",
         "version",
-        "user_initials",
+        "author_username",
         "change_description",
         "uid",
         "study_field_name",

@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import AbstractSet, Any, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
@@ -10,6 +9,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
     ObjectAction,
 )
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 class DictionaryType(Enum):
@@ -61,10 +61,9 @@ class DictionaryCodelistVO:
         previous_terms: list[tuple[str, str]],
         codelist_exists_by_name_callback: Callable[[str], bool] = lambda _: False,
     ) -> Self:
-        if codelist_exists_by_name_callback(name):
-            raise exceptions.ValidationException(
-                f"DictionaryCodelist with name ({name}) already exists"
-            )
+        AlreadyExistsException.raise_if(
+            codelist_exists_by_name_callback(name), "Dictionary Codelist", name, "Name"
+        )
 
         dictionary_codelist_vo = cls(
             name=name,
@@ -115,16 +114,18 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         dictionary_codelist_vo: DictionaryCodelistVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
         return cls(
             _uid=generate_uid_callback(),
             _item_metadata=item_metadata,
@@ -134,7 +135,7 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         dictionary_codelist_vo: DictionaryCodelistVO,
         codelist_exists_by_name_callback: Callable[[str], bool],
@@ -142,22 +143,25 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
         """
         Creates a new draft version for the object.
         """
-        if (
+        AlreadyExistsException.raise_if(
             codelist_exists_by_name_callback(dictionary_codelist_vo.name)
-            and self.name != dictionary_codelist_vo.name
-        ):
-            raise exceptions.ValidationException(
-                f"DictionaryCodelist with name ({dictionary_codelist_vo.name}) already exists."
-            )
+            and self.name != dictionary_codelist_vo.name,
+            "Dictionary Codelist",
+            dictionary_codelist_vo.name,
+            "Name",
+        )
+
         if self._dictionary_codelist_vo != dictionary_codelist_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self.dictionary_codelist_vo = dictionary_codelist_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """
@@ -169,13 +173,13 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
             return {ObjectAction.NEWVERSION}
         return frozenset()
 
-    def inactivate(self, author: str, change_description: str | None = None):
+    def inactivate(self, author_id: str, change_description: str | None = None):
         """
         Inactivates latest version.
         """
         raise NotImplementedError()
 
-    def reactivate(self, author: str, change_description: str | None = None):
+    def reactivate(self, author_id: str, change_description: str | None = None):
         """
         Reactivates latest retired version and sets the version to draft.
         """
@@ -184,14 +188,14 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
     def soft_delete(self):
         raise NotImplementedError()
 
-    def add_term(self, codelist_uid: str, term_uid: str, author: str) -> None:
-        if term_uid in [term[0] for term in self.dictionary_codelist_vo.current_terms]:
-            raise exceptions.ValidationException(
-                f"The codelist identified by {codelist_uid} "
-                f"already has a term identified by {term_uid}"
-            )
+    def add_term(self, codelist_uid: str, term_uid: str, author_id: str) -> None:
+        AlreadyExistsException.raise_if(
+            term_uid in [term[0] for term in self.dictionary_codelist_vo.current_terms],
+            msg=f"Codelist with UID '{codelist_uid}' already has a Term with UID '{term_uid}'.",
+        )
+
         current_terms = self.dictionary_codelist_vo.current_terms
-        current_terms.append((term_uid, author))
+        current_terms.append((term_uid, author_id))
         self.dictionary_codelist_vo = DictionaryCodelistVO.from_repository_values(
             name=self.dictionary_codelist_vo.name,
             is_template_parameter=self.dictionary_codelist_vo.is_template_parameter,
@@ -199,15 +203,15 @@ class DictionaryCodelistAR(LibraryItemAggregateRootBase):
             previous_terms=self.dictionary_codelist_vo.previous_terms,
         )
 
-    def remove_term(self, codelist_uid: str, term_uid: str, author: str) -> None:
-        if term_uid not in [
-            term[0] for term in self.dictionary_codelist_vo.current_terms
-        ]:
-            raise exceptions.ValidationException(
-                f"The codelist identified by {codelist_uid} doesn't have a term identified by {term_uid}"
-            )
+    def remove_term(self, codelist_uid: str, term_uid: str, author_id: str) -> None:
+        BusinessLogicException.raise_if(
+            term_uid
+            not in [term[0] for term in self.dictionary_codelist_vo.current_terms],
+            msg=f"Codelist with UID '{codelist_uid}' doesn't have a Term with UID '{term_uid}'.",
+        )
+
         previous_terms = self.dictionary_codelist_vo.previous_terms
-        previous_terms.append((term_uid, author))
+        previous_terms.append((term_uid, author_id))
 
         current_terms = self.dictionary_codelist_vo.current_terms
         # removing term_uid from list of current terms

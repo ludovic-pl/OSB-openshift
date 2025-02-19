@@ -127,6 +127,7 @@ class TestTVListing(unittest.TestCase):
 class TestTAListing(unittest.TestCase):
     def setUp(self):
         inject_and_clear_db("SDTMTAListingTest")
+
         db.cypher_query(STARTUP_STUDY_LIST_CYPHER)
         db.cypher_query(STARTUP_CT_CATALOGUE_CYPHER)
         self.study = generate_study_root()
@@ -357,6 +358,7 @@ class TestTAListing(unittest.TestCase):
 class TestTEListing(unittest.TestCase):
     def setUp(self):
         inject_and_clear_db("SDTMTEListingTest")
+
         db.cypher_query(STARTUP_STUDY_LIST_CYPHER)
         db.cypher_query(STARTUP_CT_CATALOGUE_CYPHER)
         self.study = generate_study_root()
@@ -475,6 +477,7 @@ class TestTEListing(unittest.TestCase):
 class TestTSListing(unittest.TestCase):
     def setUp(self):
         inject_and_clear_db("SDTMTSListingTest")
+
         db.cypher_query(STARTUP_STUDY_LIST_CYPHER)
         db.cypher_query(STARTUP_CT_CATALOGUE_CYPHER)
         TestUtils.create_library(name="UCUM", is_editable=True)

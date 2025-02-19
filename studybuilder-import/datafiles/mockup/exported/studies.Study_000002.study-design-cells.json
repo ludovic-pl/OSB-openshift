@@ -13,7 +13,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000008",
@@ -29,7 +29,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000009",
@@ -45,7 +45,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000010",
@@ -61,7 +61,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000011",
@@ -77,7 +77,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000012",
@@ -93,7 +93,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000013",
@@ -109,7 +109,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000014",
@@ -125,7 +125,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000015",
@@ -141,7 +141,7 @@
     "study_epoch_uid": "StudyEpoch_000007",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000016",
@@ -157,7 +157,7 @@
     "study_epoch_uid": "StudyEpoch_000005",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000017",
@@ -173,7 +173,7 @@
     "study_epoch_uid": "StudyEpoch_000006",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "design_cell_uid": "StudyDesignCell_000018",
@@ -189,6 +189,6 @@
     "study_epoch_uid": "StudyEpoch_000007",
     "study_uid": "Study_000002",
     "transition_rule": null,
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   }
 ]

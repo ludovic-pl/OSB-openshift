@@ -4,7 +4,6 @@ from typing import Any, Mapping, Type
 from cachetools import TTLCache
 from neomodel import RelationshipDefinition, RelationshipManager
 
-from clinical_mdr_api import config, exceptions
 from clinical_mdr_api.domain_repositories.models.generic import (
     ClinicalMdrNode,
     VersionRelationship,
@@ -14,6 +13,8 @@ from clinical_mdr_api.domain_repositories.models.study_audit_trail import StudyA
 from clinical_mdr_api.domain_repositories.models.study_field import StudyField
 from clinical_mdr_api.domain_repositories.models.study_selections import StudySelection
 from clinical_mdr_api.repositories._utils import sb_clear_cache
+from common import config
+from common.exceptions import ValidationException
 
 
 class EntityNotFoundError(LookupError):
@@ -45,15 +46,13 @@ class RepositoryImpl:
     root_class: type
 
     @property
-    def user_initials(self) -> str | None:
-        return self._user_initials
+    def author_id(self) -> str | None:
+        return self._author_id
 
     def __init__(self, user: str | None = None):
-        self._user_initials = user
+        self._author_id = user
 
-    def _get_version_relation_keys(
-        self, root_node: VersionRoot
-    ) -> tuple[
+    def _get_version_relation_keys(self, root_node: VersionRoot) -> tuple[
         RelationshipDefinition,
         RelationshipDefinition,
         RelationshipDefinition,
@@ -183,6 +182,8 @@ def get_connected_node_by_rel_name_and_study_value(
         ][0]
     for connected_node in connected_nodes:
         # get all study_values connected to the connected node
+
+        # pylint: disable=possibly-used-before-assignment
         study_values = getattr(connected_node, connected_study_value_rel_name).all()
         for iter_study_value in study_values:
             # if the connected study_value is the same as the study_value of node
@@ -191,15 +192,17 @@ def get_connected_node_by_rel_name_and_study_value(
                 connected_node_with_study_value.append(connected_node)
     if multiple_returned_nodes:
         return connected_node_with_study_value
-    if len(connected_node_with_study_value) > 1:
-        raise exceptions.ValidationException(
-            f"Returned multiple connected {connected_rel_name} nodes and was expecting to match just one"
-        )
+
+    ValidationException.raise_if(
+        len(connected_node_with_study_value) > 1,
+        msg=f"Returned multiple connected '{connected_rel_name}' nodes and was expecting to match just one.",
+    )
+
     if at_least_one_returned:
-        if len(connected_node_with_study_value) == 0:
-            raise exceptions.ValidationException(
-                "No connected {connected_rel_name} node was found and it was set as mandatory"
-            )
+        ValidationException.raise_if(
+            len(connected_node_with_study_value) == 0,
+            msg=f"No connected '{connected_rel_name}' node was found and it was set as mandatory.",
+        )
         return connected_node_with_study_value[0]
     return (
         connected_node_with_study_value[0] if connected_node_with_study_value else None
@@ -274,14 +277,14 @@ def manage_previous_connected_study_selection_relationships(
     ]
     # MAINTAIN non filtered relationships, just for those non filtered relationships nodes with StudyValue connection
     for connected_rel_name, connected_type in relationships_to_maintain:
-        connected_nodes: list[
-            Type[connected_type]
-        ] = get_connected_node_by_rel_name_and_study_value(
-            node=previous_item,
-            connected_rel_name=connected_rel_name,
-            study_value=study_value_node,
-            multiple_returned_nodes=True,
-            at_least_one_returned=False,
+        connected_nodes: list[Type[connected_type]] = (
+            get_connected_node_by_rel_name_and_study_value(
+                node=previous_item,
+                connected_rel_name=connected_rel_name,
+                study_value=study_value_node,
+                multiple_returned_nodes=True,
+                at_least_one_returned=False,
+            )
         )
         # connect to those connected nodes with same study_value as new_item
         for i_connected_node in connected_nodes:
@@ -292,8 +295,8 @@ def manage_previous_connected_study_selection_relationships(
         getattr(new_item, study_action_rel_name).single()
     # DROP StudyValue relationship
     if study_value_rel_name:
-        if not getattr(previous_item, study_value_rel_name).single():
-            raise exceptions.BusinessLogicException(
-                f"The modified version of {previous_item.uid} of type {previous_item.__label__} is not connect to any StudyValue node"
-            )
+        ValidationException.raise_if_not(
+            getattr(previous_item, study_value_rel_name).single(),
+            msg=f"The modified version of '{previous_item.uid}' of type '{previous_item.__label__}' is not connected to any StudyValue node.",
+        )
         getattr(previous_item, study_value_rel_name).disconnect(study_value_node)

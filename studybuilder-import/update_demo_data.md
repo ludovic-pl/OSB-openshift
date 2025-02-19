@@ -29,7 +29,7 @@ For example, a study arm returned by the api includes a lot of details on the ar
             "start_date": "2022-10-18T12:53:21.759357",
             "status": "Final",
             "term_uid": "CTTerm_000081",
-            "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+            "author_username": "xyz@example.com",
             "version": "1.0"
         },
         "arm_uid": "StudyArm_000005",

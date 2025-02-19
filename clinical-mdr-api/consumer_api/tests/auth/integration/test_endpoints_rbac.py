@@ -7,12 +7,11 @@ import uuid
 import httpx
 import pytest
 
-import consumer_api.auth.dependencies
-from consumer_api.auth.dependencies import oidc_client
-from consumer_api.auth.jwk_service import JWKService
+import common.auth.dependencies
+from common.auth.jwk_service import JWKService
+from common.tests.auth.unit.test_jwk_service import mk_claims, mk_jwt
 from consumer_api.tests.auth.integration.routes import ALL_ROUTES_METHODS_ROLES
 from consumer_api.tests.auth.markers import if_oauth_enabled
-from consumer_api.tests.auth.unit.test_jwk_service import mk_claims, mk_jwt
 from consumer_api.tests.conftest import PARAMETER_DEFAULTS
 from consumer_api.tests.utils import assert_response_status_code
 
@@ -36,7 +35,9 @@ IRRELEVANT_ROLES = ["Some, Fake", "Testing", ""]
 @pytest.fixture(scope="session")
 def mock_jwks_service():
     """A JWKService with a generated key for self-signed tokens"""
-    jwks_service = JWKService(oidc_client, audience=str(uuid.uuid4()))
+    jwks_service = JWKService(
+        common.auth.dependencies.oidc_client, audience=str(uuid.uuid4())
+    )
     jwks_service.claims_options["aud"] = {"values": [jwks_service.audience]}
     jwks_service.claims_options["iss"] = {"values": [jwks_service.audience]}
     jwks_service.generate_key()
@@ -83,9 +84,7 @@ def test_endpoints_rbac_wrong_roles(
     ) = _prepare_http_request(openapi_schema, path, method)
 
     # Patch JWKS service to accept self-signed tokens
-    monkeypatch.setattr(
-        consumer_api.auth.dependencies, "jwks_service", mock_jwks_service
-    )
+    monkeypatch.setattr(common.auth.dependencies, "jwks_service", mock_jwks_service)
 
     # Assemble a list of known roles
     required_roles = list(required_roles)
@@ -159,9 +158,7 @@ def test_endpoints_rbac_correct_roles(
     ) = _prepare_http_request(openapi_schema, path, method)
 
     # Patch JWKS service to accept self-signed tokens
-    monkeypatch.setattr(
-        consumer_api.auth.dependencies, "jwks_service", mock_jwks_service
-    )
+    monkeypatch.setattr(common.auth.dependencies, "jwks_service", mock_jwks_service)
 
     # Assemble a list of known roles
     required_roles = list(required_roles)
@@ -228,9 +225,7 @@ def test_endpoints_rbac_no_roles(
     ) = _prepare_http_request(openapi_schema, path, method)
 
     # Patch JWKS service to accept self-signed tokens
-    monkeypatch.setattr(
-        consumer_api.auth.dependencies, "jwks_service", mock_jwks_service
-    )
+    monkeypatch.setattr(common.auth.dependencies, "jwks_service", mock_jwks_service)
 
     # Ensure that http request with token with no role claims fails
     response = do_request_with_token(
@@ -277,7 +272,7 @@ def do_request_with_token(
     if content_type:
         headers["Content-Type"] = content_type
 
-    log.info(
+    log.debug(
         "\n%s %s %s\n%s\n",
         method,
         path.format_map(path_parameters),
@@ -419,7 +414,7 @@ def _schema_default_value(schema, name=None):
 def _prepare_http_request(openapi_schema, path, method):
     # Look up schema for endpoint
     schema = openapi_schema["paths"].get(path, {}).get(method.lower())
-    assert schema, f"Not in schema, endpoint does not exist? {method} {path}"
+    assert schema, f"Not in schema, endpoint doesn't exist? {method} {path}"
     parameters = schema.get("parameters") or []
 
     # Fake required path and query parameters, and required request payload

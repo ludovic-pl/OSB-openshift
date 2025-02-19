@@ -1,21 +1,18 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.activities.activity_repository import (
     _get_display_version,
 )
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
-    to_relation_trees,
-)
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.activities import (
     ActivityGrouping,
     ActivityInstanceRoot,
     ActivityInstanceValue,
     ActivityItem,
+    ActivityRoot,
 )
 from clinical_mdr_api.domain_repositories.models.biomedical_concepts import (
     ActivityInstanceClassRoot,
@@ -45,13 +42,18 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.activities.activity_instance import (
     ActivityInstance,
+)
+from clinical_mdr_api.models.concepts.activities.activity_item import (
+    CompactUnitDefinition,
 )
 from clinical_mdr_api.models.concepts.unit_definitions.unit_definition import (
     UnitDefinitionSimpleModel,
 )
+from common.config import REQUESTED_LIBRARY_NAME
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
@@ -63,6 +65,8 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
 
     def _create_new_value_node(self, ar: _AggregateRootType) -> ActivityInstanceValue:
         value_node: ActivityInstanceValue = super()._create_new_value_node(ar=ar)
+        value_node.is_research_lab = ar.concept_vo.is_research_lab
+        value_node.molecular_weight = ar.concept_vo.molecular_weight
         value_node.topic_code = ar.concept_vo.topic_code
         value_node.adam_param_code = ar.concept_vo.adam_param_code
         value_node.is_required_for_activity = ar.concept_vo.is_required_for_activity
@@ -76,20 +80,34 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
 
         value_node.save()
 
+        activity_uids = set(ag.activity_uid for ag in ar.concept_vo.activity_groupings)
+        BusinessLogicException.raise_if(
+            len(activity_uids) > 1,
+            msg="Instances are not allowed to link to several different activities",
+        )
+        for activity_uid in activity_uids:
+            requested = ActivityRoot.nodes.filter(
+                uid=activity_uid, has_library__name=REQUESTED_LIBRARY_NAME
+            )
+            BusinessLogicException.raise_if(
+                len(requested) > 0,
+                msg="Activity instances are not allowed to link to activity requests or placeholders",
+            )
+
         for activity_grouping in ar.concept_vo.activity_groupings:
             # find related ActivityGrouping node
-            activity_grouping_node = to_relation_trees(
+            activity_grouping_node = ListDistinct(
                 ActivityGrouping.nodes.filter(
                     in_subgroup__in_group__has_version__uid=activity_grouping.activity_group_uid,
                     in_subgroup__has_group__has_version__uid=activity_grouping.activity_subgroup_uid,
                     has_grouping__latest_final__uid=activity_grouping.activity_uid,
-                )
+                ).resolve_subgraph()
             ).distinct()
-            if len(activity_grouping_node) == 0:
-                raise BusinessLogicException(
-                    f"The ActivityValidGroup node wasn't found for subgroup ({activity_grouping.activity_subgroup_uid}) "
-                    f"and group ({activity_grouping.activity_group_uid})"
-                )
+            BusinessLogicException.raise_if(
+                len(activity_grouping_node) == 0,
+                msg=f"The ActivityValidGroup node wasn't found for Activity Subgroup with UID '{activity_grouping.activity_subgroup_uid}'"
+                f" and Activity Group with UID '{activity_grouping.activity_group_uid}'.",
+            )
             activity_grouping_node = activity_grouping_node[0]
             # link ActivityInstanceValue with ActivityGrouping node
             value_node.has_activity.connect(activity_grouping_node)
@@ -191,14 +209,17 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
     ) -> bool:
         are_concept_properties_changed = super()._has_data_changed(ar=ar, value=value)
         are_props_changed = (
-            ar.concept_vo.topic_code != value.topic_code
+            ar.concept_vo.molecular_weight != value.molecular_weight
+            or ar.concept_vo.topic_code != value.topic_code
             or ar.concept_vo.adam_param_code != value.adam_param_code
-            or ar.concept_vo.is_required_for_activity != value.is_required_for_activity
-            or ar.concept_vo.is_default_selected_for_activity
-            != value.is_default_selected_for_activity
-            or ar.concept_vo.is_data_sharing != value.is_data_sharing
-            or ar.concept_vo.is_legacy_usage != value.is_legacy_usage
-            or ar.concept_vo.is_derived != value.is_derived
+            or bool(ar.concept_vo.is_research_lab) != bool(value.is_research_lab)
+            or bool(ar.concept_vo.is_required_for_activity)
+            != bool(value.is_required_for_activity)
+            or bool(ar.concept_vo.is_default_selected_for_activity)
+            != bool(value.is_default_selected_for_activity)
+            or bool(ar.concept_vo.is_data_sharing) != bool(value.is_data_sharing)
+            or bool(ar.concept_vo.is_legacy_usage) != bool(value.is_legacy_usage)
+            or bool(ar.concept_vo.is_derived) != bool(value.is_derived)
             or ar.concept_vo.legacy_description != value.legacy_description
         )
 
@@ -236,6 +257,7 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
             uid=input_dict.get("uid"),
             concept_vo=self.value_object_class.from_repository_values(
                 nci_concept_id=input_dict.get("nci_concept_id"),
+                nci_concept_name=input_dict.get("nci_concept_name"),
                 name=input_dict.get("name"),
                 name_sentence_case=input_dict.get("name_sentence_case"),
                 activity_instance_class_uid=input_dict.get(
@@ -246,6 +268,8 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                 ).get("name"),
                 definition=input_dict.get("definition"),
                 abbreviation=input_dict.get("abbreviation"),
+                is_research_lab=input_dict.get("is_research_lab", False),
+                molecular_weight=input_dict.get("molecular_weight"),
                 topic_code=input_dict.get("topic_code"),
                 adam_param_code=input_dict.get("adam_param_code"),
                 is_required_for_activity=input_dict.get(
@@ -263,19 +287,13 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                         activity_group_uid=activity_grouping.get("activity_group").get(
                             "uid"
                         ),
-                        activity_group_version=activity_grouping.get(
-                            "activity_group"
-                        ).get("version"),
+                        activity_group_version=f"{activity_grouping.get('activity_group').get('major_version')}.{activity_grouping.get('activity_group').get('minor_version')}",
                         activity_subgroup_uid=activity_grouping.get(
                             "activity_subgroup"
                         ).get("uid"),
-                        activity_subgroup_version=activity_grouping.get(
-                            "activity_subgroup"
-                        ).get("version"),
+                        activity_subgroup_version=f"{activity_grouping.get('activity_subgroup').get('major_version')}.{activity_grouping.get('activity_subgroup').get('minor_version')}",
                         activity_uid=activity_grouping.get("activity").get("uid"),
-                        activity_version=activity_grouping.get("activity").get(
-                            "version"
-                        ),
+                        activity_version=f"{activity_grouping.get('activity').get('major_version')}.{activity_grouping.get('activity').get('minor_version')}",
                     )
                     for activity_grouping in input_dict.get("activity_groupings")
                 ],
@@ -292,7 +310,11 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                             for term in activity_item.get("ct_terms")
                         ],
                         unit_definitions=[
-                            LibraryItem(uid=unit["uid"], name=unit["name"])
+                            CompactUnitDefinition(
+                                uid=unit["uid"],
+                                name=unit["name"],
+                                dimension_name=unit["dimension_name"],
+                            )
                             for unit in activity_item.get("unit_definitions")
                         ],
                     )
@@ -309,7 +331,8 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=convert_to_datetime(value=input_dict.get("end_date")),
                 major_version=int(major),
@@ -335,10 +358,20 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
             ct_terms = []
             unit_definitions = []
             for unit in activity_item.has_unit_definition.all():
+                if ct_dimension := unit.has_version.single().has_ct_dimension.single():
+                    dimension_name = (
+                        ct_dimension.has_name_root.single()
+                        .has_latest_value.single()
+                        .name
+                    )
+                else:
+                    dimension_name = None
+
                 unit_definitions.append(
                     UnitDefinitionSimpleModel(
                         uid=unit.uid,
                         name=unit.has_version.single().name,
+                        dimension_name=dimension_name,
                     )
                 )
             for term in activity_item.has_ct_term.all():
@@ -405,26 +438,35 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
             uid=root.uid,
             concept_vo=self.value_object_class.from_repository_values(
                 nci_concept_id=value.nci_concept_id,
+                nci_concept_name=value.nci_concept_name,
                 name=value.name,
                 name_sentence_case=value.name_sentence_case,
                 activity_instance_class_uid=activity_instance_class.uid,
                 activity_instance_class_name=activity_instance_class.has_latest_value.get().name,
                 definition=value.definition,
                 abbreviation=value.abbreviation,
+                is_research_lab=(
+                    value.is_research_lab if value.is_research_lab else False
+                ),
+                molecular_weight=value.molecular_weight,
                 topic_code=value.topic_code,
                 adam_param_code=value.adam_param_code,
-                is_required_for_activity=value.is_required_for_activity
-                if value.is_required_for_activity
-                else False,
-                is_default_selected_for_activity=value.is_default_selected_for_activity
-                if value.is_default_selected_for_activity
-                else False,
-                is_data_sharing=value.is_data_sharing
-                if value.is_data_sharing
-                else False,
-                is_legacy_usage=value.is_legacy_usage
-                if value.is_legacy_usage
-                else False,
+                is_required_for_activity=(
+                    value.is_required_for_activity
+                    if value.is_required_for_activity
+                    else False
+                ),
+                is_default_selected_for_activity=(
+                    value.is_default_selected_for_activity
+                    if value.is_default_selected_for_activity
+                    else False
+                ),
+                is_data_sharing=(
+                    value.is_data_sharing if value.is_data_sharing else False
+                ),
+                is_legacy_usage=(
+                    value.is_legacy_usage if value.is_legacy_usage else False
+                ),
                 is_derived=value.is_derived if value.is_derived else False,
                 legacy_description=value.legacy_description,
                 activity_groupings=activity_groupings,
@@ -483,23 +525,20 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                     activity_group_uid=activity_grouping.get("activity_group").get(
                         "uid"
                     ),
-                    activity_group_version=activity_grouping.get("activity_group").get(
-                        "version"
-                    ),
+                    activity_group_version=f"{activity_grouping.get('activity_group').get('major_version')}.{activity_grouping.get('activity_group').get('minor_version')}",
                     activity_subgroup_uid=activity_grouping.get(
                         "activity_subgroup"
                     ).get("uid"),
-                    activity_subgroup_version=activity_grouping.get(
-                        "activity_subgroup"
-                    ).get("version"),
+                    activity_subgroup_version=f"{activity_grouping.get('activity_subgroup').get('major_version')}.{activity_grouping.get('activity_subgroup').get('minor_version')}",
                     activity_uid=activity_grouping.get("activity").get("uid"),
-                    activity_version=activity_grouping.get("activity").get("version"),
+                    activity_version=f"{activity_grouping.get('activity').get('major_version')}.{activity_grouping.get('activity').get('minor_version')}",
                 )
             )
         return self.aggregate_class.from_repository_values(
             uid=root.uid,
             concept_vo=self.value_object_class.from_repository_values(
                 nci_concept_id=value.nci_concept_id,
+                nci_concept_name=value.nci_concept_name,
                 name=value.name,
                 name_sentence_case=value.name_sentence_case,
                 activity_instance_class_uid=activity_instance_class[
@@ -510,20 +549,28 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                 ],
                 definition=value.definition,
                 abbreviation=value.abbreviation,
+                is_research_lab=(
+                    value.is_research_lab if value.is_research_lab else False
+                ),
+                molecular_weight=value.molecular_weight,
                 topic_code=value.topic_code,
                 adam_param_code=value.adam_param_code,
-                is_required_for_activity=value.is_required_for_activity
-                if value.is_required_for_activity
-                else False,
-                is_default_selected_for_activity=value.is_default_selected_for_activity
-                if value.is_default_selected_for_activity
-                else False,
-                is_data_sharing=value.is_data_sharing
-                if value.is_data_sharing
-                else False,
-                is_legacy_usage=value.is_legacy_usage
-                if value.is_legacy_usage
-                else False,
+                is_required_for_activity=(
+                    value.is_required_for_activity
+                    if value.is_required_for_activity
+                    else False
+                ),
+                is_default_selected_for_activity=(
+                    value.is_default_selected_for_activity
+                    if value.is_default_selected_for_activity
+                    else False
+                ),
+                is_data_sharing=(
+                    value.is_data_sharing if value.is_data_sharing else False
+                ),
+                is_legacy_usage=(
+                    value.is_legacy_usage if value.is_legacy_usage else False
+                ),
                 is_derived=value.is_derived if value.is_derived else False,
                 legacy_description=value.legacy_description,
                 activity_groupings=activity_groupings,
@@ -541,8 +588,11 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
     ) -> str:
         return """
         WITH *,
+            concept_value.nci_concept_name AS nci_concept_name,
+            concept_value.molecular_weight AS molecular_weight,
             concept_value.topic_code AS topic_code,
             concept_value.adam_param_code AS adam_param_code,
+            coalesce(concept_value.is_research_lab, false) AS is_research_lab,
             coalesce(concept_value.is_required_for_activity, false) AS is_required_for_activity,
             coalesce(concept_value.is_default_selected_for_activity, false) AS is_default_selected_for_activity,
             coalesce(concept_value.is_data_sharing, false) AS is_data_sharing,
@@ -560,18 +610,33 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                     activity_item_class_uid: activity_item_class_root.uid,
                     activity_item_class_name: activity_item_class_value.name,
                     ct_terms: [(activity_item)-[:HAS_CT_TERM]->(term_root:CTTermRoot)-[:HAS_NAME_ROOT]->(term_name_root:CTTermNameRoot)-[:LATEST]->(term_name_value:CTTermNameValue) | {uid: term_root.uid, name: term_name_value.name}],
-                    unit_definitions: [(activity_item)-[:HAS_UNIT_DEFINITION]->(unit_definition_root:UnitDefinitionRoot)-[:LATEST]->(unit_definition_value:UnitDefinitionValue) | {uid: unit_definition_root.uid, name: unit_definition_value.name}]
+                    unit_definitions: [(activity_item)-[:HAS_UNIT_DEFINITION]->(unit_definition_root:UnitDefinitionRoot)-[:LATEST]->(unit_definition_value:UnitDefinitionValue)-[:HAS_CT_DIMENSION]-(:CTTermRoot)-[:HAS_NAME_ROOT]->(CTTermNamesRoot)-[:LATEST]->(dimension_value:CTTermNameValue) | {uid: unit_definition_root.uid, name: unit_definition_value.name, dimension_name: dimension_value.name}]
                 }] AS activity_items,
             head([(concept_value)-[:HAS_ACTIVITY]->(activity_grouping)<-[:HAS_GROUPING]-(activity_value) | activity_value.name]) as activity_name,
             apoc.coll.toSet([(concept_value)-[:HAS_ACTIVITY]->(activity_grouping:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup)
             <-[:HAS_GROUP]-(activity_subgroup_value)<-[:HAS_VERSION]-(activity_subgroup_root:ActivitySubGroupRoot)
              | {
                 activity: head(apoc.coll.sortMulti([(activity_grouping)<-[:HAS_GROUPING]-(:ActivityValue)<-[has_version:HAS_VERSION]-
-                    (activity_root:ActivityRoot) | {uid:activity_root.uid,version:has_version.version}], ['has_version.version'])),
+                    (activity_root:ActivityRoot) | 
+                    {
+                        uid:activity_root.uid,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version'])),
                 activity_subgroup: head(apoc.coll.sortMulti([(activity_valid_group)<-[:HAS_GROUP]-(:ActivitySubGroupValue)<-[has_version:HAS_VERSION]-
-                    (activity_subgroup_root:ActivitySubGroupRoot) | {uid:activity_subgroup_root.uid,version:has_version.version}], ['has_version.version'])), 
+                    (activity_subgroup_root:ActivitySubGroupRoot) | 
+                    {
+                        uid:activity_subgroup_root.uid,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version'])), 
                 activity_group: head(apoc.coll.sortMulti([(activity_valid_group)-[:IN_GROUP]-(:ActivityGroupValue)<-[has_version:HAS_VERSION]-
-                    (activity_group_root:ActivityGroupRoot) | {uid:activity_group_root.uid, version:has_version.version}], ['has_version.version']))
+                    (activity_group_root:ActivityGroupRoot) | 
+                    {
+                        uid:activity_group_root.uid,
+                        major_version: toInteger(split(has_version.version,'.')[0]),
+                        minor_version: toInteger(split(has_version.version,'.')[1])
+                    }], ['major_version', 'minor_version']))
              }]) AS activity_groupings
         """
 
@@ -617,9 +682,9 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                 "WHERE instance_class_value.name IN $activity_instance_class_names | instance_class_value.name]) > 0"
             )
             filter_parameters.append(filter_by_instance_classes)
-            filter_query_parameters[
-                "activity_instance_class_names"
-            ] = instance_class_names
+            filter_query_parameters["activity_instance_class_names"] = (
+                instance_class_names
+            )
         extended_filter_statements = " AND ".join(filter_parameters)
         if filter_statements_from_concept != "":
             if len(extended_filter_statements) > 0:
@@ -705,7 +770,11 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
                 activity_item_class_data_type: head([(activity_item_class_value)-[:HAS_DATA_TYPE]->()-[:HAS_NAME_ROOT]->()-[:LATEST]->(data_type_value) | data_type_value.name]),
                 activity_item: activity_item,
                 ct_terms: [(activity_item)-[:HAS_CT_TERM]->(term_root:CTTermRoot)-[:HAS_NAME_ROOT]->(term_name_root:CTTermNameRoot)-[:LATEST]->(term_name_value:CTTermNameValue) | {uid: term_root.uid, name: term_name_value.name}],
-                unit_definitions: [(activity_item)-[:HAS_UNIT_DEFINITION]->(unit_definition_root:UnitDefinitionRoot)-[:LATEST]->(unit_definition_value:UnitDefinitionValue) | {uid: unit_definition_root.uid, name: unit_definition_value.name}]
+                unit_definitions: [
+                    (activity_item)-[:HAS_UNIT_DEFINITION]->(unit_definition_root:UnitDefinitionRoot)-[:LATEST]->(unit_definition_value:UnitDefinitionValue)
+                    -[:HAS_CT_DIMENSION]-(:CTTermRoot)-[:HAS_NAME_ROOT]->(CTTermNamesRoot)-[:LATEST]->(dimension_value:CTTermNameValue)
+                    | {uid: unit_definition_root.uid, name: unit_definition_value.name, dimension_name: dimension_value.name}
+                ]
             }
             ]) AS activity_items
         WITH DISTINCT 
@@ -721,10 +790,10 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
         """
         )
         result_array, attribute_names = db.cypher_query(query=query, params=params)
-        if len(result_array) != 1:
-            raise exceptions.BusinessLogicException(
-                f"The overview query returned broken data: {result_array}"
-            )
+        BusinessLogicException.raise_if(
+            len(result_array) != 1,
+            msg=f"The overview query returned broken data: {result_array}",
+        )
         overview = result_array[0]
         overview_dict = {}
         for overview_prop, attribute_name in zip(overview, attribute_names):
@@ -763,10 +832,10 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
         result_array, attribute_names = db.cypher_query(
             query=query, params={"uid": uid}
         )
-        if len(result_array) != 1:
-            raise exceptions.BusinessLogicException(
-                f"The overview query returned broken data: {result_array}"
-            )
+        BusinessLogicException.raise_if(
+            len(result_array) != 1,
+            msg=f"The overview query returned broken data: {result_array}",
+        )
         return {
             attribute_name: result_array[0][index]
             for index, attribute_name in enumerate(attribute_names)
@@ -775,7 +844,7 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
     def generic_match_clause_all_versions(self):
         return """
             MATCH (concept_root:ActivityInstanceRoot)-[version:HAS_VERSION]->(concept_value:ActivityInstanceValue)
-                   -[:HAS_ACTIVITY]->(activity_grouping:ActivityGrouping)<-[:HAS_GROUPING]-(activity_value:ActivityValue)
+            -[:HAS_ACTIVITY]->(activity_grouping:ActivityGrouping)<-[:HAS_GROUPING]-(activity_value:ActivityValue)
         """
 
     def get_all_activity_instances_for_activity_grouping(
@@ -788,6 +857,8 @@ class ActivityInstanceRepository(ConceptGenericRepository[ActivityInstanceAR]):
         query = """
             MATCH (activity_instance_root:ActivityInstanceRoot)-[:LATEST]->(activity_instance_value:ActivityInstanceValue)
             MATCH (activity_instance_root)-[:LATEST_FINAL]->(activity_instance_value)
+            OPTIONAL MATCH (activity_instance_root)-[retired:HAS_VERSION {status: "Retired"}]->(activity_instance_value) WHERE retired.end_date IS NULL
+            WITH activity_instance_root, activity_instance_value WHERE retired IS NULL
             MATCH (activity_instance_value)-[:HAS_ACTIVITY]->(activity_grouping:ActivityGrouping)<-[:HAS_GROUPING]-(:ActivityValue)<-[:HAS_VERSION]-(:ActivityRoot {uid:$activity_uid})
             MATCH (activity_grouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup)<-[:HAS_GROUP]-(:ActivitySubGroupValue)<-[:HAS_VERSION]-(:ActivitySubGroupRoot {uid:$activity_subgroup_uid})
             MATCH (activity_valid_group)-[:IN_GROUP]->(:ActivityGroupValue)<-[:HAS_VERSION]-(:ActivityGroupRoot {uid:$activity_group_uid})

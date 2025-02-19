@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.medicinal_product_repository import (
     MedicinalProductRepository,
 )
@@ -8,7 +7,6 @@ from clinical_mdr_api.domains.concepts.medicinal_product import (
     MedicinalProductAR,
     MedicinalProductVO,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.medicinal_product import (
     MedicinalProduct,
     MedicinalProductCreateInput,
@@ -42,7 +40,7 @@ class MedicinalProductService(ConceptGenericService[MedicinalProductAR]):
         self, concept_input: MedicinalProductCreateInput, library
     ) -> _AggregateRootType:
         return MedicinalProductAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=MedicinalProductVO.from_repository_values(
                 external_id=concept_input.external_id,
                 name=concept_input.name,
@@ -69,7 +67,7 @@ class MedicinalProductService(ConceptGenericService[MedicinalProductAR]):
         concept_edit_input: MedicinalProductEditInput,
     ) -> MedicinalProductAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=MedicinalProductVO.from_repository_values(
                 external_id=concept_edit_input.external_id,
@@ -92,14 +90,9 @@ class MedicinalProductService(ConceptGenericService[MedicinalProductAR]):
 
     @db.transaction
     def soft_delete(self, uid: str) -> None:
-        try:
-            medicinal_product = self._find_by_uid_or_raise_not_found(
-                uid, for_update=True
-            )
-            medicinal_product.soft_delete()
-            self.repository.save(medicinal_product)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        medicinal_product = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        medicinal_product.soft_delete()
+        self.repository.save(medicinal_product)
 
     @staticmethod
     def fill_in_additional_fields(

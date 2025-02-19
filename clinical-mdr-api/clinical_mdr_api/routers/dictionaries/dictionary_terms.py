@@ -1,14 +1,21 @@
 """DictionaryTerms router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Response, status
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.dictionaries.dictionary_term import (
+    DictionaryTerm,
+    DictionaryTermCreateInput,
+    DictionaryTermEditInput,
+    DictionaryTermSubstance,
+    DictionaryTermSubstanceCreateInput,
+    DictionaryTermSubstanceEditInput,
+    DictionaryTermVersion,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.dictionaries.dictionary_term_generic_service import (
@@ -17,11 +24,14 @@ from clinical_mdr_api.services.dictionaries.dictionary_term_generic_service impo
 from clinical_mdr_api.services.dictionaries.dictionary_term_substance_service import (
     DictionaryTermSubstanceService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/dictionaries"
 router = APIRouter()
 
-DictionaryTermUID = Path(None, description="The unique id of the DictionaryTerm")
+DictionaryTermUID = Path(description="The unique id of the DictionaryTerm")
 
 
 @router.get(
@@ -41,7 +51,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[models.DictionaryTerm],
+    response_model=CustomPage[DictionaryTerm],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -75,28 +85,36 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_terms(
     request: Request,  # request is actually required by the allow_exports decorator
-    codelist_uid: str = Query(
-        ..., description="The unique id of the DictionaryCodelist"
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    codelist_uid: Annotated[
+        str, Query(description="The unique id of the DictionaryCodelist")
+    ],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     dictionary_term_service = DictionaryTermGenericService()
     results = dictionary_term_service.get_all_dictionary_terms(
@@ -130,21 +148,28 @@ def get_terms(
     },
 )
 def get_distinct_values_for_header(
-    codelist_uid: str = Query(
-        ..., description="The unique id of the DictionaryCodelist"
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    codelist_uid: Annotated[
+        str, Query(description="The unique id of the DictionaryCodelist")
+    ],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.get_distinct_values_for_header(
@@ -153,7 +178,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -165,7 +190,7 @@ def get_distinct_values_for_header(
   * DictionaryTermRoot
   * DictionaryTermValue
 """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -173,16 +198,17 @@ def get_distinct_values_for_header(
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    dictionary_term_input: models.DictionaryTermCreateInput = Body(
-        description="Properties to create DictionaryTermValue node."
-    ),
+    dictionary_term_input: Annotated[
+        DictionaryTermCreateInput,
+        Body(description="Properties to create DictionaryTermValue node."),
+    ],
 ):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.create(dictionary_term_input)
@@ -204,7 +230,7 @@ State after:
  
 Possible errors:
  - Invalid codelist""",
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -212,7 +238,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_codelists(dictionary_term_uid: str = DictionaryTermUID):
+def get_codelists(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.get_by_uid(term_uid=dictionary_term_uid)
 
@@ -235,7 +261,7 @@ State after:
 Possible errors:
  - Invalid uid.
     """,
-    response_model=list[models.DictionaryTermVersion],
+    response_model=list[DictionaryTermVersion],
     status_code=200,
     responses={
         404: {
@@ -245,7 +271,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(dictionary_term_uid: str = DictionaryTermUID):
+def get_versions(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.get_version_history(term_uid=dictionary_term_uid)
 
@@ -274,7 +300,7 @@ State after:
 Possible errors:
  - Invalid uid.
 """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -284,7 +310,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The dictionary term is not in draft status.\n"
             "- The dictionary term had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -294,10 +320,13 @@ Possible errors:
     },
 )
 def edit(
-    dictionary_term_uid: str = DictionaryTermUID,
-    dictionary_term_input: models.DictionaryTermEditInput = Body(
-        description="The new parameter terms for the dictionary term including the change description.",
-    ),
+    dictionary_term_uid: Annotated[str, DictionaryTermUID],
+    dictionary_term_input: Annotated[
+        DictionaryTermEditInput,
+        Body(
+            description="The new parameter terms for the dictionary term including the change description.",
+        ),
+    ],
 ):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.edit_draft(
@@ -326,7 +355,7 @@ State after:
 Possible errors:
  - Invalid uid or status not Final.
 """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -334,7 +363,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create terms.\n",
+            "- The library doesn't allow to create terms.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -345,7 +374,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_new_version(dictionary_term_uid: str = DictionaryTermUID):
+def create_new_version(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.create_new_version(term_uid=dictionary_term_uid)
 
@@ -371,7 +400,7 @@ State after:
 Possible errors:
  - Invalid uid or status not Draft.
     """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -380,7 +409,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The term is not in draft status.\n"
-            "- The library does not allow to approve term.\n",
+            "- The library doesn't allow to approve term.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -389,7 +418,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(dictionary_term_uid: str = DictionaryTermUID):
+def approve(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.approve(term_uid=dictionary_term_uid)
 
@@ -415,7 +444,7 @@ State after:
 Possible errors:
  - Invalid uid or status not Final.
     """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -432,7 +461,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(dictionary_term_uid: str = DictionaryTermUID):
+def inactivate(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.inactivate_final(term_uid=dictionary_term_uid)
 
@@ -458,7 +487,7 @@ State after:
 Possible errors:
  - Invalid uid or status not Retired.
     """,
-    response_model=models.DictionaryTerm,
+    response_model=DictionaryTerm,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -475,7 +504,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(dictionary_term_uid: str = DictionaryTermUID):
+def reactivate(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     return dictionary_term_service.reactivate_retired(term_uid=dictionary_term_uid)
 
@@ -507,7 +536,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The term is not in draft status.\n"
             "- The term was already in final state or is in use.\n"
-            "- The library does not allow to delete term.",
+            "- The library doesn't allow to delete term.",
         },
         404: {
             "model": ErrorResponse,
@@ -516,7 +545,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_ct_term(dictionary_term_uid: str = DictionaryTermUID):
+def delete_ct_term(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermGenericService()
     dictionary_term_service.soft_delete(term_uid=dictionary_term_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -530,7 +559,7 @@ def delete_ct_term(dictionary_term_uid: str = DictionaryTermUID):
   * DictionaryTermRoot/UNIITermRoot
   * DictionaryTermValue/UNIITermValue
 """,
-    response_model=models.DictionaryTermSubstance,
+    response_model=DictionaryTermSubstance,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -538,16 +567,17 @@ def delete_ct_term(dictionary_term_uid: str = DictionaryTermUID):
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create_substance(
-    dictionary_term_input: models.DictionaryTermSubstanceCreateInput = Body(
-        description="Properties to create DictionaryTermValue node."
-    ),
+    dictionary_term_input: Annotated[
+        DictionaryTermSubstanceCreateInput,
+        Body(description="Properties to create DictionaryTermValue node."),
+    ],
 ):
     dictionary_term_service = DictionaryTermSubstanceService()
     return dictionary_term_service.create(dictionary_term_input)
@@ -569,7 +599,7 @@ State after:
  
 Possible errors:
  - Invalid uid""",
-    response_model=models.DictionaryTermSubstance,
+    response_model=DictionaryTermSubstance,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -577,7 +607,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_substance_by_id(dictionary_term_uid: str = DictionaryTermUID):
+def get_substance_by_id(dictionary_term_uid: Annotated[str, DictionaryTermUID]):
     dictionary_term_service = DictionaryTermSubstanceService()
     return dictionary_term_service.get_by_uid(term_uid=dictionary_term_uid)
 
@@ -595,7 +625,7 @@ State after:
  
 Possible errors:
  - """,
-    response_model=CustomPage[models.DictionaryTermSubstance],
+    response_model=CustomPage[DictionaryTermSubstance],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -604,25 +634,33 @@ Possible errors:
     },
 )
 def get_substances(
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     dictionary_term_service = DictionaryTermSubstanceService()
     results = dictionary_term_service.get_all_dictionary_terms(
@@ -661,7 +699,7 @@ State after:
 Possible errors:
  - Invalid uid.
 """,
-    response_model=models.DictionaryTermSubstance,
+    response_model=DictionaryTermSubstance,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -671,7 +709,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The dictionary term is not in draft status.\n"
             "- The dictionary term had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -681,10 +719,13 @@ Possible errors:
     },
 )
 def edit_substance(
-    dictionary_term_uid: str = DictionaryTermUID,
-    dictionary_term_input: models.DictionaryTermSubstanceEditInput = Body(
-        description="The new parameter terms for the dictionary term including the change description.",
-    ),
+    dictionary_term_uid: Annotated[str, DictionaryTermUID],
+    dictionary_term_input: Annotated[
+        DictionaryTermSubstanceEditInput,
+        Body(
+            description="The new parameter terms for the dictionary term including the change description.",
+        ),
+    ],
 ):
     dictionary_term_service = DictionaryTermSubstanceService()
     return dictionary_term_service.edit_draft(

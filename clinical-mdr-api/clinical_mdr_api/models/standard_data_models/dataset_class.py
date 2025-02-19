@@ -1,62 +1,28 @@
+from typing import Annotated
+
 from pydantic import Field
 
 from clinical_mdr_api.models.utils import BaseModel
 
 
 class SimpleDataModel(BaseModel):
-    data_model_name: str = Field(
-        ...,
-        title="data_model_name",
-        description="data_model_name",
-    )
-    ordinal: str | None = Field(
-        None,
-        title="ordinal",
-        description="ordinal",
-    )
+    data_model_name: Annotated[str, Field()]
+    ordinal: Annotated[str | None, Field(nullable=True)] = None
 
 
 class SimpleDataset(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="uid",
-    )
-    dataset_name: str = Field(
-        ...,
-        title="dataset_name",
-        description="dataset_name",
-    )
+    uid: Annotated[str, Field()]
+    dataset_name: Annotated[str, Field()]
 
 
 class DatasetClass(BaseModel):
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="The uid of the dataset",
-    )
-    label: str = Field(
-        ...,
-        title="label",
-        description="The label of the dataset",
-    )
-    title: str = Field(
-        ...,
-        title="title",
-        description="The title of the dataset",
-    )
-    description: str | None = Field(
-        None, title="description", description="description", nullable=True
-    )
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="catalogue_name",
-    )
-    parent_class: str | None = Field(
-        None, title="parent_class_name", description="parent_class_name", nullable=True
-    )
-    data_models: list[SimpleDataModel] = Field(...)
+    uid: Annotated[str, Field()]
+    label: Annotated[str | None, Field(nullable=True)] = None
+    title: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
+    catalogue_name: Annotated[str, Field()]
+    parent_class: Annotated[str | None, Field(nullable=True)] = None
+    data_models: Annotated[list[SimpleDataModel], Field()]
 
     @classmethod
     def from_repository_output(cls, input_dict: dict):

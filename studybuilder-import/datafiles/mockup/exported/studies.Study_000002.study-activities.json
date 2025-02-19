@@ -16,7 +16,7 @@
       "start_date": "2022-10-18T13:03:12.119527",
       "status": "Final",
       "uid": "Activity_001909",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -57,7 +57,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -69,7 +69,7 @@
     "start_date": "2022-10-20T12:20:38.422345",
     "study_activity_uid": "StudyActivity_000007",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -88,7 +88,7 @@
       "start_date": "2022-10-18T12:58:51.443142",
       "status": "Final",
       "uid": "Activity_000574",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -123,7 +123,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -135,7 +135,7 @@
     "start_date": "2022-10-20T12:20:38.527198",
     "study_activity_uid": "StudyActivity_000008",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -154,7 +154,7 @@
       "start_date": "2022-10-18T12:58:01.716369",
       "status": "Final",
       "uid": "Activity_000318",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -189,7 +189,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -201,7 +201,7 @@
     "start_date": "2022-10-20T12:20:38.303696",
     "study_activity_uid": "StudyActivity_000009",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -220,7 +220,7 @@
       "start_date": "2022-10-18T12:57:23.866604",
       "status": "Final",
       "uid": "Activity_000122",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -255,7 +255,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -267,7 +267,7 @@
     "start_date": "2022-10-20T12:20:39.630376",
     "study_activity_uid": "StudyActivity_000010",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -286,7 +286,7 @@
       "start_date": "2022-10-18T12:58:02.369507",
       "status": "Final",
       "uid": "Activity_000321",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -321,7 +321,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -333,7 +333,7 @@
     "start_date": "2022-10-20T12:20:39.297481",
     "study_activity_uid": "StudyActivity_000011",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -352,7 +352,7 @@
       "start_date": "2022-10-18T12:59:05.174954",
       "status": "Final",
       "uid": "Activity_000642",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -387,7 +387,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -399,7 +399,7 @@
     "start_date": "2022-10-20T12:20:38.168698",
     "study_activity_uid": "StudyActivity_000012",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -418,7 +418,7 @@
       "start_date": "2022-10-18T12:59:05.520156",
       "status": "Final",
       "uid": "Activity_000644",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -453,7 +453,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -465,7 +465,7 @@
     "start_date": "2022-10-20T12:20:39.842541",
     "study_activity_uid": "StudyActivity_000013",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -484,7 +484,7 @@
       "start_date": "2022-10-18T13:01:08.022561",
       "status": "Final",
       "uid": "Activity_001262",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -519,7 +519,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -531,7 +531,7 @@
     "start_date": "2022-10-20T12:20:38.961941",
     "study_activity_uid": "StudyActivity_000014",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -550,7 +550,7 @@
       "start_date": "2022-10-18T13:03:13.254816",
       "status": "Final",
       "uid": "Activity_001915",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -585,7 +585,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -597,7 +597,7 @@
     "start_date": "2022-10-20T12:20:38.637112",
     "study_activity_uid": "StudyActivity_000015",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -616,7 +616,7 @@
       "start_date": "2022-10-18T12:58:01.164578",
       "status": "Final",
       "uid": "Activity_000315",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -651,7 +651,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -663,7 +663,7 @@
     "start_date": "2022-10-20T12:20:38.743718",
     "study_activity_uid": "StudyActivity_000016",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -682,7 +682,7 @@
       "start_date": "2022-10-18T12:59:26.826469",
       "status": "Final",
       "uid": "Activity_000753",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -717,7 +717,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -729,7 +729,7 @@
     "start_date": "2022-10-20T12:20:38.843776",
     "study_activity_uid": "StudyActivity_000017",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -748,7 +748,7 @@
       "start_date": "2022-10-18T12:58:50.849620",
       "status": "Final",
       "uid": "Activity_000571",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -783,7 +783,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -795,7 +795,7 @@
     "start_date": "2022-10-20T12:20:39.409115",
     "study_activity_uid": "StudyActivity_000018",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -814,7 +814,7 @@
       "start_date": "2022-10-18T12:59:26.204025",
       "status": "Final",
       "uid": "Activity_000750",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -849,7 +849,7 @@
       "start_date": "2022-10-18T12:53:16.631249",
       "status": "Final",
       "term_uid": "CTTerm_000064",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -861,7 +861,7 @@
     "start_date": "2022-10-20T12:20:26.475115",
     "study_activity_uid": "StudyActivity_000019",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -880,7 +880,7 @@
       "start_date": "2022-10-18T12:59:08.769077",
       "status": "Final",
       "uid": "Activity_000660",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -915,7 +915,7 @@
       "start_date": "2022-10-18T12:53:16.631249",
       "status": "Final",
       "term_uid": "CTTerm_000064",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -927,7 +927,7 @@
     "start_date": "2022-10-20T12:16:28.617476",
     "study_activity_uid": "StudyActivity_000020",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -946,7 +946,7 @@
       "start_date": "2022-10-18T12:59:26.463251",
       "status": "Final",
       "uid": "Activity_000751",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -981,7 +981,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -993,7 +993,7 @@
     "start_date": "2022-10-20T12:08:32.192010",
     "study_activity_uid": "StudyActivity_000021",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1012,7 +1012,7 @@
       "start_date": "2022-10-18T13:00:58.419956",
       "status": "Final",
       "uid": "Activity_001211",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1047,7 +1047,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1059,7 +1059,7 @@
     "start_date": "2022-10-20T12:08:32.599135",
     "study_activity_uid": "StudyActivity_000022",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1078,7 +1078,7 @@
       "start_date": "2022-10-18T13:03:56.765215",
       "status": "Final",
       "uid": "Activity_002136",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1113,7 +1113,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1125,7 +1125,7 @@
     "start_date": "2022-10-20T12:08:32.884022",
     "study_activity_uid": "StudyActivity_000023",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1144,7 +1144,7 @@
       "start_date": "2022-10-18T12:57:53.404951",
       "status": "Final",
       "uid": "Activity_000274",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1191,7 +1191,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1203,7 +1203,7 @@
     "start_date": "2022-10-20T12:08:33.144024",
     "study_activity_uid": "StudyActivity_000024",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1222,7 +1222,7 @@
       "start_date": "2022-10-18T12:57:54.259841",
       "status": "Final",
       "uid": "Activity_000278",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1263,7 +1263,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1275,7 +1275,7 @@
     "start_date": "2022-10-20T12:08:33.406377",
     "study_activity_uid": "StudyActivity_000025",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1294,7 +1294,7 @@
       "start_date": "2022-10-18T12:58:07.688485",
       "status": "Final",
       "uid": "Activity_000347",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1329,7 +1329,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1341,7 +1341,7 @@
     "start_date": "2022-10-20T12:08:33.649755",
     "study_activity_uid": "StudyActivity_000026",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1360,7 +1360,7 @@
       "start_date": "2022-10-18T12:59:09.079412",
       "status": "Final",
       "uid": "Activity_000661",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1395,7 +1395,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1407,7 +1407,7 @@
     "start_date": "2022-10-20T12:08:33.904539",
     "study_activity_uid": "StudyActivity_000027",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1426,7 +1426,7 @@
       "start_date": "2022-10-18T12:59:08.601302",
       "status": "Final",
       "uid": "Activity_000659",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1461,7 +1461,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1473,7 +1473,7 @@
     "start_date": "2022-10-20T12:08:34.155182",
     "study_activity_uid": "StudyActivity_000028",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1492,7 +1492,7 @@
       "start_date": "2022-10-18T12:57:51.036234",
       "status": "Final",
       "uid": "Activity_000261",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1527,7 +1527,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1539,7 +1539,7 @@
     "start_date": "2022-10-20T12:17:09.636377",
     "study_activity_uid": "StudyActivity_000029",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1558,7 +1558,7 @@
       "start_date": "2022-10-18T13:03:10.172213",
       "status": "Final",
       "uid": "Activity_001899",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1593,7 +1593,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1605,7 +1605,7 @@
     "start_date": "2022-10-20T12:17:10.222073",
     "study_activity_uid": "StudyActivity_000030",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1624,7 +1624,7 @@
       "start_date": "2022-10-18T12:58:01.374317",
       "status": "Final",
       "uid": "Activity_000316",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1659,7 +1659,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1671,7 +1671,7 @@
     "start_date": "2022-10-20T12:17:10.356390",
     "study_activity_uid": "StudyActivity_000031",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1690,7 +1690,7 @@
       "start_date": "2022-10-18T12:58:01.573310",
       "status": "Final",
       "uid": "Activity_000317",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1725,7 +1725,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1737,7 +1737,7 @@
     "start_date": "2022-10-20T12:17:10.109226",
     "study_activity_uid": "StudyActivity_000032",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1756,7 +1756,7 @@
       "start_date": "2022-10-18T13:01:03.704113",
       "status": "Final",
       "uid": "Activity_001239",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1791,7 +1791,7 @@
       "start_date": "2022-10-18T12:53:16.815888",
       "status": "Final",
       "term_uid": "CTTerm_000065",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1803,7 +1803,7 @@
     "start_date": "2022-10-20T12:17:09.740955",
     "study_activity_uid": "StudyActivity_000033",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1822,7 +1822,7 @@
       "start_date": "2022-10-18T12:58:31.201516",
       "status": "Final",
       "uid": "Activity_000470",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1863,7 +1863,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1875,7 +1875,7 @@
     "start_date": "2022-10-20T12:20:39.082467",
     "study_activity_uid": "StudyActivity_000034",
     "study_uid": "Study_000002",
-    "user_initials": "MT"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -1894,7 +1894,7 @@
       "start_date": "2022-10-18T12:58:55.245837",
       "status": "Final",
       "uid": "Activity_000591",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -1927,7 +1927,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -1939,7 +1939,7 @@
     "start_date": "2022-10-20T12:20:39.187031",
     "study_activity_uid": "StudyActivity_000035",
     "study_uid": "Study_000002",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "study_activity_subgroup": {
       "study_activity_subgroup_uid": "not used by import",
       "activity_subgroup_uid": "ActivitySubGroup_87"
@@ -1966,7 +1966,7 @@
       "start_date": "2022-10-18T13:00:34.778120",
       "status": "Final",
       "uid": "Activity_001092",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -2017,7 +2017,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -2029,7 +2029,7 @@
     "start_date": "2022-10-20T12:20:39.521559",
     "study_activity_uid": "StudyActivity_000036",
     "study_uid": "Study_000002",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "study_activity_subgroup": {
       "study_activity_subgroup_uid": "not used by import",
       "activity_subgroup_uid": "ActivitySubGroup_113"
@@ -2056,7 +2056,7 @@
       "start_date": "2022-10-18T13:03:11.865952",
       "status": "Final",
       "uid": "Activity_001908",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -2089,7 +2089,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -2101,7 +2101,7 @@
     "start_date": "2022-10-20T12:20:39.732596",
     "study_activity_uid": "StudyActivity_000037",
     "study_uid": "Study_000002",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "study_activity_subgroup": {
       "study_activity_subgroup_uid": "not used by import",
       "activity_subgroup_uid": "ActivitySubGroup_192"
@@ -2128,7 +2128,7 @@
       "start_date": "2022-10-18T13:03:16.999023",
       "status": "Final",
       "uid": "Activity_001925",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0",
       "activity_groupings": [
         {
@@ -2161,7 +2161,7 @@
       "start_date": "2022-10-18T12:53:17.537289",
       "status": "Final",
       "term_uid": "CTTerm_000069",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "latest_activity": null,
@@ -2173,7 +2173,7 @@
     "start_date": "2022-10-20T12:20:39.943393",
     "study_activity_uid": "StudyActivity_000038",
     "study_uid": "Study_000002",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "study_activity_subgroup": {
       "study_activity_subgroup_uid": "not used by import",
       "activity_subgroup_uid": "ActivitySubGroup_206"

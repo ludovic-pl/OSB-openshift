@@ -1,14 +1,12 @@
 """Timeframe templates router."""
 
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.syntax_templates.template_parameter import (
     ComplexTemplateParameter,
 )
@@ -16,17 +14,19 @@ from clinical_mdr_api.models.syntax_templates.timeframe_template import (
     TimeframeTemplate,
     TimeframeTemplateCreateInput,
     TimeframeTemplateEditInput,
-    TimeframeTemplateNameInput,
+    TimeframeTemplatePreValidateInput,
     TimeframeTemplateVersion,
     TimeframeTemplateWithCount,
 )
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.syntax_templates.timeframe_templates import (
     TimeframeTemplateService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/timeframe-templates"
 router = APIRouter()
@@ -34,9 +34,7 @@ router = APIRouter()
 Service = TimeframeTemplateService
 
 # Argument definitions
-TimeframeTemplateUID = Path(
-    None, description="The unique id of the timeframe template."
-)
+TimeframeTemplateUID = Path(description="The unique id of the timeframe template.")
 
 PARAMETERS_NOTE = """**Parameters in the 'name' property**:
 
@@ -67,13 +65,13 @@ name='MORE TESTING of the superiority in the efficacy of [Intervention] with [Ac
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","name","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","name","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First  [ComparatorIntervention]","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><uid type="str">e9117175-918f-489e-9a6e-65e0025233a6</uid><name type="str">Alamakota</name><start_date type="str">2020-11-19T11:51:43.000Z</start_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -95,7 +93,7 @@ name='MORE TESTING of the superiority in the efficacy of [Intervention] with [Ac
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -108,35 +106,44 @@ name='MORE TESTING of the superiority in the efficacy of [Intervention] with [Ac
 # pylint: disable=unused-argument
 def get_timeframe_templates(
     request: Request,  # request is actually required by the allow_exports decorator
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those timeframe templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the timeframe template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those timeframe templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the timeframe template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ) -> CustomPage[TimeframeTemplate]:
     data = Service().get_all(
         status=status,
@@ -170,28 +177,36 @@ def get_timeframe_templates(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those timeframe templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the timeframe template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those timeframe templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the timeframe template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -199,15 +214,13 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
     response_model=CustomPage[TimeframeTemplate],
     status_code=200,
     responses={
@@ -216,24 +229,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -266,7 +285,7 @@ def retrieve_audit_trail(
     },
 )
 def get_timeframe_template(
-    timeframe_template_uid: str = TimeframeTemplateUID,
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
 ) -> TimeframeTemplate:
     return Service().get_by_uid(timeframe_template_uid)
 
@@ -287,13 +306,13 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "content": {
                 "text/csv": {
                     "example": """
-"library";"uid";"name";"start_date";"end_date";"status";"version";"change_description";"user_initials"
+"library";"uid";"name";"start_date";"end_date";"status";"version";"change_description";"author_username"
 "Sponsor";"826d80a7-0b6a-419d-8ef1-80aa241d7ac7";"First  [ComparatorIntervention]";"2020-10-22T10:19:29+00:00";;"Draft";"0.1";"Initial version";"NdSJ"
 """
                 },
                 "text/xml": {
                     "example": """
-                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><user_initials type="str">TODO Initials</user_initials></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><user_initials type="str">TODO user initials</user_initials></item></data></root>
+                    <?xml version="1.0" encoding="UTF-8" ?><root><data type="list"><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:43+00:00</start_date><end_date type="str">None</end_date><status type="str">Draft</status><version type="str">0.2</version><change_description type="str">Test</change_description><author_username type="str">someone@example.com</author_username></item><item type="dict"><name type="str">Alamakota</name><start_date type="str">2020-11-19 11:51:07+00:00</start_date><end_date type="str">2020-11-19 11:51:43+00:00</end_date><status type="str">Draft</status><version type="str">0.1</version><change_description type="str">Initial version</change_description><author_username type="str">someone@example.com</author_username></item></data></root>
 """
                 },
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
@@ -316,7 +335,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "version",
             "start_date",
             "end_date",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -329,7 +348,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 # pylint: disable=unused-argument
 def get_timeframe_template_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    timeframe_template_uid: str = TimeframeTemplateUID,
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
 ) -> list[TimeframeTemplateVersion]:
     return Service().get_version_history(timeframe_template_uid)
 
@@ -354,13 +373,15 @@ def get_timeframe_template_versions(
     },
 )
 def get_timeframe_template_version(
-    timeframe_template_uid: str = TimeframeTemplateUID,
-    version: str = Path(
-        None,
-        description="A specific version number of the timeframe template. "
-        "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
-        "E.g. '0.1', '0.2', '1.0', ...",
-    ),
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
+    version: Annotated[
+        str,
+        Path(
+            description="A specific version number of the timeframe template. "
+            "The version number is specified in the following format: \\<major\\>.\\<minor\\> where \\<major\\> and \\<minor\\> are digits.\n"
+            "E.g. '0.1', '0.2', '1.0', ...",
+        ),
+    ],
 ) -> TimeframeTemplate:
     return Service().get_specific_version(timeframe_template_uid, version)
 
@@ -390,12 +411,13 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The timeframe template name is not valid.\n"
-            "- The library does not allow to create timeframe templates.",
+            "- The library doesn't allow to create timeframe templates.",
         },
         404: {
             "model": ErrorResponse,
             "description": "Not Found - The library with the specified 'library_name' could not be found.",
         },
+        409: _generic_descriptions.ERROR_409,
         500: _generic_descriptions.ERROR_500,
     },
 )
@@ -433,7 +455,7 @@ Once the timeframe template has been approved, only the surrounding text (exclud
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The timeframe template is not in draft status.\n"
             "- The timeframe template name is not valid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The change of parameters of previously approved timeframe templates.",
         },
         404: {
@@ -444,10 +466,13 @@ Once the timeframe template has been approved, only the surrounding text (exclud
     },
 )
 def edit(
-    timeframe_template_uid: str = TimeframeTemplateUID,
-    timeframe_template: TimeframeTemplateEditInput = Body(
-        description="The new content of the timeframe template including the change description.",
-    ),
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
+    timeframe_template: Annotated[
+        TimeframeTemplateEditInput,
+        Body(
+            description="The new content of the timeframe template including the change description.",
+        ),
+    ],
 ) -> TimeframeTemplate:
     return Service().edit_draft(timeframe_template_uid, timeframe_template)
 
@@ -477,7 +502,7 @@ Only the surrounding text (excluding the parameters) can be changed.
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The timeframe template is not in final or retired status or has a draft status.\n"
             "- The timeframe template name is not valid.\n"
-            "- The library does not allow to create a new version.",
+            "- The library doesn't allow to create a new version.",
         },
         404: {
             "model": ErrorResponse,
@@ -487,10 +512,13 @@ Only the surrounding text (excluding the parameters) can be changed.
     },
 )
 def create_new_version(
-    timeframe_template_uid: str = TimeframeTemplateUID,
-    timeframe_template: TimeframeTemplateEditInput = Body(
-        description="The content of the timeframe template for the new 'Draft' version including the change description.",
-    ),
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
+    timeframe_template: Annotated[
+        TimeframeTemplateEditInput,
+        Body(
+            description="The content of the timeframe template for the new 'Draft' version including the change description.",
+        ),
+    ],
 ) -> TimeframeTemplate:
     return Service().create_new_version(timeframe_template_uid, timeframe_template)
 
@@ -517,7 +545,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The timeframe template is not in draft status.\n"
-            "- The library does not allow to approve drafts.",
+            "- The library doesn't allow to approve drafts.",
         },
         404: {
             "model": ErrorResponse,
@@ -531,7 +559,7 @@ If the request succeeds:
     },
 )
 def approve(
-    timeframe_template_uid: str = TimeframeTemplateUID,
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
     cascade: bool = False,
 ) -> TimeframeTemplate:
     """
@@ -571,8 +599,9 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(timeframe_template_uid: str = TimeframeTemplateUID) -> TimeframeTemplate:
-    # TODO: do sth to make static code analysis work fine for this code
+def inactivate(
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID]
+) -> TimeframeTemplate:
     return Service().inactivate_final(timeframe_template_uid)
 
 
@@ -604,8 +633,9 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(timeframe_template_uid: str = TimeframeTemplateUID) -> TimeframeTemplate:
-    # TODO: do sth to allow for static code analysis of this code
+def reactivate(
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID]
+) -> TimeframeTemplate:
     return Service().reactivate_retired(timeframe_template_uid)
 
 
@@ -629,7 +659,7 @@ def reactivate(timeframe_template_uid: str = TimeframeTemplateUID) -> TimeframeT
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The timeframe template is not in draft status.\n"
             "- The timeframe template was already in final state or is in use.\n"
-            "- The library does not allow to delete timeframe templates.",
+            "- The library doesn't allow to delete timeframe templates.",
         },
         404: {
             "model": ErrorResponse,
@@ -639,7 +669,7 @@ def reactivate(timeframe_template_uid: str = TimeframeTemplateUID) -> TimeframeT
     },
 )
 def delete_timeframe_template(
-    timeframe_template_uid: str = TimeframeTemplateUID,
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
 ) -> Response:
     Service().soft_delete(timeframe_template_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
@@ -668,14 +698,13 @@ In that case, the same parameter (with the same values) is included multiple tim
     },
 )
 def get_parameters(
-    timeframe_template_uid: str = Path(
-        None, description="The unique id of the timeframe template."
-    ),
-    study_uid: str
-    | None = Query(
-        None,
-        description="if specified only valid parameters for a given study will be returned.",
-    ),
+    timeframe_template_uid: Annotated[str, TimeframeTemplateUID],
+    study_uid: Annotated[
+        str | None,
+        Query(
+            description="if specified only valid parameters for a given study will be returned.",
+        ),
+    ] = None,
 ):
     return Service().get_parameters(timeframe_template_uid, study_uid=study_uid)
 
@@ -705,8 +734,11 @@ with the same content will succeed.
     },
 )
 def pre_validate(
-    timeframe_template: TimeframeTemplateNameInput = Body(
-        description="The content of the timeframe template that shall be validated.",
-    ),
+    timeframe_template: Annotated[
+        TimeframeTemplatePreValidateInput,
+        Body(
+            description="The content of the timeframe template that shall be validated.",
+        ),
+    ],
 ):
     Service().validate_template_syntax(timeframe_template.name)

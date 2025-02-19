@@ -1,6 +1,6 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.activities.activity import ActivityAR
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
@@ -58,6 +58,8 @@ from clinical_mdr_api.models.controlled_terminologies.ct_codelist_attributes imp
     CTCodelistAttributesSimpleModel,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermModel
+from clinical_mdr_api.models.utils import BaseModel, InputModel, PostInputModel
+from common import config
 
 
 class OdmItemTermRelationshipModel(BaseModel):
@@ -94,12 +96,12 @@ class OdmItemTermRelationshipModel(BaseModel):
             simple_term_model = None
         return simple_term_model
 
-    term_uid: str = Field(..., title="term_uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    mandatory: bool | None = Field(None, title="mandatory", description="")
-    order: int | None = Field(None, title="order", description="")
-    display_text: str | None = Field(None, title="display_text", description="")
-    version: str | None = Field(None, title="version", description="")
+    term_uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    mandatory: Annotated[bool | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
+    display_text: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmItemUnitDefinitionWithRelationship(BaseModel):
@@ -166,30 +168,34 @@ class OdmItemUnitDefinitionWithRelationship(BaseModel):
             simple_unit_definition_model = None
         return simple_unit_definition_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    mandatory: bool | None = Field(None, title="mandatory", description="")
-    order: int | None = Field(None, title="order", description="")
-    ucum: SimpleTermModel | None = Field(None, title="ucum", description="")
-    ct_units: list[SimpleTermModel] = Field([], title="ucum_name", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    mandatory: Annotated[bool | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
+    ucum: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    ct_units: Annotated[list[SimpleTermModel], Field()] = []
 
 
 class OdmItem(ConceptModel):
     oid: str | None
-    prompt: str | None = Field(None, nullable=True)
-    datatype: str | None = Field(None, nullable=True)
-    length: int | None = Field(None, nullable=True)
-    significant_digits: int | None = Field(None, nullable=True)
-    sas_field_name: str | None = Field(None, nullable=True)
-    sds_var_name: str | None = Field(None, nullable=True)
-    origin: str | None = Field(None, nullable=True)
-    comment: str | None = Field(None, nullable=True)
+    prompt: Annotated[str | None, Field(nullable=True)] = None
+    datatype: Annotated[str | None, Field(nullable=True)] = None
+    length: Annotated[int | None, Field(nullable=True)] = None
+    significant_digits: Annotated[int | None, Field(nullable=True)] = None
+    sas_field_name: Annotated[str | None, Field(nullable=True)] = None
+    sds_var_name: Annotated[str | None, Field(nullable=True)] = None
+    origin: Annotated[str | None, Field(nullable=True)] = None
+    comment: Annotated[str | None, Field(nullable=True)] = None
     descriptions: list[OdmDescriptionSimpleModel]
     aliases: list[OdmAliasSimpleModel]
     unit_definitions: list[OdmItemUnitDefinitionWithRelationship]
-    codelist: CTCodelistAttributesSimpleModel | None = Field(None, nullable=True)
+    codelist: Annotated[
+        CTCodelistAttributesSimpleModel | None, Field(nullable=True)
+    ] = None
     terms: list[OdmItemTermRelationshipModel]
-    activity: ActivityHierarchySimpleModel | None = Field(None, nullable=True)
+    activity: Annotated[ActivityHierarchySimpleModel | None, Field(nullable=True)] = (
+        None
+    )
     vendor_elements: list[OdmVendorElementRelationModel]
     vendor_attributes: list[OdmVendorAttributeRelationModel]
     vendor_element_attributes: list[OdmVendorElementAttributeRelationModel]
@@ -240,7 +246,7 @@ class OdmItem(ConceptModel):
             status=odm_item_ar.item_metadata.status.value,
             version=odm_item_ar.item_metadata.version,
             change_description=odm_item_ar.item_metadata.change_description,
-            user_initials=odm_item_ar.item_metadata.user_initials,
+            author_username=odm_item_ar.item_metadata.author_username,
             descriptions=sorted(
                 [
                     OdmDescriptionSimpleModel.from_odm_description_uid(
@@ -367,16 +373,18 @@ class OdmItemRefModel(BaseModel):
                     role_codelist_oid=odm_item_ref_vo.role_codelist_oid,
                     collection_exception_condition_oid=odm_item_ref_vo.collection_exception_condition_oid,
                     vendor=OdmRefVendor(
-                        attributes=[
-                            OdmRefVendorAttributeModel.from_uid(
-                                uid=attribute["uid"],
-                                value=attribute["value"],
-                                find_odm_vendor_attribute_by_uid=find_odm_vendor_attribute_by_uid,
-                            )
-                            for attribute in odm_item_ref_vo.vendor["attributes"]
-                        ]
-                        if odm_item_ref_vo.vendor
-                        else []
+                        attributes=(
+                            [
+                                OdmRefVendorAttributeModel.from_uid(
+                                    uid=attribute["uid"],
+                                    value=attribute["value"],
+                                    find_odm_vendor_attribute_by_uid=find_odm_vendor_attribute_by_uid,
+                                )
+                                for attribute in odm_item_ref_vo.vendor["attributes"]
+                            ]
+                            if odm_item_ref_vo.vendor
+                            else []
+                        )
                     ),
                 )
             else:
@@ -398,52 +406,50 @@ class OdmItemRefModel(BaseModel):
             odm_item_ref_model = None
         return odm_item_ref_model
 
-    uid: str = Field(..., title="uid", description="")
-    oid: str | None = Field(None, title="oid", description="")
-    name: str | None = Field(None, title="name", description="")
-    order_number: int | None = Field(None, title="order_number", description="")
-    mandatory: str | None = Field(None, title="mandatory", description="")
-    key_sequence: str | None = Field(None, title="key_sequence", description="")
-    method_oid: str | None = Field(None, title="method_oid", description="")
-    imputation_method_oid: str | None = Field(
-        None, title="imputation_method_oid", description=""
+    uid: Annotated[str, Field()]
+    oid: Annotated[str | None, Field(nullable=True)] = None
+    name: Annotated[str | None, Field(nullable=True)] = None
+    order_number: Annotated[int | None, Field(nullable=True)] = None
+    mandatory: Annotated[str | None, Field(nullable=True)] = None
+    key_sequence: Annotated[str | None, Field(nullable=True)] = None
+    method_oid: Annotated[str | None, Field(nullable=True)] = None
+    imputation_method_oid: Annotated[str | None, Field(nullable=True)] = None
+    role: Annotated[str | None, Field(nullable=True)] = None
+    role_codelist_oid: Annotated[str | None, Field(nullable=True)] = None
+    collection_exception_condition_oid: Annotated[str | None, Field(nullable=True)] = (
+        None
     )
-    role: str | None = Field(None, title="role", description="")
-    role_codelist_oid: str | None = Field(
-        None, title="role_codelist_oid", description=""
-    )
-    collection_exception_condition_oid: str | None = Field(
-        None, title="collection_exception_condition_oid", description=""
-    )
-    vendor: OdmRefVendor = Field(title="vendor", description="")
+    vendor: Annotated[OdmRefVendor, Field()]
 
 
-class OdmItemTermRelationshipInput(BaseModel):
-    uid: str
+class OdmItemTermRelationshipInput(InputModel):
+    uid: Annotated[str, Field(min_length=1)]
     mandatory: bool = True
     order: int | None = 999999
     display_text: str | None = None
 
 
-class OdmItemUnitDefinitionRelationshipInput(BaseModel):
-    uid: str
+class OdmItemUnitDefinitionRelationshipInput(InputModel):
+    uid: Annotated[str, Field(min_length=1)]
     mandatory: bool = True
     order: int | None = 999999
 
 
 class OdmItemPostInput(ConceptPostInput):
     oid: str | None
-    datatype: str
+    datatype: Annotated[str, Field(min_length=1)]
     prompt: str | None
-    length: int | None
-    significant_digits: int | None = None
+    length: Annotated[int | None, Field(nullable=True, ge=0, lt=config.MAX_INT_NEO4J)]
+    significant_digits: Annotated[
+        int | None, Field(nullable=True, gt=0, lt=config.MAX_INT_NEO4J)
+    ] = None
     sas_field_name: str | None
     sds_var_name: str | None
     origin: str | None
     comment: str | None = None
     descriptions: list[OdmDescriptionPostInput | str]
     alias_uids: list[str]
-    codelist_uid: str | None
+    codelist_uid: Annotated[str | None, Field(min_length=1)]
     unit_definitions: list[OdmItemUnitDefinitionRelationshipInput] = []
     terms: list[OdmItemTermRelationshipInput] = []
 
@@ -452,8 +458,10 @@ class OdmItemPatchInput(ConceptPatchInput):
     oid: str | None
     datatype: str | None
     prompt: str | None
-    length: int | None
-    significant_digits: int | None
+    length: Annotated[int | None, Field(nullable=True, ge=0, lt=config.MAX_INT_NEO4J)]
+    significant_digits: Annotated[
+        int | None, Field(nullable=True, gt=0, lt=config.MAX_INT_NEO4J)
+    ]
     sas_field_name: str | None
     sds_var_name: str | None
     origin: str | None
@@ -461,12 +469,12 @@ class OdmItemPatchInput(ConceptPatchInput):
     descriptions: list[OdmDescriptionBatchPatchInput | OdmDescriptionPostInput | str]
     alias_uids: list[str]
     unit_definitions: list[OdmItemUnitDefinitionRelationshipInput]
-    codelist_uid: str | None
+    codelist_uid: Annotated[str | None, Field(min_length=1)]
     terms: list[OdmItemTermRelationshipInput]
 
 
-class OdmItemActivityPostInput(BaseModel):
-    uid: str
+class OdmItemActivityPostInput(PostInputModel):
+    uid: Annotated[str, Field(min_length=1)]
 
 
 class OdmItemVersion(OdmItem):
@@ -474,11 +482,13 @@ class OdmItemVersion(OdmItem):
     Class for storing OdmItem and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

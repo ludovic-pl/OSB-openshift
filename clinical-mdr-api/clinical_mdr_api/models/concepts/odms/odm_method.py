@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -55,7 +55,7 @@ class OdmMethod(ConceptModel):
             status=odm_method_ar.item_metadata.status.value,
             version=odm_method_ar.item_metadata.version,
             change_description=odm_method_ar.item_metadata.change_description,
-            user_initials=odm_method_ar.item_metadata.user_initials,
+            author_username=odm_method_ar.item_metadata.author_username,
             formal_expressions=sorted(
                 [
                     OdmFormalExpressionSimpleModel.from_odm_formal_expression_uid(
@@ -93,16 +93,16 @@ class OdmMethod(ConceptModel):
 
 
 class OdmMethodPostInput(ConceptPostInput):
-    oid: str | None
-    method_type: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
+    method_type: Annotated[str | None, Field(min_length=1)]
     formal_expressions: list[OdmFormalExpressionPostInput | str]
     descriptions: list[OdmDescriptionPostInput | str]
     alias_uids: list[str]
 
 
 class OdmMethodPatchInput(ConceptPatchInput):
-    oid: str | None
-    method_type: str | None
+    oid: Annotated[str | None, Field(min_length=1)]
+    method_type: Annotated[str | None, Field(min_length=1)]
     formal_expressions: list[
         OdmFormalExpressionBatchPatchInput | OdmFormalExpressionPostInput | str
     ]
@@ -115,11 +115,13 @@ class OdmMethodVersion(OdmMethod):
     Class for storing OdmMethod and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

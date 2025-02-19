@@ -1,7 +1,14 @@
+from neomodel import NodeSet
+from neomodel.sync_.match import (
+    Collect,
+    NodeNameResolver,
+    Optional,
+    RelationNameResolver,
+)
+
 from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
 )
-from clinical_mdr_api.domain_repositories.models._utils import CustomNodeSet
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -23,10 +30,10 @@ from clinical_mdr_api.domains.standard_data_models.sponsor_model_dataset import 
     SponsorModelDatasetVO,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryVO
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.standard_data_models.sponsor_model_dataset import (
     SponsorModelDataset,
 )
+from common.exceptions import BusinessLogicException
 
 
 class SponsorModelDatasetRepository(
@@ -36,13 +43,29 @@ class SponsorModelDatasetRepository(
     value_class = SponsorModelDatasetInstance
     return_model = SponsorModelDataset
 
-    def get_neomodel_extension_query(self) -> CustomNodeSet:
+    def get_neomodel_extension_query(self) -> NodeSet:
         return Dataset.nodes.fetch_relations(
             "has_sponsor_model_instance__has_dataset",
             "has_dataset__has_library",
-        ).fetch_optional_relations_and_collect(
-            "has_sponsor_model_instance__has_key",
-            "has_sponsor_model_instance__has_sort_key",
+            Optional("has_sponsor_model_instance__has_key"),
+            Optional("has_sponsor_model_instance__has_sort_key"),
+        ).annotate(
+            Collect(RelationNameResolver("has_sponsor_model_instance"), distinct=True),
+            Collect(
+                NodeNameResolver("has_sponsor_model_instance__has_key"), distinct=True
+            ),
+            Collect(
+                RelationNameResolver("has_sponsor_model_instance__has_key"),
+                distinct=True,
+            ),
+            Collect(
+                NodeNameResolver("has_sponsor_model_instance__has_sort_key"),
+                distinct=True,
+            ),
+            Collect(
+                RelationNameResolver("has_sponsor_model_instance__has_sort_key"),
+                distinct=True,
+            ),
         )
 
     def _has_data_changed(
@@ -82,15 +105,16 @@ class SponsorModelDatasetRepository(
         parent_node = SponsorModelValue.nodes.get_or_none(
             name=item.sponsor_model_dataset_vo.sponsor_model_name
         )
-        if parent_node:
-            instance.has_dataset.connect(
-                parent_node,
-                {"ordinal": item.sponsor_model_dataset_vo.enrich_build_order},
-            )
-        else:
-            raise BusinessLogicException(
-                f"The given Sponsor Model version {item.sponsor_model_dataset_vo.sponsor_model_name} does not exist in the database."
-            )
+
+        BusinessLogicException.raise_if_not(
+            parent_node,
+            msg=f"Sponsor Model with Name '{item.sponsor_model_dataset_vo.sponsor_model_name}' doesn't exist.",
+        )
+
+        instance.has_dataset.connect(
+            parent_node,
+            {"ordinal": item.sponsor_model_dataset_vo.enrich_build_order},
+        )
 
         return item
 

@@ -1,13 +1,17 @@
 from dataclasses import dataclass, field
 from typing import AbstractSet, Any, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
     LibraryItemStatus,
     LibraryVO,
     ObjectAction,
+)
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
 )
 
 
@@ -69,17 +73,15 @@ class DictionaryTermVO:
         term_exists_by_name_callback: Callable[[str, str], bool],
         previous_name: str | None = None,
     ) -> None:
-        if (
+        AlreadyExistsException.raise_if(
             term_exists_by_name_callback(self.name, self.codelist_uid)
-            and self.name != previous_name
-        ):
-            raise exceptions.ValidationException(
-                f"DictionaryTerm with name ({self.name}) already exists in DictionaryCodelist identified by ({self.codelist_uid})"
-            )
-        if self.name_sentence_case.lower() != self.name.lower():
-            raise exceptions.ValidationException(
-                f"{self.name_sentence_case} is not an independent case version of {self.name}"
-            )
+            and self.name != previous_name,
+            msg=f"Dictionary Term with Name '{self.name}' already exists in Dictionary Codelist with UID '{self.codelist_uid}'.",
+        )
+        ValidationException.raise_if(
+            self.name_sentence_case.lower() != self.name.lower(),
+            msg=f"{self.name_sentence_case} isn't an independent case version of {self.name}",
+        )
 
 
 @dataclass
@@ -121,17 +123,19 @@ class DictionaryTermAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         dictionary_term_vo: DictionaryTermVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         term_exists_by_name_callback: Callable[[str, str], bool],
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         dictionary_term_vo.validate(
             term_exists_by_name_callback=term_exists_by_name_callback
@@ -146,7 +150,7 @@ class DictionaryTermAR(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         dictionary_term_vo: DictionaryTermVO,
         term_exists_by_name_callback: Callable[[str, str], bool],
@@ -159,14 +163,16 @@ class DictionaryTermAR(LibraryItemAggregateRootBase):
             previous_name=self.name,
         )
         if self._dictionary_term_vo != dictionary_term_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self.dictionary_term_vo = dictionary_term_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """

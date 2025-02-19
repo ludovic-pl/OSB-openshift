@@ -6,7 +6,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.concepts.odms.odm_generic_repository import (
     OdmGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.generic import (
     Library,
     VersionRelationship,
@@ -34,8 +33,9 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.models import OdmVendorElement
+from clinical_mdr_api.models.concepts.odms.odm_vendor_element import OdmVendorElement
+from common.exceptions import BusinessLogicException
+from common.utils import convert_to_datetime
 
 
 class VendorElementRepository(OdmGenericRepository[OdmVendorElementAR]):
@@ -91,7 +91,8 @@ class VendorElementRepository(OdmGenericRepository[OdmVendorElementAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -105,16 +106,19 @@ class VendorElementRepository(OdmGenericRepository[OdmVendorElementAR]):
         self, only_specific_status: str = ObjectStatus.LATEST.name
     ) -> str:
         return f"""
-        WITH *,
-        concept_value.compatible_types AS compatible_types,
+WITH *,
+concept_value.compatible_types AS compatible_types,
 
-        head([(concept_value)<-[:{only_specific_status}]-(:OdmVendorElementRoot)<-[:HAS_VENDOR_ELEMENT]-(vnr:OdmVendorNamespaceRoot)-[:LATEST]->(vnv:OdmVendorNamespaceValue) | {{uid: vnr.uid, name: vnv.name, prefix: vnv.prefix, url: vnv.url}}]) AS vendor_namespace,
-        [(concept_value)<-[:{only_specific_status}]-(:OdmVendorElementRoot)-[:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) | {{uid: var.uid, name: vav.name}}] AS vendor_attributes
+head([(concept_value)<-[:{only_specific_status}]-(:OdmVendorElementRoot)<-[:HAS_VENDOR_ELEMENT]-(vnr:OdmVendorNamespaceRoot)-[:LATEST]->(vnv:OdmVendorNamespaceValue) |
+{{uid: vnr.uid, name: vnv.name, prefix: vnv.prefix, url: vnv.url}}]) AS vendor_namespace,
 
-        WITH *,
-        vendor_namespace.uid AS vendor_namespace_uid,
-        apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids
-        """
+[(concept_value)<-[:{only_specific_status}]-(:OdmVendorElementRoot)-[:HAS_VENDOR_ATTRIBUTE]->(var:OdmVendorAttributeRoot)-[:LATEST]->(vav:OdmVendorAttributeValue) |
+{{uid: var.uid, name: vav.name}}] AS vendor_attributes
+
+WITH *,
+vendor_namespace.uid AS vendor_namespace_uid,
+apoc.coll.toSet([vendor_attribute in vendor_attributes | vendor_attribute.uid]) AS vendor_attribute_uids
+"""
 
     def _get_or_create_value(
         self, root: VersionRoot, ar: ConceptARBase
@@ -179,7 +183,7 @@ class VendorElementRepository(OdmGenericRepository[OdmVendorElementAR]):
             odm_element_root = OdmItemRoot.nodes.get_or_none(uid=odm_element_uid)
             rel = vendor_element_root.belongs_to_item.relationship(odm_element_root)
         else:
-            raise BusinessLogicException("Invalid ODM element type.")
+            raise BusinessLogicException(msg="Invalid ODM element type.")
 
         return OdmVendorElementRelationVO.from_repository_values(
             uid=uid,

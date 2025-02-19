@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -22,16 +22,17 @@ class UnitDefinitionModel(ConceptModel):
     master_unit: bool
     si_unit: bool
     us_conventional_unit: bool
+    use_complex_unit_conversion: bool
     ct_units: list[SimpleTermModel]
     unit_subsets: list[SimpleTermModel]
-    ucum: SimpleTermModel | None = Field(None, nullable=True)
-    unit_dimension: SimpleTermModel | None = Field(None, nullable=True)
-    legacy_code: str | None = Field(None, nullable=True)
-    molecular_weight_conv_expon: int | None = Field(None, nullable=True)
-    conversion_factor_to_master: float | None = Field(None, nullable=True)
-    comment: str | None = Field(None, nullable=True)
-    order: int | None = Field(None, nullable=True)
-    definition: str | None = Field(None, nullable=True)
+    ucum: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    unit_dimension: Annotated[SimpleTermModel | None, Field(nullable=True)] = None
+    legacy_code: Annotated[str | None, Field(nullable=True)] = None
+    use_molecular_weight: Annotated[bool | None, Field(nullable=True)] = None
+    conversion_factor_to_master: Annotated[float | None, Field(nullable=True)] = None
+    comment: Annotated[str | None, Field(nullable=True)] = None
+    order: Annotated[int | None, Field(nullable=True)] = None
+    definition: Annotated[str | None, Field(nullable=True)] = None
     template_parameter: bool
 
     @classmethod
@@ -103,12 +104,13 @@ class UnitDefinitionModel(ConceptModel):
             master_unit=unit_definition_ar.concept_vo.master_unit,
             si_unit=unit_definition_ar.concept_vo.si_unit,
             us_conventional_unit=unit_definition_ar.concept_vo.us_conventional_unit,
+            use_complex_unit_conversion=unit_definition_ar.concept_vo.use_complex_unit_conversion,
             legacy_code=unit_definition_ar.concept_vo.legacy_code,
-            molecular_weight_conv_expon=unit_definition_ar.concept_vo.molecular_weight_conv_expon,
+            use_molecular_weight=unit_definition_ar.concept_vo.use_molecular_weight,
             conversion_factor_to_master=unit_definition_ar.concept_vo.conversion_factor_to_master,
             start_date=unit_definition_ar.item_metadata.start_date,
             end_date=unit_definition_ar.item_metadata.end_date,
-            user_initials=unit_definition_ar.item_metadata.user_initials,
+            author_username=unit_definition_ar.item_metadata.author_username,
             status=unit_definition_ar.item_metadata.status.value,
             change_description=unit_definition_ar.item_metadata.change_description,
             library_name=unit_definition_ar.library.name,
@@ -126,12 +128,13 @@ class UnitDefinitionPostInput(ConceptPostInput):
     master_unit: bool
     si_unit: bool
     us_conventional_unit: bool
+    use_complex_unit_conversion: bool = False
     ct_units: list[str]
     unit_subsets: list[str] | None = []
     ucum: str | None
     unit_dimension: str | None
     legacy_code: str | None
-    molecular_weight_conv_expon: int | None
+    use_molecular_weight: bool | None
     conversion_factor_to_master: float | None
     comment: str | None
     order: int | None
@@ -145,12 +148,13 @@ class UnitDefinitionPatchInput(ConceptPatchInput):
     master_unit: bool | None = None
     si_unit: bool | None = None
     us_conventional_unit: bool | None = None
+    use_complex_unit_conversion: bool | None = None
     ct_units: list[str] | None = []
     unit_subsets: list[str] | None = []
     ucum: str | None = None
     unit_dimension: str | None = None
     legacy_code: str | None = None
-    molecular_weight_conv_expon: int | None = None
+    use_molecular_weight: bool | None = None
     conversion_factor_to_master: float | None = None
     comment: str | None = None
     order: int | None = None
@@ -159,5 +163,6 @@ class UnitDefinitionPatchInput(ConceptPatchInput):
 
 
 class UnitDefinitionSimpleModel(BaseModel):
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    dimension_name: Annotated[str | None, Field(nullable=True)] = None

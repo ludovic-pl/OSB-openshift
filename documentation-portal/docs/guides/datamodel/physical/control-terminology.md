@@ -90,7 +90,7 @@ The following node labels are part of the control terminology model:
   - `effective_date: Date`: From which date the package was used by CDISC.
   - `registration_status: String`: status of the package at CDISC.
   - `import_date: DateTime`: At what time the package was imported into the MDR.
-  - `user_initials: String`: User initials of the person that performed the import. 
+  - `author_id: String`: User ID of the person that performed the import. 
 - Relationships:
   - `CONTAINS_CODELIST (Outgoing, 0..*)`: links to the package codelists that were part of the package.
   - `CONTAINS_PACKAGE (Incoming, 1)`: a link to the catalogue this package is an instance of. 
@@ -376,7 +376,7 @@ The following relationships are part of the control terminology model:
 - Description: Links a CT Codelist to the terms that it currently contains.
 - Properties:
   - `start_date: DateTime`: When the term was added to the codelist.
-  - `user_initials: String`: Identifier of the user that added the term to the codelist.
+  - `author_id: String`: Identifier of the user that added the term to the codelist.
   - `order: Integer`: The order of the term in the codelist.
 - Cardinality: `(*..*)`
 - Start nodes: `CTCodelistRoot`
@@ -387,7 +387,7 @@ The following relationships are part of the control terminology model:
 - Properties:
   - `start_date: DateTime`: When the term was added to the codelist.
   - `end_date: DateTime`: When the term was removed from the codelist.
-  - `user_initials: String`: Identifier of the user that removed the term from the codelist.
+  - `author_id: String`: Identifier of the user that removed the term from the codelist.
   - `order: Integer`: The old order of the term in the codelist.
 - Cardinality: `(*..*)`
 - Start nodes: `CTCodelistRoot`
@@ -408,7 +408,7 @@ The following relationships are part of the control terminology model:
    - `version: String (Required)`: the version number, e.g. 2.0.
    - `status: String (Optional)`: status message of the version.
    - `change_description: String (Optional)`: a description of what was changed in the version.
-   - `user_initials: String (Required)`: the initials of the user that created the version.
+   - `author_id: String (Required)`: the ID of the user that created the version.
 - Cardinality: `(0..1)`
 - Start nodes: `CTCodelistAttributesRoot`, `CTCodelistNameRoot`, `CTTermAttributesRoot`, `CTTermNameRoot`, `CodelistConfigRoot`
 - End nodes: `CTCodelistAttributesValue`, `CTCodelistNameValue`, `CTTermAttributesValue`, `CTTermNameValue`, `CodelistConfigValue`
@@ -429,7 +429,7 @@ The following relationships are part of the control terminology model:
    - `version: String (Required)`: the version number, e.g. 2.0.
    - `status: String (Optional)`: status message of the version.
    - `change_description: String (Optional)`: a description of what was changed in the version.
-   - `user_initials: String (Required)`: the initials of the user that created the version.
+   - `author_id: String (Required)`: the ID of the user that created the version.
 - Cardinality: `(0..*)`
 - Start nodes: `CTCodelistAttributesRoot`, `CTCodelistNameRoot`, `CTTermAttributesRoot`, `CTTermNameRoot`, `CodelistConfigRoot`
 - End nodes: `CTCodelistAttributesValue`, `CTCodelistNameValue`, `CTTermAttributesValue`, `CTTermNameValue`, `CodelistConfigValue`

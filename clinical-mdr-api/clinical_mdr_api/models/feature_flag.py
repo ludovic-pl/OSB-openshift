@@ -1,14 +1,22 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import Field
+
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class FeatureFlag(BaseModel):
     sn: int
     name: str
     enabled: bool
-    description: str | None = Field(None, nullable=True)
+    description: Annotated[str | None, Field(nullable=True)] = None
 
 
-class FeatureFlagInput(BaseModel):
-    name: str
+class FeatureFlagInput(PostInputModel):
+    name: Annotated[str, Field(min_length=1)]
     enabled: bool
-    description: str | None = None
+    description: Annotated[str | None, Field(min_length=1)] = None
+
+
+class FeatureFlagPatchInput(PatchInputModel):
+    enabled: bool = False

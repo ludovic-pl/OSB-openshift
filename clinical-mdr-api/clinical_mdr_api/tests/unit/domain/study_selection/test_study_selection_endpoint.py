@@ -3,12 +3,12 @@ import random
 import unittest
 from copy import copy
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_selections.study_selection_endpoint import (
     StudySelectionEndpointsAR,
     StudySelectionEndpointVO,
 )
 from clinical_mdr_api.tests.unit.domain.utils import random_str
+from common import exceptions
 
 uid_list = [
     "uid_endpoint",
@@ -54,7 +54,7 @@ def create_random_valid_vo(
             {"uid": random_str(), "name": random_str()},
         ],
         start_date=start_datetime,
-        user_initials=random_str(),
+        author_id=random_str(),
         study_selection_uid=selection_uid,
         timeframe_version="1.0",
         endpoint_version="2.0",
@@ -143,7 +143,7 @@ class TestStudySelectionEndpointVO(unittest.TestCase):
                     study_selection_uid="dummy",
                     endpoint_version=test_tuple[9],
                     timeframe_version=test_tuple[10],
-                    user_initials="Initials",
+                    author_id="Initials",
                 )
                 study_selection_endpoint.validate(
                     _check_uid_exists_callback,
@@ -210,9 +210,9 @@ class TestStudySelectionEndpointVO(unittest.TestCase):
                     study_selection_uid="dummy",
                     endpoint_version="1.0",
                     timeframe_version="2.0",
-                    user_initials="Initials",
+                    author_id="Initials",
                 )
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.BusinessLogicException):
                     study_selection_endpoint.validate(
                         _check_uid_exists_callback,
                         _check_uid_exists_callback,
@@ -290,7 +290,7 @@ class TestStudySelectionEndpointVO(unittest.TestCase):
                     study_selection_uid="dummy",
                     endpoint_version="1.0",
                     timeframe_version="2.0",
-                    user_initials="Initials",
+                    author_id="Initials",
                 )
                 study_selection_endpoint.validate(
                     _check_uid_exists_callback,
@@ -369,7 +369,7 @@ class TestStudySelectionEndpointVO(unittest.TestCase):
                     study_selection_uid="dummy",
                     endpoint_version="1.0",
                     timeframe_version="2.0",
-                    user_initials="Initials",
+                    author_id="Initials",
                 )
                 with self.assertRaises(exceptions.ValidationException):
                     study_selection_endpoint.validate(
@@ -861,6 +861,6 @@ class TestStudySelectionEndpointsAR(unittest.TestCase):
                 study_selection_endpoint_ar.add_endpoint_selection(new_vo)
 
                 # validate we cannot add the same v0 again
-                with self.assertRaises(exceptions.ValidationException):
+                with self.assertRaises(exceptions.AlreadyExistsException):
                     study_selection_endpoint_ar.add_endpoint_selection(new_vo)
                     study_selection_endpoint_ar.validate()

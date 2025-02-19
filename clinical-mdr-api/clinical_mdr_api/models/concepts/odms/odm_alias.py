@@ -1,6 +1,6 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from clinical_mdr_api.domains.concepts.concept_base import ConceptARBase
 from clinical_mdr_api.domains.concepts.odms.alias import OdmAliasAR
@@ -10,6 +10,7 @@ from clinical_mdr_api.models.concepts.concept import (
     ConceptPostInput,
 )
 from clinical_mdr_api.models.error import BatchErrorResponse
+from clinical_mdr_api.models.utils import BaseModel, BatchInputModel
 
 
 class OdmAlias(ConceptModel):
@@ -28,7 +29,7 @@ class OdmAlias(ConceptModel):
             status=odm_alias_ar.item_metadata.status.value,
             version=odm_alias_ar.item_metadata.version,
             change_description=odm_alias_ar.item_metadata.change_description,
-            user_initials=odm_alias_ar.item_metadata.user_initials,
+            author_username=odm_alias_ar.item_metadata.author_username,
             possible_actions=sorted(
                 [_.value for _ in odm_alias_ar.get_possible_actions()]
             ),
@@ -58,37 +59,37 @@ class OdmAliasSimpleModel(BaseModel):
             simple_odm_alias_model = None
         return simple_odm_alias_model
 
-    uid: str = Field(..., title="uid", description="")
-    name: str | None = Field(None, title="name", description="")
-    context: str | None = Field(None, title="context", description="")
-    version: str | None = Field(None, title="version", description="")
+    uid: Annotated[str, Field()]
+    name: Annotated[str | None, Field(nullable=True)] = None
+    context: Annotated[str | None, Field(nullable=True)] = None
+    version: Annotated[str | None, Field(nullable=True)] = None
 
 
 class OdmAliasPostInput(ConceptPostInput):
-    context: str
+    context: Annotated[str, Field(min_length=1)]
 
 
 class OdmAliasPatchInput(ConceptPatchInput):
-    context: str | None
+    context: Annotated[str | None, Field(min_length=1)]
 
 
-class OdmAliasBatchPatchInput(OdmAliasPatchInput):
-    uid: str
+class OdmAliasBatchPatchInput(ConceptPatchInput):
+    uid: Annotated[str, Field(min_length=1)]
+    context: Annotated[str | None, Field(min_length=1)]
 
 
-class OdmAliasBatchInput(BaseModel):
-    method: str = Field(
-        ..., title="method", description="HTTP method corresponding to operation type"
-    )
+class OdmAliasBatchInput(BatchInputModel):
+    method: Annotated[
+        str,
+        Field(description="HTTP method corresponding to operation type", min_length=1),
+    ]
     content: OdmAliasBatchPatchInput | OdmAliasPostInput
 
 
 class OdmAliasBatchOutput(BaseModel):
-    response_code: int = Field(
-        ...,
-        title="response_code",
-        description="The HTTP response code related to input operation",
-    )
+    response_code: Annotated[
+        int, Field(description="The HTTP response code related to input operation")
+    ]
     content: OdmAlias | None | BatchErrorResponse
 
 
@@ -97,11 +98,13 @@ class OdmAliasVersion(OdmAlias):
     Class for storing OdmAlias and calculation of differences
     """
 
-    changes: dict[str, bool] | None = Field(
-        None,
-        description=(
-            "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
-            "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+    changes: Annotated[
+        dict[str, bool] | None,
+        Field(
+            description=(
+                "Denotes whether or not there was a change in a specific field/property compared to the previous version. "
+                "The field names in this object here refer to the field names of the objective (e.g. name, start_date, ..)."
+            ),
+            nullable=True,
         ),
-        nullable=True,
-    )
+    ] = None

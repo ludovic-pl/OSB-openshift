@@ -27,7 +27,6 @@ from clinical_mdr_api.domain_repositories.models.odm import (
 )
 from clinical_mdr_api.domains._utils import ObjectStatus
 from clinical_mdr_api.domains.concepts.utils import RelationType
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.odms.odm_common_models import (
     OdmElementWithParentUid,
 )
@@ -37,6 +36,7 @@ from clinical_mdr_api.repositories._utils import (
     FilterOperator,
     sb_clear_cache,
 )
+from common.exceptions import BusinessLogicException
 
 
 class OdmGenericRepository(ConceptGenericRepository[_AggregateRootType], ABC):
@@ -137,16 +137,17 @@ class OdmGenericRepository(ConceptGenericRepository[_AggregateRootType], ABC):
             ),
         }
 
-        if relationship_type not in relation_mapping:
-            raise BusinessLogicException("Invalid relation type.")
+        BusinessLogicException.raise_if(
+            relationship_type not in relation_mapping, msg="Invalid relation type."
+        )
 
         relation_node_cls, origin_label = relation_mapping[relationship_type]
         relation_node = relation_node_cls.nodes.get_or_none(uid=relation_uid)
 
-        if not relation_node and relation_uid:
-            raise BusinessLogicException(
-                f"The object with uid ({relation_uid}) does not exist."
-            )
+        BusinessLogicException.raise_if(
+            not relation_node and relation_uid,
+            msg=f"Object with UID '({relation_uid}' doesn't exist.",
+        )
 
         return getattr(root_class_node, origin_label), relation_node
 

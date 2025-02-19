@@ -1,29 +1,30 @@
 """ActivityGroup router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Response, status
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config
 from clinical_mdr_api.models.concepts.activities.activity_group import (
     ActivityGroup,
     ActivityGroupCreateInput,
     ActivityGroupEditInput,
 )
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.concepts.activities.activity_group_service import (
     ActivityGroupService,
 )
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/concepts/activities"
 router = APIRouter()
 
-ActivityGroupUID = Path(None, description="The unique id of the ActivityGroup")
+ActivityGroupUID = Path(description="The unique id of the ActivityGroup")
 
 
 @router.get(
@@ -66,30 +67,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activity_groups(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     activity_group_service = ActivityGroupService()
     results = activity_group_service.get_all_concepts(
-        library=library,
+        library=library_name,
         sort_by=sort_by,
         page_number=page_number,
         page_size=page_size,
@@ -143,29 +152,35 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_activity_groups_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    library: str | None = Query(None, description="The library name"),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    library_name: Annotated[str | None, Query()] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     activity_group_service = ActivityGroupService()
     results = activity_group_service.get_all_concept_versions(
-        library=library,
+        library=library_name,
         sort_by={"start_date": False},
         page_number=page_number,
         page_size=page_size,
@@ -195,40 +210,49 @@ def get_activity_groups_versions(
     },
 )
 def get_distinct_values_for_header(
-    library: str | None = Query(None, description="The library name"),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    activity_subgroup_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity sub group names to use as a specific filter",
-        alias="activity_subgroup_names[]",
-    ),
-    activity_names: list[str]
-    | None = Query(
-        None,
-        description="A list of activity names to use as a specific filter",
-        alias="activity_names[]",
-    ),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    library_name: Annotated[str | None, Query()] = None,
+    activity_subgroup_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity sub group names to use as a specific filter",
+            alias="activity_subgroup_names[]",
+        ),
+    ] = None,
+    activity_names: Annotated[
+        list[str] | None,
+        Query(
+            description="A list of activity names to use as a specific filter",
+            alias="activity_names[]",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     activity_group_service = ActivityGroupService()
     return activity_group_service.get_distinct_values_for_header(
-        library=library,
+        library=library_name,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         activity_names=activity_names,
         activity_subgroup_names=activity_subgroup_names,
     )
@@ -260,7 +284,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_activity(activity_group_uid: str = ActivityGroupUID):
+def get_activity(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.get_by_uid(uid=activity_group_uid)
 
@@ -293,7 +317,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_versions(activity_group_uid: str = ActivityGroupUID):
+def get_versions(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.get_version_history(uid=activity_group_uid)
 
@@ -329,15 +353,15 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not exist.\n"
-            "- The library does not allow to add new items.\n",
+            "- The library doesn't exist.\n"
+            "- The library doesn't allow to add new items.\n",
         },
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    activity_create_input: ActivityGroupCreateInput = Body(description=""),
+    activity_create_input: Annotated[ActivityGroupCreateInput, Body()],
 ):
     activity_group_service = ActivityGroupService()
     return activity_group_service.create(concept_input=activity_create_input)
@@ -374,7 +398,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity group is not in draft status.\n"
             "- The activity group had been in 'Final' status before.\n"
-            "- The library does not allow to edit draft versions.\n",
+            "- The library doesn't allow to edit draft versions.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -384,8 +408,8 @@ Possible errors:
     },
 )
 def edit(
-    activity_group_uid: str = ActivityGroupUID,
-    activity_edit_input: ActivityGroupEditInput = Body(description=""),
+    activity_group_uid: Annotated[str, ActivityGroupUID],
+    activity_edit_input: Annotated[ActivityGroupEditInput, Body()],
 ):
     activity_group_service = ActivityGroupService()
     return activity_group_service.edit_draft(
@@ -418,7 +442,7 @@ Possible errors:
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The library does not allow to create activity sub groups.\n",
+            "- The library doesn't allow to create activity sub groups.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -429,7 +453,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def create_new_version(activity_group_uid: str = ActivityGroupUID):
+def create_new_version(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.create_new_version(uid=activity_group_uid)
 
@@ -463,7 +487,7 @@ Possible errors:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity group is not in draft status.\n"
-            "- The library does not allow to approve activity group.\n",
+            "- The library doesn't allow to approve activity group.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -472,7 +496,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(activity_group_uid: str = ActivityGroupUID):
+def approve(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.approve(uid=activity_group_uid)
 
@@ -514,7 +538,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(activity_group_uid: str = ActivityGroupUID):
+def inactivate(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.inactivate_final(uid=activity_group_uid)
 
@@ -556,7 +580,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(activity_group_uid: str = ActivityGroupUID):
+def reactivate(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     return activity_group_service.reactivate_retired(uid=activity_group_uid)
 
@@ -591,7 +615,7 @@ Possible errors:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The activity group is not in draft status.\n"
             "- The activity group was already in final state or is in use.\n"
-            "- The library does not allow to delete activity sub group.",
+            "- The library doesn't allow to delete activity sub group.",
         },
         404: {
             "model": ErrorResponse,
@@ -600,7 +624,7 @@ Possible errors:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete_activity_group(activity_group_uid: str = ActivityGroupUID):
+def delete_activity_group(activity_group_uid: Annotated[str, ActivityGroupUID]):
     activity_group_service = ActivityGroupService()
     activity_group_service.soft_delete(uid=activity_group_uid)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

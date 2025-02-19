@@ -26,7 +26,7 @@
     "study_uid": "Study_000003",
     "study_visit_count": 0,
     "uid": "StudyEpoch_000010",
-    "user_initials": "TODO Initials"
+    "author_username": "unknown-user@example.com"
   },
   {
     "change_description": "Initial Version",
@@ -55,7 +55,7 @@
     "study_uid": "Study_000003",
     "study_visit_count": 0,
     "uid": "StudyEpoch_000011",
-    "user_initials": "TODO Initials"
+    "author_username": "unknown-user@example.com"
   },
   {
     "change_description": "Initial Version",
@@ -84,6 +84,6 @@
     "study_uid": "Study_000003",
     "study_visit_count": 0,
     "uid": "StudyEpoch_000012",
-    "user_initials": "TODO Initials"
+    "author_username": "unknown-user@example.com"
   }
 ]

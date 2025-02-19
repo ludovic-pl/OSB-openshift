@@ -1,6 +1,6 @@
 "CT_CD_LIST_SUBMVAL","CT_SUBMVAL","CT_NAME","DEFINITION",ORDER,CT_CD,NCI_PREFERRED_NAME,NAME_SUBMVAL
 "FIND_SUB_CAT_DEF","ABERRANT MOTOR BEHAVIOR FIND_SUB_CAT","Aberrant Motor Behavior","ABERRANT MOTOR BEHAVIOR subcategory for Neuropsychiatric Inventory (NPI) (copyright JL Cummings, 1994, all rights reserved; permission for commercial use required; npiTEST.net)",1,,,
-"FIND_SUB_CAT_DEF","ABILITY TO DO THINGS - NEED TO DO FIND_SUB_CAT","Ability to Do Things You Need to Do",,1,,,
+"FIND_SUB_CAT_DEF","ABILITY TO DO THINGS - NEED TO DO FIND_SUB_CAT","Ability to Do Things You Need to Do","Ability to Do Things You Need to Do subcategory for Patient Global Impression",1,,,
 "FIND_SUB_CAT_DEF","ABILITY TO DO THINGS - WOULD LIKE TO DO FIND_SUB_CAT","Ability to Do Things You Would Like to","Ability to Do Things You Would Like to Do subcategory for Patient Global Impression",1,,,
 "FIND_SUB_CAT_DEF","ABILITY TO WALK FIND_SUB_CAT","Ability to Walk","Ability to Walk subcategory for Patient Global Impression",1,,,
 "FIND_SUB_CAT_DEF","ABOUT SCHOOL FIND_SUB_CAT","About School","Hemophilia Quality of Life (HAEMO-QOL) Questionnaire Children's Long Version Age Group II

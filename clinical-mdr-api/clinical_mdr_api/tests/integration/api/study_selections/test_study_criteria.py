@@ -18,10 +18,10 @@ from deepdiff import DeepDiff
 from fastapi.testclient import TestClient
 from neomodel import db
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
-from clinical_mdr_api.models.controlled_terminologies import ct_term
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.models.study_selections.study import Study
+from clinical_mdr_api.models.syntax_templates.criteria_template import CriteriaTemplate
 from clinical_mdr_api.tests.integration.utils.api import (
     inject_and_clear_db,
     inject_base_data,
@@ -30,6 +30,7 @@ from clinical_mdr_api.tests.integration.utils.factory_controlled_terminology imp
     get_catalogue_name_library_name,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -38,13 +39,13 @@ study: Study
 study_uid: str
 study_criteria_uid: str
 url_prefix: str
-ct_term_inclusion_criteria: models.CTTerm
-ct_term_exclusion_criteria: models.CTTerm
-incl_criteria_template_1: models.CriteriaTemplate
-incl_criteria_template_2: models.CriteriaTemplate
-excl_criteria_template_1: models.CriteriaTemplate
-excl_criteria_template_2: models.CriteriaTemplate
-excl_criteria_template_with_param: models.CriteriaTemplate
+ct_term_inclusion_criteria: CTTerm
+ct_term_exclusion_criteria: CTTerm
+incl_criteria_template_1: CriteriaTemplate
+incl_criteria_template_2: CriteriaTemplate
+excl_criteria_template_1: CriteriaTemplate
+excl_criteria_template_2: CriteriaTemplate
+excl_criteria_template_with_param: CriteriaTemplate
 expected_criteria_with_param_name: str
 inclusion_type_output: dict
 exclusion_type_output: dict
@@ -56,8 +57,8 @@ excl_criteria_template_with_param_output: dict
 default_study_criteria_input: dict
 default_study_criteria_output: dict
 change_description_approve: str
-initial_ct_term_study_standard_test: ct_term.CTTerm
-incl_criteria_template_for_study_standard_test: models.CriteriaTemplate
+initial_ct_term_study_standard_test: CTTerm
+incl_criteria_template_for_study_standard_test: CriteriaTemplate
 study_criteria_for_study_standard_input: dict
 
 
@@ -272,7 +273,7 @@ def test_data():
 ROOT_IGNORED_FIELDS = {
     "root['start_date']",
     "root['end_date']",
-    "root['user_initials']",
+    "root['author_username']",
     "root['project_number']",
     "root['project_name']",
     "root['study_version']",
@@ -280,18 +281,18 @@ ROOT_IGNORED_FIELDS = {
 CRITERIA_IGNORED_FIELDS = {
     "root['criteria']['start_date']",
     "root['criteria']['end_date']",
-    "root['criteria']['user_initials']",
+    "root['criteria']['author_username']",
 }
 CRITERIA_TYPE_IGNORED_FIELDS = {
     "root['criteria_type']['start_date']",
     "root['criteria_type']['end_date']",
-    "root['criteria_type']['user_initials']",
+    "root['criteria_type']['author_username']",
     "root['criteria_type']['queried_effective_date']",
 }
 CRITERIA_TEMPLATE_IGNORED_FIELDS = {
     "root['template']['start_date']",
     "root['template']['end_date']",
-    "root['template']['user_initials']",
+    "root['template']['author_username']",
     "root['template']['type']",
     "root['template']['library']",
     "root['template']['possible_actions']",
@@ -331,7 +332,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_criteria = default_study_criteria_output
     expected_criteria["criteria_type"] = inclusion_type_output
     expected_criteria["criteria"] = {
@@ -364,7 +365,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     expected_criteria["study_criteria_uid"] = "StudyCriteria_000001"
     expected_criteria["criteria"]["uid"] = "Criteria_000001"
     assert not DeepDiff(res, expected_criteria, exclude_paths=full_exclude_paths)
@@ -389,7 +390,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert len(res) == 3
 
     expected_incl_criteria_1 = copy.deepcopy(expected_criteria)
@@ -447,7 +448,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_incl_criteria_1["order"] = 2
     expected_incl_criteria_2["order"] = 1
     assert not DeepDiff(res, expected_incl_criteria_1, exclude_paths=full_exclude_paths)
@@ -459,7 +460,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_incl_criteria_1["key_criteria"] = True
     assert not DeepDiff(res, expected_incl_criteria_1, exclude_paths=full_exclude_paths)
 
@@ -467,14 +468,14 @@ def test_crud_study_criteria(api_client):
     response = api_client.get(url=f"{url_prefix}/StudyCriteria_000001")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert not DeepDiff(res, expected_incl_criteria_1, exclude_paths=full_exclude_paths)
 
     # Test get all - with right orders
     response = api_client.get(url=url_prefix)
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 4
     assert not DeepDiff(
         res["items"][0], expected_incl_criteria_2, exclude_paths=full_exclude_paths
@@ -493,7 +494,7 @@ def test_crud_study_criteria(api_client):
     response = api_client.get(url="/study-criteria")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 4
     assert not DeepDiff(
         res["items"][0], expected_incl_criteria_2, exclude_paths=full_exclude_paths
@@ -514,7 +515,7 @@ def test_crud_study_criteria(api_client):
 
     # Test delete
     response = api_client.delete(url=f"{url_prefix}/StudyCriteria_000002")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     # Re-test get all - Make sure that the order has been updated after deletion
     # This test also adds a filter on criteria type
@@ -522,7 +523,7 @@ def test_crud_study_criteria(api_client):
     response = api_client.get(url=f"{url_prefix}?filters={json.dumps(filter_by)}")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 1
     expected_incl_criteria_1["order"] = 1
     assert not DeepDiff(
@@ -533,7 +534,7 @@ def test_crud_study_criteria(api_client):
     response = api_client.get(url=f"{url_prefix}/audit-trail")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 9
     incl_criteria_1_entries = [
         i for i in res if i["study_criteria_uid"] == "StudyCriteria_000001"
@@ -554,7 +555,7 @@ def test_crud_study_criteria(api_client):
     response = api_client.get(url=f"{url_prefix}/StudyCriteria_000002/audit-trail")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 3
     change_types = [i["change_type"] for i in res]
     assert change_types == ["Delete", "Edit", "Create"]
@@ -573,7 +574,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     expected_excl_criteria_with_param = copy.deepcopy(expected_excl_criteria_2)
     expected_excl_criteria_with_param["study_criteria_uid"] = "StudyCriteria_000005"
     expected_excl_criteria_with_param["order"] = 3
@@ -619,7 +620,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     expected_criteria_with_param_name = excl_criteria_template_with_param.name.replace(
         "TextValue", text_value.name_sentence_case
     )
@@ -645,7 +646,7 @@ def test_crud_study_criteria(api_client):
         f"{url_prefix}/StudyCriteria_000005/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res[1]["template"]["name"] == vars(excl_criteria_template_with_param)["name"]
     assert (
         res[1]["template"]["name_plain"]
@@ -672,7 +673,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 1
 
     # Test /headers endpoint - for a specific study
@@ -681,7 +682,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == [expected_criteria_with_param_name]
 
     # Test batch select for template with parameter and provide parameter values
@@ -705,7 +706,7 @@ def test_crud_study_criteria(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert len(res) == 1
     assert res[0]["study_criteria_uid"] == "StudyCriteria_000006"
     assert res[0]["order"] == 4
@@ -735,20 +736,20 @@ def test_errors(api_client):
         url=f"{url_prefix}/preview",
         json=dummy_study_criteria_input,
     )
-    res = response.json()
+    assert_response_status_code(response, 404)
 
-    assert response.status_code == 404
-    assert res["message"] == "The requested Syntax Template does not exist."
+    res = response.json()
+    assert res["message"] == "The requested Syntax Template doesn't exist."
 
     # Creation
     response = api_client.post(
         url=f"{url_prefix}?create_criteria=true",
         json=dummy_study_criteria_input,
     )
-    res = response.json()
+    assert_response_status_code(response, 404)
 
-    assert response.status_code == 404
-    assert res["message"] == "The requested Syntax Template does not exist."
+    res = response.json()
+    assert res["message"] == "The requested Syntax Template doesn't exist."
 
     # Batch selection
     response = api_client.post(
@@ -762,10 +763,10 @@ def test_errors(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
     assert (
         res["message"]
-        == f"No CriteriaTemplateRoot with UID ({dummy_template_uid}) found in given status, date and version."
+        == f"No CriteriaTemplateRoot with UID '{dummy_template_uid}' found in given status, date and version."
     )
 
 
@@ -786,7 +787,7 @@ def test_study_locking_study_criteria(api_client):
         f"{url_prefix}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     old_res = res
 
     # update study title to be able to lock it
@@ -794,48 +795,45 @@ def test_study_locking_study_criteria(api_client):
         f"/studies/{study.uid}",
         json={"current_metadata": {"study_description": {"study_title": "new title"}}},
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Lock
     response = api_client.post(
         f"/studies/{study.uid}/locks",
         json={"change_description": "Lock 1"},
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     response = api_client.post(
         url=f"{url_prefix}/preview",
         json=default_study_criteria_input,
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     response = api_client.patch(
         url=f"{url_prefix}/{study_criteria_uid}/order",
         json={"new_order": 2},
     )
+    assert_response_status_code(response, 400)
     res = response.json()
-    assert response.status_code == 400
-    assert res["message"] == f"Study with specified uid '{study.uid}' is locked."
+    assert res["message"] == f"Study with UID '{study.uid}' is locked."
 
     # get all history when was locked
     response = api_client.get(
         f"{url_prefix}/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert old_res == res
 
     # test cannot delete
     response = api_client.delete(
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}"
     )
-    assert response.status_code == 400
-    assert (
-        response.json()["message"]
-        == f"Study with specified uid '{study.uid}' is locked."
-    )
+    assert_response_status_code(response, 400)
+    assert response.json()["message"] == f"Study with UID '{study.uid}' is locked."
 
 
 def test_study_criteria_with_key_criteria(api_client):
@@ -848,7 +846,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["key_criteria"] is False
     before_unlock = res
 
@@ -857,7 +855,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/headers?field_name=criteria.name",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == [
         incl_criteria_template_1.name,
         excl_criteria_template_1.name,
@@ -867,7 +865,7 @@ def test_study_criteria_with_key_criteria(api_client):
 
     # Unlock
     response = api_client.delete(f"/studies/{study.uid}/locks")
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # edit study criteria
     response = api_client.patch(
@@ -880,7 +878,7 @@ def test_study_criteria_with_key_criteria(api_client):
         },
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["key_criteria"] is True
     assert res["criteria"]["template"]["uid"] == criteria_template.uid
 
@@ -889,7 +887,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria?study_value_version=3",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     before_unlock["study_version"] = mock.ANY
     assert (
         next(
@@ -908,7 +906,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}?study_value_version=3",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == before_unlock
 
     # get study criteria headers of specific study version
@@ -916,7 +914,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/headers?field_name=criteria.name&study_value_version=3",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == [
         incl_criteria_template_1.name,
         excl_criteria_template_1.name,
@@ -929,7 +927,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res_key_criteria, res_criteria = next(
         (
             (item["key_criteria"], item["criteria"])
@@ -946,7 +944,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["key_criteria"] is True
     assert res["criteria"]["template"]["uid"] == criteria_template.uid
 
@@ -955,7 +953,7 @@ def test_study_criteria_with_key_criteria(api_client):
         f"/studies/{study.uid}/study-criteria/headers?field_name=criteria.name",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res == [
         incl_criteria_template_1.name,
         criteria_template.name,
@@ -997,7 +995,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     library_template_criteria_uid = res["criteria"]["template"]["uid"]
     initial_criteria_name = res["criteria"]["name"]
 
@@ -1018,7 +1016,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
     # check that the Library item has been changed
     response = api_client.get(f"/criteria-templates/{library_template_criteria_uid}")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["name"] == text_value_2_name
 
     # check that the StudySelection StudyCriteria hasn't been updated
@@ -1026,7 +1024,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["criteria"]["name"] == initial_criteria_name
 
     # check that the StudySelection can approve the current version
@@ -1034,7 +1032,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}/accept-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["accepted_version"] is True
     assert res["criteria"]["name"] == initial_criteria_name
     # !TOODO ADD LATEST
@@ -1045,7 +1043,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     counting_before_sync = len(res)
 
     # check that the StudySelection's criteria can be updated to the LATEST
@@ -1053,7 +1051,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/{study_criteria_uid}/sync-latest-version",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert res["criteria"]["name"] == text_value_2_name
 
     # get all criteria
@@ -1061,7 +1059,7 @@ def test_update_library_items_of_relationship_to_value_nodes(api_client):
         f"/studies/{study.uid}/study-criteria/audit-trail/",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == counting_before_sync + 1
 
 
@@ -1080,7 +1078,7 @@ def test_study_criteria_version_selecting_ct_package(api_client):
         json=study_criteria_for_study_standard_input,
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     study_selection_uid_study_standard_test = res["study_criteria_uid"]
     assert res["order"] == 1
     assert (
@@ -1093,7 +1091,7 @@ def test_study_criteria_version_selecting_ct_package(api_client):
     response = api_client.post(
         f"/ct/terms/{ctterm_uid}/names/versions",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     response = api_client.patch(
         f"/ct/terms/{ctterm_uid}/names",
         json={
@@ -1103,14 +1101,14 @@ def test_study_criteria_version_selecting_ct_package(api_client):
         },
     )
     response = api_client.post(f"/ct/terms/{ctterm_uid}/names/approvals")
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study selection with ctterm latest
     response = api_client.get(
         f"/studies/{study_for_ctterm_versioning.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_uid_key] == ctterm_uid
     )
@@ -1130,7 +1128,7 @@ def test_study_criteria_version_selecting_ct_package(api_client):
         f"/studies/{study_for_ctterm_versioning.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_uid_key] == ctterm_uid
     )
@@ -1160,7 +1158,7 @@ def test_study_criteria_ct_term_retrieval_at_date(api_client):
         json=study_criteria_for_study_standard_input,
     )
     res = response.json()
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res[study_selection_ctterm_keys]["queried_effective_date"] is None
     assert res[study_selection_ctterm_keys]["date_conflict"] is False
     study_selection_uid_study_standard_test = res["study_criteria_uid"]
@@ -1171,7 +1169,7 @@ def test_study_criteria_ct_term_retrieval_at_date(api_client):
     response = api_client.post(
         f"/ct/terms/{ctterm_uid}/names/versions",
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     _ = api_client.patch(
         f"/ct/terms/{ctterm_uid}/names",
         json={
@@ -1181,14 +1179,14 @@ def test_study_criteria_ct_term_retrieval_at_date(api_client):
         },
     )
     response = api_client.post(f"/ct/terms/{ctterm_uid}/names/approvals")
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # Get study selection with the new term
     response = api_client.get(
         f"/studies/{study_for_queried_effective_date.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert (
         res[study_selection_ctterm_keys][study_selection_ctterm_uid_key] == ctterm_uid
     )
@@ -1202,7 +1200,7 @@ def test_study_criteria_ct_term_retrieval_at_date(api_client):
         "/ct/packages",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     ct_package_uid = res[0]["uid"]
     ct_package_effective_date = res[0]["effective_date"]
 
@@ -1213,14 +1211,14 @@ def test_study_criteria_ct_term_retrieval_at_date(api_client):
             "ct_package_uid": ct_package_uid,
         },
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # get study selection with new standard version
     response = api_client.get(
         f"/studies/{study_for_queried_effective_date.uid}/{study_selection_breadcrumb}/{study_selection_uid_study_standard_test}",
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert (
         res[study_selection_ctterm_keys]["queried_effective_date"][:10]

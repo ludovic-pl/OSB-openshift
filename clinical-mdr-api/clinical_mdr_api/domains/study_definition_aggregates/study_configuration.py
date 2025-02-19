@@ -1,8 +1,6 @@
 import csv
 from dataclasses import dataclass
-from enum import Enum
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.controlled_terminologies.configuration_repository import (
     CTConfigRepository,
 )
@@ -18,19 +16,10 @@ from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import 
     StudyPopulationVO,
     StudyVersionMetadataVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-
-
-class StudyFieldType(Enum):
-    INT = "int"
-    TEXT = "text"
-    CODELIST_SELECT = "codelist_select"
-    CODELIST_MULTISELECT = "multiselect"
-    TIME = "time"
-    DATE = "date"
-    BOOL = "bool"
-    REGISTRY = "registry"
-    PROJECT = "project"
+from clinical_mdr_api.models.controlled_terminologies.configuration import (
+    StudyFieldType,
+)
+from common import exceptions
 
 
 @dataclass
@@ -96,9 +85,9 @@ def from_file(filename):
                     data[k] = sanitize_value(value)
                     if k == "study_field_grouping":
                         if value == "id_metadata":
-                            data[
-                                "study_value_object_class"
-                            ] = StudyIdentificationMetadataVO
+                            data["study_value_object_class"] = (
+                                StudyIdentificationMetadataVO
+                            )
                         elif value == "ver_metadata":
                             data["study_value_object_class"] = StudyVersionMetadataVO
                         elif value == "high_level_study_design":
@@ -113,7 +102,7 @@ def from_file(filename):
                             data["study_value_object_class"] = RegistryIdentifiersVO
                         else:
                             raise exceptions.ValidationException(
-                                f"Unknown field {value}"
+                                msg=f"Unknown field '{value}'"
                             )
             item = StudyFieldConfigurationEntry(**data)
             dataset.append(item)
@@ -150,7 +139,9 @@ def from_database():
                     elif value == "id_metadata.registry_identifiers":
                         data["study_value_object_class"] = RegistryIdentifiersVO
                     else:
-                        raise exceptions.ValidationException(f"Unknown field {value}")
+                        raise exceptions.ValidationException(
+                            msg=f"Unknown field '{value}'"
+                        )
         item = StudyFieldConfigurationEntry(**data)
         dataset.append(item)
     return dataset
@@ -163,8 +154,8 @@ class FieldConfiguration:
     def default_field_config(cls):
         if not cls.field_config:
             cls.field_config = from_database()
-        if len(cls.field_config) == 0:
-            raise BusinessLogicException(
-                "CTConfig nodes are not present, load them by running sponsor migration"
-            )
+        exceptions.BusinessLogicException.raise_if(
+            len(cls.field_config) == 0,
+            msg="CTConfig nodes are not present, load them by running sponsor migration",
+        )
         return cls.field_config

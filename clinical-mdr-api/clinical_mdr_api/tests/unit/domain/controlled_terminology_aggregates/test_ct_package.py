@@ -17,6 +17,7 @@ def create_random_ct_package() -> CTPackageAR:
         extends_package=None,
         import_date=datetime.datetime.now(datetime.timezone.utc),
         effective_date=datetime.date(year=2020, month=6, day=26),
-        user_initials=random_str(),
+        author_id=random_str(),
+        author_username=random_str(),
     )
     return random_ct_package

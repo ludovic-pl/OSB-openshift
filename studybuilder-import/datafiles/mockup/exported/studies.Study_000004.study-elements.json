@@ -21,7 +21,7 @@
       "start_date": "2022-12-08T15:08:04.917474+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000138",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000029",
@@ -36,7 +36,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000004",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -60,7 +60,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000031",
@@ -75,7 +75,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000004",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -99,7 +99,7 @@
       "start_date": "2022-12-08T15:08:05.327301+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000142",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000034",
@@ -114,7 +114,7 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000004",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -138,7 +138,7 @@
       "start_date": "2022-12-08T15:08:05.125558+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000141",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "element_uid": "StudyElement_000036",
@@ -153,6 +153,6 @@
     "status": null,
     "study_compound_dosing_count": 0,
     "study_uid": "Study_000004",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

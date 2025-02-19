@@ -453,11 +453,11 @@ function reactivateTemplate(template) {
 }
 function deleteTemplate(template) {
   api.delete(template.uid).then(() => {
-    filter()
     const key = props.preInstanceMode
       ? `${props.translationType}.delete_pre_instance_success`
       : `${props.translationType}.delete_success`
     eventBusEmit('notification', { msg: t(key) })
+    tableRef.value.filterTable()
   })
 }
 function editTemplateIndexing(template) {

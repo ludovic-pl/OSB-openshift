@@ -42,4 +42,7 @@ export default {
   reactivate(uid) {
     return repository.post(`${resource}/${uid}/activations`)
   },
+  getUnitHistory(uid) {
+    return repository.get(`${resource}/${uid}/versions`)
+  }
 }

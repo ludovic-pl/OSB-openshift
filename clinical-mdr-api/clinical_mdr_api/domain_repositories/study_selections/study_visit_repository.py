@@ -1,20 +1,15 @@
 import datetime
 
 from neomodel import db
+from neomodel.sync_.match import Optional
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.config import (
-    GLOBAL_ANCHOR_VISIT_NAME,
-    PREVIOUS_VISIT_NAME,
-    STUDY_VISIT_TIMEREF_NAME,
-)
 from clinical_mdr_api.domain_repositories.concepts.unit_definitions.unit_definition_repository import (
     UnitDefinitionRepository,
 )
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.concepts import (
     StudyDayRoot,
     StudyDurationDaysRoot,
@@ -57,6 +52,12 @@ from clinical_mdr_api.models.study_selections.study_visit import (
     StudyVisitOGM,
     StudyVisitOGMVer,
 )
+from common.config import (
+    GLOBAL_ANCHOR_VISIT_NAME,
+    PREVIOUS_VISIT_NAME,
+    STUDY_VISIT_TIMEREF_NAME,
+)
+from common.exceptions import ValidationException
 
 
 def get_valid_time_references_for_study(
@@ -100,9 +101,11 @@ def get_valid_time_references_for_study(
             "study_uid": study_uid,
             "global_anchor_visit_name": GLOBAL_ANCHOR_VISIT_NAME,
             "previous_visit_name": PREVIOUS_VISIT_NAME,
-            "effective_date": effective_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-            if effective_date
-            else None,
+            "effective_date": (
+                effective_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+                if effective_date
+                else None
+            ),
         },
     )
 
@@ -110,9 +113,9 @@ def get_valid_time_references_for_study(
 
 
 class StudyVisitRepository:
-    def __init__(self, author: str):
-        self.author = author
-        unit_repository = UnitDefinitionRepository(self.author)
+    def __init__(self, author_id: str):
+        self.author_id = author_id
+        unit_repository = UnitDefinitionRepository(self.author_id)
         units, _ = unit_repository.get_all_optimized()
         unit: UnitDefinitionAR
         self._day_unit = None
@@ -146,7 +149,7 @@ class StudyVisitRepository:
         if study_value_version:
             query = """
                 MATCH (:StudyRoot)-[l:HAS_VERSION{status:'RELEASED', version:$study_value_version}]-(:StudyValue)-[:HAS_STUDY_VISIT]->(svis:StudyVisit{uid:$uid})
-                MATCH (svis:StudyVisit)-[:STUDY_VISIT_HAS_SCHEDULE]->(activity_schedule:StudyActivitySchedule)--(:StudyValue)-[l:HAS_VERSION{status:'RELEASED', version:$study_value_version}]-(:StudyRoot)
+                MATCH (svis:StudyVisit)-[:STUDY_VISIT_HAS_SCHEDULE]->(activity_schedule:StudyActivitySchedule)-[:HAS_STUDY_ACTIVITY_SCHEDULE]-(:StudyValue)-[l:HAS_VERSION{status:'RELEASED', version:$study_value_version}]-(:StudyRoot)
                 RETURN count(activity_schedule)
                 """
             result, _ = db.cypher_query(
@@ -156,7 +159,7 @@ class StudyVisitRepository:
         else:
             query = """
                 MATCH (:StudyValue)-[:HAS_STUDY_VISIT]->(svis:StudyVisit{uid:$uid})
-                MATCH (svis:StudyVisit)-[:STUDY_VISIT_HAS_SCHEDULE]->(activity_schedule:StudyActivitySchedule)
+                MATCH (svis:StudyVisit)-[:STUDY_VISIT_HAS_SCHEDULE]->(activity_schedule:StudyActivitySchedule)-[:HAS_STUDY_ACTIVITY_SCHEDULE]-(:StudyValue)-[l:HAS_VERSION]-(:StudyRoot)
                 RETURN count(activity_schedule)
                 """
             result, _ = db.cypher_query(query=query, params={"uid": visit_uid})
@@ -164,11 +167,9 @@ class StudyVisitRepository:
         return result[0][0] if len(result) > 0 else 0
 
     def count_study_visits(self, study_uid: str) -> int:
-        nodes = to_relation_trees(
-            StudyVisit.nodes.filter(
-                has_study_visit__latest_value__uid=study_uid  # , is_deleted=False
-            )
-        )
+        nodes = StudyVisit.nodes.filter(
+            has_study_visit__latest_value__uid=study_uid  # , is_deleted=False
+        ).resolve_subgraph()
         return len(nodes)
 
     def from_neomodel_to_vo(
@@ -176,14 +177,14 @@ class StudyVisitRepository:
         study_visit_ogm_input: StudyVisitOGM,
         study_value_version: str | None = None,
     ):
-        epoch_repository = StudyEpochRepository(author=self.author)
+        epoch_repository = StudyEpochRepository(author_id=self.author_id)
         study_epoch_object = epoch_repository.find_by_uid(
             uid=study_visit_ogm_input.epoch_uid,
             study_uid=study_visit_ogm_input.study_uid,
             study_value_version=study_value_version,
         )
 
-        unit_repository = UnitDefinitionRepository(self.author)
+        unit_repository = UnitDefinitionRepository(self.author_id)
         if study_visit_ogm_input.timepoint:
             req_time_unit_ar: UnitDefinitionAR = unit_repository.find_by_uid_2(
                 study_visit_ogm_input.timepoint.time_unit_uid
@@ -252,34 +253,45 @@ class StudyVisitRepository:
             consecutive_visit_group=study_visit_ogm_input.consecutive_visit_group,
             show_visit=study_visit_ogm_input.show_visit,
             timepoint=study_visit_ogm_input.timepoint,
-            study_day=NumericValue(
-                uid=study_visit_ogm_input.study_day.uid, value=int(study_day.value)
-            )
-            if study_visit_ogm_input.study_day
-            else None,
-            study_duration_days=NumericValue(
-                uid=study_visit_ogm_input.study_duration_days.uid,
-                value=int(study_duration_days.value),
-            )
-            if study_visit_ogm_input.study_duration_days
-            else None,
-            study_week=NumericValue(
-                uid=study_visit_ogm_input.study_week.uid, value=int(study_week.value)
-            )
-            if study_visit_ogm_input.study_week
-            else None,
-            study_duration_weeks=NumericValue(
-                uid=study_visit_ogm_input.study_duration_weeks.uid,
-                value=int(study_duration_weeks.value),
-            )
-            if study_visit_ogm_input.study_duration_weeks
-            else None,
-            week_in_study=NumericValue(
-                uid=study_visit_ogm_input.week_in_study.uid,
-                value=int(week_in_study.value),
-            )
-            if study_visit_ogm_input.week_in_study
-            else None,
+            study_day=(
+                NumericValue(
+                    uid=study_visit_ogm_input.study_day.uid, value=int(study_day.value)
+                )
+                if study_visit_ogm_input.study_day
+                else None
+            ),
+            study_duration_days=(
+                NumericValue(
+                    uid=study_visit_ogm_input.study_duration_days.uid,
+                    value=int(study_duration_days.value),
+                )
+                if study_visit_ogm_input.study_duration_days
+                else None
+            ),
+            study_week=(
+                NumericValue(
+                    uid=study_visit_ogm_input.study_week.uid,
+                    value=int(study_week.value),
+                )
+                if study_visit_ogm_input.study_week
+                else None
+            ),
+            study_duration_weeks=(
+                NumericValue(
+                    uid=study_visit_ogm_input.study_duration_weeks.uid,
+                    value=int(study_duration_weeks.value),
+                )
+                if study_visit_ogm_input.study_duration_weeks
+                else None
+            ),
+            week_in_study=(
+                NumericValue(
+                    uid=study_visit_ogm_input.week_in_study.uid,
+                    value=int(week_in_study.value),
+                )
+                if study_visit_ogm_input.week_in_study
+                else None
+            ),
             visit_name_sc=TextValue(
                 uid=study_visit_ogm_input.visit_name_sc.uid, name=visit_name.name
             ),
@@ -296,14 +308,16 @@ class StudyVisitRepository:
             visit_type=study_visit_ogm_input.visit_type,
             status=StudyStatus(study_visit_ogm_input.status),
             start_date=study_visit_ogm_input.start_date,
-            author=study_visit_ogm_input.author,
+            author_id=study_visit_ogm_input.author_id,
             day_unit_object=study_visit_ogm_input.day_unit_object,
             week_unit_object=study_visit_ogm_input.week_unit_object,
             epoch_connector=study_epoch_object,
             visit_class=study_visit_ogm_input.visit_class,
-            visit_subclass=study_visit_ogm_input.visit_subclass
-            if study_visit_ogm_input.visit_subclass
-            else None,
+            visit_subclass=(
+                study_visit_ogm_input.visit_subclass
+                if study_visit_ogm_input.visit_subclass
+                else None
+            ),
             is_global_anchor_visit=study_visit_ogm_input.is_global_anchor_visit,
             is_soa_milestone=study_visit_ogm_input.is_soa_milestone,
             visit_order=study_visit_ogm_input.visit_number,
@@ -344,7 +358,7 @@ class StudyVisitRepository:
             visit_type=study_visit_vo.visit_type,
             status=study_visit_vo.status,
             start_date=study_visit_vo.start_date,
-            author=study_visit_vo.author,
+            author_id=study_visit_vo.author_id,
             day_unit_object=study_visit_vo.day_unit_object,
             week_unit_object=study_visit_vo.week_unit_object,
             epoch_connector=study_visit_vo.epoch_connector,
@@ -378,7 +392,7 @@ class StudyVisitRepository:
 
         return [
             StudyVisitOGM.from_orm(sas_node)
-            for sas_node in to_relation_trees(
+            for sas_node in ListDistinct(
                 StudyVisit.nodes.fetch_relations(
                     "study_epoch_has_study_visit__has_epoch",
                     "has_visit_type",
@@ -386,22 +400,25 @@ class StudyVisitRepository:
                     "has_visit_name__has_latest_value",
                     "has_after__audit_trail",
                     "study_epoch_has_study_visit__study_value",
-                )
-                .fetch_optional_relations(
-                    "has_repeating_frequency",
-                    "has_window_unit__has_latest_value",
-                    "has_timepoint__has_latest_value__has_unit_definition__has_latest_value",
-                    "has_timepoint__has_latest_value__has_time_reference",
-                    "has_timepoint__has_latest_value__has_value__has_latest_value",
-                    "has_study_day__has_latest_value",
-                    "has_study_duration_days__has_latest_value",
-                    "has_study_week__has_latest_value",
-                    "has_study_duration_weeks__has_latest_value",
-                    "has_week_in_study__has_latest_value",
-                    "has_epoch_allocation",
+                    Optional("has_repeating_frequency"),
+                    Optional("has_window_unit__has_latest_value"),
+                    Optional(
+                        "has_timepoint__has_latest_value__has_unit_definition__has_latest_value"
+                    ),
+                    Optional("has_timepoint__has_latest_value__has_time_reference"),
+                    Optional(
+                        "has_timepoint__has_latest_value__has_value__has_latest_value"
+                    ),
+                    Optional("has_study_day__has_latest_value"),
+                    Optional("has_study_duration_days__has_latest_value"),
+                    Optional("has_study_week__has_latest_value"),
+                    Optional("has_study_duration_weeks__has_latest_value"),
+                    Optional("has_week_in_study__has_latest_value"),
+                    Optional("has_epoch_allocation"),
                 )
                 .filter(**filters)
                 .order_by("unique_visit_number")
+                .resolve_subgraph()
             ).distinct()
         ]
 
@@ -435,7 +452,7 @@ class StudyVisitRepository:
                 "study_epoch_has_study_visit__study_value__latest_value__uid": study_uid,
             }
 
-        visit_node = to_relation_trees(
+        visit_node = (
             StudyVisit.nodes.fetch_relations(
                 "study_epoch_has_study_visit__has_epoch",
                 "study_epoch_has_study_visit__study_value",
@@ -443,34 +460,37 @@ class StudyVisitRepository:
                 "has_visit_contact_mode",
                 "has_visit_name__has_latest_value",
                 "has_after__audit_trail",
-            )
-            .fetch_optional_relations(
-                "has_repeating_frequency",
-                "has_window_unit__has_latest_value",
-                "has_timepoint__has_latest_value__has_unit_definition__has_latest_value",
-                "has_timepoint__has_latest_value__has_time_reference",
-                "has_timepoint__has_latest_value__has_value__has_latest_value",
-                "has_study_day__has_latest_value",
-                "has_study_duration_days__has_latest_value",
-                "has_study_week__has_latest_value",
-                "has_study_duration_weeks__has_latest_value",
-                "has_week_in_study__has_latest_value",
-                "has_epoch_allocation",
+                Optional("has_repeating_frequency"),
+                Optional("has_window_unit__has_latest_value"),
+                Optional(
+                    "has_timepoint__has_latest_value__has_unit_definition__has_latest_value"
+                ),
+                Optional("has_timepoint__has_latest_value__has_time_reference"),
+                Optional(
+                    "has_timepoint__has_latest_value__has_value__has_latest_value"
+                ),
+                Optional("has_study_day__has_latest_value"),
+                Optional("has_study_duration_days__has_latest_value"),
+                Optional("has_study_week__has_latest_value"),
+                Optional("has_study_duration_weeks__has_latest_value"),
+                Optional("has_week_in_study__has_latest_value"),
+                Optional("has_epoch_allocation"),
             )
             .filter(**filters)
+            .resolve_subgraph()
         )
         unique_visits = []
         for ith_visit_node in visit_node:
             if ith_visit_node not in unique_visits:
                 unique_visits.extend([ith_visit_node])
-        if len(unique_visits) > 1:
-            raise exceptions.ValidationException(
-                f"Found more than one StudyVisit node with uid='{uid}'."
-            )
-        if len(unique_visits) == 0:
-            raise exceptions.ValidationException(
-                f"The study visit with uid='{uid}' could not be found."
-            )
+        ValidationException.raise_if(
+            len(unique_visits) > 1,
+            msg=f"Found more than one StudyVisit node with UID '{uid}'.",
+        )
+        ValidationException.raise_if(
+            len(unique_visits) == 0,
+            msg=f"Study Visit with UID '{uid}' doesn't exist.",
+        )
         return self.from_neomodel_to_vo(
             study_visit_ogm_input=StudyVisitOGM.from_orm(unique_visits[0]),
             study_value_version=study_value_version,
@@ -481,7 +501,7 @@ class StudyVisitRepository:
         uid: str,
         study_uid: str,
     ):
-        se_nodes = to_relation_trees(
+        se_nodes = ListDistinct(
             StudyVisit.nodes.fetch_relations(
                 "study_epoch_has_study_visit__has_epoch",
                 "has_visit_type",
@@ -489,21 +509,24 @@ class StudyVisitRepository:
                 "has_visit_name__has_latest_value",
                 "has_after__audit_trail",
                 "study_epoch_has_study_visit__study_value",
-            )
-            .fetch_optional_relations(
-                "has_window_unit__has_latest_value",
-                "has_timepoint__has_latest_value__has_unit_definition__has_latest_value",
-                "has_timepoint__has_latest_value__has_time_reference",
-                "has_timepoint__has_latest_value__has_value__has_latest_value",
-                "has_study_day__has_latest_value",
-                "has_study_duration_days__has_latest_value",
-                "has_study_week__has_latest_value",
-                "has_study_duration_weeks__has_latest_value",
-                "has_week_in_study__has_latest_value",
-                "has_epoch_allocation",
-                "has_before",
+                Optional("has_window_unit__has_latest_value"),
+                Optional(
+                    "has_timepoint__has_latest_value__has_unit_definition__has_latest_value"
+                ),
+                Optional("has_timepoint__has_latest_value__has_time_reference"),
+                Optional(
+                    "has_timepoint__has_latest_value__has_value__has_latest_value"
+                ),
+                Optional("has_study_day__has_latest_value"),
+                Optional("has_study_duration_days__has_latest_value"),
+                Optional("has_study_week__has_latest_value"),
+                Optional("has_study_duration_weeks__has_latest_value"),
+                Optional("has_week_in_study__has_latest_value"),
+                Optional("has_epoch_allocation"),
+                Optional("has_before"),
             )
             .filter(uid=uid, has_after__audit_trail__uid=study_uid)
+            .resolve_subgraph()
         ).distinct()
 
         return se_nodes
@@ -514,7 +537,7 @@ class StudyVisitRepository:
         action = Create(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_visit.status.value,
-            user_initials=study_visit.author,
+            author_id=study_visit.author_id,
         )
         action.save()
         action.has_after.connect(new_item)
@@ -530,7 +553,7 @@ class StudyVisitRepository:
         action = Edit(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_visit.status.value,
-            user_initials=study_visit.author,
+            author_id=study_visit.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -547,7 +570,7 @@ class StudyVisitRepository:
         action = Delete(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_visit.status.value,
-            user_initials=study_visit.author,
+            author_id=study_visit.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -557,8 +580,9 @@ class StudyVisitRepository:
     def _update(self, study_visit: StudyVisitVO, create: bool = False):
         study_root: StudyRoot = StudyRoot.nodes.get(uid=study_visit.study_uid)
         study_value: StudyValue = study_root.latest_value.get_or_none()
-        if study_value is None:
-            raise exceptions.ValidationException("Study does not have draft version")
+        ValidationException.raise_if(
+            study_value is None, msg="Study doesn't have draft version."
+        )
         if not create:
             previous_item = study_value.has_study_visit.get(uid=study_visit.uid)
 
@@ -579,9 +603,9 @@ class StudyVisitRepository:
             end_rule=study_visit.end_rule,
             status=study_visit.status.name,
             visit_class=study_visit.visit_class.name,
-            visit_subclass=study_visit.visit_subclass.name
-            if study_visit.visit_subclass
-            else None,
+            visit_subclass=(
+                study_visit.visit_subclass.name if study_visit.visit_subclass else None
+            ),
             is_global_anchor_visit=study_visit.is_global_anchor_visit,
             is_soa_milestone=study_visit.is_soa_milestone,
         )

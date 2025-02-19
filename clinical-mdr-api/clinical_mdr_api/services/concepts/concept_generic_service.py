@@ -5,7 +5,6 @@ from typing import Any, Generic, Sequence, TypeVar
 from neomodel import db
 from pydantic import BaseModel
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.concept_generic_repository import (
     ConceptGenericRepository,
 )
@@ -13,21 +12,22 @@ from clinical_mdr_api.domains._utils import ObjectStatus
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
-    VersioningException,
 )
 from clinical_mdr_api.models.concepts.activities.activity import (
     ActivityHierarchySimpleModel,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_term import SimpleTermModel
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._meta_repository import MetaRepository
 from clinical_mdr_api.services._utils import (
     calculate_diffs,
+    ensure_transaction,
     is_library_editable,
-    normalize_string,
 )
+from clinical_mdr_api.utils import normalize_string
+from common.auth.user import user
+from common.exceptions import BusinessLogicException, NotFoundException
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -37,11 +37,11 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
     version_class: type
     repository_interface: type
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
-        self._repos = MetaRepository(self.user_initials)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     def __del__(self):
         self._repos.close()
@@ -145,7 +145,10 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
 
     @abstractmethod
     def _create_aggregate_root(
-        self, concept_input: BaseModel, library: LibraryVO
+        self,
+        concept_input: BaseModel,
+        library: LibraryVO,
+        preview: bool = False,
     ) -> _AggregateRootType:
         raise NotImplementedError()
 
@@ -226,7 +229,7 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
         **kwargs,
     ) -> list[Any]:
         self.enforce_library(library)
@@ -237,7 +240,7 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
             search_string=search_string,
             filter_by=filter_by,
             filter_operator=filter_operator,
-            result_count=result_count,
+            page_size=page_size,
             **kwargs,
         )
 
@@ -307,20 +310,21 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
             for_update=for_update,
         )
 
-        if item is None:
-            raise exceptions.NotFoundException(
-                f"{self.aggregate_class.__name__} with uid {uid} does not exist or there's no version with requested status or version number."
-            )
+        NotFoundException.raise_if(
+            item is None,
+            msg=f"{self.aggregate_class.__name__} with UID '{uid}' doesn't exist or there's no version with requested status or version number.",
+        )
         return item
 
     @db.transaction
     def get_version_history(self, uid: str) -> list[BaseModel]:
         if self.version_class is not None:
             all_versions = self.repository.get_all_versions_2(uid=uid)
-            if all_versions is None:
-                raise exceptions.NotFoundException(
-                    f"{self.aggregate_class.__name__} with uid {uid} does not exist."
-                )
+
+            NotFoundException.raise_if(
+                all_versions is None, self.aggregate_class.__name__, uid
+            )
+
             versions = [
                 self._transform_aggregate_root_to_pydantic_model(codelist_ar).dict()
                 for codelist_ar in all_versions
@@ -329,63 +333,69 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
         return []
 
     @db.transaction
-    def create_new_version(self, uid: str) -> BaseModel:
-        return self.non_transactional_create_new_version(uid)
+    def create_new_version(
+        self, uid: str, cascade_new_version: bool = False
+    ) -> BaseModel:
+        return self.non_transactional_create_new_version(uid, cascade_new_version)
 
-    def non_transactional_create_new_version(self, uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            item.create_new_version(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+    def non_transactional_create_new_version(
+        self, uid: str, cascade_new_version: bool = False
+    ) -> BaseModel:
+        item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        item.create_new_version(author_id=self.author_id)
+        self.repository.save(item)
+        if cascade_new_version:
+            self.cascade_new_version(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
-    @db.transaction
+    @ensure_transaction(db)
     def edit_draft(self, uid: str, concept_edit_input: BaseModel) -> BaseModel:
         return self.non_transactional_edit(uid, concept_edit_input)
 
     def non_transactional_edit(
         self, uid: str, concept_edit_input: BaseModel
     ) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid=uid, for_update=True)
-            self._fill_missing_values_in_base_model_from_reference_base_model(
-                base_model_with_missing_values=concept_edit_input,
-                reference_base_model=self._transform_aggregate_root_to_pydantic_model(
-                    item
-                ),
-            )
-            self.fill_in_additional_fields(concept_edit_input, item)
-            item = self._edit_aggregate(
-                item=item, concept_edit_input=concept_edit_input
-            )
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(uid=uid, for_update=True)
+        self._fill_missing_values_in_base_model_from_reference_base_model(
+            base_model_with_missing_values=concept_edit_input,
+            reference_base_model=self._transform_aggregate_root_to_pydantic_model(item),
+        )
+        self.fill_in_additional_fields(concept_edit_input, item)
+        item = self._edit_aggregate(item=item, concept_edit_input=concept_edit_input)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
-    @db.transaction
-    def create(self, concept_input: BaseModel) -> BaseModel:
-        return self.non_transactional_create(concept_input)
+    @ensure_transaction(db)
+    def create(self, concept_input: BaseModel, preview: bool = False) -> BaseModel:
+        return self.non_transactional_create(concept_input, preview)
 
-    def non_transactional_create(self, concept_input: BaseModel) -> BaseModel:
-        if not self._repos.library_repository.library_exists(
-            normalize_string(concept_input.library_name)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({concept_input.library_name})"
-            )
+    def non_transactional_create(
+        self, concept_input: BaseModel, preview: bool = False
+    ) -> BaseModel:
+        BusinessLogicException.raise_if_not(
+            self._repos.library_repository.library_exists(
+                normalize_string(concept_input.library_name)
+            ),
+            msg=f"Library with Name '{concept_input.library_name}' doesn't exist.",
+        )
 
         library_vo = LibraryVO.from_input_values_2(
             library_name=concept_input.library_name,
             is_library_editable_callback=is_library_editable,
         )
 
-        concept_ar = self._create_aggregate_root(
-            concept_input=concept_input, library=library_vo
-        )
-        self.repository.save(concept_ar)
+        if preview:
+            concept_ar = self._create_aggregate_root(
+                concept_input=concept_input,
+                library=library_vo,
+                preview=True,
+            )
+        else:
+            concept_ar = self._create_aggregate_root(
+                concept_input=concept_input,
+                library=library_vo,
+            )
+            self.repository.save(concept_ar)
         return self._transform_aggregate_root_to_pydantic_model(concept_ar)
 
     @db.transaction
@@ -395,52 +405,63 @@ class ConceptGenericService(Generic[_AggregateRootType], ABC):
     def non_transactional_approve(
         self, uid: str, cascade_edit_and_approve: bool = False
     ) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            item.approve(author=self.user_initials)
-            self.repository.save(item)
-            if cascade_edit_and_approve:
-                self.cascade_edit_and_approve(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        item.approve(author_id=self.author_id)
+        self.repository.save(item)
+        if cascade_edit_and_approve:
+            self.cascade_edit_and_approve(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
-    def inactivate_final(self, uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            item.inactivate(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+    def inactivate_final(self, uid: str, cascade_inactivate: bool = False) -> BaseModel:
+        item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        item.inactivate(author_id=self.author_id)
+        self.repository.save(item)
+        if cascade_inactivate:
+            self.cascade_inactivate(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
-    def reactivate_retired(self, uid: str) -> BaseModel:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            item.reactivate(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+    def reactivate_retired(
+        self, uid: str, cascade_reactivate: bool = False
+    ) -> BaseModel:
+        item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        item.reactivate(author_id=self.author_id)
+        self.repository.save(item)
+        if cascade_reactivate:
+            self.cascade_reactivate(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
-    def soft_delete(self, uid: str) -> None:
-        try:
-            item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            item.soft_delete()
-            self.repository.save(item)
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+    def soft_delete(self, uid: str, cascade_delete: bool = False) -> None:
+        item = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        item.soft_delete()
+        if cascade_delete:
+            self.cascade_delete(item)
+        self.repository.save(item)
 
     def enforce_library(self, library: str | None):
-        if library is not None and not self._repos.library_repository.library_exists(
-            normalize_string(library)
-        ):
-            raise exceptions.BusinessLogicException(
-                f"There is no library identified by provided library name ({library})"
-            )
+        NotFoundException.raise_if(
+            library is not None
+            and not self._repos.library_repository.library_exists(
+                normalize_string(library)
+            ),
+            "Library",
+            library,
+            "Name",
+        )
 
     def cascade_edit_and_approve(self, item: BaseModel):
+        pass
+
+    def cascade_new_version(self, item: BaseModel):
+        pass
+
+    def cascade_inactivate(self, item: BaseModel):
+        pass
+
+    def cascade_reactivate(self, item: BaseModel):
+        pass
+
+    def cascade_delete(self, item: BaseModel):
         pass

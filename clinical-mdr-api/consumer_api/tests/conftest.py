@@ -9,8 +9,8 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.testclient import TestClient
 
-from consumer_api.auth.config import OAUTH_ENABLED
-from consumer_api.auth.dependencies import dummy_access_token_claims, dummy_auth_object
+from common.auth.config import OAUTH_ENABLED
+from common.auth.dependencies import dummy_access_token_claims, dummy_auth_object
 
 log = logging.getLogger(__name__)
 

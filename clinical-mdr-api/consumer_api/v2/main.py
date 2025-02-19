@@ -1,5 +1,6 @@
 # RESTful API endpoints used by consumers that want to extract data from StudyBuilder
-
+# This file is a placeholder for version 2 of the consumer api,
+# and should be replaced by the real v2 code once that needs to be implemented.
 
 # from fastapi import APIRouter, Query, Request
 
@@ -11,8 +12,16 @@
 
 # router = APIRouter()
 
-
-# GET endpoint to retrieve a list of studies
+# Example v2 endpoint.
+# GET endpoint to retrieve a list of studies.
+# An endpoint with the same path also exists in v1.
+# But since no breaking changes can be allowed in the consumer api,
+# any change that could break existing consumers requires that
+# a new version of the endpoint is created.
+# A breaking change is anything that modifies the existing content of the response.
+# Only changes that add additional content within the response are considered
+# non-breaking.
+#
 # @router.get(
 #     "/studies",
 #     dependencies=[rbac.STUDY_READ],
@@ -22,12 +31,11 @@
 #     request: Request,
 #     sort_by: models.SortByStudies = models.SortByStudies.UID,
 #     sort_order: models.SortOrder = models.SortOrder.ASC,
-#     page_size: int = Query(
-#         config.DEFAULT_PAGE_SIZE,
+#     page_size: Annotated[int, Query(
 #         ge=0,
 #         le=config.MAX_PAGE_SIZE,
-#     ),
-#     page_number: int = Query(1, ge=1),
+#     )] = config.DEFAULT_PAGE_SIZE,
+#     page_number: Annotated[int, Query(ge=1)] = 1,
 # ):
 #     """Get a list of studies"""
 #     studies = DB.get_studies(

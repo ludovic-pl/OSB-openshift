@@ -58,7 +58,7 @@ jobs:
     # Specify python version. The version must be manually installed beforehand so the agent has it available.
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: '3.11'
+        versionSpec: '3.13.0'
         addToPath: true
         architecture: 'x64'
 

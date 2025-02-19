@@ -1,5 +1,284 @@
 # OpenStudyBuilder Commits changelog
 
+## V 0.14
+
+### Fixes and Enhancements
+
+- Refactored the way we store end-user information so that we can properly identify and maintain unique users of the system.   Instead of just storing user initials, we now store user's id, username, name and other relevant information embedded in their JWT (authentication token).  In the UI we are now displaying username instead of initials of each change author.
+- Ensuring that the Protocol SoA design doesn't changed for a locked study over time.
+- Consistency requirement has been build in for the use of visit window time units across visits in a study. The visit window unit selected for the first visit created in a study will be used for all subsequent visits added to that study.
+- The data model for activity instances has been expanded with properties for molecular weight, research lab and NCI concept names.
+- The Activity Instance table now includes Activity Groups and Activity Subgroups. Updates to the sponsor import script to follow changes in the API Stricter validation of required text fields, such as name, to ensure that the text fields do not have redundant white spaces. This will improve the content quality of the StudyBuilder database. Improved handling of batch operations in the API, this ensures that the entire batch operation either succeeds or fails as a  whole. Various quality improvements in the API for easier maintenance and better stability
+- We have implemented a new Boolean field to indicate complex unit conversion, and "molecular weight" has been included as an activity instance property. Please note that the feature implementation is ongoing, and additional updates will be released in upcoming versions.
+- Alias is a temporary solution to hold Veeva internal identifiers, until an actual Veeva namespace is implemented.
+- Updates to the import scripts and import data to prepare for the future activity instance wizard stepper, this is mostly relevant while developing the StudyBuilder application. Added extensions to the API to support the upcoming activity instance wizard stepper.
+
+### New Features
+
+- Leveraging USDM JSON metadata, we have added a new page to the Frontend displaying the ICH M11 template alongside the current metadata.
+- It is now possible to bulk edit and bulk delete activities from the Detailed SoA.    A bulk edit and bulk delete button has been introduced in upper right hand corner of the Detailed SoA page. To use the bulk feature select the activities by clicking in the selection boxes in front of the activity and click on the Bulk action button and follow the guide on the screen. Only allowed edits (e.g. SoA group, Visit) will be possible via the screen.
+- It is now possible to add a new activity directly from the Detailed SoA. This is done by clicking on the three small dots in front of an activity. Then select 'Add activity' from the pop-up and follow the flow.
+- Configuring a new Neodash report entails presenting a Pre-define.xml report specifically tailored to a designated Study. This report includes a dataset list, SDTM variables, and, when relevant, a list of CT terms. These metadata selections are derived from the chosen ActivityInstance originating from the Schedule of Activity.
+- Introducing the DDF USDM to StudyBuilder data model mapping for version 3.6. More technical adjustments on API layer will commence in further release.
+
+
+Solved Bugs
+============
+
+### General
+
+ **Miscellaneous** 
+
+- Word "environment" to be removed from Production Application Home page
+
+### Library
+
+ **Code Lists -> Sponsor -> SDTM CT** 
+
+- Error while trying to show all the codelist values
+
+ **Concepts -> Activities -> Activities** 
+
+- Not showing the correct Group in overview
+- Sorting order is not in Alphabetical order
+
+ **Concepts -> Activities -> Activities Instances** 
+
+- Incorrect duplication check when creating new instances
+
+ **Concepts -> Activities -> Activity Subgroups** 
+
+- Activity Subgroup creating error while editing a draft activity subgroup
+
+ **Concepts -> Units** 
+
+- Edited unit is not shown in the table
+- History is missing at Units table
+
+### Studies
+
+ **Define Study -> Data Specifications  -> Study Activity Instances** 
+
+- Red-bell alert is not disappearing even after Dispensing visit instance changing into new version for Trail ID NN9833-8242 and NN9833-8243
+
+ **Define Study -> Study Activities** 
+
+- Unable to edit and submit Study Activity
+
+ **Define Study -> Study Activities ->  Study Activities** 
+
+- 'Update Activity Version' should be removed/nor displayed for placeholders which were rejected.
+- Error while adding Library activities to a study
+- Menu item option "delete" should be changed to "remove" for consistency
+- Searching is not working as intended
+
+ **Define Study -> Study Activities -> Schedule of Activities** 
+
+- "Left/Right" scroll bar to be displayed in Protocol and Operational SoA without need to scroll to the bottom of the page
+
+ **Define Study -> Study Activities -> Schedule of Activities -> Detailed** 
+
+- 'Data validation error' when batch editing in SoA
+- Collapse visits in detailed SoA: not possible if the activities are different. Wrong Pop-up message showing that visits are not the same
+- Footnotes from other studies cannot be added
+- Issue with displaying Activity/Visit when linking footnotes
+- Unable to group visits that have sub-visits
+
+ **Define Study -> Study Activities -> Schedule of Activities -> Protocol** 
+
+- Trial ID ends with 7770 having issue with displaying the protocol SoA table, throwing XML token error
+
+ **Define Study -> Study Activities -> Schedule of Activities ->Detailed** 
+
+- Activity instance contain blank option when edit SoA footnote
+
+ **Define Study -> Study Properties -> Study Type** 
+
+- Trial type cannot be updated under Study Type section
+
+ **Define Study -> Study Structure -> Design Matrix** 
+
+- Columns sliders are not showing correct status of columns in table
+
+ **Define Study -> Study Structure -> Study Visits** 
+
+- Duplicating special visit, unscheduled visit or non visit should not be possible.
+- Study Visits can be edited to create circular timing relationships
+- When visits are collapsed and de-collapsed, the visit type is also merged
+
+ **View Specifications -> Clinical Transparency** 
+
+- Make the Clinical Transparency XML file configurable to allow for sharing as Open Source
+- Removal of the page header 'PharmaCM Specification'
+
+ **View Specifications -> SDTM Study Design Datasets -> Trial Arm** 
+
+- SDTM Study Design Datasets - trial arm table can not be shown due to missing value in ARMCD
+
+ **View Specifications -> USDM** 
+
+- USDM page results in error
+
+
+## V 0.13
+
+New Features and Enhancements
+============
+
+### Fixes and Enhancements
+
+- It is now possible to exchange an activity directly on the Detailed SoA page by clicking the three dots in front of the activity.
+- The Consumer API version 1 has been extended with two new GET endpoints: /studies/{uid}/detailed-soa /studies/
+- The disclosure information from OpenStudyBuilder can now be downloaded as an XML file for upload to PharmaCM Specification.
+- The SoA group for an activity can now be edited from the Detailed SoA page.
+- Neodash dashboards are changed from Neo4j style to OpenStudyBuilder style.
+- Clean-up of the API code to improve readability and maintainability. The API has been upgraded to run on Python 3.13.0 from 3.11.0.  The Study Visits endpoint in the Consumer API version 1 has been improved to give a relevant response for studies with no visits defined. Minor improvements to the CRF module in the Library. The title of the middle step of the "Add SoA footnotes" stepper has been changed from 'Create template' to 'Create footnote' to indicate that when creating a footnote from scratch it's not a template.  In the Unlink footnote pop-up window, that comes when hovering over an activity with a footnotes and pressing the "-" sign, the wording has been updated to make it more clear that the footnote is being unlinked from this particular activity. The previous wording could be interpreted as the footnote was going to be completely deleted. The Clinical Programmes & Projects pages under Admin Definitions in the library have been improved by adding filtering and column selection buttons. Further a title has been added to the two pages to align with the general look and feel of StudyBuilder.
+
+### New Features
+
+- A new menu option (Need help?) has been added to the Help menu (? icon) to allow navigation to the https://openstudybuilder.com/ site.
+- In the Library a new Study Structures overview page is introduced. It will assist Standards Developers by offering an overview of how existing trials have been defined and allows users to view the study structures they can replicate, identify trends, and spot any deviations. The Study Structures page aims to increase consistency when setting up new trials. Studies that share the same structure are grouped together and listed in the table under the same row. The columns display numeric values indicating the number of arms/epochs/elements in the trial or Y/N to indicate if cohorts are part of the trial design.
+- To facilitate that the different StudyBuilder environments are used for their intended purposes the top bar and front page of StudyBuilder environments: Development, Test, Preview, Validation and Education will now clearly indicate what environment the user is about to log on to.
+- A feature toggle has been implemented to allow a StudyBuilder administrator to toggle on/off the "Analysis Study Metadata (New)" page under View Listings in the Studies module.
+- New Neodash Dashboard for Activity Metadata Check.
+
+
+Solved Bugs
+============
+
+### API
+
+- When user tries to edit instance, an error appears on the screen
+
+ **Miscellaneous** 
+
+- It is still possible to link to an activity in requested library
+
+### Library
+
+ **Admin Definitions -> Projects** 
+
+- Possible to create multiple projects with the same number
+
+ **Code Lists -> Sponsor CT package** 
+
+- Blank page with no data, no further response
+
+ **Concepts -> Activities** 
+
+- 'Clear All' not working as expected in the Filters
+- 'Modified by' column has disappeared from Library/activities
+
+ **Concepts -> Activities -> Activities** 
+
+- Activity overview page fetches concepts/activities/activities/Activity_00000n twice
+- Adding filter and use hyperlink is not aligned across library and study
+- Legends for page history is covered by the lower 'close' bar
+
+ **Concepts -> Activities -> Activity Subgroups** 
+
+- Add missing translation entries for activity subgroup
+
+ **Data Exchange Standards -> CDASH** 
+
+- Misalignment between page content and breadcrumbs
+
+ **Syntax Templates -> Templates -> Footnote templates** 
+
+- Template footnote cannot be removed/unlinked using "-" function
+
+ **Syntax Templates -> Time frames -> Parent** 
+
+- Deleting Timeframe Template resets the table length
+
+ **Template Instantiations -> Endpoints** 
+
+- Clicking on view button is not working for Template Instantiations
+
+### Reports
+
+ **NeoDash** 
+
+- NeoDash report for Syntax Templates do not show empty template parameters
+
+### Studies
+
+ **Define Study -> Data Specifications  -> Study Activity Instances** 
+
+- If more than 10 instances exists, then it is not possible to select linkage
+- Multiple required instances cannot be added after the activity is added to the study
+- Activity Instance is linked to non-data carrying Activity.
+
+ **Define Study -> Study Activities ->  Study Activities** 
+
+- In the add activity flow - add from studies/acronym cannot be selected alone
+- to remove DUPLICATE for manually defined visits
+
+ **Define Study -> Study Activities -> Schedule of Activities** 
+
+- Visit window with zero appears as '+0'
+
+ **Define Study -> Study Activities -> Schedule of Activities -> Detailed** 
+
+- Misalignment of text in Schedule of Activities
+
+ **Define Study -> Study Activities -> Study Activities** 
+
+- When sub group is not chosen, an error appears on the screen
+
+ **Define Study -> Study Properties -> Study Attributes** 
+
+- Align design of dialog box for copying study metadata
+- Missing data on form when data were imported and then you want to edit them
+
+ **Define Study -> Study Structure -> Study Visits** 
+
+- Missing columns in downloaded versions (CSV and Excel)
+- Repeating visit - repeating frequency is not populated in table
+
+ **Manage Study -> Study -> Study Status** 
+
+- Locking study should have a 'Locking description' title instead 'Release description'
+
+ **Manage Study -> Study -> Study Subparts** 
+
+- Adding subpart from existing studies, studies that do not belong to same project as parent study are on the list
+- Adding subpart from existing studies: Study ID column is missing
+- It should not be possible to change master study acronym for the subpart
+- Removal of subpart is not present in audit trail
+
+ **View Specifications -> Protocol Elements -> Study Population** 
+
+- All criterias are not shown in Study Population section
+- Empty rows show up in Study Population page
+- Unnecessary functionality in Study Population
+
+ **View Specifications -> USDM** 
+
+- Misalignment between page content and breadcrumbs
+
+
+## V 0.12.1
+
+New Features and Enhancements
+============
+
+This release does not include any new features.
+
+Solved Bugs
+============
+
+### Library
+
+ **Concepts -> Activities** 
+
+- Error Message appears when activating an activity
+
+### Studies
+
+ **Define Study -> Study Activities -> Schedule of Activities** 
+
+- User cannot able to see the study activities in the protocol view due to error showing 'Maximum recursion depth exceeded in comparison'
 
 
 ## V 0.12

@@ -1,22 +1,29 @@
 """CTTerms router."""
-from typing import Any
+
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query
 from pydantic.types import Json
 from starlette.requests import Request
 
-from clinical_mdr_api import config, models
-from clinical_mdr_api.models.error import ErrorResponse
+from clinical_mdr_api.models.controlled_terminologies.ct_term import (
+    CTTerm,
+    CTTermCreateInput,
+    CTTermNameAndAttributes,
+    CTTermNewOrder,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.services.controlled_terminologies.ct_term import CTTermService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/ct"
 router = APIRouter()
 
-CTTermUID = Path(None, description="The unique id of the ct term.")
+CTTermUID = Path(description="The unique id of the ct term.")
 
 
 @router.post(
@@ -30,24 +37,25 @@ CTTermUID = Path(None, description="The unique id of the ct term.")
   * CTTermNameRoot
   * CTTermNameValue
 """,
-    response_model=models.CTTerm,
+    response_model=CTTerm,
     status_code=201,
     responses={
         201: {"description": "Created - The term was successfully created."},
         400: {
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
-            "- The catalogue does not exist.\n"
-            "- The library does not exist..\n"
-            "- The library does not allow to add new items.\n",
+            "- The catalogue doesn't exist.\n"
+            "- The library doesn't exist..\n"
+            "- The library doesn't allow to add new items.\n",
         },
         500: _generic_descriptions.ERROR_500,
     },
 )
 def create(
-    term_input: models.CTTermCreateInput = Body(
-        description="Properties to create CTTermAttributes and CTTermName."
-    ),
+    term_input: Annotated[
+        CTTermCreateInput,
+        Body(description="Properties to create CTTermAttributes and CTTermName."),
+    ],
 ):
     ct_term_service = CTTermService()
     return ct_term_service.create(term_input)
@@ -58,7 +66,7 @@ def create(
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all terms names and attributes.",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.CTTermNameAndAttributes],
+    response_model=CustomPage[CTTermNameAndAttributes],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -81,7 +89,7 @@ def create(
             "name.status",
             "name.version",
             "name.change_description",
-            "name.user_initials",
+            "name.author_username",
             "attributes.code_submission_value",
             "attributes.name_submission_value",
             "attributes.nci_preferred_name",
@@ -91,7 +99,7 @@ def create(
             "attributes.status",
             "attributes.version",
             "attributes.change_description",
-            "attributes.user_initials",
+            "attributes.author_username",
         ],
         "formats": [
             "text/csv",
@@ -104,52 +112,61 @@ def create(
 # pylint: disable=unused-argument
 def get_all_terms(
     request: Request,  # request is actually required by the allow_exports decorator
-    codelist_uid: str
-    | None = Query(
-        None, description="If specified, only terms from given codelist are returned."
-    ),
-    codelist_name: str
-    | None = Query(
-        None, description="If specified, only terms from given codelist are returned."
-    ),
-    library: str
-    | None = Query(
-        None, description="If specified, only terms from given library are returned."
-    ),
-    package: str
-    | None = Query(
-        None, description="If specified, only terms from given package are returned."
-    ),
-    is_sponsor: bool
-    | None = Query(
-        False,
-        description="Boolean value to indicate desired package is a sponsor package. Defaults to False.",
-    ),
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    codelist_uid: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given codelist are returned."),
+    ] = None,
+    codelist_name: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given codelist are returned."),
+    ] = None,
+    library_name: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given library are returned."),
+    ] = None,
+    package: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given package are returned."),
+    ] = None,
+    is_sponsor: Annotated[
+        bool | None,
+        Query(
+            description="Boolean value to indicate desired package is a sponsor package. Defaults to False.",
+        ),
+    ] = False,
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     ct_term_service = CTTermService()
     results = ct_term_service.get_all_terms(
         codelist_uid=codelist_uid,
         codelist_name=codelist_name,
-        library=library,
+        library=library_name,
         package=package,
         is_sponsor=is_sponsor,
         sort_by=sort_by,
@@ -181,46 +198,53 @@ def get_all_terms(
     },
 )
 def get_distinct_values_for_header(
-    codelist_uid: str
-    | None = Query(
-        None, description="If specified, only terms from given codelist are returned."
-    ),
-    codelist_name: str
-    | None = Query(
-        None, description="If specified, only terms from given codelist are returned."
-    ),
-    library: str
-    | None = Query(
-        None, description="If specified, only terms from given library are returned."
-    ),
-    package: str
-    | None = Query(
-        None, description="If specified, only terms from given package are returned."
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    codelist_uid: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given codelist are returned."),
+    ] = None,
+    codelist_name: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given codelist are returned."),
+    ] = None,
+    library_name: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given library are returned."),
+    ] = None,
+    package: Annotated[
+        str | None,
+        Query(description="If specified, only terms from given package are returned."),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     ct_term_service = CTTermService()
     return ct_term_service.get_distinct_values_for_header(
         codelist_uid=codelist_uid,
         codelist_name=codelist_name,
-        library=library,
+        library=library_name,
         package=package,
         field_name=field_name,
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
@@ -228,8 +252,7 @@ def get_distinct_values_for_header(
     "/terms/{term_uid}/parents",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Adds a CT Term Root node as a parent to the selected term node.",
-    description="",
-    response_model=models.CTTerm,
+    response_model=CTTerm,
     status_code=201,
     responses={
         201: {
@@ -248,13 +271,15 @@ def get_distinct_values_for_header(
     },
 )
 def add_parent(
-    term_uid: str = CTTermUID,
-    parent_uid: str = Query(..., description="The unique id for the parent node."),
-    relationship_type: str = Query(
-        ...,
-        description="The type of the parent relationship.\n"
-        "Valid types are 'type' or 'subtype'",
-    ),
+    term_uid: Annotated[str, CTTermUID],
+    parent_uid: Annotated[str, Query(description="The unique id for the parent node.")],
+    relationship_type: Annotated[
+        str,
+        Query(
+            description="The type of the parent relationship.\n"
+            "Valid types are 'type' or 'subtype'",
+        ),
+    ],
 ):
     ct_term_service = CTTermService()
     return ct_term_service.add_parent(
@@ -266,8 +291,7 @@ def add_parent(
     "/terms/{term_uid}/parents",
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Removes a parent term from the selected term node",
-    description="",
-    response_model=models.CTTerm,
+    response_model=CTTerm,
     status_code=201,
     responses={
         201: {
@@ -286,13 +310,15 @@ def add_parent(
     },
 )
 def remove_parent(
-    term_uid: str = CTTermUID,
-    parent_uid: str = Query(..., description="The unique id for the parent node."),
-    relationship_type: str = Query(
-        ...,
-        description="The type of the parent relationship.\n"
-        "Valid types are 'type' or 'subtype'",
-    ),
+    term_uid: Annotated[str, CTTermUID],
+    parent_uid: Annotated[str, Query(description="The unique id for the parent node.")],
+    relationship_type: Annotated[
+        str,
+        Query(
+            description="The type of the parent relationship.\n"
+            "Valid types are 'type' or 'subtype'",
+        ),
+    ],
 ):
     ct_term_service = CTTermService()
     return ct_term_service.remove_parent(
@@ -305,7 +331,7 @@ def remove_parent(
     dependencies=[rbac.LIBRARY_WRITE],
     summary="Change an order of codelist-term relationship",
     description="""Reordering will create new HAS_TERM relationship.""",
-    response_model=models.CTTerm,
+    response_model=CTTerm,
     status_code=200,
     responses={
         400: {
@@ -320,11 +346,11 @@ def remove_parent(
     },
 )
 def patch_new_term_order(
-    term_uid: str = CTTermUID,
-    new_order_input: models.CTTermNewOrder = Body(
-        description="Parameters needed for the reorder action."
-    ),
-) -> models.CTTerm:
+    term_uid: Annotated[str, CTTermUID],
+    new_order_input: Annotated[
+        CTTermNewOrder, Body(description="Parameters needed for the reorder action.")
+    ],
+) -> CTTerm:
     ct_term_service = CTTermService()
     return ct_term_service.set_new_order(
         term_uid=term_uid,

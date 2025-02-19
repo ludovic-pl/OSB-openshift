@@ -3,7 +3,6 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.concepts.simple_concepts.numeric_value_with_unit_repository import (
     NumericValueWithUnitRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.concepts import (
     CTTermRoot,
     LagTimeRoot,
@@ -25,6 +24,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryVO,
 )
 from clinical_mdr_api.models.concepts.concept import LagTime as LagTimeAPIModel
+from common.utils import convert_to_datetime
 
 
 class LagTimeRepository(NumericValueWithUnitRepository):
@@ -74,7 +74,8 @@ class LagTimeRepository(NumericValueWithUnitRepository):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -126,10 +127,11 @@ class LagTimeRepository(NumericValueWithUnitRepository):
         sdtm_domain_uid: str,
     ) -> str | None:
         cypher_query = f"""
-            MATCH (or:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED]->(ov:{self.value_class.__label__} {{value: $value}})-[:HAS_UNIT_DEFINITION]->(unit_root:UnitDefinitionRoot {{uid: $unit_definition_uid}})
-            MATCH (ov)-[:HAS_SDTM_DOMAIN]->(term_root:CTTermRoot {{uid: $sdtm_domain_uid}})
-            RETURN or.uid
-        """
+MATCH (or:{self.root_class.__label__})-[:LATEST_FINAL|LATEST_DRAFT|LATEST_RETIRED]->(ov:{self.value_class.__label__} {{value: $value}})
+-[:HAS_UNIT_DEFINITION]->(unit_root:UnitDefinitionRoot {{uid: $unit_definition_uid}})
+MATCH (ov)-[:HAS_SDTM_DOMAIN]->(term_root:CTTermRoot {{uid: $sdtm_domain_uid}})
+RETURN or.uid
+"""
         items, _ = db.cypher_query(
             cypher_query,
             {

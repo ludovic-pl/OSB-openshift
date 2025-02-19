@@ -1,4 +1,4 @@
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -23,89 +23,47 @@ from clinical_mdr_api.services._utils import get_name_or_none
 
 
 class CompactStudyArm(BaseModel):
-    arm_type: str | None = Field(
-        None,
-    )
-    arm_title: str = Field(
-        ...,
-    )
-    arm_description: str | None = Field(
-        None,
-    )
+    arm_type: Annotated[str | None, Field(nullable=True)] = None
+    arm_title: Annotated[str, Field()]
+    arm_description: Annotated[str | None, Field(nullable=True)] = None
 
 
 class CompactOutcomeMeasure(BaseModel):
-    title: str | None = Field(
-        None,
-    )
-    timeframe: str | None = Field(
-        None,
-    )
-    description: str | None = Field(
-        None,
-    )
+    title: Annotated[str | None, Field(nullable=True)] = None
+    timeframe: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
 
 
 class CompactRegistryIdentifier(BaseModel):
-    secondary_id: str | None = Field(
-        None,
-    )
-    id_type: str | None = Field(
-        None,
-    )
-    description: str | None = Field(None)
+    secondary_id: Annotated[str | None, Field(nullable=True)] = None
+    id_type: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)] = None
 
 
 class StudyPharmaCM(BaseModel):
-    unique_protocol_identification_number: str = Field(...)
-    brief_title: str | None = Field(
-        None,
-    )
-    official_title: str | None = Field(
-        None,
-    )
-    acronym: str | None = Field(
-        None,
-    )
-    study_type: str | None = Field(
-        None,
-    )
-    secondary_ids: list[CompactRegistryIdentifier] = Field([])
+    unique_protocol_identification_number: Annotated[str, Field()]
+    brief_title: Annotated[str | None, Field(nullable=True)] = None
+    official_title: Annotated[str | None, Field(nullable=True)] = None
+    acronym: Annotated[str | None, Field(nullable=True)] = None
+    study_type: Annotated[str | None, Field(nullable=True)] = None
+    secondary_ids: Annotated[list[CompactRegistryIdentifier], Field(nullable=True)] = []
 
-    responsible_party: str = Field(
-        "Sponsor",
-    )
-    primary_disease_or_condition_being_studied: list[str] = Field(
-        [],
-    )
-    primary_purpose: list[str] = Field(
-        [],
-    )
-    study_phase: str | None = Field(
-        None,
-    )
-    interventional_study_model: str | None = Field(
-        None,
-    )
-    number_of_arms: int | None = Field(
-        None,
-    )
-    allocation: str | None = Field(
-        None,
-    )
-    number_of_subjects: int | None = Field(
-        None,
-    )
-    study_arms: list[CompactStudyArm] = Field([])
-    intervention_type: str | None = Field(
-        [],
-    )
-    outcome_measures: list[CompactOutcomeMeasure] = Field([])
-    minimum_age: str | None = Field(None)
-    maximum_age: str | None = Field(None)
-    accepts_healthy_volunteers: bool | None = Field(None)
-    inclusion_criteria: list[str] = Field([])
-    exclusion_criteria: list[str] = Field([])
+    responsible_party: Annotated[str, Field()] = "Sponsor"
+    primary_disease_or_condition_being_studied: Annotated[list[str], Field()] = []
+    primary_purpose: Annotated[list[str], Field()] = []
+    study_phase: Annotated[str | None, Field(nullable=True)] = None
+    interventional_study_model: Annotated[str | None, Field(nullable=True)] = None
+    number_of_arms: Annotated[int | None, Field(nullable=True)] = None
+    allocation: Annotated[str | None, Field(nullable=True)] = None
+    number_of_subjects: Annotated[int | None, Field(nullable=True)] = None
+    study_arms: Annotated[list[CompactStudyArm], Field()] = []
+    intervention_type: Annotated[str | None, Field(nullable=True)] = None
+    outcome_measures: Annotated[list[CompactOutcomeMeasure], Field()] = []
+    minimum_age: Annotated[str | None, Field(nullable=True)] = None
+    maximum_age: Annotated[str | None, Field(nullable=True)] = None
+    accepts_healthy_volunteers: Annotated[bool | None, Field(nullable=True)] = None
+    inclusion_criteria: Annotated[list[str], Field()] = []
+    exclusion_criteria: Annotated[list[str], Field()] = []
 
     @classmethod
     def from_various_data(
@@ -303,18 +261,24 @@ class StudyPharmaCM(BaseModel):
             ),
             outcome_measures=[
                 CompactOutcomeMeasure(
-                    title=study_endpoint.study_objective.objective.name_plain
-                    if study_endpoint.study_objective
-                    else None,
-                    timeframe=study_endpoint.timeframe.name_plain
-                    if study_endpoint.timeframe
-                    else None,
-                    description=f" {study_endpoint.endpoint_units.separator} ".join(
-                        [unit.name for unit in study_endpoint.endpoint_units.units]
-                    )
-                    if len(study_endpoint.endpoint_units.units) > 1
-                    else "".join(
-                        [unit.name for unit in study_endpoint.endpoint_units.units]
+                    title=(
+                        study_endpoint.study_objective.objective.name_plain
+                        if study_endpoint.study_objective
+                        else None
+                    ),
+                    timeframe=(
+                        study_endpoint.timeframe.name_plain
+                        if study_endpoint.timeframe
+                        else None
+                    ),
+                    description=(
+                        f" {study_endpoint.endpoint_units.separator} ".join(
+                            [unit.name for unit in study_endpoint.endpoint_units.units]
+                        )
+                        if len(study_endpoint.endpoint_units.units) > 1
+                        else "".join(
+                            [unit.name for unit in study_endpoint.endpoint_units.units]
+                        )
                     ),
                 )
                 for study_endpoint in study_endpoints
@@ -331,3 +295,241 @@ class StudyPharmaCM(BaseModel):
                 for exclusion_criteria in exclusion_criterias
             ],
         )
+
+
+class StudyPharmaCMXML(BaseModel):
+
+    @classmethod
+    def from_pharma_cm_data(cls, study_pharma_cm: StudyPharmaCM) -> Self:
+        return {
+            "study_collection": {
+                "clinical_study": {
+                    "id_info": {
+                        "provider_name": None,
+                        "provider_study_id": None,
+                        "org_name": None,
+                        "org_study_id": study_pharma_cm.unique_protocol_identification_number,
+                        "secondary_id": [
+                            {
+                                "id": secondary_id.secondary_id,
+                                "id_type": secondary_id.id_type,
+                                "id_domain": secondary_id.description,
+                            }
+                            for secondary_id in study_pharma_cm.secondary_ids
+                        ],
+                    },
+                    "is_fda_regulated": None,
+                    "is_section_801": None,
+                    "delayed_posting": None,
+                    "is_ind_study": None,
+                    "ind_info": {
+                        "ind_grantor": None,
+                        "ind_number": None,
+                        "ind_serial_number": None,
+                        "has_expanded_access": None,
+                        "expanded_access_nct_id": None,
+                    },
+                    "brief_titile": study_pharma_cm.brief_title,
+                    "acronym": study_pharma_cm.acronym,
+                    "official_title": study_pharma_cm.official_title,
+                    "sponsors": {
+                        "lead_sponsor": None,
+                        "collaborator": None,
+                        "resp_party": {
+                            "resp_party_type": "Sponsor",
+                            "investigator_username": None,
+                            "investigator_title": None,
+                            "investigator_affiliation": None,
+                        },
+                    },
+                    "oversight_info": {
+                        "regulatory_authority": None,
+                        "irb_info": {
+                            "approval_status": None,
+                            "approval_number": None,
+                            "name": None,
+                            "affiliation": None,
+                            "phone": None,
+                            "phone_ext": None,
+                            "email": None,
+                            "full_address": None,
+                        },
+                        "has_dmc": None,
+                        "fda_regulated_drug": None,
+                        "exported_from_us": None,
+                        "fda_regulated_device": None,
+                        "post_prior_to_approval": None,
+                        "ped_postmarket_surv": None,
+                    },
+                    "ipd_sharing_statement": {
+                        "sharing_ipd": None,
+                        "ipd_description": {"textblock": None},
+                        "ipd_info_type_protocol": None,
+                        "ipd_info_type_sap": None,
+                        "ipd_info_type_icf": None,
+                        "ipd_info_type_csr": None,
+                        "ipd_info_type_analytic_code": None,
+                        "ipd_time_frame": {"textblock": None},
+                        "ipd_access_criteria": {"textblock": None},
+                        "ipd_url": None,
+                    },
+                    "brief_summary": {"textblock": None},
+                    "detailed_description": {"textblock": None},
+                    "why_stopped": None,
+                    "expanded_access_status": None,
+                    "verification_date": None,
+                    "overall_status": None,
+                    "start_date": None,
+                    "start_date_type": None,
+                    "last_follow_up_date": None,
+                    "last_follow_up_date_type": None,
+                    "primary_compl_date": None,
+                    "primary_compl_date_type": None,
+                    "study_design": {
+                        "study_type": study_pharma_cm.study_type,
+                        "no_exp_acc_type": None,
+                        "exp_acc_type_individual": None,
+                        "exp_acc_type_intermediate": None,
+                        "exp_acc_type_treatment": None,
+                        "interventional_design": {
+                            "interventional_subtype": study_pharma_cm.primary_purpose,
+                            "phase": study_pharma_cm.study_phase,
+                            "assignment": study_pharma_cm.interventional_study_model,
+                            "allocation": study_pharma_cm.allocation,
+                            "masking": None,
+                            "masked_subject": None,
+                            "masked_caregiver": None,
+                            "masked_investigator": None,
+                            "masked_assessor": None,
+                            "no_masking": None,
+                            "control": None,
+                            "endpoint": None,
+                            "number_of_arms": study_pharma_cm.number_of_arms,
+                            "model_description": {"textblock": None},
+                            "masking_description": {"textblock": None},
+                        },
+                        "observational_design": {
+                            "observational_study_design": None,
+                            "biospecimen_retention": None,
+                            "biospecimen_description": {"textblock": None},
+                            "timing": None,
+                            "number_of_groups": None,
+                            "patient_registry": None,
+                            "target_duration_quantity": None,
+                            "target_duration_units": None,
+                        },
+                    },
+                    "primary_outcome": [
+                        {
+                            "outcome_measure": outcome_measure.title,
+                            "outcome_time_frame": outcome_measure.timeframe,
+                            "outcome_description": {
+                                "description": outcome_measure.description
+                            },
+                        }
+                        for outcome_measure in study_pharma_cm.outcome_measures
+                    ],
+                    "secondary_outcome": None,
+                    "other_outcome": None,
+                    "enrollment": None,
+                    "enrollment_type": None,
+                    "condition": study_pharma_cm.primary_disease_or_condition_being_studied,
+                    "arm_group": [
+                        {
+                            "arm_group_label": study_arm.arm_title,
+                            "arm_type": study_arm.arm_type,
+                            "arm_group_description": {
+                                "textblock": study_arm.arm_description
+                            },
+                        }
+                        for study_arm in study_pharma_cm.study_arms
+                    ],
+                    "intervention": {
+                        "intervention_type": study_pharma_cm.intervention_type,
+                        "intervention_name": None,
+                        "intervention_description": {"textblock": None},
+                        "arm_group_label": None,
+                    },
+                    "eligibility": {
+                        "study_population": {"textblock": None},
+                        "sampling_method": None,
+                        "criteria": {
+                            "textblock": f""" Inclusion Criteria:
+                                {"".join(["-" + inclusion_criteria+"\n" for inclusion_criteria in study_pharma_cm.inclusion_criteria])}
+                                Exclusion Criteria:
+                                {"".join(["-" + exclusion_criteria+"\n" for exclusion_criteria in study_pharma_cm.exclusion_criteria])}
+                                """
+                        },
+                        "healthy_volunteers": study_pharma_cm.accepts_healthy_volunteers,
+                        "gender": None,
+                        "gender_based": None,
+                        "gender_description": {"textblock"},
+                        "minimum_age": study_pharma_cm.minimum_age,
+                        "maximum_age": study_pharma_cm.maximum_age,
+                    },
+                    "overall_official": {
+                        "first_name": None,
+                        "middle_name": None,
+                        "last_name": None,
+                        "degrees": None,
+                        "role": None,
+                        "affiliation": None,
+                    },
+                    "overall_contact": {
+                        "first_name": None,
+                        "middle_name": None,
+                        "last_name": None,
+                        "degrees": None,
+                        "phone": None,
+                        "phone_ext": None,
+                        "email": None,
+                    },
+                    "overall_contact_backup": {
+                        "first_name": None,
+                        "middle_name": None,
+                        "last_name": None,
+                        "degrees": None,
+                        "phone": None,
+                        "phone_ext": None,
+                        "email": None,
+                    },
+                    "location": {
+                        "facility": {
+                            "name": None,
+                            "address": {
+                                "city": None,
+                                "state": None,
+                                "country": None,
+                                "zip": None,
+                            },
+                        },
+                        "status": None,
+                        "contact": {
+                            "first_name": None,
+                            "middle_name": None,
+                            "last_name": None,
+                            "degrees": None,
+                            "phone": None,
+                            "phone_ext": None,
+                            "email": None,
+                        },
+                        "contact_backup": {
+                            "first_name": None,
+                            "middle_name": None,
+                            "last_name": None,
+                            "degrees": None,
+                            "phone": None,
+                            "phone_ext": None,
+                            "email": None,
+                        },
+                        "investigator": {
+                            "first_name": None,
+                            "middle_name": None,
+                            "last_name": None,
+                            "degrees": None,
+                            "role": None,
+                        },
+                    },
+                }
+            }
+        }

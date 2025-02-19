@@ -126,18 +126,18 @@ def test_get_table(
     )
 
     # Make a compound selection with another compound alias, while keeping all other details the same
-    study_compound_created2: StudySelectionCompound = (
-        StudyCompoundSelectionService().make_selection(
-            study_uid=tst_study.uid,
-            selection_create_input=StudySelectionCompoundCreateInput(
-                medicinal_product_uid=medicinal_product2.uid,
-                compound_alias_uid=compound_alias2a.uid,
-                dose_frequency_uid=ct_term_dose_frequency.term_uid,
-                delivery_device_uid=ct_term_delivery_device.term_uid,
-                dispenser_uid=ct_term_dispenser.term_uid,
-                dose_value_uid=dose_value.uid,
-            ),
-        )
+    study_compound_created2: (
+        StudySelectionCompound
+    ) = StudyCompoundSelectionService().make_selection(
+        study_uid=tst_study.uid,
+        selection_create_input=StudySelectionCompoundCreateInput(
+            medicinal_product_uid=medicinal_product2.uid,
+            compound_alias_uid=compound_alias2a.uid,
+            dose_frequency_uid=ct_term_dose_frequency.term_uid,
+            delivery_device_uid=ct_term_delivery_device.term_uid,
+            dispenser_uid=ct_term_dispenser.term_uid,
+            dose_value_uid=dose_value.uid,
+        ),
     )
 
     study_compound_dosing_selection_service = StudyCompoundDosingSelectionService()

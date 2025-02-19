@@ -14,7 +14,7 @@
       ],
       "start_date": "2022-10-18T12:54:37.098182",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -32,7 +32,7 @@
       "sponsor_preferred_name_sentence_case": "% B/T",
       "start_date": "2022-10-18T12:54:33.251383",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000255"
@@ -52,7 +52,7 @@
       ],
       "start_date": "2022-10-18T12:54:36.920646",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -70,7 +70,7 @@
       "sponsor_preferred_name_sentence_case": "%-point",
       "start_date": "2022-10-18T12:54:33.132783",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000253"
@@ -90,7 +90,7 @@
       ],
       "start_date": "2022-10-18T12:54:37.113691",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -108,7 +108,7 @@
       "sponsor_preferred_name_sentence_case": "(pmol*h/L)/(U/kg)",
       "start_date": "2022-10-18T12:54:33.358682",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000256"
@@ -128,7 +128,7 @@
       ],
       "start_date": "2022-10-18T12:54:36.637826",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -146,7 +146,7 @@
       "sponsor_preferred_name_sentence_case": "(pmol/L)/(U/kg)",
       "start_date": "2022-10-18T12:54:33.133739",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000254"
@@ -166,7 +166,7 @@
       ],
       "start_date": "2022-10-18T12:54:40.358337",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -184,7 +184,7 @@
       "sponsor_preferred_name_sentence_case": "/regimen period",
       "start_date": "2022-10-18T12:54:36.411736",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000258"
@@ -204,7 +204,7 @@
       ],
       "start_date": "2022-10-18T12:54:37.448307",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -222,7 +222,7 @@
       "sponsor_preferred_name_sentence_case": "0/00",
       "start_date": "2022-10-18T12:54:36.412799",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000259"
@@ -242,7 +242,7 @@
       ],
       "start_date": "2022-10-18T12:54:40.338322",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -260,7 +260,7 @@
       "sponsor_preferred_name_sentence_case": "Arbitrary U/mL",
       "start_date": "2022-10-18T12:54:36.419005",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000257"
@@ -280,7 +280,7 @@
       ],
       "start_date": "2022-10-18T12:54:28.795384",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -298,7 +298,7 @@
       "sponsor_preferred_name_sentence_case": "Count",
       "start_date": "2022-10-18T12:54:27.717844",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000240"
@@ -318,7 +318,7 @@
       ],
       "start_date": "2022-10-18T12:54:41.079690",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -336,7 +336,7 @@
       "sponsor_preferred_name_sentence_case": "DOSE STEP",
       "start_date": "2022-10-18T12:54:37.316268",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000262"
@@ -356,7 +356,7 @@
       ],
       "start_date": "2022-10-18T12:54:41.034148",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -374,7 +374,7 @@
       "sponsor_preferred_name_sentence_case": "Fraction of 1",
       "start_date": "2022-10-18T12:54:37.229549",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000261"
@@ -394,7 +394,7 @@
       ],
       "start_date": "2022-10-18T12:54:44.622226",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -412,7 +412,7 @@
       "sponsor_preferred_name_sentence_case": "IU/mL/IU/kg",
       "start_date": "2022-10-18T12:54:40.542623",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000264"
@@ -432,7 +432,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.715431",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -450,7 +450,7 @@
       "sponsor_preferred_name_sentence_case": "Score",
       "start_date": "2022-10-18T12:54:45.558934",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000272"
@@ -470,7 +470,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.619668",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -488,7 +488,7 @@
       "sponsor_preferred_name_sentence_case": "U/week",
       "start_date": "2022-10-18T12:54:45.137687",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000269"
@@ -508,7 +508,7 @@
       ],
       "start_date": "2022-10-18T12:54:40.857555",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -526,7 +526,7 @@
       "sponsor_preferred_name_sentence_case": "dB/m",
       "start_date": "2022-10-18T12:54:36.974554",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000260"
@@ -546,7 +546,7 @@
       ],
       "start_date": "2022-10-18T12:54:41.381307",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -564,7 +564,7 @@
       "sponsor_preferred_name_sentence_case": "g/week",
       "start_date": "2022-10-18T12:54:40.382574",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000263"
@@ -584,7 +584,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.068146",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -602,7 +602,7 @@
       "sponsor_preferred_name_sentence_case": "kJ",
       "start_date": "2022-10-18T12:54:40.703531",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000265"
@@ -622,7 +622,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.615897",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -640,7 +640,7 @@
       "sponsor_preferred_name_sentence_case": "kUA/L",
       "start_date": "2022-10-18T12:54:45.429190",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000271"
@@ -660,7 +660,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.124174",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -678,7 +678,7 @@
       "sponsor_preferred_name_sentence_case": "mL/Week",
       "start_date": "2022-10-18T12:54:40.989840",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000266"
@@ -698,7 +698,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.448409",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -716,7 +716,7 @@
       "sponsor_preferred_name_sentence_case": "mU/kg/min",
       "start_date": "2022-10-18T12:54:44.625044",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000268"
@@ -736,7 +736,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.421250",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -754,7 +754,7 @@
       "sponsor_preferred_name_sentence_case": "mm2/usec",
       "start_date": "2022-10-18T12:54:41.377310",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000267"
@@ -774,7 +774,7 @@
       ],
       "start_date": "2022-10-18T12:54:25.857278",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -792,7 +792,7 @@
       "sponsor_preferred_name_sentence_case": "no unit",
       "start_date": "2022-10-18T12:54:24.444172",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000224"
@@ -812,7 +812,7 @@
       ],
       "start_date": "2022-10-18T12:54:45.614357",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "catalogue_name": "SEND CT",
@@ -830,7 +830,7 @@
       "sponsor_preferred_name_sentence_case": "um2/sec",
       "start_date": "2022-10-18T12:54:45.361831",
       "status": "Final",
-      "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "term_uid": "CTTerm_000270"

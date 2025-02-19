@@ -7,18 +7,18 @@ from clinical_mdr_api.models.controlled_terminologies.ct_stats import (
     CountTypeEnum,
     CTStats,
 )
-from clinical_mdr_api.oauth.user import user
 from clinical_mdr_api.repositories.ct_packages import get_package_changes_by_year
 from clinical_mdr_api.services._meta_repository import MetaRepository
+from common.auth.user import user
 
 
 class CTStatsService:
     _repos: MetaRepository
-    user_initials: str | None
+    author_id: str | None
 
     def __init__(self):
-        self.user_initials = user().id()
-        self._repos = MetaRepository(self.user_initials)
+        self.author_id = user().id()
+        self._repos = MetaRepository(self.author_id)
 
     def _close_all_repos(self) -> None:
         self._repos.close()

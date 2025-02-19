@@ -245,7 +245,7 @@ def download_newer_data_model_versions_than(
             version_number = path.basename(href)
 
             data_model_import = DataModelImport(
-                library=library, catalogue=catalogue, version_number=version_number, user_initials="TMP"
+                library=library, catalogue=catalogue, version_number=version_number, author_id="TMP"
             )
             if (catalogue not in last_available_versions) or (
                 catalogue in last_available_versions

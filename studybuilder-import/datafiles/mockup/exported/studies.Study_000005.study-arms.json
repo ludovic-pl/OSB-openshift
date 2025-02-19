@@ -19,7 +19,7 @@
         "start_date": "2022-12-15T13:07:26.791204+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       },
       {
         "accepted_version": null,
@@ -37,7 +37,7 @@
         "start_date": "2022-12-15T13:07:26.791219+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       },
       {
         "accepted_version": null,
@@ -55,7 +55,7 @@
         "start_date": "2022-12-15T13:07:26.791224+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       }
     ],
     "arm_type": {
@@ -74,7 +74,7 @@
       "start_date": "2022-12-08T15:07:50.387701+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000082",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "arm_uid": "StudyArm_000019",
@@ -90,7 +90,7 @@
     "start_date": "2022-12-15T12:31:38.480745+00:00",
     "status": null,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   },
   {
     "accepted_version": false,
@@ -112,7 +112,7 @@
         "start_date": "2022-12-15T13:07:26.794409+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       },
       {
         "accepted_version": null,
@@ -130,7 +130,7 @@
         "start_date": "2022-12-15T13:07:26.794420+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       },
       {
         "accepted_version": null,
@@ -148,7 +148,7 @@
         "start_date": "2022-12-15T13:07:26.794424+00:00",
         "status": null,
         "study_uid": "Study_000005",
-        "user_initials": "unknown-user"
+        "author_username": "unknown-user@example.com"
       }
     ],
     "arm_type": {
@@ -167,7 +167,7 @@
       "start_date": "2022-12-08T15:07:50.561264+00:00",
       "status": "Final",
       "term_uid": "CTTerm_000084",
-      "user_initials": "unknown-user",
+      "author_username": "unknown-user@example.com",
       "version": "1.0"
     },
     "arm_uid": "StudyArm_000021",
@@ -183,6 +183,6 @@
     "start_date": "2022-12-15T12:31:47.339024+00:00",
     "status": null,
     "study_uid": "Study_000005",
-    "user_initials": "unknown-user"
+    "author_username": "unknown-user@example.com"
   }
 ]

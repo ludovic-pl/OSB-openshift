@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.concepts.simple_concepts.numeric_value import (
     NumericValueAR,
     NumericValueVO,
@@ -18,6 +17,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
+from common.exceptions import BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -61,10 +61,10 @@ class NumericValueWithUnitVO(NumericValueVO):
         unit_definition_uid: str,
     ) -> Self:
         unit_definition = find_unit_definition_by_uid(unit_definition_uid)
-        if unit_definition is None:
-            raise exceptions.ValidationException(
-                f"{cls.__name__} tried to connect to non-existent unit definition identified by uid ({unit_definition_uid})"
-            )
+        BusinessLogicException.raise_if(
+            unit_definition is None,
+            msg=f"{cls.__name__} tried to connect to non-existent Unit Definition with UID '{unit_definition_uid}'.",
+        )
         value = cls.derive_value_property(value=value)
         simple_concept_vo = cls(
             name=f"{value} [{unit_definition_uid}]",
@@ -90,28 +90,29 @@ class NumericValueWithUnitAR(NumericValueAR):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         simple_concept_vo: SimpleConceptVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
         find_uid_by_name_callback: Callable[[str], str | None] = (lambda _: None),
-        find_uid_by_value_and_unit_callback: Callable[[str, str | None], str | None]
-        | None = None,
+        find_uid_by_value_and_unit_callback: (
+            Callable[[str, str | None], str | None] | None
+        ) = None,
     ) -> Self:
         item_metadata = LibraryItemMetadataVO(
             _change_description="Initial version",
             _status=LibraryItemStatus.FINAL,
-            _author=author,
+            _author_id=author_id,
             _start_date=datetime.now(timezone.utc),
             _end_date=None,
             _major_version=1,
             _minor_version=0,
         )
 
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
 
         if find_uid_by_value_and_unit_callback:
             # Check whether simple concept with the same value and unit already exists. If yes, return its uid, otherwise None.
@@ -124,9 +125,11 @@ class NumericValueWithUnitAR(NumericValueAR):
             simple_concept_uid = find_uid_by_name_callback(simple_concept_vo.name)
 
         simple_concept_ar = cls(
-            _uid=generate_uid_callback()
-            if simple_concept_uid is None
-            else simple_concept_uid,
+            _uid=(
+                generate_uid_callback()
+                if simple_concept_uid is None
+                else simple_concept_uid
+            ),
             _item_metadata=item_metadata,
             _library=library,
             _concept_vo=simple_concept_vo,

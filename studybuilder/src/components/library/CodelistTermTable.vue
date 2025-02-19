@@ -314,7 +314,7 @@ async function openCTValuesHistory(term) {
   selectedTerm.value = term
   historyType = 'termAttributes'
   historyHeaders.value = [
-    { title: t('CodelistTermDetail.concept_id'), key: 'term_uid' },
+    { title: t('CodelistTermDetail.concept_id'), key: 'concept_id' },
     {
       title: t('CodelistTermDetail.term_name'),
       key: 'name_submission_value',

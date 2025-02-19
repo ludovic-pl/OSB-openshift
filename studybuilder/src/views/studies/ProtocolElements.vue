@@ -5,6 +5,7 @@
       <HelpButton :help-text="$t('_help.ProtocolElementsTable.general')" />
       <v-spacer />
       <v-btn
+        v-if="tab === 'tab-1'"
         class="ml-2"
         size="small"
         variant="outlined"

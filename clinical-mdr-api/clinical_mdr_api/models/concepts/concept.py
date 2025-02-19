@@ -1,6 +1,6 @@
 from abc import ABC
 from datetime import datetime
-from typing import Callable, Self
+from typing import Annotated, Callable, Self
 
 from pydantic import Field
 
@@ -19,26 +19,33 @@ from clinical_mdr_api.domains.concepts.unit_definitions.unit_definition import (
 from clinical_mdr_api.domains.controlled_terminologies.ct_term_name import CTTermNameAR
 from clinical_mdr_api.models import _generic_descriptions
 from clinical_mdr_api.models.libraries.library import Library
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import BaseModel, PatchInputModel, PostInputModel
 
 
 class NoLibraryConceptModelNoName(BaseModel, ABC):
-    start_date: datetime = Field(
-        ...,
-        title="endDate",
-        description=_generic_descriptions.START_DATE,
-        source="latest_version|start_date",
-    )
-    end_date: datetime | None = Field(
-        None,
-        title="endDate",
-        description=_generic_descriptions.END_DATE,
-        source="latest_version|end_date",
-        nullable=True,
-    )
+    start_date: Annotated[
+        datetime,
+        Field(
+            description=_generic_descriptions.START_DATE,
+            source="latest_version|start_date",
+        ),
+    ]
+    end_date: Annotated[
+        datetime | None,
+        Field(
+            description=_generic_descriptions.END_DATE,
+            source="latest_version|end_date",
+            nullable=True,
+        ),
+    ] = None
     status: str
     version: str
-    user_initials: str
+    author_username: Annotated[
+        str | None,
+        Field(
+            nullable=True,
+        ),
+    ] = None
     change_description: str
     uid: str
 
@@ -47,8 +54,8 @@ class NoLibraryConceptModel(NoLibraryConceptModelNoName):
     name: str
 
 
-class NoLibraryConceptPostInput(BaseModel, ABC):
-    name: str = Field(min_length=1)
+class NoLibraryConceptPostInput(PostInputModel, ABC):
+    name: Annotated[str, Field(min_length=1)]
 
 
 class ConceptModel(NoLibraryConceptModel):
@@ -56,57 +63,59 @@ class ConceptModel(NoLibraryConceptModel):
 
 
 class ConceptPostInput(NoLibraryConceptPostInput):
-    library_name: str = "Sponsor"
+    library_name: Annotated[str, Field(min_length=1)] = "Sponsor"
 
 
-class ConceptPatchInput(BaseModel, ABC):
-    change_description: str
-    name: str | None = None
+class ConceptPatchInput(PatchInputModel, ABC):
+    change_description: Annotated[str, Field(min_length=1)]
+    name: Annotated[str | None, Field(min_length=1)] = None
 
 
 class VersionProperties(BaseModel):
-    start_date: datetime | None = Field(
-        None,
-        title="startDate",
-        description=_generic_descriptions.START_DATE,
-        source="latest_version|start_date",
-        nullable=True,
-    )
-    end_date: datetime | None = Field(
-        None,
-        title="endDate",
-        description=_generic_descriptions.END_DATE,
-        source="latest_version|end_date",
-        nullable=True,
-    )
-    status: str | None = Field(
-        None,
-        title="status",
-        description="",
-        source="latest_version|status",
-        nullable=True,
-    )
-    version: str | None = Field(
-        None,
-        title="version",
-        description="",
-        source="latest_version|version",
-        nullable=True,
-    )
-    change_description: str | None = Field(
-        None,
-        title="changeDescription",
-        description="",
-        source="latest_version|change_description",
-        nullable=True,
-    )
-    user_initials: str | None = Field(
-        None,
-        title="userInitials",
-        description="",
-        source="latest_version|user_initials",
-        nullable=True,
-    )
+    start_date: Annotated[
+        datetime | None,
+        Field(
+            description=_generic_descriptions.START_DATE,
+            source="latest_version|start_date",
+            nullable=True,
+        ),
+    ] = None
+    end_date: Annotated[
+        datetime | None,
+        Field(
+            description=_generic_descriptions.END_DATE,
+            source="latest_version|end_date",
+            nullable=True,
+        ),
+    ] = None
+    status: Annotated[
+        str | None,
+        Field(
+            source="latest_version|status",
+            nullable=True,
+        ),
+    ] = None
+    version: Annotated[
+        str | None,
+        Field(
+            source="latest_version|version",
+            nullable=True,
+        ),
+    ] = None
+    change_description: Annotated[
+        str | None,
+        Field(
+            source="latest_version|change_description",
+            nullable=True,
+        ),
+    ] = None
+    author_username: Annotated[
+        str | None,
+        Field(
+            source="latest_version|author_id",  # utils.from_orm() method will lookup author's username using `latest_version|author_id` value as User.user_id
+            nullable=True,
+        ),
+    ] = None
 
 
 class Concept(VersionProperties):
@@ -114,66 +123,74 @@ class Concept(VersionProperties):
         orm_mode = True
 
     uid: str
-    name: str = Field(
-        ...,
-        title="name",
-        description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
-        source="has_latest_value.name",
-    )
-    name_sentence_case: str | None = Field(
-        None,
-        title="name_sentence_case",
-        description="",
-        source="has_latest_value.name_sentence_case",
-        nullable=True,
-    )
-    definition: str | None = Field(
-        None,
-        title="definition",
-        description="",
-        source="has_latest_value.definition",
-        nullable=True,
-    )
-    abbreviation: str | None = Field(
-        None,
-        title="abbreviation",
-        description="",
-        source="has_latest_value.abbreviation",
-        nullable=True,
-    )
-    library_name: str = Field(
-        ...,
-        title="library_name",
-        description="",
-        source="has_library.name",
-    )
+    name: Annotated[
+        str,
+        Field(
+            description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
+            source="has_latest_value.name",
+        ),
+    ]
+    name_sentence_case: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.name_sentence_case",
+            nullable=True,
+        ),
+    ] = None
+    definition: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.definition",
+            nullable=True,
+        ),
+    ] = None
+    abbreviation: Annotated[
+        str | None,
+        Field(
+            source="has_latest_value.abbreviation",
+            nullable=True,
+        ),
+    ] = None
+    library_name: Annotated[str, Field(source="has_library.name")]
 
 
-class ConceptInput(BaseModel):
-    name: str = Field(
-        None,
-        title="name",
-        description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
-    )
-    name_sentence_case: str | None = Field(
-        None,
-        title="name_sentence_case",
-        description="",
-    )
-    definition: str | None = Field(
-        None,
-        title="definition",
-        description="",
-    )
-    abbreviation: str | None = None
-    library_name: str | None = None
+class ExtendedConceptPostInput(PostInputModel):
+    name: Annotated[
+        str | None,
+        Field(
+            description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
+            min_length=1,
+        ),
+    ] = None
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
+    definition: Annotated[str | None, Field(min_length=1)] = None
+    abbreviation: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
+
+
+class ExtendedConceptPatchInput(PatchInputModel):
+    name: Annotated[
+        str | None,
+        Field(
+            description="The name or the actual value. E.g. 'Systolic Blood Pressure', 'Body Temperature', 'Metformin', ...",
+            min_length=1,
+        ),
+    ] = None
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
+    definition: Annotated[str | None, Field(min_length=1)] = None
+    abbreviation: Annotated[str | None, Field(min_length=1)] = None
+    library_name: Annotated[str | None, Field(min_length=1)] = None
 
 
 class SimpleConcept(Concept):
     template_parameter: bool
 
 
-class SimpleConceptInput(ConceptInput):
+class SimpleConceptPostInput(ExtendedConceptPostInput):
+    template_parameter: bool | None = False
+
+
+class SimpleConceptPatchInput(ExtendedConceptPatchInput):
     template_parameter: bool | None = False
 
 
@@ -191,16 +208,16 @@ class TextValue(SimpleConcept):
         )
 
 
-class TextValueInput(SimpleConceptInput):
-    name: str
-    name_sentence_case: str | None = None
+class TextValuePostInput(SimpleConceptPostInput):
+    name: Annotated[str, Field(min_length=1)]
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
 
 
 class VisitName(TextValue):
     pass
 
 
-class VisitNameInput(TextValueInput):
+class VisitNamePostInput(TextValuePostInput):
     pass
 
 
@@ -222,7 +239,7 @@ class NumericValue(SimpleConcept):
         )
 
 
-class NumericValueInput(SimpleConceptInput):
+class NumericValuePostInput(SimpleConceptPostInput):
     value: float
 
 
@@ -253,8 +270,8 @@ class NumericValueWithUnit(NumericValue):
         )
 
 
-class NumericValueWithUnitInput(NumericValueInput):
-    unit_definition_uid: str
+class NumericValueWithUnitPostInput(NumericValuePostInput):
+    unit_definition_uid: Annotated[str, Field(min_length=1)]
 
 
 class SimpleNumericValueWithUnit(BaseModel):
@@ -316,8 +333,8 @@ class LagTime(NumericValueWithUnit):
         )
 
 
-class LagTimeInput(NumericValueWithUnitInput):
-    sdtm_domain_uid: str
+class LagTimePostInput(NumericValueWithUnitPostInput):
+    sdtm_domain_uid: Annotated[str, Field(min_length=1)]
 
 
 class SimpleLagTime(BaseModel):
@@ -382,12 +399,8 @@ class TimePoint(SimpleConcept):
         )
 
 
-class TimePointInput(SimpleConceptInput):
-    name_sentence_case: str | None = Field(
-        None,
-        title="name_sentence_case",
-        description="",
-    )
-    numeric_value_uid: str
-    unit_definition_uid: str
-    time_reference_uid: str
+class TimePointPostInput(SimpleConceptPostInput):
+    name_sentence_case: Annotated[str | None, Field(min_length=1)] = None
+    numeric_value_uid: Annotated[str, Field(min_length=1)]
+    unit_definition_uid: Annotated[str, Field(min_length=1)]
+    time_reference_uid: Annotated[str, Field(min_length=1)]

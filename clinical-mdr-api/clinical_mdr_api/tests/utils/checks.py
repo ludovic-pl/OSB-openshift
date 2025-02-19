@@ -1,3 +1,5 @@
+from typing import Iterable
+
 import httpx
 
 JSON_CONTENT_TYPE = "application/json"
@@ -8,7 +10,7 @@ PLAIN_TEXT_CONTENT_TYPE = "text/plain"
 MARKDOWN_TEXT_CONTENT_TYPE = "text/markdown"
 
 
-def assert_response_status_code(response: httpx.Response, status: int | list[int]):
+def assert_response_status_code(response: httpx.Response, status: int | Iterable[int]):
     """Assert request.Response status code"""
     # pylint: disable=unused-variable
     __tracebackhide__ = True
@@ -17,9 +19,9 @@ def assert_response_status_code(response: httpx.Response, status: int | list[int
         status = (status,)
 
     assert response.status_code in status, (
-        f"Expected HTTP status code in [{', '.join(map(str, status))}].\n"
-        f"Actual response: {response.status_code} {response.reason_phrase}: {response.text[:1024]}\n"
-        f"URL: {response.url}"
+        f"Expected HTTP status code in [{', '.join(map(str, status))}]"
+        f"for {response.request.method} {response.request.url}\n"
+        f"Actual response: {response.status_code} {response.reason_phrase}: {response.text[:1024]}"
     )
 
 

@@ -1,9 +1,9 @@
 import unittest
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_definition_aggregates.registry_identifiers import (
     RegistryIdentifiersVO,
 )
+from common import exceptions
 
 # Goal is to test the business logic of the class
 

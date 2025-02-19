@@ -16,7 +16,7 @@ from mdr_standards_import.scripts.import_scripts.cdisc_data_models.import_into_m
     import_from_cdisc_db_into_mdr,
 )
 from mdr_standards_import.scripts.utils import (
-    get_user_initials,
+    get_author_id,
     get_directory_name,
     get_cdisc_neo4j_driver,
     get_mdr_neo4j_driver,
@@ -32,7 +32,7 @@ MDR_DATABASE = environ.get("NEO4J_MDR_DATABASE", "neo4j")
 
 
 def wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(
-    user_initials: str, json_data_directory: str
+    author_id: str, json_data_directory: str
 ):
     cdisc_neo4j_driver = get_cdisc_neo4j_driver()
     mdr_neo4j_driver = get_mdr_neo4j_driver()
@@ -61,7 +61,7 @@ def wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(
                     version_number=version_number,
                     cdisc_neo4j_driver=cdisc_neo4j_driver,
                     mdr_neo4j_driver=mdr_neo4j_driver,
-                    user_initials=user_initials,
+                    author_id=author_id,
                 )
 
     # And finally, we do a second iteration over the Implementation ones
@@ -83,7 +83,7 @@ def wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(
                     version_number=version_number,
                     cdisc_neo4j_driver=cdisc_neo4j_driver,
                     mdr_neo4j_driver=mdr_neo4j_driver,
-                    user_initials=user_initials,
+                    author_id=author_id,
                 )
 
     mdr_neo4j_driver.close()
@@ -91,7 +91,7 @@ def wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(
 
 
 def _import_cdisc_data_model_from_cdisc_db_into_mdr(
-    catalogue: str, version_number, cdisc_neo4j_driver, mdr_neo4j_driver, user_initials
+    catalogue: str, version_number, cdisc_neo4j_driver, mdr_neo4j_driver, author_id
 ):
     print(f"============================================")
     print(
@@ -105,7 +105,7 @@ def _import_cdisc_data_model_from_cdisc_db_into_mdr(
         cdisc_db_name=CDISC_IMPORT_DATABASE,
         mdr_neo4j_driver=mdr_neo4j_driver,
         mdr_db_name=MDR_DATABASE,
-        user_initials=user_initials,
+        author_id=author_id,
     )
 
 
@@ -121,4 +121,4 @@ def _get_data_model_types(tx):
 
 
 if __name__ == "__main__":
-    wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(get_user_initials(1), get_directory_name(2))
+    wrapper_import_cdisc_data_models_from_cdisc_db_into_mdr(get_author_id(1), get_directory_name(2))

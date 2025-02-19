@@ -5,10 +5,10 @@ from clinical_mdr_api.domain_repositories.models.standard_data_model import (
 from clinical_mdr_api.domain_repositories.standard_data_models.standard_data_model_repository import (
     StandardDataModelRepository,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.standard_data_models.dataset import (
     Dataset as DatasetAPIModel,
 )
+from common.exceptions import ValidationException
 
 
 class DatasetRepository(StandardDataModelRepository):
@@ -37,21 +37,24 @@ class DatasetRepository(StandardDataModelRepository):
             filter_query_parameters,
         ) = super().create_query_filter_statement()
         filter_parameters = []
-        if kwargs.get("data_model_ig_name") and kwargs.get("data_model_ig_version"):
-            data_model_ig_name = kwargs.get("data_model_ig_name")
-            data_model_ig_version = kwargs.get("data_model_ig_version")
 
-            filter_by_implements_dataset_class_version = (
-                "implements.version_number = $data_model_ig_version"
-            )
-            filter_parameters.append(filter_by_implements_dataset_class_version)
+        ValidationException.raise_if(
+            not kwargs.get("data_model_ig_name")
+            or not kwargs.get("data_model_ig_version"),
+            msg="Please provide data_model_ig_name and data_model_ig_version params",
+        )
 
-            filter_query_parameters["data_model_ig_name"] = data_model_ig_name
-            filter_query_parameters["data_model_ig_version"] = data_model_ig_version
-        else:
-            raise ValidationException(
-                "Please provide data_model_ig_name and data_model_ig_version params"
-            )
+        data_model_ig_name = kwargs.get("data_model_ig_name")
+        data_model_ig_version = kwargs.get("data_model_ig_version")
+
+        filter_by_implements_dataset_class_version = (
+            "implements.version_number = $data_model_ig_version"
+        )
+        filter_parameters.append(filter_by_implements_dataset_class_version)
+
+        filter_query_parameters["data_model_ig_name"] = data_model_ig_name
+        filter_query_parameters["data_model_ig_version"] = data_model_ig_version
+
         extended_filter_statements = " AND ".join(filter_parameters)
         if filter_statements_from_standard != "":
             if len(extended_filter_statements) > 0:

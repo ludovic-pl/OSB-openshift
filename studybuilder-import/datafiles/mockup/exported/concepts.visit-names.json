@@ -11,7 +11,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000006",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -26,7 +26,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000012",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -41,7 +41,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000018",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -56,7 +56,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000024",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -71,7 +71,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000030",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -86,7 +86,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000036",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -101,7 +101,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000042",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -116,7 +116,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000048",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -131,7 +131,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000054",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -146,7 +146,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000060",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   },
   {
@@ -161,7 +161,7 @@
     "status": null,
     "template_parameter": true,
     "uid": "NumericValue_000066",
-    "user_initials": null,
+    "author_username": "unknown-user@example.com",
     "version": null
   }
 ]

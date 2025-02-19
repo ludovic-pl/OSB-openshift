@@ -1,7 +1,6 @@
 from clinical_mdr_api.domain_repositories.concepts.simple_concepts.simple_concept_generic_repository import (
     SimpleConceptGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.concepts import (
     NumericValue,
     NumericValueRoot,
@@ -24,6 +23,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
 from clinical_mdr_api.models.concepts.concept import (
     NumericValue as NumericValueAPIModel,
 )
+from common.utils import convert_to_datetime
 
 
 class NumericValueRepository(SimpleConceptGenericRepository[NumericValueAR]):
@@ -70,7 +70,8 @@ class NumericValueRepository(SimpleConceptGenericRepository[NumericValueAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=input_dict.get("change_description"),
                 status=LibraryItemStatus(input_dict.get("status")),
-                author=input_dict.get("user_initials"),
+                author_id=input_dict.get("author_id"),
+                author_username=input_dict.get("author_username"),
                 start_date=convert_to_datetime(value=input_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),

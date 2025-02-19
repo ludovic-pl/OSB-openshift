@@ -19,11 +19,11 @@ from neomodel import db
 
 from clinical_mdr_api.main import app
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -70,8 +70,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 SPONSOR_CT_PACKAGES_FIELDS_ALL = [
     "uid",
@@ -84,7 +82,7 @@ SPONSOR_CT_PACKAGES_FIELDS_ALL = [
     "source",
     "import_date",
     "effective_date",
-    "user_initials",
+    "author_username",
     "extends_package",
 ]
 
@@ -94,7 +92,7 @@ SPONSOR_CT_PACKAGES_FIELDS_NOT_NULL = [
     "name",
     "import_date",
     "effective_date",
-    "user_initials",
+    "author_username",
     "extends_package",
 ]
 
@@ -121,7 +119,7 @@ def test_get_standard_ct_packages(api_client):
     """Test get standard ct packages"""
     response = api_client.get(URL)
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) > 0
     for package in res:
         assert package["extends_package"] is None
@@ -138,7 +136,7 @@ def test_post_sponsor_ct_package(api_client):
             "effective_date": date.today().strftime("%Y-%m-%d"),
         },
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 409)
 
     # Create a sponsor package with a new date
     response = api_client.post(
@@ -154,7 +152,7 @@ def test_post_sponsor_ct_package(api_client):
     expected_package_name = (
         f"Sponsor {catalogue} {(date.today() - timedelta(days=1)).strftime('%Y-%m-%d')}"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     assert res["uid"]
     assert res["uid"] == expected_package_name
     assert res["name"] == res["uid"]
@@ -280,7 +278,7 @@ def test_sponsor_ct_package_is_persistent_sponsor_codelists(api_client):
     # When the POST API endpoint /ct/codelists/ is called
     # to create a new Sponsor Codelist not related to the test Sponsor CT Package
     new_codelist = TestUtils.create_ct_codelist(
-        name=TestUtils.random_str(max_length=6, prefix="CTCodelist"),
+        name=TestUtils.random_str(length=6, prefix="CTCodelist"),
         library_name="Sponsor",
         approve=True,
         effective_date=datetime.now(),
@@ -303,7 +301,7 @@ def test_sponsor_ct_package_is_persistent_sponsor_terms(api_client):
 
     # Create a Sponsor codelist
     new_codelist = TestUtils.create_ct_codelist(
-        name=TestUtils.random_str(max_length=6, prefix="CTCodelist"),
+        name=TestUtils.random_str(length=6, prefix="CTCodelist"),
         library_name="Sponsor",
         approve=True,
         extensible=True,
@@ -546,7 +544,7 @@ def create_sponsor_package(api_client, effective_date):
     )
     res = response.json()
     log.info("Created Sponsor CT Package: %s", res)
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     return res
 
@@ -556,7 +554,7 @@ def validate_all_packages_list(
 ):
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Get package in res where extends_package is set
     sponsor_packages = [el for el in res if el["extends_package"] is not None]
@@ -586,7 +584,7 @@ def validate_all_packages_list(
 def validate_sponsor_package_list(response, expected_name, expected_num):
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # Get package in res where extends_package is set
     sponsor_packages = [el for el in res if el["extends_package"] is not None]
@@ -619,7 +617,7 @@ def list_expected_codelist_uids(api_client, parent_package_uid):
 
     # Sponsor codelists
     sponsor_codelists_response = api_client.get(
-        "ct/codelists?library=Sponsor&page_size=0"
+        "ct/codelists?library_name=Sponsor&page_size=0"
     )
     sponsor_codelists_res = sponsor_codelists_response.json()
     sponsor_codelists_uids = [
@@ -640,7 +638,7 @@ def list_expected_term_uids(api_client, parent_package_uid):
     ]
 
     # Sponsor terms
-    sponsor_terms_response = api_client.get("ct/terms?library=Sponsor&page_size=0")
+    sponsor_terms_response = api_client.get("ct/terms?library_name=Sponsor&page_size=0")
     sponsor_terms_res = sponsor_terms_response.json()
     sponsor_terms_uids = [term["term_uid"] for term in sponsor_terms_res["items"]]
 

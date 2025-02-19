@@ -107,7 +107,7 @@ study_mapper = {
         "path": "/studies",
         "body": {
             "study_number": row[headers.index("IMPACT_NUM")],
-            "study_acronym": "",  # row[headers.index("TRL_ID")]
+            "study_acronym": None,  # row[headers.index("TRL_ID")]
             "project_number": row[headers.index("PROJ")],
         },
         "patch": {
@@ -153,7 +153,7 @@ project_mapper = {
             "project_number": row[headers.index("project_code")],
             "name": row[headers.index("project_name")],
             "brand_name": row[headers.index("brand_name")],
-            "description": row[headers.index("description")],
+            "description": row[headers.index("description")] or None,
             "clinical_programme_uid": "temp",
         },
         "clinical_programme_body": {
@@ -552,9 +552,9 @@ class Mockdata(BaseImporter):
                                                 study_data_template["current_metadata"][
                                                     component_name
                                                 ][api_param_name] = existingCodes
-                                                patched_data[
-                                                    api_param_name
-                                                ] = existingCodes
+                                                patched_data[api_param_name] = (
+                                                    existingCodes
+                                                )
                                         elif api_param_name.endswith("_code"):
                                             dict_to_patch = {"term_uid": data_to_patch}
                                             study_data_template["current_metadata"][

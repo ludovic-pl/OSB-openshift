@@ -22,7 +22,7 @@ class Configuration(BaseImporter):
         r = csv.DictReader(file)
         for line in r:
             path = "/configurations"
-            data = line
+            data = {idx: None if val == "" else val for idx, val in line.items()}
             # data = camel_case_data(line)
             # TODO check why simple_path="study_fields_configuration"
             self.log.info(

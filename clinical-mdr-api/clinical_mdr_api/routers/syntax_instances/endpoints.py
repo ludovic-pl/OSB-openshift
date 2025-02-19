@@ -1,23 +1,32 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Path, Query, Request, Response
 from fastapi import status as fast_api_status
 from pydantic.types import Json
 
-from clinical_mdr_api import config, models
 from clinical_mdr_api.domain_repositories.models.syntax import EndpointValue
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyComponentEnum,
 )
 from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.study_selections.study import Study
+from clinical_mdr_api.models.syntax_instances.endpoint import (
+    Endpoint,
+    EndpointCreateInput,
+    EndpointEditInput,
+    EndpointVersion,
+)
+from clinical_mdr_api.models.syntax_templates.template_parameter import (
+    TemplateParameter,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers._generic_descriptions import study_section_description
 from clinical_mdr_api.services.syntax_instances.endpoints import EndpointService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/endpoints"
 router = APIRouter()
@@ -25,7 +34,7 @@ router = APIRouter()
 Service = EndpointService
 
 # Argument definitions
-EndpointUID = Path(None, description="The unique id of the endpoint.")
+EndpointUID = Path(description="The unique id of the endpoint.")
 
 
 @router.get(
@@ -33,14 +42,14 @@ EndpointUID = Path(None, description="The unique id of the endpoint.")
     dependencies=[rbac.LIBRARY_READ],
     summary="Returns all final versions of endpoints referenced by any study.",
     description=_generic_descriptions.DATA_EXPORTS_HEADER,
-    response_model=CustomPage[models.Endpoint],
+    response_model=CustomPage[Endpoint],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","uid","objective","template","endpoint","start_date","end_date","status","version","change_description","user_initials"
+"library","uid","objective","template","endpoint","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","Objective","First [ComparatorIntervention]","First Intervention","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -61,7 +70,7 @@ EndpointUID = Path(None, description="The unique id of the endpoint.")
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Changed indication</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
     </data>
 </root>
@@ -85,7 +94,7 @@ EndpointUID = Path(None, description="The unique id of the endpoint.")
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "formats": [
             "text/csv",
@@ -98,25 +107,33 @@ EndpointUID = Path(None, description="The unique id of the endpoint.")
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     all_items = EndpointService().get_all(
         status=LibraryItemStatus.FINAL.value,
@@ -150,28 +167,36 @@ def get_all(
     },
 )
 def get_distinct_values_for_header(
-    status: LibraryItemStatus
-    | None = Query(
-        None,
-        description="If specified, only those objective templates will be returned that are currently in the specified status. "
-        "This may be particularly useful if the objective template has "
-        "a) a 'Draft' and a 'Final' status or "
-        "b) a 'Draft' and a 'Retired' status at the same time "
-        "and you are interested in the 'Final' or 'Retired' status.\n"
-        "Valid values are: 'Final', 'Draft' or 'Retired'.",
-    ),
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    status: Annotated[
+        LibraryItemStatus | None,
+        Query(
+            description="If specified, only those objective templates will be returned that are currently in the specified status. "
+            "This may be particularly useful if the objective template has "
+            "a) a 'Draft' and a 'Final' status or "
+            "b) a 'Draft' and a 'Retired' status at the same time "
+            "and you are interested in the 'Final' or 'Retired' status.\n"
+            "Valid values are: 'Final', 'Draft' or 'Retired'.",
+        ),
+    ] = None,
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
 ):
     return Service().get_distinct_values_for_header(
         status=status,
@@ -179,16 +204,14 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
     )
 
 
 @router.get(
     "/audit-trail",
     dependencies=[rbac.LIBRARY_READ],
-    summary="",
-    description="",
-    response_model=CustomPage[models.Endpoint],
+    response_model=CustomPage[Endpoint],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
@@ -196,24 +219,30 @@ def get_distinct_values_for_header(
     },
 )
 def retrieve_audit_trail(
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.SYNTAX_FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.SYNTAX_FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
 ):
     results = Service().get_all(
         page_number=page_number,
@@ -235,7 +264,7 @@ def retrieve_audit_trail(
     summary="Returns the latest/newest version of a specific endpoint identified by 'endpoint_uid'.",
     description="""If multiple request query parameters are used, then they need to
     match all at the same time (they are combined with the AND operation).""",
-    response_model=models.Endpoint | None,
+    response_model=Endpoint | None,
     status_code=200,
     responses={
         404: {
@@ -246,7 +275,7 @@ def retrieve_audit_trail(
     },
 )
 def get(
-    endpoint_uid: str = EndpointUID,
+    endpoint_uid: Annotated[str, EndpointUID],
 ):
     return EndpointService().get_by_uid(uid=endpoint_uid)
 
@@ -260,14 +289,14 @@ The returned versions are ordered by `start_date` descending (newest entries fir
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=list[models.EndpointVersion],
+    response_model=list[EndpointVersion],
     status_code=200,
     responses={
         200: {
             "content": {
                 "text/csv": {
                     "example": """
-"library","template","objective","uid","endpoint","start_date","end_date","status","version","change_description","user_initials"
+"library","template","objective","uid","endpoint","start_date","end_date","status","version","change_description","author_username"
 "Sponsor","First [ComparatorIntervention]","Objective","826d80a7-0b6a-419d-8ef1-80aa241d7ac7","First Intervention","2020-10-22T10:19:29+00:00",,"Draft","0.1","Initial version","NdSJ"
 """
                 },
@@ -288,7 +317,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             <status type="str">Draft</status>
             <version type="str">0.2</version>
             <change_description type="str">Changed indication</change_description>
-            <user_initials type="str">TODO Initials</user_initials>
+            <author_username type="str">someone@example.com</author_username>
         </item>
     </data>
 </root>
@@ -316,7 +345,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "text/xml": [
             "library=library.name",
@@ -329,7 +358,7 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
             "library=library.name",
@@ -342,14 +371,14 @@ The returned versions are ordered by `start_date` descending (newest entries fir
             "status",
             "version",
             "change_description",
-            "user_initials",
+            "author_username",
         ],
     }
 )
 # pylint: disable=unused-argument
 def get_versions(
     request: Request,  # request is actually required by the allow_exports decorator
-    endpoint_uid: str = EndpointUID,
+    endpoint_uid: Annotated[str, EndpointUID],
 ):
     return EndpointService().get_version_history(endpoint_uid)
 
@@ -357,8 +386,6 @@ def get_versions(
 @router.get(
     "/{endpoint_uid}/studies",
     dependencies=[rbac.STUDY_READ],
-    summary="",
-    description="",
     response_model=list[Study],
     status_code=200,
     responses={
@@ -370,11 +397,15 @@ def get_versions(
     },
 )
 def get_studies(
-    endpoint_uid: str = EndpointUID,
-    include_sections: list[StudyComponentEnum]
-    | None = Query(None, description=study_section_description("include")),
-    exclude_sections: list[StudyComponentEnum]
-    | None = Query(None, description=study_section_description("exclude")),
+    endpoint_uid: Annotated[str, EndpointUID],
+    include_sections: Annotated[
+        list[StudyComponentEnum] | None,
+        Query(description=study_section_description("include")),
+    ] = None,
+    exclude_sections: Annotated[
+        list[StudyComponentEnum] | None,
+        Query(description=study_section_description("exclude")),
+    ] = None,
 ):
     return Service().get_referencing_studies(
         uid=endpoint_uid,
@@ -392,14 +423,14 @@ def get_studies(
 * the specified endpoint template is in 'Final' status and
 * the specified objective is in 'Final' status and
 * the specified library allows creating endpoints (the 'is_editable' property of the library needs to be true) and
-* the endpoint does not yet exist (no endpoint with the same content in 'Final' or 'Draft' status).
+* the endpoint doesn't yet exist (no endpoint with the same content in 'Final' or 'Draft' status).
 
 If the request succeeds:
 * The status will be automatically set to 'Draft'.
 * The 'change_description' property will be set automatically.
 * The 'version' property will be set to '0.1'.
 """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=201,
     responses={
         201: {"description": "Created - The endpoint was successfully created."},
@@ -408,7 +439,7 @@ If the request succeeds:
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The provided list of parameters is invalid.\n"
             "- The objective wasn't found or it is not in 'Final' status.\n"
-            "- The library does not allow to create endpoints.\n"
+            "- The library doesn't allow to create endpoints.\n"
             "- The endpoint does already exist.",
         },
         404: {
@@ -421,9 +452,10 @@ If the request succeeds:
     },
 )
 def create(
-    endpoint: models.EndpointCreateInput = Body(
-        description="Related parameters of the endpoint that shall be created."
-    ),
+    endpoint: Annotated[
+        EndpointCreateInput,
+        Body(description="Related parameters of the endpoint that shall be created."),
+    ],
 ):
     return EndpointService().create(endpoint)
 
@@ -435,12 +467,12 @@ def create(
     description="""This request is only valid if
 * the specified endpoint template is in 'Final' status and
 * the specified library allows creating endpoints (the 'is_editable' property of the library needs to be true) and
-* the endpoint does not yet exist (no endpoint with the same content in 'Final' or 'Draft' status).
+* the endpoint doesn't yet exist (no endpoint with the same content in 'Final' or 'Draft' status).
 
 If the request succeeds:
 * No endpoint will be created, but the result of the request will show what the endpoint will look like.
 """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=200,
     responses={
         200: {"description": "Success - The endpoint is able to be created."},
@@ -448,7 +480,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to create endpoints.\n"
+            "- The library doesn't allow to create endpoints.\n"
             "- The endpoint does already exist.",
         },
         404: {
@@ -461,9 +493,10 @@ If the request succeeds:
     },
 )
 def preview(
-    endpoint: models.EndpointCreateInput = Body(
-        description="Related parameters of the endpoint that shall be previewed."
-    ),
+    endpoint: Annotated[
+        EndpointCreateInput,
+        Body(description="Related parameters of the endpoint that shall be previewed."),
+    ],
 ):
     return EndpointService().create(endpoint, preview=True)
 
@@ -481,7 +514,7 @@ If the request succeeds:
 * The status will remain in 'Draft'.
 * The link to the objective will remain as is.
 """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -491,7 +524,7 @@ If the request succeeds:
             "- The endpoint is not in draft status.\n"
             "- The endpoint had been in 'Final' status before.\n"
             "- The provided list of parameters is invalid.\n"
-            "- The library does not allow to edit draft versions.\n"
+            "- The library doesn't allow to edit draft versions.\n"
             "- The endpoint does already exist.",
         },
         404: {
@@ -502,10 +535,13 @@ If the request succeeds:
     },
 )
 def edit(
-    endpoint_uid: str = EndpointUID,
-    endpoint: models.EndpointEditInput = Body(
-        description="The new parameter terms for the endpoint including the change description.",
-    ),
+    endpoint_uid: Annotated[str, EndpointUID],
+    endpoint: Annotated[
+        EndpointEditInput,
+        Body(
+            description="The new parameter terms for the endpoint including the change description.",
+        ),
+    ],
 ):
     return EndpointService().edit_draft(uid=endpoint_uid, template=endpoint)
 
@@ -523,7 +559,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically.
 * The 'version' property will be increased automatically to the next major version.
     """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=201,
     responses={
         201: {"description": "OK."},
@@ -531,7 +567,7 @@ If the request succeeds:
             "model": ErrorResponse,
             "description": "Forbidden - Reasons include e.g.: \n"
             "- The endpoint is not in draft status.\n"
-            "- The library does not allow to approve endpoints.\n",
+            "- The library doesn't allow to approve endpoints.\n",
         },
         404: {
             "model": ErrorResponse,
@@ -540,7 +576,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def approve(endpoint_uid: str = EndpointUID):
+def approve(endpoint_uid: Annotated[str, EndpointUID]):
     return EndpointService().approve(endpoint_uid)
 
 
@@ -556,7 +592,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -572,7 +608,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def inactivate(endpoint_uid: str = EndpointUID):
+def inactivate(endpoint_uid: Annotated[str, EndpointUID]):
     return EndpointService().inactivate_final(endpoint_uid)
 
 
@@ -589,7 +625,7 @@ If the request succeeds:
 * The 'change_description' property will be set automatically. 
 * The 'version' property will remain the same as before.
     """,
-    response_model=models.Endpoint,
+    response_model=Endpoint,
     status_code=200,
     responses={
         200: {"description": "OK."},
@@ -605,7 +641,7 @@ If the request succeeds:
         500: _generic_descriptions.ERROR_500,
     },
 )
-def reactivate(endpoint_uid: str = EndpointUID):
+def reactivate(endpoint_uid: Annotated[str, EndpointUID]):
     return EndpointService().reactivate_retired(endpoint_uid)
 
 
@@ -634,7 +670,7 @@ def reactivate(endpoint_uid: str = EndpointUID):
         500: _generic_descriptions.ERROR_500,
     },
 )
-def delete(endpoint_uid: str = EndpointUID):
+def delete(endpoint_uid: Annotated[str, EndpointUID]):
     EndpointService().soft_delete(endpoint_uid)
     return Response(status_code=fast_api_status.HTTP_204_NO_CONTENT)
 
@@ -658,14 +694,12 @@ Per parameter, the parameter.values are ordered by
 Note that parameters may be used multiple times in templates.
 In that case, the same parameter (with the same values) is included multiple times in the response.
     """,
-    response_model=list[models.TemplateParameter],
+    response_model=list[TemplateParameter],
     status_code=200,
     responses={
         404: _generic_descriptions.ERROR_404,
         500: _generic_descriptions.ERROR_500,
     },
 )
-def get_parameters(
-    endpoint_uid: str = Path(None, description="The unique id of the endpoint."),
-):
+def get_parameters(endpoint_uid: Annotated[str, EndpointUID]):
     return EndpointService().get_parameters(endpoint_uid)

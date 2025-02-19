@@ -1,6 +1,7 @@
 # RESTful API endpoints used by consumers that want to extract data from StudyBuilder
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Security, status
 from fastapi.encoders import jsonable_encoder
@@ -9,15 +10,18 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from neomodel import config as neomodel_config
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.trace.samplers import AlwaysOnSampler
 from pydantic import ValidationError
 from starlette_context.middleware import RawContextMiddleware
 
-from consumer_api.auth.config import OAUTH_ENABLED, SWAGGER_UI_INIT_OAUTH
-from consumer_api.auth.dependencies import dummy_user_auth, validate_token
-from consumer_api.auth.discovery import reconfigure_with_openid_discovery
-from consumer_api.shared import config, exceptions
+from common import config, exceptions
+from common.auth.config import OAUTH_ENABLED, SWAGGER_UI_INIT_OAUTH
+from common.auth.dependencies import dummy_user_auth, validate_token
+from common.auth.discovery import reconfigure_with_openid_discovery
+from common.models.error import ErrorResponse
+from common.telemetry.traceback_middleware import ExceptionTracebackMiddleware
 from consumer_api.shared.common import get_api_version
-from consumer_api.shared.responses import ErrorResponse
 from consumer_api.system.routes import router as system_router
 from consumer_api.v1.main import router as v1_router
 
@@ -72,10 +76,52 @@ middlewares = [
 ]
 
 
+# Azure Application Insights integration for tracing
+if config.APPINSIGHTS_CONNECTION:
+    _EXPORTER = AzureExporter(
+        connection_string=config.APPINSIGHTS_CONNECTION, enable_local_storage=False
+    )
+else:
+    _EXPORTER = None
+
+# Tracing middleware
+if not config.TRACING_DISABLED:
+    # pylint: disable=wrong-import-position,ungrouped-imports
+    from common.telemetry.request_metrics import patch_neomodel_database
+    from common.telemetry.tracing_middleware import TracingMiddleware
+
+    middlewares.append(
+        Middleware(
+            TracingMiddleware,
+            sampler=AlwaysOnSampler(),
+            exporter=_EXPORTER,
+            exclude_paths=["/system/healthcheck"],
+        )
+    )
+
+    patch_neomodel_database()
+
+
+# Convert all uncaught exceptions to response before returning to TracingMiddleware
+# All other exceptions (except Exception) can be caught by ExceptionMiddleware
+# provided that an exception handler is defined below with @app.exception_handler()
+# Refer to: fastapi.applications.FastAPI.build_middleware_stack()
+middlewares.append(Middleware(ExceptionTracebackMiddleware))
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    if OAUTH_ENABLED:
+        # Reconfiguring Swagger UI settings with OpenID Connect discovery
+        await reconfigure_with_openid_discovery()
+    yield
+
+
 app = FastAPI(
     version=get_api_version(),
     title="StudyBuilder Consumer API",
     dependencies=global_dependencies,
+    lifespan=lifespan,
     swagger_ui_init_oauth=SWAGGER_UI_INIT_OAUTH,
     middleware=middlewares,
     swagger_ui_parameters={"docExpansion": "none"},
@@ -108,20 +154,17 @@ Microsoft Identity Platform documentation can be read
 
 ## System information:
 
-System information is provided by a separate [System Information](./system/docs) sub-app which does not require authentication.
+System information is provided by a separate [System Information](./system/docs) sub-app which doesn't require authentication.
 """,
 )
 
-
-@app.on_event("startup")
-async def openid_discovery_on_startup():
-    if OAUTH_ENABLED:
-        await reconfigure_with_openid_discovery()
+# TODO: This is a temporary workaround as schemathesis doesnt support openapi 3.1.0 yet; this should be removed when schemathesis supports 3.1.0
+app.openapi_version = "3.0.2"
 
 
-@app.exception_handler(exceptions.ConsumerApiBaseException)
+@app.exception_handler(exceptions.MDRApiBaseException)
 def consumer_api_exception_handler(
-    request: Request, exception: exceptions.ConsumerApiBaseException
+    request: Request, exception: exceptions.MDRApiBaseException
 ):
     """Returns an HTTP error code associated to given exception."""
 
@@ -156,6 +199,7 @@ def custom_openapi():
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
+        openapi_version=app.openapi_version,
         description=app.description,
         routes=app.routes,
     )

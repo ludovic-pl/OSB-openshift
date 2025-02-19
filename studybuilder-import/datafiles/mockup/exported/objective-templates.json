@@ -62,7 +62,7 @@
     "status": "Final",
     "study_count": 1,
     "uid": "ObjectiveTemplate_000010",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -128,7 +128,7 @@
     "status": "Final",
     "study_count": 1,
     "uid": "ObjectiveTemplate_000009",
-    "user_initials": "unknown-user",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -154,7 +154,7 @@
     "status": "Final",
     "study_count": 1,
     "uid": "ObjectiveTemplate_000006",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -180,7 +180,7 @@
     "status": "Final",
     "study_count": 1,
     "uid": "ObjectiveTemplate_000005",
-    "user_initials": "MT",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -225,7 +225,7 @@
         "start_date": "2022-10-18T12:43:45.780737",
         "status": "Final",
         "term_uid": "DictionaryTerm_000015",
-        "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+        "author_username": "unknown-user@example.com",
         "version": "1.0"
       }
     ],
@@ -257,7 +257,7 @@
     "status": "Draft",
     "study_count": 0,
     "uid": "ObjectiveTemplate_000004",
-    "user_initials": "AJLD",
+    "author_username": "unknown-user@example.com",
     "version": "1.2"
   },
   {
@@ -296,7 +296,7 @@
     "status": "Final",
     "study_count": 0,
     "uid": "ObjectiveTemplate_000003",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -344,7 +344,7 @@
     "status": "Final",
     "study_count": 0,
     "uid": "ObjectiveTemplate_000002",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   },
   {
@@ -383,7 +383,7 @@
     "status": "Final",
     "study_count": 0,
     "uid": "ObjectiveTemplate_000001",
-    "user_initials": "84fafb9e-ee1c-4c73-b791-9e9d2d95402f",
+    "author_username": "unknown-user@example.com",
     "version": "1.0"
   }
 ]

@@ -15,6 +15,9 @@ export const useCrfsStore = defineStore('crfs', {
 
   actions: {
     fetchTemplates(params) {
+      if (!params) {
+        params.total_count = true
+      }
       return crfs.get('study-events', { params }).then((resp) => {
         this.templates = resp.data.items
         this.totalTemplates = resp.data.total

@@ -30,7 +30,8 @@
         :disabled="
           !checkPermission($roles.STUDY_WRITE) ||
           studiesGeneralStore.selectedStudyVersion !== null ||
-          disableEdit
+          disableEdit ||
+          studiesGeneralStore.selectedStudy.study_parent_part
         "
         data-cy="edit-content"
         icon="mdi-pencil-outline"
@@ -91,7 +92,7 @@
       <v-dialog
         v-model="showCopyForm"
         persistent
-        max-width="500px"
+        max-width="600px"
         @keydown.esc="closeCopyForm"
       >
         <CopyFromStudyForm
@@ -209,7 +210,7 @@ export default {
           title: this.$t('HistoryTable.value_after'),
           key: 'after_value.term_uid',
         },
-        { title: this.$t('_global.user'), key: 'user_initials' },
+        { title: this.$t('_global.user'), key: 'author_username' },
       ],
       historyItems: [],
       showHistory: false,
@@ -239,6 +240,7 @@ export default {
       this.showForm = true
     },
     closeForm() {
+      this.dataToCopy = {}
       this.showForm = false
     },
     openFormToCopy(data) {
@@ -262,7 +264,7 @@ export default {
       for (const group of resp.data) {
         for (const groupItem of group.actions) {
           const row = {
-            user_initials: group.user_initials,
+            author_username: group.author_username,
             date: group.date,
             field: groupItem.field,
             action: groupItem.action,
@@ -279,7 +281,6 @@ export default {
     },
     getParamDisplayType(name) {
       const param = this.params.find((p) => p.name === name)
-      console.log(param)
       return param.valuesDisplay
     },
     buildTableParams(fields) {

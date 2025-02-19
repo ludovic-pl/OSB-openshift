@@ -191,7 +191,7 @@ const headers = [
   { title: t('_global.objective'), key: 'name', width: '30%' },
   { title: t('StudyObjectivesTable.endpoint_count'), key: 'endpoint_count' },
   { title: t('_global.modified'), key: 'start_date' },
-  { title: t('_global.modified_by'), key: 'user_initials' },
+  { title: t('_global.modified_by'), key: 'author_username' },
 ]
 const historyHtmlFields = ['objective.name']
 

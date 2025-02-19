@@ -22,7 +22,7 @@ class CommentReplyAR:
     _uid: str
     comment_thread_uid: str
     text: str
-    author: str
+    author_id: str
     author_display_name: str
     created_at: str
     modified_at: str | None = None
@@ -36,7 +36,7 @@ class CommentReplyAR:
     def from_input_values(
         generate_uid_callback: Callable[[], str],
         text: str,
-        author: str,
+        author_id: str,
         author_display_name: str,
         comment_thread_uid: str,
         created_at: datetime,
@@ -48,7 +48,7 @@ class CommentReplyAR:
             _uid=uid,
             text=text,
             comment_thread_uid=comment_thread_uid,
-            author=author,
+            author_id=author_id,
             author_display_name=author_display_name,
             created_at=created_at,
             modified_at=modified_at,
@@ -59,7 +59,7 @@ class CommentReplyAR:
         uid: str,
         comment_thread_uid: str,
         text: str,
-        author: str,
+        author_id: str,
         author_display_name: str,
         created_at: datetime,
         modified_at: datetime | None = None,
@@ -69,7 +69,7 @@ class CommentReplyAR:
             _uid=uid,
             comment_thread_uid=comment_thread_uid,
             text=text,
-            author=author,
+            author_id=author_id,
             author_display_name=author_display_name,
             created_at=created_at,
             modified_at=modified_at,
@@ -87,7 +87,7 @@ class CommentThreadAR:
     text: str
     topic_path: str
     status: CommentThreadStatus
-    author: str
+    author_id: str
     author_display_name: str
     created_at: str
     modified_at: str | None = None
@@ -105,7 +105,7 @@ class CommentThreadAR:
         generate_uid_callback: Callable[[], str],
         text: str,
         topic_path: str,
-        author: str,
+        author_id: str,
         author_display_name: str,
         status: CommentThreadStatus,
         created_at: datetime,
@@ -119,7 +119,7 @@ class CommentThreadAR:
             _uid=uid,
             text=text,
             topic_path=topic_path,
-            author=author,
+            author_id=author_id,
             author_display_name=author_display_name,
             status=status,
             created_at=created_at,
@@ -133,7 +133,7 @@ class CommentThreadAR:
         uid: str,
         text: str,
         topic_path: str,
-        author: str,
+        author_id: str,
         author_display_name: str,
         status: str,
         created_at: datetime,
@@ -147,7 +147,7 @@ class CommentThreadAR:
             _uid=uid,
             text=text,
             topic_path=topic_path,
-            author=author,
+            author_id=author_id,
             author_display_name=author_display_name,
             status=CommentThreadStatus(status),
             created_at=created_at,

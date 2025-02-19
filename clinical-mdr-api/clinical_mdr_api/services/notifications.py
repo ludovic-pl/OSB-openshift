@@ -6,7 +6,11 @@ from neomodel import db
 from clinical_mdr_api.domain_repositories.notification_repository import (
     NotificationRepository,
 )
-from clinical_mdr_api.models.notification import Notification, NotificationInput
+from clinical_mdr_api.models.notification import (
+    Notification,
+    NotificationPatchInput,
+    NotificationPostInput,
+)
 
 
 class NotificationService:
@@ -27,7 +31,7 @@ class NotificationService:
     @db.transaction
     def create_notification(
         self,
-        notification_input: NotificationInput,
+        notification_input: NotificationPostInput,
     ) -> Notification:
         return self.repo.create_notification(
             title=notification_input.title,
@@ -35,16 +39,16 @@ class NotificationService:
             notification_type=notification_input.notification_type.value,
             started_at=notification_input.started_at,
             ended_at=notification_input.ended_at,
-            published_at=datetime.now(timezone.utc)
-            if notification_input.published
-            else None,
+            published_at=(
+                datetime.now(timezone.utc) if notification_input.published else None
+            ),
         )
 
     @db.transaction
     def update_notification(
         self,
         sn: int,
-        notification_input: NotificationInput,
+        notification_input: NotificationPatchInput,
     ) -> Notification:
         return self.repo.update_notification(
             sn=sn,
@@ -53,9 +57,9 @@ class NotificationService:
             notification_type=notification_input.notification_type.value,
             started_at=notification_input.started_at,
             ended_at=notification_input.ended_at,
-            published_at=datetime.now(timezone.utc)
-            if notification_input.published
-            else None,
+            published_at=(
+                datetime.now(timezone.utc) if notification_input.published else None
+            ),
         )
 
     @db.transaction

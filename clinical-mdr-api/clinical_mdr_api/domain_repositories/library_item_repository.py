@@ -17,13 +17,10 @@ from neomodel import (
 )
 from neomodel.exceptions import DoesNotExist
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domain_repositories._generic_repository_interface import (
     GenericRepository,
 )
-from clinical_mdr_api.domain_repositories._utils.helpers import validate_dict
 from clinical_mdr_api.domain_repositories.generic_repository import RepositoryImpl
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     ControlledTerminology,
     CTTermNameRoot,
@@ -34,25 +31,26 @@ from clinical_mdr_api.domain_repositories.models.generic import (
     VersionRoot,
     VersionValue,
 )
-from clinical_mdr_api.domains._utils import convert_to_plain
 from clinical_mdr_api.domains.syntax_templates.template import InstantiationCountsVO
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
     LibraryItemStatus,
-    VersioningException,
-)
-from clinical_mdr_api.exceptions import (
-    BusinessLogicException,
-    NotFoundException,
-    ValidationException,
 )
 from clinical_mdr_api.repositories._utils import (
     ComparisonOperator,
     FilterOperator,
     sb_clear_cache,
-    validate_max_skip_clause,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import convert_to_plain, validate_dict
+from common import config
+from common.exceptions import (
+    BusinessLogicException,
+    NotFoundException,
+    ValidationException,
+)
+from common.utils import convert_to_datetime, validate_max_skip_clause
 
 _AggregateRootType = TypeVar("_AggregateRootType", bound=LibraryItemAggregateRootBase)
 RETRIEVED_READ_ONLY_MARK = object()
@@ -248,13 +246,13 @@ class LibraryItemRepositoryImplBase(
             self._db_remove_relationship(root.has_library)
             try:
                 new_library = self._get_library(versioned_object.library.name)
-                if not library.is_editable:
-                    raise BusinessLogicException(
-                        f"The library with the name='{new_library.name}' does not allow to create objects."
-                    )
+                BusinessLogicException.raise_if_not(
+                    library.is_editable,
+                    msg=f"Library with Name '{new_library.name}' doesn't allow creation of objects.",
+                )
             except DoesNotExist as exc:
                 raise NotFoundException(
-                    f"The library with the name='{versioned_object.library.name}' could not be found."
+                    "Library", versioned_object.library.name, "Name"
                 ) from exc
             self._db_create_relationship(root.has_library, library)
 
@@ -270,7 +268,11 @@ class LibraryItemRepositoryImplBase(
             latest_retired_rel,
         ) = self._get_version_relation_keys(root)
         is_data_changed = False
-        if self._is_new_version_necessary(versioned_object, value):
+        changes_possible = self._are_changes_possible(
+            versioned_object, previous_versioned_object
+        )
+        new_version_needed = self._is_new_version_necessary(versioned_object, value)
+        if changes_possible and new_version_needed:
             # Creating nev value object if necessary
             new_value = self._get_or_create_value(root, versioned_object)
 
@@ -309,6 +311,18 @@ class LibraryItemRepositoryImplBase(
         self._maintain_parameters(versioned_object, root, new_value)
 
         return versioned_object
+
+    def _are_changes_possible(
+        self,
+        versioned_object: _AggregateRootType,
+        previous_versioned_object: _AggregateRootType,
+    ) -> bool:
+        new_status = versioned_object.item_metadata.status
+        prev_status = previous_versioned_object.item_metadata.status
+        return (
+            prev_status == LibraryItemStatus.DRAFT
+            and new_status == LibraryItemStatus.DRAFT
+        )
 
     @sb_clear_cache(caches=["cache_store_item_by_uid"])
     def _recreate_relationship(
@@ -759,9 +773,9 @@ class LibraryItemRepositoryImplBase(
         latest_matching_relationship: VersionRelationship | None = None
         latest_matching_value: VersionValue | None = None
         for matching_value in matching_values:
-            relationships: list[
-                VersionRelationship
-            ] = has_version_rel.all_relationships(matching_value)
+            relationships: list[VersionRelationship] = (
+                has_version_rel.all_relationships(matching_value)
+            )
             for relationship in relationships:
                 if status:
                     if (
@@ -933,8 +947,8 @@ class LibraryItemRepositoryImplBase(
             try:
                 root: VersionRoot | None = self.root_class.nodes.get_or_none(uid=uid)
             except NodeClassNotDefined as exc:
-                raise VersioningException(
-                    "Object labels were changed - likely the object was deleted in a concurrent transaction."
+                raise NotFoundException(
+                    msg="Resource doesn't exist - it was likely deleted in a concurrent transaction."
                 ) from exc
             if root is None:
                 return None, None
@@ -990,9 +1004,11 @@ class LibraryItemRepositoryImplBase(
         self, item_metadata: LibraryItemMetadataVO
     ) -> Mapping[str, Any]:
         # if the repository knows who is logged in, domain information will be ignored
-        user_initials = item_metadata.user_initials
         return {
-            "user_initials": user_initials,
+            "author_id": item_metadata.author_id,
+            "author_username": UserInfoService.get_author_username_from_id(
+                item_metadata.author_id
+            ),
             "change_description": item_metadata.change_description,
             "version": item_metadata.version,
             "status": item_metadata.status.value,
@@ -1043,7 +1059,10 @@ class LibraryItemRepositoryImplBase(
         return LibraryItemMetadataVO.from_repository_values(
             change_description=relationship.change_description,
             status=LibraryItemStatus(relationship.status),
-            author=relationship.user_initials,
+            author_id=relationship.author_id,
+            author_username=UserInfoService.get_author_username_from_id(
+                relationship.author_id
+            ),
             start_date=relationship.start_date,
             end_date=relationship.end_date,
             major_version=int(major),
@@ -1063,6 +1082,21 @@ class LibraryItemRepositoryImplBase(
             self._soft_delete(item.uid)
         else:
             self._create(item)
+        if item.repository_closure_data is not None:
+            (
+                root,
+                _,
+                library,
+                _,
+            ) = item.repository_closure_data
+            value = root.has_latest_value.single()
+
+            item.repository_closure_data = (
+                root,
+                value,
+                library,
+                copy.deepcopy(item),
+            )
 
     def _soft_delete(self, uid: str) -> None:
         label = self.root_class.__label__
@@ -1211,17 +1245,18 @@ class LibraryItemRepositoryImplBase(
                 resolve_objects=True,
             )
         except NodeClassNotDefined as exc:
-            raise VersioningException(
-                "Object labels were changed - likely the object was deleted in a concurrent transaction."
+            raise NotFoundException(
+                msg="Resource doesn't exist - it was likely deleted in a concurrent transaction."
             ) from exc
 
         if not result:
-            if issubclass(self.root_class, CTTermNameRoot):
-                raise NotFoundException(
-                    f"No {self.root_class.__label__} with UID ({uid}) found in given status, date and version ; nor was a latest final one found."
-                )
+            NotFoundException.raise_if(
+                issubclass(self.root_class, CTTermNameRoot),
+                msg=f"No {self.root_class.__label__} with UID '{uid}' found in given status, date and version ; nor was a latest final one found.",
+            )
+
             raise NotFoundException(
-                f"No {self.root_class.__label__} with UID ({uid}) found in given status, date and version."
+                msg=f"No {self.root_class.__label__} with UID '{uid}' found in given status, date and version.",
             )
 
         if issubclass(self.root_class, CTTermNameRoot):
@@ -1445,15 +1480,15 @@ class LibraryItemRepositoryImplBase(
                 resolve_objects=True,
             )
         except NodeClassNotDefined as exc:
-            raise VersioningException(
-                "Object labels were changed - likely the object was deleted in a concurrent transaction."
+            raise NotFoundException(
+                msg="Resource doesn't exist - it was likely deleted in a concurrent transaction."
             ) from exc
 
         if not result:
-            if issubclass(self.root_class, CTTermNameRoot):
-                raise NotFoundException(
-                    f"No {self.root_class.__label__} found in given status, date and version ; nor was a latest final one found."
-                )
+            NotFoundException.raise_if(
+                issubclass(self.root_class, CTTermNameRoot),
+                msg=f"No {self.root_class.__label__} found in given status, date and version ; nor was a latest final one found.",
+            )
 
         if issubclass(self.root_class, CTTermNameRoot):
             for i, i_result in enumerate(result):
@@ -1470,12 +1505,12 @@ class LibraryItemRepositoryImplBase(
                 not_matched = [
                     param
                     for param in params["uids"]
-                    if (not param in matched_element_ids)
+                    if (param not in matched_element_ids)
                 ]
-                if len(not_matched) > 0:
-                    raise NotFoundException(
-                        f"No {self.root_class.__label__} found in given status, date and version ; nor was a latest final one found for these ElementID {not_matched}"
-                    )
+                NotFoundException.raise_if(
+                    len(not_matched) > 0,
+                    msg=f"No {self.root_class.__label__} found in given status, date and version ; nor was a latest final one found for these ElementID {not_matched}",
+                )
                 total_result = []
                 # for every uid to query
                 for param in params["uids"]:
@@ -1569,9 +1604,9 @@ class LibraryItemRepositoryImplBase(
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ):
-        if result_count <= 0:
+        if page_size <= 0:
             return []
 
         validate_dict(filter_by, "filters")
@@ -1583,8 +1618,7 @@ class LibraryItemRepositoryImplBase(
             cypher_field_name = self.basemodel_to_cypher_mapping_optimized()[field_name]
         except KeyError as e:
             raise ValidationException(
-                f"Unsupported field name parameter: {field_name}. "
-                f"Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}"
+                msg=f"Unsupported field name parameter: {field_name}. Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}"
             ) from e
 
         if search_string:
@@ -1606,7 +1640,7 @@ class LibraryItemRepositoryImplBase(
 
         result, _ = db.cypher_query(
             match_stmt + return_stmt,
-            params=params | {"result_count": result_count},
+            params=params | {"page_size": page_size},
             resolve_objects=True,
         )
 
@@ -1630,7 +1664,7 @@ class LibraryItemRepositoryImplBase(
             "name": "value.name",
             "name_plain": "value.name_plain",
             "status": "ver_rel.status",
-            "user_initials": "ver_rel.user_initials",
+            "author_id": "ver_rel.author_id",
             "version": "ver_rel.version",
             "start_date": "ver_rel.start_date",
             "end_date": "ver_rel.end_date",
@@ -1812,11 +1846,11 @@ class LibraryItemRepositoryImplBase(
 
             filter_by.pop("*", None)
             for filter_name, items in filter_by.items():
-                if filter_name not in mapping:
-                    raise BusinessLogicException(
-                        f"Unsupported filtering parameter: {filter_name}. "
-                        f"Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}"
-                    )
+                ValidationException.raise_if(
+                    filter_name not in mapping,
+                    msg=f"Unsupported filtering parameter: {filter_name}. "
+                    f"Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}",
+                )
 
                 if "op" in items and items["op"] == ComparisonOperator.EQUALS.value:
                     operator = "="
@@ -1878,11 +1912,11 @@ class LibraryItemRepositoryImplBase(
 
         fields = []
         for sort_field, direction in sort_by.items():
-            if sort_field not in mapping:
-                raise BusinessLogicException(
-                    f"Unsupported sorting parameter: {sort_field}. "
-                    f"Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}"
-                )
+            ValidationException.raise_if(
+                sort_field not in mapping,
+                msg=f"Unsupported sorting parameter: {sort_field}. "
+                f"Supported parameters are: {list(self.basemodel_to_cypher_mapping_optimized())}",
+            )
 
             fields.append(f'{mapping[sort_field]} {"ASC" if direction else "DESC"}')
 
@@ -1996,7 +2030,7 @@ class LibraryItemRepositoryImplBase(
 
         return_stmt = f"""
             RETURN DISTINCT {cypher_field_name}
-            LIMIT $result_count
+            LIMIT $page_size
         """
 
         return match_stmt, return_stmt
@@ -2096,12 +2130,12 @@ class LibraryItemRepositoryImplBase(
             ver_rel_filtering = f"""
                 CALL{{
                     WITH _root
-                    MATCH (_root)-[max_ver_rel:HAS_VERSION]->() 
+                    MATCH (_root)-[max_ver_rel:HAS_VERSION]->()
                         {'WHERE max_ver_rel.status <> "Retired"' if not include_retired_versions else ''}
                     WITH _root, max_ver_rel ORDER BY max_ver_rel.start_date DESC LIMIT 1
                     RETURN max_ver_rel as latest_version
                 }}
-                RETURN _root, _value, ver_rel, latest_version 
+                RETURN _root, _value, ver_rel, latest_version
             """
         else:
             ver_rel_filtering = """
@@ -2379,11 +2413,26 @@ class LibraryItemRepositoryImplBase(
                  [(root)-[ver_rel]->(activity_instance_value)-[:HAS_ACTIVITY]->(activity_instance_grouping:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup) | 
                     {
                         activity: head(apoc.coll.sortMulti([(activity_instance_grouping)-[:HAS_GROUPING]-(:ActivityValue)<-[has_version:HAS_VERSION]-
-                            (activity_root:ActivityRoot) | {uid:activity_root.uid,version:has_version.version}], ['has_version.version'])),
+                            (activity_root:ActivityRoot) | 
+                            {
+                                uid:activity_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version'])),
                         activity_subgroup: head(apoc.coll.sortMulti([(activity_valid_group)<-[:HAS_GROUP]-(:ActivitySubGroupValue)<-[has_version:HAS_VERSION]-
-                            (activity_subgroup_root:ActivitySubGroupRoot) | {uid:activity_subgroup_root.uid,version:has_version.version}], ['has_version.version'])), 
+                            (activity_subgroup_root:ActivitySubGroupRoot) | 
+                            {
+                                uid:activity_subgroup_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version'])), 
                         activity_group: head(apoc.coll.sortMulti([(activity_valid_group)-[:IN_GROUP]-(:ActivityGroupValue)<-[has_version:HAS_VERSION]-
-                            (activity_group_root:ActivityGroupRoot) | {uid:activity_group_root.uid, version:has_version.version}], ['has_version.version']))
+                            (activity_group_root:ActivityGroupRoot) | 
+                            {
+                                uid:activity_group_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version']))
                     }
                 ] as activity_instance_groupings
                 RETURN activity_instance_groupings
@@ -2437,9 +2486,19 @@ class LibraryItemRepositoryImplBase(
                 WITH *, [(root)-[ver_rel]->(activity_value:ActivityValue)-[:HAS_GROUPING]->(:ActivityGrouping)-[:IN_SUBGROUP]->(activity_valid_group:ActivityValidGroup) | 
                     {
                         activity_subgroup: head(apoc.coll.sortMulti([(activity_valid_group)<-[:HAS_GROUP]-(:ActivitySubGroupValue)<-[has_version:HAS_VERSION]-
-                            (activity_subgroup_root:ActivitySubGroupRoot) | {uid:activity_subgroup_root.uid,version:has_version.version}], ['has_version.version'])), 
+                            (activity_subgroup_root:ActivitySubGroupRoot) | 
+                            {
+                                uid:activity_subgroup_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version'])), 
                         activity_group: head(apoc.coll.sortMulti([(activity_valid_group)-[:IN_GROUP]-(:ActivityGroupValue)<-[has_version:HAS_VERSION]-
-                            (activity_group_root:ActivityGroupRoot) | {uid:activity_group_root.uid, version:has_version.version}], ['has_version.version']))
+                            (activity_group_root:ActivityGroupRoot) | 
+                            {
+                                uid:activity_group_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version']))
                     }
                     ] as activity_groupings
                 RETURN activity_groupings
@@ -2463,7 +2522,12 @@ class LibraryItemRepositoryImplBase(
                 [(root)-[:LATEST]->(concept_value)-[:HAS_GROUP]->(activity_valid_group:ActivityValidGroup) |
                     {
                         activity_group:head(apoc.coll.sortMulti([(activity_valid_group)-[:IN_GROUP]-(:ActivityGroupValue)<-[has_version:HAS_VERSION]-
-                            (activity_group_root:ActivityGroupRoot) | {uid:activity_group_root.uid, version:has_version.version} ], ['has_version.version']))
+                            (activity_group_root:ActivityGroupRoot) | 
+                            {
+                                uid:activity_group_root.uid,
+                                major_version: toInteger(split(has_version.version,'.')[0]),
+                                minor_version: toInteger(split(has_version.version,'.')[1])
+                            }], ['major_version', 'minor_version']))
                     }] AS activity_groups
                 RETURN activity_groups
             }
@@ -2509,9 +2573,9 @@ class LibraryItemRepositoryImplBase(
 
     def _only_instances_with_studies(self):
         return f"""
-            MATCH (root)-->(:SyntaxInstanceValue)<-[:{self.value_class.STUDY_SELECTION_REL_LABEL}]-(:StudySelection)<--(:StudyValue)<-[:HAS_VERSION|LATEST_DRAFT|LATEST_FINAL|LATEST_RETIRED]-(isr:StudyRoot)
-            WITH *, COUNT(isr) as cnt
-            WHERE cnt > 0
+MATCH (root)-->(:SyntaxInstanceValue)<-[:{self.value_class.STUDY_SELECTION_REL_LABEL}]-(:StudySelection)<--(:StudyValue)<-[:HAS_VERSION|LATEST_DRAFT|LATEST_FINAL|LATEST_RETIRED]-(isr:StudyRoot)
+WITH *, COUNT(isr) as cnt
+WHERE cnt > 0
         """
 
     def _activity_subgroup_match_return_stmt(self):

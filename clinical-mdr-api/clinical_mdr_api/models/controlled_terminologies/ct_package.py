@@ -1,11 +1,12 @@
 from datetime import date, datetime
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from pydantic import Field
 
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domains.controlled_terminologies.ct_package import CTPackageAR
-from clinical_mdr_api.models.utils import BaseModel, snake_case_data
+from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.utils import snake_case_data
+from common.utils import convert_to_datetime
 
 
 class CTPackage(BaseModel):
@@ -23,55 +24,28 @@ class CTPackage(BaseModel):
             extends_package=ct_package_ar.extends_package,
             import_date=ct_package_ar.import_date,
             effective_date=ct_package_ar.effective_date,
-            user_initials=ct_package_ar.user_initials,
+            author_username=ct_package_ar.author_username,
         )
 
-    uid: str = Field(
-        ...,
-        title="uid",
-        description="",
-    )
+    uid: Annotated[str, Field()]
 
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
-    label: str | None = Field(None, title="label", description="", nullable=True)
-    description: str | None = Field(
-        None, title="description", description="", nullable=True
-    )
-    href: str | None = Field(None, title="href", description="", nullable=True)
-    registration_status: str | None = Field(
-        None, title="registration_status", description="", nullable=True
-    )
-    source: str | None = Field(None, title="source", description="", nullable=True)
-    extends_package: str | None = Field(
-        None,
-        title="extends_package",
-        description="CDISC CT Package extended by this sponsor package",
-        nullable=True,
-    )
-    import_date: datetime = Field(
-        ...,
-        title="import_date",
-        description="",
-    )
-    effective_date: date = Field(
-        ...,
-        title="effective_date",
-        description="",
-    )
-    user_initials: str = Field(
-        ...,
-        title="user_initials",
-        description="",
-    )
+    catalogue_name: Annotated[str, Field()]
+    name: Annotated[str, Field()]
+    label: Annotated[str | None, Field(nullable=True)] = None
+    description: Annotated[str | None, Field(nullable=True)]
+    href: Annotated[str | None, Field(nullable=True)] = None
+    registration_status: Annotated[str | None, Field(nullable=True)]
+    source: Annotated[str | None, Field(nullable=True)] = None
+    extends_package: Annotated[
+        str | None,
+        Field(
+            description="CDISC CT Package extended by this sponsor package",
+            nullable=True,
+        ),
+    ]
+    import_date: Annotated[datetime, Field()]
+    effective_date: Annotated[date, Field()]
+    author_username: Annotated[str | None, Field(nullable=True)] = None
 
 
 class CodelistChangeItem(BaseModel):
@@ -199,9 +173,5 @@ class CTPackageDates(BaseModel):
     ) -> Self:
         return cls(catalogue_name=catalogue_name, effective_dates=effective_dates)
 
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
-    effective_dates: list[date] = Field(..., title="effective_dates", description="")
+    catalogue_name: Annotated[str, Field()]
+    effective_dates: Annotated[list[date], Field()]

@@ -4,8 +4,7 @@ from typing import Generic, TypeVar
 
 from neomodel import db
 
-from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot, StudyValue
 from clinical_mdr_api.domain_repositories.models.study_audit_trail import (
     Create,
@@ -18,7 +17,7 @@ from clinical_mdr_api.domains.study_selections.study_selection_base import (
     StudySelectionBaseAR,
     StudySelectionBaseVO,
 )
-from clinical_mdr_api.repositories._utils import validate_max_skip_clause
+from common.utils import convert_to_datetime, validate_max_skip_clause
 
 _AggregateRootType = TypeVar("_AggregateRootType")
 
@@ -169,7 +168,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
         query += self._return_clause()
         all_activity_selections = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in helpers.db_result_to_list(all_activity_selections):
+        for selection in utils.db_result_to_list(all_activity_selections):
             acv = selection.get("accepted_version", False)
             if acv is None:
                 acv = False
@@ -254,7 +253,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
     def is_repository_based_on_ordered_selection(self):
         return True
 
-    def save(self, study_selection: StudySelectionBaseAR, author: str) -> None:
+    def save(self, study_selection: StudySelectionBaseAR, author_id: str) -> None:
         assert study_selection.repository_closure_data is not None
         # get the closure_data
         closure_data = study_selection.repository_closure_data
@@ -315,7 +314,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
                 study_selection, study_activity.study_selection_uid
             )
             audit_node = self._set_before_audit_info(
-                last_study_selection_node, audit_node, study_root_node, author
+                last_study_selection_node, audit_node, study_root_node, author_id
             )
             audit_trail_nodes[study_activity.study_selection_uid] = (
                 audit_node,
@@ -340,7 +339,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
                 ]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -358,9 +357,9 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
         study_activity_selection_node: StudySelection,
         audit_node: StudyAction,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -383,7 +382,8 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             {"study_uid": study_uid, "study_selection_uid": study_selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_activity_selections_audit_trail):
+        for res in utils.db_result_to_list(specific_activity_selections_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -428,7 +428,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             'visibility flag' AS object_type,
             fgr_value.name + ' ' + coalesce(study_soa_group.show_soa_group_in_protocol_flowchart, false)  AS description,
             asa.date AS start_date,
-            asa.user_initials AS user_initials,
+            asa.author_id AS author_id,
             labels(asa) AS change_type,
             bsa.date AS end_date
         UNION
@@ -446,7 +446,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             'visibility flag' AS object_type,
             fgr_value.name + '/' + activity_group_value.name + ' ' +  study_activity_group.show_activity_group_in_protocol_flowchart  AS description,
             asa.date AS start_date,
-            asa.user_initials AS user_initials,
+            asa.author_id AS author_id,
             labels(asa) AS change_type,
             bsa.date AS end_date
         UNION
@@ -466,7 +466,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             'visibility flag' AS object_type,
             fgr_value.name + '/' + activity_group_value.name+ '/' + activity_subgroup_value.name + ' ' +  study_activity_subgroup.show_activity_subgroup_in_protocol_flowchart  AS description,
             asa.date AS start_date,
-            asa.user_initials AS user_initials,
+            asa.author_id AS author_id,
             labels(asa) AS change_type,
             bsa.date AS end_date
 
@@ -489,7 +489,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             'visibility flag' AS object_type,
             fgr_value.name + '/' + activity_group_value.name+ '/' + activity_subgroup_value.name+ '/' + av.name  + ' ' +  all_sa.show_activity_in_protocol_flowchart  AS description,
             asa.date AS start_date,
-            asa.user_initials AS user_initials,
+            asa.author_id AS author_id,
             labels(asa) AS change_type,
             bsa.date AS end_date
 
@@ -506,18 +506,37 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             'schedule' AS object_type,
             av.name +" " +  coalesce(visit.short_visit_label,"") as description,
             asa.date AS start_date,
-            asa.user_initials AS user_initials,
+            asa.author_id AS author_id,
             labels(asa) AS change_type,
             bsa.date AS end_date
+        UNION
+        MATCH (sr:StudyRoot {uid: $study_uid})-[:AUDIT_TRAIL]->(soaf:UpdateSoASnapshot)
+        RETURN DISTINCT
+            soaf.uid as sa_uid,
+            soaf.object_type AS object_type,
+            'SoA snapshot updated' as description,
+            soaf.date AS start_date,
+            soaf.author_id AS author_id,
+            labels(soaf) AS change_type,
+            soaf.date AS end_date
         }
+        
+        WITH *
+            CALL {
+                WITH author_id
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = author_id
+                RETURN coalesce(author.username, author_id) as author_username
+            }  
         RETURN DISTINCT
             sa_uid,
             object_type,
             description,
             start_date,
-            user_initials,
+            author_id,
             change_type,
-            end_date
+            end_date,
+            author_username
         ORDER BY start_date DESC
         """
         total_count_query = """
@@ -579,7 +598,8 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             },
         )
         result = []
-        for res in helpers.db_result_to_list(detailed_soa_audit_trail):
+        for res in utils.db_result_to_list(detailed_soa_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -595,6 +615,7 @@ class StudySelectionActivityBaseRepository(Generic[_AggregateRootType], abc.ABC)
             res["end_date"] = end_date
             res["start_date"] = start_date
             result.append(res)
+        amount_of_detailed_soa_history_items = []
         if total_count:
             amount_of_detailed_soa_history_items, _ = db.cypher_query(
                 total_count_query,

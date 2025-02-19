@@ -6,8 +6,6 @@ from clinical_mdr_api.domain_repositories.syntax_pre_instances.criteria_pre_inst
 from clinical_mdr_api.domains.syntax_pre_instances.criteria_pre_instance import (
     CriteriaPreInstanceAR,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.syntax_pre_instances.criteria_pre_instance import (
     CriteriaPreInstance,
     CriteriaPreInstanceVersion,
@@ -69,38 +67,32 @@ class CriteriaPreInstanceService(CriteriaService[CriteriaPreInstanceAR]):
 
     @db.transaction
     def create_new_version(self, uid: str) -> CriteriaPreInstance:
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
-            item._create_new_version(author=self.user_initials)
-            self.repository.save(item)
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        item = self.repository.find_by_uid(uid, for_update=True)
+        item._create_new_version(author_id=self.author_id)
+        self.repository.save(item)
+        return self._transform_aggregate_root_to_pydantic_model(item)
 
     @db.transaction
     def edit_draft(self, uid, template):
-        try:
-            item = self.repository.find_by_uid(uid, for_update=True)
-            parameter_terms = self._create_parameter_entries(
-                template, template_uid=item.template_uid
-            )
+        item = self.repository.find_by_uid(uid, for_update=True)
+        parameter_terms = self._create_parameter_entries(
+            template, template_uid=item.template_uid
+        )
 
-            template_vo = self.parametrized_template_vo_class.from_input_values_2(
-                template_uid=item.template_uid,
-                template_sequence_id=item.template_sequence_id,
-                parameter_terms=parameter_terms,
-                library_name=item.template_library_name,
-                get_final_template_vo_by_template_uid_callback=self._get_template_vo_by_template_uid,
-            )
-            item.edit_draft(
-                author=self.user_initials,
-                change_description=template.change_description,
-                template=template_vo,
-                guidance_text=template.guidance_text,
-            )
+        template_vo = self.parametrized_template_vo_class.from_input_values_2(
+            template_uid=item.template_uid,
+            template_sequence_id=item.template_sequence_id,
+            parameter_terms=parameter_terms,
+            library_name=item.template_library_name,
+            get_final_template_vo_by_template_uid_callback=self._get_template_vo_by_template_uid,
+        )
+        item.edit_draft(
+            author_id=self.author_id,
+            change_description=template.change_description,
+            template=template_vo,
+            guidance_text=template.guidance_text,
+        )
 
-            self.repository.save(item)
+        self.repository.save(item)
 
-            return self._transform_aggregate_root_to_pydantic_model(item)
-        except VersioningException as e:
-            raise BusinessLogicException(e.msg) from e
+        return self._transform_aggregate_root_to_pydantic_model(item)

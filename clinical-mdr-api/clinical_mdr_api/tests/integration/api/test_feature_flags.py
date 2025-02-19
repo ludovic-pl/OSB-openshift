@@ -17,11 +17,11 @@ from fastapi.testclient import TestClient
 from clinical_mdr_api.main import app
 from clinical_mdr_api.models.feature_flag import FeatureFlag
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
@@ -58,8 +58,6 @@ def test_data():
 
     yield
 
-    drop_db(db_name)
-
 
 FEATURE_FLAG_ALL = [
     "sn",
@@ -78,7 +76,7 @@ def test_get_all_feature_flags(api_client):
     response = api_client.get("system/feature-flags")
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res) == 10
 
     for item in res:
@@ -89,14 +87,14 @@ def test_get_all_feature_flags(api_client):
 def test_get_feature_flag(api_client):
     response = api_client.get(f"/feature-flags/{feature_flags[0].sn}")
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
 
 def test_create_feature_flag(api_client):
     data = {"name": "Name", "enabled": False, "description": "Description"}
     response = api_client.post("/feature-flags", json=data)
 
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
     res = response.json()
     assert res["sn"]
     assert res["name"] == data["name"]
@@ -105,44 +103,38 @@ def test_create_feature_flag(api_client):
 
 
 def test_update_feature_flag(api_client):
-    data = {
-        "name": "updated Name",
-        "enabled": True,
-        "description": "updated Description",
-    }
+    data = {"enabled": True}
     response = api_client.patch("/feature-flags/11", json=data)
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     res = response.json()
     assert res["sn"] == 11
-    assert res["name"] == data["name"]
     assert res["enabled"] == data["enabled"]
-    assert res["description"] == data["description"]
 
 
 def test_delete_feature_flag(api_client):
     response = api_client.delete(f"/feature-flags/{feature_flags[0].sn}")
-    assert response.status_code == 204
+    assert_response_status_code(response, 204)
 
     response = api_client.get(f"/feature-flags/{feature_flags[0].sn}")
-    assert response.status_code == 404
+    assert_response_status_code(response, 404)
     res = response.json()
 
     assert (
         res["message"]
-        == f"Couldn't find Feature Flag with Serial Number ({feature_flags[0].sn})"
+        == f"Feature Flag with Serial Number '{feature_flags[0].sn}' doesn't exist."
     )
 
 
 def test_cannot_create_feature_flag_with_existing_name(api_client):
     response = api_client.post(
         "/feature-flags",
-        json={"name": "updated Name", "enabled": False, "description": "Description"},
+        json={"name": "Name", "enabled": False, "description": "Description"},
     )
 
-    assert response.status_code == 400
+    assert_response_status_code(response, 409)
     res = response.json()
-    assert res["message"] == "Feature flag with name (updated Name) already exists."
+    assert res["message"] == "Feature Flag with Name 'Name' already exists."
 
 
 def validate_serial_number_against_neo4j_max_and_min_int(api_client):
@@ -152,50 +144,50 @@ def validate_serial_number_against_neo4j_max_and_min_int(api_client):
 
     # Test positive integer
     response = api_client.get(f"/feature-flags/{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.patch(
         f"/feature-flags/{serial_number}",
         json={"name": "Name", "enabled": True, "description": "Description"},
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.delete(f"/feature-flags/{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     # Test negative integer
     response = api_client.get(f"/feature-flags/-{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.patch(
         f"/feature-flags/-{serial_number}",
         json={"name": "Name", "enabled": True, "description": "Description"},
     )
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )
 
     response = api_client.delete(f"/feature-flags/-{serial_number}")
-    assert response.status_code == 400
+    assert_response_status_code(response, 400)
     assert (
         response.json()["message"]
-        == f"Serial Number must not be greater than {max_int} and less than {min_int}"
+        == f"Serial Number must not be greater than '{max_int}' and less than '{min_int}'."
     )

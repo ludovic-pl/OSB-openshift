@@ -81,6 +81,7 @@ const helpItems = [
   'StudyActivity.settings',
   'StudyActivity.study_activities',
   'StudyActivity.detailed_soa',
+  'StudyActivity.detailed_soa_actions',
   'StudyActivity.study_footnotes',
   'StudyActivity.protocol_soa',
   'StudyActivity.instructions',

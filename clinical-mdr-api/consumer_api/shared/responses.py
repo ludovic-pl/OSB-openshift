@@ -1,35 +1,13 @@
-import datetime
-from typing import Generic, TypeVar
+from typing import Annotated, Generic, TypeVar
 
 from fastapi import Request
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic.generics import GenericModel
 from requests.utils import requote_uri
 
-from consumer_api.shared import config
 from consumer_api.shared.common import urlencode_link
 
 T = TypeVar("T")
-
-
-class ErrorResponse(BaseModel):
-    type: str = Field(..., description="Exception class.")
-    message: str = Field(..., description="More information about the error.")
-    time: datetime.datetime = Field(
-        ..., description="The point in time when the error occurred."
-    )
-    path: str = Field(..., description="The url/path of the request.")
-    method: str = Field(..., description="The HTTP method of the request.")
-
-    def __init__(self, request: Request, exception: Exception, **data) -> None:
-        super().__init__(
-            type=type(exception).__name__,
-            message=str(getattr(exception, "msg", None) or exception),
-            time=datetime.datetime.now(datetime.UTC).strftime(config.DATE_TIME_FORMAT),
-            path=str(request.url),
-            method=request.method,
-            **data,
-        )
 
 
 class PaginatedResponse(GenericModel, Generic[T]):
@@ -37,10 +15,14 @@ class PaginatedResponse(GenericModel, Generic[T]):
     Paginated response model
     """
 
-    self: str = Field(..., description="Pagination link pointing to the current page")
-    prev: str = Field(..., description="Pagination link pointing to the previous page")
-    next: str = Field(..., description="Pagination link pointing to the next page")
-    items: list[T] = Field(..., description="List of items")
+    self: Annotated[
+        str, Field(description="Pagination link pointing to the current page")
+    ]
+    prev: Annotated[
+        str, Field(description="Pagination link pointing to the previous page")
+    ]
+    next: Annotated[str, Field(description="Pagination link pointing to the next page")]
+    items: Annotated[list[T], Field(description="List of items")]
 
     @classmethod
     def from_input(
@@ -70,7 +52,7 @@ class PaginatedResponse(GenericModel, Generic[T]):
 
         self_link = f"{path}?{query_params}sort_by={sort_by}&sort_order={sort_order}&page_size={page_size}&page_number={page_number}"
         prev_link = f"{path}?{query_params}sort_by={sort_by}&sort_order={sort_order}&page_size={page_size}&page_number={prev_page_number}"
-        next_link = f"{path}?{query_params}sort_by={sort_by}&sort_order={sort_order}&page_size={page_size}&page_number={page_number+1}"
+        next_link = f"{path}?{query_params}sort_by={sort_by}&sort_order={sort_order}&page_size={page_size}&page_number={page_number + 1}"
 
         return cls(
             self=urlencode_link(self_link),

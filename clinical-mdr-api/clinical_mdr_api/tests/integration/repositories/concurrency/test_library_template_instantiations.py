@@ -37,7 +37,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
     graph = None
 
     library_name = "Sponsor"
-    user_initials = "TEST"
+    author_id = "TEST"
     template_name = "Example Template"
     parameter_terms: list[ParameterTermEntryVO] = []
 
@@ -53,8 +53,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
     CREATE (l:Library{name: 'Sponsor', is_editable: true});
     """
 
-    def __init__(self, method_name="test_concurrent_updates_handled_correctly"):
-        super().__init__(methodName=method_name)
+    def setUp(self):
         inject_and_clear_db("concurrency.templates")
         db.cypher_query(self.INIT_TEST_DATA)
 
@@ -71,7 +70,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         objective_template_ar = ObjectiveTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(lambda: self.template_uid),
@@ -85,7 +84,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             objective_template_ar = self.template_repository.find_by_uid(
                 self.template_uid, for_update=True
             )
-            objective_template_ar.approve(author=self.user_initials)
+            objective_template_ar.approve(author_id=self.author_id)
             self.template_repository.save(objective_template_ar)
         parameterized_template_vo = (
             ParametrizedTemplateVO.from_name_and_parameter_terms(
@@ -99,7 +98,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         self.object_ar = ObjectiveAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=parameterized_template_vo,
             library=library_vo,
         )
@@ -119,7 +118,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         endpoint_template_ar = EndpointTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(lambda: self.template_uid),
@@ -133,7 +132,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             endpoint_template_ar = self.template_repository.find_by_uid(
                 self.template_uid, for_update=True
             )
-            endpoint_template_ar.approve(author=self.user_initials)
+            endpoint_template_ar.approve(author_id=self.author_id)
             self.template_repository.save(endpoint_template_ar)
         parameterized_template_vo = (
             ParametrizedTemplateVO.from_name_and_parameter_terms(
@@ -147,7 +146,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         self.object_ar = EndpointAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=parameterized_template_vo,
             library=library_vo,
         )
@@ -167,7 +166,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         timeframe_template_ar = TimeframeTemplateAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=template_vo,
             library=library_vo,
             generate_uid_callback=(lambda: self.template_uid),
@@ -181,7 +180,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             timeframe_template_ar = self.template_repository.find_by_uid(
                 self.template_uid, for_update=True
             )
-            timeframe_template_ar.approve(author=self.user_initials)
+            timeframe_template_ar.approve(author_id=self.author_id)
             self.template_repository.save(timeframe_template_ar)
         parameterized_template_vo = (
             ParametrizedTemplateVO.from_name_and_parameter_terms(
@@ -195,7 +194,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
             library_name="Sponsor", is_library_editable_callback=(lambda _: True)
         )
         self.object_ar = TimeframeAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             template=parameterized_template_vo,
             library=library_vo,
         )
@@ -227,7 +226,7 @@ class ObjectiveRepositoryConcurrencyTest(unittest.TestCase):
         template_ar = self.template_repository.find_by_uid(
             self.template_uid, for_update=True
         )
-        template_ar.inactivate(author=self.user_initials)
+        template_ar.inactivate(author_id=self.author_id)
         # Store the new template so that we can later save it
         self.template_ar = template_ar
 

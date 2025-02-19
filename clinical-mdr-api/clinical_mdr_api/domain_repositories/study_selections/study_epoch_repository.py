@@ -3,13 +3,12 @@ import datetime
 from typing import Callable
 
 from neomodel import db
+from neomodel.sync_.match import Optional
 
-from clinical_mdr_api import config as settings
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTTermRoot,
 )
@@ -36,6 +35,8 @@ from clinical_mdr_api.models.study_selections.study_epoch import (
     StudyEpochOGM,
     StudyEpochOGMVer,
 )
+from common import config as settings
+from common.exceptions import ValidationException
 
 
 def get_ctlist_terms_by_name(
@@ -58,17 +59,19 @@ def get_ctlist_terms_by_name(
         cypher_query,
         {
             "code_list_name": code_list_name,
-            "effective_date": effective_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            if effective_date
-            else None,
+            "effective_date": (
+                effective_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                if effective_date
+                else None
+            ),
         },
     )
     return {a[0]: a[1] for a in items}
 
 
 class StudyEpochRepository:
-    def __init__(self, author: str):
-        self.author = author
+    def __init__(self, author_id: str):
+        self.author_id = author_id
 
     def fetch_ctlist(
         self, code_list_name: str, effective_date: datetime.datetime | None = None
@@ -101,9 +104,11 @@ class StudyEpochRepository:
             cypher_query,
             {
                 "code_list_name": settings.STUDY_EPOCH_SUBTYPE_NAME,
-                "effective_date": effective_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                if effective_date
-                else None,
+                "effective_date": (
+                    effective_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                    if effective_date
+                    else None
+                ),
             },
         )
         return items
@@ -136,16 +141,17 @@ class StudyEpochRepository:
             self._from_neomodel_to_vo(
                 study_epoch_ogm_input=StudyEpochOGM.from_orm(sas_node)
             )
-            for sas_node in to_relation_trees(
+            for sas_node in ListDistinct(
                 StudyEpoch.nodes.fetch_relations(
                     "has_epoch",
                     "has_epoch_subtype",
                     "has_epoch_type",
                     "has_after__audit_trail",
+                    Optional("has_duration_unit"),
                 )
-                .fetch_optional_relations("has_duration_unit")
                 .filter(**filters)
                 .order_by("order")
+                .resolve_subgraph()
             ).distinct()
         ]
 
@@ -157,12 +163,14 @@ class StudyEpochRepository:
         :return:
         """
 
-        sdc_node = to_relation_trees(
+        sdc_node = (
             StudyEpoch.nodes.fetch_relations(
                 "has_design_cell__study_value",
                 "has_after",
                 "has_after__audit_trail",
-            ).filter(study_value__latest_value__uid=study_uid, uid=epoch_uid)
+            )
+            .filter(study_value__latest_value__uid=study_uid, uid=epoch_uid)
+            .resolve_subgraph()
         )
         return len(sdc_node) > 0
 
@@ -181,26 +189,26 @@ class StudyEpochRepository:
                 "study_value__latest_value__uid": study_uid,
             }
 
-        epoch_node = to_relation_trees(
+        epoch_node = ListDistinct(
             StudyEpoch.nodes.fetch_relations(
                 "has_epoch",
                 "has_epoch_subtype",
                 "has_epoch_type",
                 "has_after__audit_trail",
                 "study_value__has_version",
+                Optional("has_duration_unit"),
             )
-            .fetch_optional_relations("has_duration_unit")
             .filter(**filters)
+            .resolve_subgraph()
         ).distinct()
 
-        if len(epoch_node) > 1:
-            raise exceptions.ValidationException(
-                f"Found more than one StudyEpoch node with uid='{uid}'."
-            )
-        if len(epoch_node) == 0:
-            raise exceptions.ValidationException(
-                f"The StudyEpoch with uid='{uid}' could not be found."
-            )
+        ValidationException.raise_if(
+            len(epoch_node) > 1,
+            msg=f"Found more than one StudyEpoch node with UID '{uid}'.",
+        )
+        ValidationException.raise_if(
+            len(epoch_node) == 0, msg=f"The StudyEpoch with UID '{uid}' doesn't exist."
+        )
         return self._from_neomodel_to_vo(
             study_epoch_ogm_input=StudyEpochOGM.from_orm(epoch_node[0])
         )
@@ -216,17 +224,18 @@ class StudyEpochRepository:
     ):
         selection_history: list[StudyEpochOGMVer] = [
             StudyEpochOGMVer.from_orm(se_node)
-            for se_node in to_relation_trees(
+            for se_node in ListDistinct(
                 StudyEpoch.nodes.fetch_relations(
                     "has_after__audit_trail",
                     "has_epoch",
                     "has_epoch_subtype",
                     "has_epoch_type",
-                )
-                .fetch_optional_relations(
-                    "has_duration_unit", "has_before", "has_study_visit"
+                    Optional("has_duration_unit"),
+                    Optional("has_before"),
+                    Optional("has_study_visit"),
                 )
                 .filter(uid=uid, has_after__audit_trail__uid=study_uid)
+                .resolve_subgraph()
             ).distinct()
         ]
         # Extract start dates from the selection history
@@ -264,7 +273,7 @@ class StudyEpochRepository:
             order=study_epoch_ogm_input.order,
             status=StudyStatus(study_epoch_ogm_input.status),
             start_date=study_epoch_ogm_input.start_date,
-            author=self.author,
+            author_id=self.author_id,
             color_hash=study_epoch_ogm_input.color_hash,
         )
 
@@ -307,19 +316,25 @@ class StudyEpochRepository:
             start_rule=study_epoch_ogm_input.start_rule,
             end_rule=study_epoch_ogm_input.end_rule,
             description=study_epoch_ogm_input.description,
-            epoch=history_study_epoch_epoch[epoch_term.term_uid]
-            if history_study_epoch_epoch
-            else study_epoch.StudyEpochEpoch[study_epoch_ogm_input.epoch],
-            subtype=history_study_epoch_subtype[epoch_subtype_term.term_uid]
-            if history_study_epoch_subtype
-            else study_epoch.StudyEpochSubType[study_epoch_ogm_input.epoch_subtype],
-            epoch_type=history_study_epoch_type[epoch_type_term.term_uid]
-            if history_study_epoch_type
-            else study_epoch.StudyEpochType[study_epoch_ogm_input.epoch_type],
+            epoch=(
+                history_study_epoch_epoch[epoch_term.term_uid]
+                if history_study_epoch_epoch
+                else study_epoch.StudyEpochEpoch[study_epoch_ogm_input.epoch]
+            ),
+            subtype=(
+                history_study_epoch_subtype[epoch_subtype_term.term_uid]
+                if history_study_epoch_subtype
+                else study_epoch.StudyEpochSubType[study_epoch_ogm_input.epoch_subtype]
+            ),
+            epoch_type=(
+                history_study_epoch_type[epoch_type_term.term_uid]
+                if history_study_epoch_type
+                else study_epoch.StudyEpochType[study_epoch_ogm_input.epoch_type]
+            ),
             order=study_epoch_ogm_input.order,
             status=StudyStatus(study_epoch_ogm_input.status),
             start_date=study_epoch_ogm_input.start_date,
-            author=self.author,
+            author_id=self.author_id,
             color_hash=study_epoch_ogm_input.color_hash,
             study_visit_count=len(
                 {sv.uid for sv in study_epoch_ogm_input.study_visits.all()}
@@ -338,8 +353,9 @@ class StudyEpochRepository:
     def _update(self, item: StudyEpochVO, create: bool = False):
         study_root = StudyRoot.nodes.get(uid=item.study_uid)
         study_value: StudyValue = study_root.latest_value.get_or_none()
-        if study_value is None:
-            raise exceptions.ValidationException("Study does not have draft version")
+        ValidationException.raise_if(
+            study_value is None, msg="Study doesn't have draft version."
+        )
         if not create:
             previous_item = study_value.has_study_epoch.get(uid=item.uid)
         new_study_epoch = StudyEpoch(
@@ -375,6 +391,7 @@ class StudyEpochRepository:
                 self.manage_versioning_delete(
                     study_root=study_root,
                     item=item,
+                    # pylint: disable=possibly-used-before-assignment
                     previous_item=previous_item,
                     new_item=new_study_epoch,
                 )
@@ -401,7 +418,7 @@ class StudyEpochRepository:
         action = Create(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_after.connect(new_item)
@@ -417,7 +434,7 @@ class StudyEpochRepository:
         action = Edit(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -434,7 +451,7 @@ class StudyEpochRepository:
         action = Delete(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)

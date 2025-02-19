@@ -10,7 +10,7 @@ __all__ = ["tracer"]
 log = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def tracer(request: pytest.FixtureRequest):
     """Initializes OpenCensus tracer to log tracing messages when Pytest executed with `--enable-tracing` option"""
 

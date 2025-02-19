@@ -4,7 +4,6 @@ from typing import Any, Iterable, cast
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories._generic_repository_interface import (
     _AggregateRootType,
 )
@@ -32,10 +31,7 @@ from clinical_mdr_api.domain_repositories.models.generic import (
 from clinical_mdr_api.domain_repositories.models.template_parameter import (
     TemplateParameterTermRoot,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import (
-    LibraryItemStatus,
-    VersioningException,
-)
+from clinical_mdr_api.domains.versioned_object_aggregate import LibraryItemStatus
 from clinical_mdr_api.models.controlled_terminologies.ct_codelist_attributes import (
     CTCodelistAttributes,
 )
@@ -44,12 +40,13 @@ from clinical_mdr_api.models.controlled_terminologies.ct_codelist_name import (
 )
 from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
     sb_clear_cache,
+    validate_filters_and_add_search_string,
 )
+from common import exceptions
 
 
 class CTCodelistGenericRepository(
@@ -91,8 +88,16 @@ class CTCodelistGenericRepository(
                 status: rel_data.status,
                 version: rel_data.version,
                 change_description: rel_data.change_description,
-                user_initials: rel_data.user_initials
+                author_id: rel_data.author_id
             } AS rel_data
+            CALL {
+                WITH rel_data
+                OPTIONAL MATCH (author: User)
+                WHERE author.user_id = rel_data.author_id
+                // RETURN author
+                RETURN coalesce(author.username, rel_data.author_id) AS author_username 
+            }
+        WITH * 
     """
 
     def generate_uid(self) -> str:
@@ -162,10 +167,10 @@ class CTCodelistGenericRepository(
         :param total_count:
         :return GenericFilteringReturn[_AggregateRootType]:
         """
-        if self.relationship_from_root not in vars(CTCodelistRoot):
-            raise exceptions.BusinessLogicException(
-                f"The relationship of type {self.relationship_from_root} was not found in CTCodelistRoot object"
-            )
+        exceptions.BusinessLogicException.raise_if(
+            self.relationship_from_root not in vars(CTCodelistRoot),
+            msg=f"The relationship of type '{self.relationship_from_root}' was not found in CTCodelistRoot object",
+        )
 
         # Build match_clause
         # Build specific filtering for catalogue, package and library
@@ -222,10 +227,10 @@ class CTCodelistGenericRepository(
         package: str | None = None,
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[Any]:
         """
-        Method runs a cypher query to fetch possible values for a given field_name, with a limit of result_count.
+        Method runs a cypher query to fetch possible values for a given field_name, with a limit of page_size.
         It uses generic filtering capability, on top of filtering the field_name with provided search_string.
 
         :param field_name: Field name for which to return possible values
@@ -234,7 +239,7 @@ class CTCodelistGenericRepository(
         :param package:
         :param filter_by:
         :param filter_operator: Same as for generic filtering
-        :param result_count: Max number of values to return. Default 10
+        :param page_size: Max number of values to return. Default 10
         :return list[Any]:
         """
         # Build match_clause
@@ -251,13 +256,9 @@ class CTCodelistGenericRepository(
         alias_clause = self.generic_alias_clause
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -270,7 +271,7 @@ class CTCodelistGenericRepository(
 
         query.full_query = query.build_header_query(
             header_alias=format_codelist_filter_sort_keys(field_name),
-            result_count=result_count,
+            page_size=page_size,
         )
 
         query.parameters.update(filter_query_parameters)
@@ -408,7 +409,7 @@ class CTCodelistGenericRepository(
 
     @sb_clear_cache(caches=["cache_store_item_by_uid"])
     def add_term(
-        self, codelist_uid: str, term_uid: str, author: str, order: int
+        self, codelist_uid: str, term_uid: str, author_id: str, order: int
     ) -> None:
         """
         Method adds term identified by term_uid to the codelist identified by codelist_uid.
@@ -419,48 +420,42 @@ class CTCodelistGenericRepository(
         and CTTermNameValue as TemplateParameterTermValue.
         :param codelist_uid:
         :param term_uid:
-        :param author:
+        :param author_id:
         :param order:
         :return None:
         """
         ct_codelist_node = CTCodelistRoot.nodes.get_or_none(uid=codelist_uid)
-        if ct_codelist_node is None:
-            raise exceptions.ValidationException(
-                f"The codelist identified by {codelist_uid} was not found."
-            )
+        exceptions.ValidationException.raise_if(
+            ct_codelist_node is None,
+            msg=f"Codelist with UID '{codelist_uid}' doesn't exist.",
+        )
 
         ct_term_node = CTTermRoot.nodes.get_or_none(uid=term_uid)
-        if ct_term_node is None:
-            raise exceptions.ValidationException(
-                f"The term identified by {term_uid} was not found."
-            )
+        exceptions.ValidationException.raise_if(
+            ct_term_node is None, msg=f"Term with UID '{term_uid}' doesn't exist."
+        )
 
         for ct_term_end_node in ct_codelist_node.has_term.all():
-            if ct_term_end_node.uid == term_uid:
-                raise exceptions.ValidationException(
-                    f"The codelist identified by {codelist_uid} "
-                    f"already has a term identified by {term_uid}"
-                )
+            exceptions.AlreadyExistsException.raise_if(
+                ct_term_end_node.uid == term_uid,
+                msg=f"Codelist with UID '{codelist_uid}' already has a Term with UID '{term_uid}'.",
+            )
 
         ct_codelist_node.has_term.connect(
             ct_term_node,
             {
                 "start_date": datetime.now(timezone.utc),
                 "end_date": None,
-                "user_initials": author,
+                "author_id": author_id,
                 "order": order,
             },
         )
 
-        # Validate that the term is removed from a codelist that isn't in a draft state.
-        if not is_codelist_in_final(ct_codelist_node):
-            raise VersioningException(
-                "Term '"
-                + term_uid
-                + "' cannot be added to '"
-                + codelist_uid
-                + "' as the codelist is in a draft state."
-            )
+        # Validate that the term is added to a codelist that isn't in a draft state.
+        exceptions.BusinessLogicException.raise_if_not(
+            is_codelist_in_final(ct_codelist_node),
+            msg=f"Term with UID '{term_uid}' cannot be added to Codelist with UID '{codelist_uid}' as the codelist is in a draft state.",
+        )
 
         query = """
             MATCH (codelist_root:CTCodelistRoot {uid: $codelist_uid})-[:HAS_NAME_ROOT]->()-[:LATEST]->
@@ -475,7 +470,7 @@ class CTCodelistGenericRepository(
         TemplateParameterTermRoot.generate_node_uids_if_not_present()
 
     @sb_clear_cache(caches=["cache_store_item_by_uid"])
-    def remove_term(self, codelist_uid: str, term_uid: str, author: str) -> None:
+    def remove_term(self, codelist_uid: str, term_uid: str, author_id: str) -> None:
         """
         Method removes term identified by term_uid from the codelist identified by codelist_uid.
         Removing a term means deleting existing HAS_TERM relationship from CTCodelistRoot to CTTermRoot and
@@ -485,20 +480,19 @@ class CTCodelistGenericRepository(
         and template_parameter_term labels as other codelist may use that term as TemplateParameter value.
         :param codelist_uid:
         :param term_uid:
-        :param author:
+        :param author_id:
         :return None:
         """
         ct_codelist_node = CTCodelistRoot.nodes.get_or_none(uid=codelist_uid)
-        if ct_codelist_node is None:
-            raise exceptions.ValidationException(
-                f"The codelist identified by {codelist_uid} was not found."
-            )
+        exceptions.ValidationException.raise_if(
+            ct_codelist_node is None,
+            msg=f"Codelist with UID '{codelist_uid}' doesn't exist.",
+        )
 
         ct_term_node = CTTermRoot.nodes.get_or_none(uid=term_uid)
-        if ct_term_node is None:
-            raise exceptions.ValidationException(
-                f"The term identified by {term_uid} was not found."
-            )
+        exceptions.ValidationException.raise_if(
+            ct_term_node is None, msg=f"Term with UID '{term_uid}' doesn't exist."
+        )
 
         for ct_term_end_node in ct_codelist_node.has_term.all():
             if ct_term_end_node.uid == term_uid:
@@ -511,20 +505,16 @@ class CTCodelistGenericRepository(
                     {
                         "start_date": has_term_relationship.start_date,
                         "end_date": datetime.now(timezone.utc),
-                        "user_initials": author,
+                        "author_id": author_id,
                         "order": has_term_relationship.order,
                     },
                 )
 
                 # Validate that the term is removed from a codelist that isn't in a draft state.
-                if not is_codelist_in_final(ct_codelist_node):
-                    raise VersioningException(
-                        "Term '"
-                        + term_uid
-                        + "' cannot be removed from '"
-                        + codelist_uid
-                        + "' as the codelist is in a draft state."
-                    )
+                exceptions.BusinessLogicException.raise_if_not(
+                    is_codelist_in_final(ct_codelist_node),
+                    msg=f"Term with UID '{term_uid}' cannot be removed from Codelist with UID '{codelist_uid}' as the codelist is in a draft state.",
+                )
 
                 query = """
                     MATCH (codelist_root:CTCodelistRoot {uid: $codelist_uid})-[:HAS_NAME_ROOT]->()-[:LATEST]->
@@ -534,8 +524,8 @@ class CTCodelistGenericRepository(
                 db.cypher_query(query, {"codelist_uid": codelist_uid})
                 break
         else:
-            raise exceptions.ValidationException(
-                f"The codelist identified by {codelist_uid} doesn't have a term identified by {term_uid}"
+            raise exceptions.NotFoundException(
+                msg=f"Codelist with UID '{codelist_uid}' doesn't have a Term with UID '{term_uid}'."
             )
 
     def _is_repository_related_to_ct(self) -> bool:

@@ -2,12 +2,12 @@ import datetime
 from typing import Sequence, TypeVar
 
 from neomodel import Q
+from neomodel.sync_.match import Optional
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.generic_repository import (
     manage_previous_connected_study_selection_relationships,
 )
-from clinical_mdr_api.domain_repositories.models._utils import to_relation_trees
+from clinical_mdr_api.domain_repositories.models._utils import ListDistinct
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import CTPackage
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot, StudyValue
 from clinical_mdr_api.domain_repositories.models.study_audit_trail import (
@@ -30,16 +30,17 @@ from clinical_mdr_api.repositories._utils import (
     get_order_by_clause,
     merge_q_query_filters,
     transform_filters_into_neomodel,
-    validate_page_number_and_page_size,
 )
+from common.exceptions import ValidationException
+from common.utils import validate_page_number_and_page_size
 
 # pylint: disable=invalid-name
 _StandardsReturnType = TypeVar("_StandardsReturnType")
 
 
 class StudyStandardVersionRepository:
-    def __init__(self, author: str):
-        self.author = author
+    def __init__(self, author_id: str):
+        self.author_id = author_id
 
     def find_all_standard_version(
         self,
@@ -61,18 +62,17 @@ class StudyStandardVersionRepository:
         )
         q_filters = merge_q_query_filters(q_filters, filter_operator=filter_operator)
         sort_paths = get_order_by_clause(sort_by=sort_by, model=StudyStandardVersionOGM)
-        page_number = validate_page_number_and_page_size(
-            page_number=page_number, page_size=page_size
-        )
-        start: int = page_number * page_size
+        validate_page_number_and_page_size(page_number=page_number, page_size=page_size)
+        start: int = (page_number - 1) * page_size
         end: int = start + page_size
-        nodes = to_relation_trees(
+        nodes = ListDistinct(
             StudyStandardVersion.nodes.fetch_relations(
                 "has_after__audit_trail",
                 "has_ct_package",
             )
             .order_by(sort_paths[0] if len(sort_paths) > 0 else "uid")
             .filter(*q_filters)[start:end]
+            .resolve_subgraph()
         ).distinct()
         all_standard_versions = [
             StudyStandardVersionOGM.from_orm(standard_version_node)
@@ -119,13 +119,14 @@ class StudyStandardVersionRepository:
             }
         standard_versions = [
             StudyStandardVersionOGM.from_orm(sas_node)
-            for sas_node in to_relation_trees(
+            for sas_node in ListDistinct(
                 StudyStandardVersion.nodes.fetch_relations(
                     "has_after__audit_trail",
                     "has_ct_package",
                 )
                 .filter(**filters)
                 .order_by("uid")
+                .resolve_subgraph()
             ).distinct()
         ]
         return standard_versions
@@ -147,35 +148,35 @@ class StudyStandardVersionRepository:
                 "study_value__latest_value__uid": study_uid,
                 "uid": study_standard_version_uid,
             }
-        standard_version_node = to_relation_trees(
+        standard_version_node = ListDistinct(
             StudyStandardVersion.nodes.fetch_relations(
                 "has_after__audit_trail",
                 "has_ct_package",
-            ).filter(**filters)
+            )
+            .filter(**filters)
+            .resolve_subgraph()
         ).distinct()
 
-        if len(standard_version_node) > 1:
-            raise exceptions.ValidationException(
-                f"Found more than one StudyStandardVersion node with uid='{study_standard_version_uid}'."
-            )
-        if len(standard_version_node) == 0:
-            raise exceptions.ValidationException(
-                f"The StudyStandardVersion with uid='{study_standard_version_uid}' could not be found."
-            )
+        ValidationException.raise_if(
+            len(standard_version_node) > 1,
+            msg=f"Found more than one StudyStandardVersion node with UID '{study_standard_version_uid}'.",
+        )
+        ValidationException.raise_if(
+            len(standard_version_node) == 0,
+            msg=f"The StudyStandardVersion with UID '{study_standard_version_uid}' doesn't exist.",
+        )
+
         return StudyStandardVersionOGM.from_orm(standard_version_node[0])
 
     def get_all_versions(self, uid: str, study_uid):
         return sorted(
             [
                 StudyStandardVersionOGMVer.from_orm(se_node)
-                for se_node in to_relation_trees(
-                    StudyStandardVersion.nodes.fetch_relations(
-                        "has_after__audit_trail",
-                        "has_ct_package",
-                    )
-                    .fetch_optional_relations("has_before")
-                    .filter(uid=uid, has_after__audit_trail__uid=study_uid)
+                for se_node in StudyStandardVersion.nodes.fetch_relations(
+                    "has_after__audit_trail", "has_ct_package", Optional("has_before")
                 )
+                .filter(uid=uid, has_after__audit_trail__uid=study_uid)
+                .resolve_subgraph()
             ],
             key=lambda item: item.start_date,
             reverse=True,
@@ -185,15 +186,12 @@ class StudyStandardVersionRepository:
         return sorted(
             [
                 StudyStandardVersionOGMVer.from_orm(se_node)
-                for se_node in to_relation_trees(
-                    StudyStandardVersion.nodes.fetch_relations(
-                        "has_after__audit_trail",
-                        "has_ct_package",
-                    )
-                    .fetch_optional_relations("has_before")
-                    .filter(has_after__audit_trail__uid=study_uid)
-                    .order_by("has_after__audit_trail.date")
+                for se_node in StudyStandardVersion.nodes.fetch_relations(
+                    "has_after__audit_trail", "has_ct_package", Optional("has_before")
                 )
+                .filter(has_after__audit_trail__uid=study_uid)
+                .order_by("has_after__audit_trail.date")
+                .resolve_subgraph()
             ],
             key=lambda item: item.start_date,
             reverse=False,
@@ -217,8 +215,9 @@ class StudyStandardVersionRepository:
         study_root: StudyRoot = StudyRoot.nodes.get(uid=item.study_uid)
         study_value: StudyValue = study_root.latest_value.get_or_none()
         previous_item = None
-        if study_value is None:
-            raise exceptions.ValidationException("Study does not have draft version")
+        ValidationException.raise_if(
+            study_value is None, "Study doesn't have draft version."
+        )
         if not create:
             previous_item = study_value.has_study_standard_version.get(uid=item.uid)
         new_study_standard_version = StudyStandardVersion(
@@ -274,7 +273,7 @@ class StudyStandardVersionRepository:
         action = Create(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.study_status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_after.connect(new_item)
@@ -290,7 +289,7 @@ class StudyStandardVersionRepository:
         action = Edit(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.study_status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)
@@ -307,7 +306,7 @@ class StudyStandardVersionRepository:
         action = Delete(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=item.study_status.value,
-            user_initials=item.author,
+            author_id=item.author_id,
         )
         action.save()
         action.has_before.connect(previous_item)

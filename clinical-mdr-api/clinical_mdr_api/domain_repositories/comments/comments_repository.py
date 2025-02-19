@@ -7,11 +7,9 @@ from cachetools.keys import hashkey
 from neo4j.exceptions import CypherSyntaxError
 from neomodel import db
 
-from clinical_mdr_api import config, exceptions
 from clinical_mdr_api.domain_repositories.generic_repository import (
     RepositoryClosureData,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.comments import (
     CommentReply,
     CommentReplyVersion,
@@ -25,10 +23,9 @@ from clinical_mdr_api.domains.comments.comments import (
     CommentThreadStatus,
     CommentTopicAR,
 )
-from clinical_mdr_api.repositories._utils import (
-    sb_clear_cache,
-    validate_max_skip_clause,
-)
+from clinical_mdr_api.repositories._utils import sb_clear_cache
+from common import config, exceptions
+from common.utils import convert_to_datetime, validate_max_skip_clause
 
 
 class CommentsRepository:
@@ -67,7 +64,7 @@ class CommentsRepository:
                 uid=node.uid,
                 text=node.text,
                 topic_path=node.topic.single().topic_path,
-                author=node.author,
+                author_id=node.author_id,
                 author_display_name=node.author_display_name,
                 status=node.status,
                 created_at=node.created_at,
@@ -90,7 +87,7 @@ class CommentsRepository:
                 uid=node.uid,
                 text=node.text,
                 comment_thread_uid=node.reply_to.single().uid,
-                author=node.author,
+                author_id=node.author_id,
                 author_display_name=node.author_display_name,
                 created_at=node.created_at,
                 modified_at=node.modified_at,
@@ -117,7 +114,7 @@ class CommentsRepository:
             node = CommentThread(
                 uid=item.uid,
                 text=item.text,
-                author=item.author,
+                author_id=item.author_id,
                 author_display_name=item.author_display_name,
                 status=item.status.value,
                 created_at=item.created_at,
@@ -139,7 +136,7 @@ class CommentsRepository:
         self,
         item_latest: CommentThreadAR,
         item_previous: CommentThreadAR,
-        user_id: str | None = None,
+        author_id: str | None = None,
     ) -> None:
         now = datetime.now()
 
@@ -158,7 +155,7 @@ class CommentsRepository:
         node_latest.status_modified_by = (
             item_latest.status_modified_by
             if item_latest.status == item_previous.status
-            else user_id
+            else author_id
         )
         node_latest.save()
         previous_versions = sorted(
@@ -170,9 +167,11 @@ class CommentsRepository:
             text=item_previous.text,
             status=item_previous.status.value,
             status_modified_by=item_previous.status_modified_by,
-            from_ts=previous_versions[0].to_ts
-            if previous_versions
-            else node_latest.created_at,
+            from_ts=(
+                previous_versions[0].to_ts
+                if previous_versions
+                else node_latest.created_at
+            ),
             to_ts=now,
         )
         node_previous.save()
@@ -186,7 +185,7 @@ class CommentsRepository:
             node = CommentReply(
                 uid=item.uid,
                 text=item.text,
-                author=item.author,
+                author_id=item.author_id,
                 author_display_name=item.author_display_name,
                 created_at=item.created_at,
                 modified_at=item.modified_at,
@@ -217,9 +216,11 @@ class CommentsRepository:
         # Create a new CommentReplyVersion node representing the version of comment reply before the edit
         node_previous = CommentReplyVersion(
             text=item_previous.text,
-            from_ts=previous_versions[0].to_ts
-            if previous_versions
-            else node_latest.created_at,
+            from_ts=(
+                previous_versions[0].to_ts
+                if previous_versions
+                else node_latest.created_at
+            ),
             to_ts=now,
         )
         node_previous.save()
@@ -282,7 +283,7 @@ class CommentsRepository:
                     topic.topic_path, 
                     thread.uid,
                     thread.text,
-                    thread.author,
+                    thread.author_id,
                     thread.author_display_name,
                     thread.status, 
                     thread.created_at, 
@@ -313,7 +314,7 @@ class CommentsRepository:
                     CommentReplyAR.from_repository_values(
                         uid=reply._properties["uid"],
                         text=reply._properties["text"],
-                        author=reply._properties["author"],
+                        author_id=reply._properties["author_id"],
                         author_display_name=reply._properties["author_display_name"],
                         comment_thread_uid=item["thread.uid"],
                         created_at=convert_to_datetime(reply._properties["created_at"]),
@@ -332,7 +333,7 @@ class CommentsRepository:
                     CommentThreadAR.from_repository_values(
                         uid=item["thread.uid"],
                         text=item["thread.text"],
-                        author=item["thread.author"],
+                        author_id=item["thread.author_id"],
                         author_display_name=item["thread.author_display_name"],
                         status=item["thread.status"],
                         created_at=convert_to_datetime(item["thread.created_at"]),
@@ -354,7 +355,7 @@ class CommentsRepository:
 
         except CypherSyntaxError as _ex:
             raise exceptions.ValidationException(
-                "Unsupported filtering or sort parameters specified"
+                msg="Unsupported filtering or sort parameters specified"
             ) from _ex
 
     def find_all_comment_topics(
@@ -434,7 +435,7 @@ class CommentsRepository:
 
         except CypherSyntaxError as _ex:
             raise exceptions.ValidationException(
-                "Unsupported filtering or sort parameters specified"
+                msg="Unsupported filtering or sort parameters specified"
             ) from _ex
 
     def find_all_comment_thread_replies(
@@ -447,7 +448,7 @@ class CommentsRepository:
             CommentReplyAR.from_repository_values(
                 uid=p[0].uid,
                 text=p[0].text,
-                author=p[0].author,
+                author_id=p[0].author_id,
                 author_display_name=p[0].author_display_name,
                 comment_thread_uid=thread_uid,
                 created_at=p[0].created_at,

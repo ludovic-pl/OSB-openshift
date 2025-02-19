@@ -115,7 +115,7 @@ const headers = [
   { title: t('_global.library'), key: 'activity.library_name' },
   {
     title: t('StudyActivity.flowchart_group'),
-    key: 'study_soa_group.soa_group_name',
+    key: 'study_soa_group.soa_group_term_name',
   },
   {
     title: t('StudyActivity.activity_group'),

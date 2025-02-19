@@ -11,9 +11,9 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.utils import GenericFilteringReturn
-from clinical_mdr_api.utils import booltostr
+from common.exceptions import AlreadyExistsException, BusinessLogicException
+from common.utils import booltostr
 
 
 @dataclass(frozen=True)
@@ -90,12 +90,14 @@ class OdmItemVO(ConceptVO):
         self,
         odm_object_exists_callback: Callable,
         odm_description_exists_by_callback: Callable[[str, str, bool], bool],
+        get_odm_description_parent_uids_callback: Callable[[list[str]], dict],
         odm_alias_exists_by_callback: Callable[[str, str, bool], bool],
         unit_definition_exists_by_callback: Callable[[str, str, bool], bool],
         find_codelist_attribute_callback: Callable[[str], CTTermAttributesAR | None],
         find_all_terms_callback: Callable[
             [str], GenericFilteringReturn[CTTermNameAR] | None
         ],
+        odm_uid: str | None = None,
     ) -> None:
         data = {
             "description_uids": self.description_uids,
@@ -115,9 +117,10 @@ class OdmItemVO(ConceptVO):
             "comment": self.comment,
         }
         if uids := odm_object_exists_callback(**data):
-            raise BusinessLogicException(
-                f"ODM Item already exists with UID ({uids[0]}) and data {data}"
-            )
+            if uids[0] != odm_uid:
+                raise AlreadyExistsException(
+                    msg=f"ODM Item already exists with UID ({uids[0]}) and data {data}"
+                )
 
         self.check_concepts_exist(
             [
@@ -140,18 +143,17 @@ class OdmItemVO(ConceptVO):
             "ODM Item",
         )
 
-        if self.codelist_uid is not None and not find_codelist_attribute_callback(
-            self.codelist_uid
-        ):
-            raise BusinessLogicException(
-                f"ODM Item tried to connect to non-existent Codelist identified by uid ({self.codelist_uid})."
-            )
+        BusinessLogicException.raise_if(
+            self.codelist_uid is not None
+            and not find_codelist_attribute_callback(self.codelist_uid),
+            msg=f"ODM Item tried to connect to non-existent Codelist with UID '{self.codelist_uid}'.",
+        )
 
         if self.term_uids:
-            if not self.codelist_uid:
-                raise BusinessLogicException(
-                    "To add terms you need to specify a codelist."
-                )
+            BusinessLogicException.raise_if_not(
+                self.codelist_uid,
+                msg="To add terms you need to specify a codelist.",
+            )
 
             codelist_term_uids = [
                 term.uid
@@ -160,10 +162,16 @@ class OdmItemVO(ConceptVO):
                 ).items
             ]
             for term_uid in self.term_uids:
-                if term_uid not in codelist_term_uids:
-                    raise BusinessLogicException(
-                        f"The term identified by uid ({term_uid}) doesn't belong to the specified codelist identified by uid ({self.codelist_uid})."
-                    )
+                BusinessLogicException.raise_if(
+                    term_uid not in codelist_term_uids,
+                    msg=f"Term with UID '{term_uid}' doesn't belong to the specified Codelist with UID '{self.codelist_uid}'.",
+                )
+
+        if uids := get_odm_description_parent_uids_callback(self.description_uids):
+            if odm_uid not in uids:
+                raise BusinessLogicException(
+                    msg=f"ODM Descriptions are already used: {dict(uids)}."
+                )
 
 
 @dataclass
@@ -196,7 +204,7 @@ class OdmItemAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmItemVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -204,6 +212,9 @@ class OdmItemAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
@@ -217,11 +228,14 @@ class OdmItemAR(OdmARBase):
             [str], GenericFilteringReturn[CTTermNameAR] | None
         ] = lambda _: None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             odm_object_exists_callback=odm_object_exists_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
             unit_definition_exists_by_callback=unit_definition_exists_by_callback,
             find_codelist_attribute_callback=find_codelist_attribute_callback,
@@ -237,7 +251,7 @@ class OdmItemAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmItemVO,
         concept_exists_by_callback: Callable[
@@ -247,6 +261,9 @@ class OdmItemAR(OdmARBase):
         odm_description_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
+        get_odm_description_parent_uids_callback: Callable[
+            [list[str]], dict
+        ] = lambda _: {},
         odm_alias_exists_by_callback: Callable[
             [str, str, bool], bool
         ] = lambda x, y, z: True,
@@ -266,14 +283,18 @@ class OdmItemAR(OdmARBase):
         concept_vo.validate(
             odm_object_exists_callback=odm_object_exists_callback,
             odm_description_exists_by_callback=odm_description_exists_by_callback,
+            get_odm_description_parent_uids_callback=get_odm_description_parent_uids_callback,
             odm_alias_exists_by_callback=odm_alias_exists_by_callback,
             unit_definition_exists_by_callback=unit_definition_exists_by_callback,
             find_codelist_attribute_callback=find_codelist_attribute_callback,
             find_all_terms_callback=find_all_terms_callback,
+            odm_uid=self.uid,
         )
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo
 
 

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Body, Path, Query
 from pydantic.types import Json
@@ -6,12 +6,17 @@ from starlette import status
 from starlette.requests import Request
 from starlette.responses import Response
 
-import clinical_mdr_api.models
-from clinical_mdr_api import config
-from clinical_mdr_api.models.error import ErrorResponse
-from clinical_mdr_api.models.study_selections import study_epoch
+from clinical_mdr_api.models.study_selections.study_epoch import StudyEpoch
+from clinical_mdr_api.models.study_selections.study_visit import (
+    AllowedTimeReferences,
+    SimpleStudyVisit,
+    StudyVisit,
+    StudyVisitCreateInput,
+    StudyVisitEditInput,
+    StudyVisitVersion,
+    VisitConsecutiveGroupInput,
+)
 from clinical_mdr_api.models.utils import CustomPage
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.routers import _generic_descriptions, decorators
 from clinical_mdr_api.routers import study_router as router
@@ -20,6 +25,9 @@ from clinical_mdr_api.routers.studies.study_epochs import (
     studyUID,
 )
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
+from common import config
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 
 @router.get(
@@ -48,7 +56,7 @@ Possible errors:
 
 {_generic_descriptions.DATA_EXPORTS_HEADER}
 """,
-    response_model=CustomPage[clinical_mdr_api.models.StudyVisit],
+    response_model=CustomPage[StudyVisit],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -65,12 +73,11 @@ Possible errors:
             "is_soa_milestone",
             "visit_class",
             "visit_subclass",
-            "repeating_frequency_name",
+            "repeating_frequency.sponsor_preferred_name",
             "visit_name",
-            "anchor_visit_in_group",
             "is_global_anchor_visit",
             "visit_contact_mode.sponsor_preferred_name",
-            "time_reference_name",
+            "time_reference.sponsor_preferred_name",
             "time_value",
             "visit_number",
             "unique_visit_number",
@@ -89,7 +96,9 @@ Possible errors:
             "study_day_label",
             "study_week_label",
             "week_in_study_label",
-            "user_initials",
+            "study_duration_days.value",
+            "study_duration_weeks.value",
+            "author_username",
             "order",
             "study_uid",
             "study_version",
@@ -107,28 +116,38 @@ Possible errors:
 # pylint: disable=unused-argument
 def get_all(
     request: Request,  # request is actually required by the allow_exports decorator,
-    study_uid: str = studyUID,
-    sort_by: Json = Query(None, description=_generic_descriptions.SORT_BY),
-    page_number: int
-    | None = Query(1, ge=1, description=_generic_descriptions.PAGE_NUMBER),
-    page_size: int
-    | None = Query(
-        config.DEFAULT_PAGE_SIZE,
-        ge=0,
-        le=config.MAX_PAGE_SIZE,
-        description=_generic_descriptions.PAGE_SIZE,
-    ),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    total_count: bool
-    | None = Query(False, description=_generic_descriptions.TOTAL_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> CustomPage[clinical_mdr_api.models.StudyVisit]:
+    study_uid: Annotated[str, studyUID],
+    sort_by: Annotated[
+        Json | None, Query(description=_generic_descriptions.SORT_BY)
+    ] = None,
+    page_number: Annotated[
+        int | None, Query(ge=1, description=_generic_descriptions.PAGE_NUMBER)
+    ] = config.DEFAULT_PAGE_NUMBER,
+    page_size: Annotated[
+        int | None,
+        Query(
+            ge=0,
+            le=config.MAX_PAGE_SIZE,
+            description=_generic_descriptions.PAGE_SIZE,
+        ),
+    ] = config.DEFAULT_PAGE_SIZE,
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    total_count: Annotated[
+        bool | None, Query(description=_generic_descriptions.TOTAL_COUNT)
+    ] = False,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> CustomPage[StudyVisit]:
     service = StudyVisitService(
         study_uid=study_uid, study_value_version=study_value_version
     )
@@ -164,20 +183,29 @@ def get_all(
     },
 )
 def get_distinct_values_for_header(
-    study_uid: str = studyUID,
-    field_name: str = Query(..., description=_generic_descriptions.HEADER_FIELD_NAME),
-    search_string: str
-    | None = Query("", description=_generic_descriptions.HEADER_SEARCH_STRING),
-    filters: Json
-    | None = Query(
-        None,
-        description=_generic_descriptions.FILTERS,
-        example=_generic_descriptions.FILTERS_EXAMPLE,
-    ),
-    operator: str | None = Query("and", description=_generic_descriptions.OPERATOR),
-    result_count: int
-    | None = Query(10, description=_generic_descriptions.HEADER_RESULT_COUNT),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
+    study_uid: Annotated[str, studyUID],
+    field_name: Annotated[
+        str, Query(description=_generic_descriptions.HEADER_FIELD_NAME)
+    ],
+    search_string: Annotated[
+        str | None, Query(description=_generic_descriptions.HEADER_SEARCH_STRING)
+    ] = "",
+    filters: Annotated[
+        Json | None,
+        Query(
+            description=_generic_descriptions.FILTERS,
+            openapi_examples=_generic_descriptions.FILTERS_EXAMPLE,
+        ),
+    ] = None,
+    operator: Annotated[
+        str | None, Query(description=_generic_descriptions.FILTER_OPERATOR)
+    ] = config.DEFAULT_FILTER_OPERATOR,
+    page_size: Annotated[
+        int | None, Query(description=_generic_descriptions.HEADER_PAGE_SIZE)
+    ] = config.DEFAULT_HEADER_PAGE_SIZE,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
 ):
     return StudyVisitService(
         study_uid=study_uid, study_value_version=study_value_version
@@ -187,7 +215,7 @@ def get_distinct_values_for_header(
         search_string=search_string,
         filter_by=filters,
         filter_operator=FilterOperator.from_str(operator),
-        result_count=result_count,
+        page_size=page_size,
         study_value_version=study_value_version,
     )
 
@@ -196,9 +224,7 @@ def get_distinct_values_for_header(
     "/studies/{study_uid}/study-visits-references",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all study visit references for study currently selected",
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.StudyVisit
-    ],
+    response_model=list[StudyVisit],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -207,8 +233,8 @@ def get_distinct_values_for_header(
     },
 )
 def get_all_references(
-    study_uid: str = studyUID,
-) -> list[clinical_mdr_api.models.study_selections.study_visit.StudyVisit]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudyVisit]:
     service = StudyVisitService(study_uid=study_uid)
     return service.get_all_references(study_uid=study_uid)
 
@@ -270,7 +296,7 @@ Possible errors:
  - Invalid study-uid.
  - Invalid timepointuid, visitnameuid, ... etc.
     """,
-    response_model=clinical_mdr_api.models.study_selections.study_visit.StudyVisit,
+    response_model=StudyVisit,
     response_model_exclude_unset=True,
     status_code=201,
     responses={
@@ -287,11 +313,12 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_new_visit_create(
-    study_uid: str = studyUID,
-    selection: clinical_mdr_api.models.study_selections.study_visit.StudyVisitCreateInput = Body(
-        description="Related parameters of the visit that shall be created."
-    ),
-) -> clinical_mdr_api.models.study_selections.study_visit.StudyVisit:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudyVisitCreateInput,
+        Body(description="Related parameters of the visit that shall be created."),
+    ],
+) -> StudyVisit:
     service = StudyVisitService(study_uid=study_uid)
     return service.create(study_uid=study_uid, study_visit_input=selection)
 
@@ -300,7 +327,7 @@ def post_new_visit_create(
     "/studies/{study_uid}/study-visits/preview",
     dependencies=[rbac.STUDY_WRITE],
     summary="Preview a study visit",
-    response_model=clinical_mdr_api.models.study_selections.study_visit.StudyVisit,
+    response_model=StudyVisit,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -313,11 +340,12 @@ def post_new_visit_create(
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def post_preview_visit(
-    study_uid: str = studyUID,
-    selection: clinical_mdr_api.models.study_selections.study_visit.StudyVisitCreateInput = Body(
-        description="Related parameters of the visit that shall be created."
-    ),
-) -> clinical_mdr_api.models.study_selections.study_visit.StudyVisit:
+    study_uid: Annotated[str, studyUID],
+    selection: Annotated[
+        StudyVisitCreateInput,
+        Body(description="Related parameters of the visit that shall be created."),
+    ],
+) -> StudyVisit:
     service = StudyVisitService(study_uid=study_uid)
     return service.preview(study_uid=study_uid, study_visit_input=selection)
 
@@ -326,9 +354,7 @@ def post_preview_visit(
     "/studies/{study_uid}/study-visits/allowed-time-references",
     dependencies=[rbac.STUDY_READ],
     summary="Returns all allowed time references for a study visit",
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.AllowedTimeReferences
-    ],
+    response_model=list[AllowedTimeReferences],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -337,8 +363,8 @@ def post_preview_visit(
     },
 )
 def get_allowed_time_references_for_given_study(
-    study_uid: str = Path(description="The unique uid of the study"),
-) -> list[clinical_mdr_api.models.study_selections.study_visit.AllowedTimeReferences]:
+    study_uid: Annotated[str, Path(description="The unique uid of the study")],
+) -> list[AllowedTimeReferences]:
     service = StudyVisitService(study_uid=study_uid)
     return service.get_allowed_time_references_for_study(study_uid=study_uid)
 
@@ -361,7 +387,7 @@ State after:
 Possible errors:
  - Invalid study-uid or study_visit_uid_description .
     """,
-    response_model=clinical_mdr_api.models.study_selections.study_visit.StudyVisit,
+    response_model=StudyVisit,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -374,12 +400,13 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def patch_update_visit(
-    study_uid: str = studyUID,
-    study_visit_uid: str = study_visit_uid_description,
-    selection: clinical_mdr_api.models.study_selections.study_visit.StudyVisitEditInput = Body(
-        description="Related parameters of the selection that shall be created."
-    ),
-) -> study_epoch.StudyEpoch:
+    study_uid: Annotated[str, studyUID],
+    study_visit_uid: Annotated[str, study_visit_uid_description],
+    selection: Annotated[
+        StudyVisitEditInput,
+        Body(description="Related parameters of the selection that shall be created."),
+    ],
+) -> StudyEpoch:
     service = StudyVisitService(study_uid=study_uid)
     return service.edit(
         study_uid=study_uid,
@@ -422,8 +449,8 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def delete_study_visit(
-    study_uid: str = studyUID,
-    study_visit_uid: str = study_visit_uid_description,
+    study_uid: Annotated[str, studyUID],
+    study_visit_uid: Annotated[str, study_visit_uid_description],
 ):
     service = StudyVisitService(study_uid=study_uid)
     service.delete(study_uid=study_uid, study_visit_uid=study_visit_uid)
@@ -448,9 +475,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
      """,
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.StudyVisitVersion
-    ],
+    response_model=list[StudyVisitVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -463,9 +488,9 @@ Possible errors:
 )
 # pylint: disable=unused-argument
 def get_study_visit_audit_trail(
-    study_uid: str = studyUID,
-    study_visit_uid: str = study_visit_uid_description,
-) -> list[clinical_mdr_api.models.study_selections.study_visit.StudyVisitVersion]:
+    study_uid: Annotated[str, studyUID],
+    study_visit_uid: Annotated[str, study_visit_uid_description],
+) -> list[StudyVisitVersion]:
     service = StudyVisitService(study_uid=study_uid)
     return service.audit_trail(study_visit_uid, study_uid=study_uid)
 
@@ -488,9 +513,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
      """,
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.StudyVisitVersion
-    ],
+    response_model=list[StudyVisitVersion],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -502,8 +525,8 @@ Possible errors:
     },
 )
 def get_study_visits_all_audit_trail(
-    study_uid: str = studyUID,
-) -> list[clinical_mdr_api.models.study_selections.study_visit.StudyVisitVersion]:
+    study_uid: Annotated[str, studyUID],
+) -> list[StudyVisitVersion]:
     service = StudyVisitService(study_uid=study_uid)
     return service.audit_trail_all_visits(study_uid=study_uid)
 
@@ -530,7 +553,7 @@ State after:
 Possible errors:
  - Invalid study-uid or study_visit_uid.
     """,
-    response_model=clinical_mdr_api.models.study_selections.study_visit.StudyVisit,
+    response_model=StudyVisit,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -543,10 +566,12 @@ Possible errors:
 )
 # pylint: disable=unused-argument
 def get_study_visit(
-    study_uid: str = studyUID,
-    study_visit_uid: str = study_visit_uid_description,
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-) -> clinical_mdr_api.models.study_selections.study_visit.StudyVisit:
+    study_uid: Annotated[str, studyUID],
+    study_visit_uid: Annotated[str, study_visit_uid_description],
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+) -> StudyVisit:
     service = StudyVisitService(
         study_uid=study_uid, study_value_version=study_value_version
     )
@@ -584,8 +609,10 @@ Possible errors:
     },
 )
 def get_amount_of_visits_in_given_epoch(
-    study_uid: str = studyUID,
-    study_epoch_uid: str = Path(..., description="The unique uid of the study epoch"),
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: Annotated[
+        str, Path(description="The unique uid of the study epoch")
+    ],
 ) -> int:
     service = StudyVisitService(study_uid=study_uid)
     return service.get_amount_of_visits_in_given_epoch(
@@ -610,8 +637,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
     """,
-    response_model=clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit
-    | None,
+    response_model=SimpleStudyVisit | None,
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -620,8 +646,8 @@ Possible errors:
     },
 )
 def get_global_anchor_visit(
-    study_uid: str = studyUID,
-) -> clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit | None:
+    study_uid: Annotated[str, studyUID],
+) -> SimpleStudyVisit | None:
     service = StudyVisitService(study_uid=study_uid)
     return service.get_global_anchor_visit(study_uid=study_uid)
 
@@ -643,9 +669,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
     """,
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit
-    ],
+    response_model=list[SimpleStudyVisit],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -654,8 +678,8 @@ Possible errors:
     },
 )
 def get_anchor_visits_in_group_of_subvisits(
-    study_uid: str = studyUID,
-) -> list[clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit]:
+    study_uid: Annotated[str, studyUID],
+) -> list[SimpleStudyVisit]:
     service = StudyVisitService(study_uid=study_uid)
     return service.get_anchor_visits_in_a_group_of_subvisits(study_uid=study_uid)
 
@@ -663,13 +687,14 @@ def get_anchor_visits_in_group_of_subvisits(
 @router.get(
     "/studies/{study_uid}/anchor-visits-for-special-visit",
     dependencies=[rbac.STUDY_READ],
-    summary="List all visits that can be anchor visits for special visit for a selected study referenced by 'study_uid' ",
+    summary="List all visits that can be anchor visits for special visit for a selected study referenced by 'study_uid' and selected study epoch referenced by 'study_epoch_uid'",
     description="""
 State before:
 - Study must exist.
 
 Business logic:
  - Looks for a study visits that can be anchor visits for a special visit.
+ - It returns only these StudyVisits that are included in the specified StudyEpoch.
 
 State after:
  - no change.
@@ -677,9 +702,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
     """,
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit
-    ],
+    response_model=list[SimpleStudyVisit],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -688,10 +711,15 @@ Possible errors:
     },
 )
 def get_anchor_visits_for_special_visit(
-    study_uid: str = studyUID,
-) -> list[clinical_mdr_api.models.study_selections.study_visit.SimpleStudyVisit]:
+    study_uid: Annotated[str, studyUID],
+    study_epoch_uid: str = Query(
+        description="The uid of StudyEpoch from which StudyVisits are returned.",
+    ),
+) -> list[SimpleStudyVisit]:
     service = StudyVisitService(study_uid=study_uid)
-    return service.get_anchor_for_special_visit(study_uid=study_uid)
+    return service.get_anchor_for_special_visit(
+        study_uid=study_uid, study_epoch_uid=study_epoch_uid
+    )
 
 
 @router.post(
@@ -711,9 +739,7 @@ State after:
 Possible errors:
  - Invalid study-uid.
     """,
-    response_model=list[
-        clinical_mdr_api.models.study_selections.study_visit.StudyVisit
-    ],
+    response_model=list[StudyVisit],
     response_model_exclude_unset=True,
     status_code=200,
     responses={
@@ -723,11 +749,14 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def assign_consecutive_visit_group_for_selected_study_visit(
-    study_uid: str = studyUID,
-    consecutive_visit_group_input: clinical_mdr_api.models.study_selections.study_visit.VisitConsecutiveGroupInput = Body(
-        description="The properties needed to assign visits into consecutive visit group",
-    ),
-) -> list[clinical_mdr_api.models.study_selections.study_visit.StudyVisit]:
+    study_uid: Annotated[str, studyUID],
+    consecutive_visit_group_input: Annotated[
+        VisitConsecutiveGroupInput,
+        Body(
+            description="The properties needed to assign visits into consecutive visit group",
+        ),
+    ],
+) -> list[StudyVisit]:
     service = StudyVisitService(study_uid=study_uid)
     return service.assign_visit_consecutive_group(
         study_uid=study_uid,
@@ -762,11 +791,10 @@ Possible errors:
 )
 @decorators.validate_if_study_is_not_locked("study_uid")
 def remove_consecutive_group(
-    study_uid: str = studyUID,
-    consecutive_visit_group_name: str = Path(
-        ...,
-        description="The name of the consecutive-visit-group that is removed",
-    ),
+    study_uid: Annotated[str, studyUID],
+    consecutive_visit_group_name: Annotated[
+        str, Path(description="The name of the consecutive-visit-group that is removed")
+    ],
 ):
     service = StudyVisitService(study_uid=study_uid)
     service.remove_visit_consecutive_group(

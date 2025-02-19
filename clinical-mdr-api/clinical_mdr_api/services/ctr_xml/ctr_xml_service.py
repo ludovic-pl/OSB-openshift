@@ -12,15 +12,13 @@ from clinical_mdr_api.domains._utils import get_iso_lang_data
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyComponentEnum,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
-from clinical_mdr_api.models import (
+from clinical_mdr_api.models.concepts.odms.odm_form import OdmForm
+from clinical_mdr_api.models.concepts.odms.odm_item import OdmItem
+from clinical_mdr_api.models.concepts.odms.odm_item_group import OdmItemGroup
+from clinical_mdr_api.models.controlled_terminologies.ct_codelist_attributes import (
     CTCodelistAttributes,
-    OdmForm,
-    OdmItem,
-    OdmItemGroup,
-    Project,
-    StudyVisit,
 )
+from clinical_mdr_api.models.projects.project import Project
 from clinical_mdr_api.models.study_selections.study import (
     StudyDescriptionJsonModel,
     StudyIdentificationMetadataJsonModel,
@@ -29,6 +27,7 @@ from clinical_mdr_api.models.study_selections.study import (
     StudyPopulationJsonModel,
     StudyVersionMetadataJsonModel,
 )
+from clinical_mdr_api.models.study_selections.study_visit import StudyVisit
 from clinical_mdr_api.services.concepts.odms.odm_forms import OdmFormService
 from clinical_mdr_api.services.concepts.odms.odm_item_groups import OdmItemGroupService
 from clinical_mdr_api.services.concepts.odms.odm_items import OdmItemService
@@ -38,6 +37,7 @@ from clinical_mdr_api.services.controlled_terminologies.ct_codelist_attributes i
 from clinical_mdr_api.services.projects.project import ProjectService
 from clinical_mdr_api.services.studies.study import StudyService
 from clinical_mdr_api.services.studies.study_visit import StudyVisitService
+from common.exceptions import BusinessLogicException
 
 
 def iso639_shortest(code: str) -> str:
@@ -75,8 +75,9 @@ class ODMBuilder:
     @cached_property
     def project(self) -> Project:
         project = ProjectService().get_by_study_uid(self.study_uid)
-        if not project:
-            raise BusinessLogicException("Missing study project")
+
+        BusinessLogicException.raise_if_not(project, msg="Missing study project")
+
         return project
 
     @cached_property
@@ -92,8 +93,9 @@ class ODMBuilder:
         study = StudyService().get_by_uid(
             uid=self.study_uid, include_sections=include_sections
         )
-        if study.current_metadata is None:
-            raise BusinessLogicException("Missing study metadata")
+        BusinessLogicException.raise_if(
+            study.current_metadata is None, msg="Missing study metadata"
+        )
         return study.current_metadata
 
     @cached_property
@@ -105,32 +107,41 @@ class ODMBuilder:
 
     @property
     def study_identification_metadata(self) -> StudyIdentificationMetadataJsonModel:
-        if self.study_metadata.identification_metadata is None:
-            raise BusinessLogicException("Missing study identification metadata")
+        BusinessLogicException.raise_if(
+            self.study_metadata.identification_metadata is None,
+            msg="Missing study identification metadata",
+        )
         return self.study_metadata.identification_metadata
 
     @property
     def study_version_metadata(self) -> StudyVersionMetadataJsonModel:
-        if self.study_metadata.version_metadata is None:
-            raise BusinessLogicException("Missing study version metadata")
+        BusinessLogicException.raise_if(
+            self.study_metadata.version_metadata is None,
+            msg="Missing study version metadata",
+        )
         return self.study_metadata.version_metadata
 
     @property
     def study_description(self) -> StudyDescriptionJsonModel:
-        if self.study_metadata.study_description is None:
-            raise BusinessLogicException("Missing study description")
+        BusinessLogicException.raise_if(
+            self.study_metadata.study_description is None,
+            msg="Missing study description",
+        )
         return self.study_metadata.study_description
 
     @property
     def study_population(self) -> StudyPopulationJsonModel:
-        if self.study_metadata.study_population is None:
-            raise BusinessLogicException("Missing study population")
+        BusinessLogicException.raise_if(
+            self.study_metadata.study_population is None, msg="Missing study population"
+        )
         return self.study_metadata.study_population
 
     @property
     def study_intervention(self) -> StudyInterventionJsonModel:
-        if self.study_metadata.study_intervention is None:
-            raise BusinessLogicException("Missing study intervention")
+        BusinessLogicException.raise_if(
+            self.study_metadata.study_intervention is None,
+            msg="Missing study intervention",
+        )
         return self.study_metadata.study_intervention
 
     def get_odm(self) -> ctrxml.Odm:
@@ -214,7 +225,7 @@ class ODMBuilder:
                 name=f"{visit.visit_type.sponsor_preferred_name} {visit.visit_name}",
                 repeating=ctrxml.YesOrNo.NO,
                 type=ctrxml.EventType.SCHEDULED,
-                category=visit.study_epoch_name,
+                category=visit.study_epoch.sponsor_preferred_name,
             )
             for visit in self.study_visits
         ]

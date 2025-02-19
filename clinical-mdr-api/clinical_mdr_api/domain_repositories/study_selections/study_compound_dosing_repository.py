@@ -3,9 +3,8 @@ from dataclasses import dataclass
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories._utils import helpers
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.concepts import (
     NumericValueWithUnitRoot,
 )
@@ -26,7 +25,8 @@ from clinical_mdr_api.domains.study_selections.study_compound_dosing import (
     StudyCompoundDosingVO,
     StudySelectionCompoundDosingsAR,
 )
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
+from common.exceptions import BusinessLogicException, NotFoundException
+from common.utils import convert_to_datetime
 
 
 @dataclass
@@ -36,7 +36,7 @@ class SelectionHistory:
     study_selection_uid: str
     order: int
     study_uid: str
-    user_initials: str
+    author_id: str
     change_type: str
     start_date: datetime.datetime
     end_date: datetime.datetime | None
@@ -72,13 +72,15 @@ class StudyCompoundDosingRepository:
             study_element_uid=study_element.uid,
             compound_uid=compound_alias.is_compound.single().uid,
             compound_alias_uid=compound_alias.compound_alias_root.single().uid,
-            medicinal_product_uid=medicinal_product.medicinal_product_root.single().uid
-            if medicinal_product
-            else None,
+            medicinal_product_uid=(
+                medicinal_product.medicinal_product_root.single().uid
+                if medicinal_product
+                else None
+            ),
             dose_frequency_uid=dose_frequency.uid if dose_frequency else None,
             dose_value_uid=dose_value.uid if dose_value else None,
             start_date=study_action.date,
-            user_initials=study_action.user_initials,
+            author_id=study_action.author_id,
         )
 
     def _remove_old_selection_if_exists(
@@ -101,9 +103,9 @@ class StudyCompoundDosingRepository:
         audit_node: StudyAction,
         study_selection_node: StudyCompoundDosing,
         study_root_node: StudyRoot,
-        author: str,
+        author_id: str,
     ) -> StudyAction:
-        audit_node.user_initials = author
+        audit_node.author_id = author_id
         audit_node.date = datetime.datetime.now(datetime.timezone.utc)
         audit_node.save()
 
@@ -122,17 +124,18 @@ class StudyCompoundDosingRepository:
         study_compound_node = latest_study_value_node.has_study_compound.get_or_none(
             uid=selection.study_compound_uid
         )
-        if study_compound_node is None:
-            raise exceptions.NotFoundException(
-                f"The study compound with uid {selection.study_compound_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            study_compound_node is None, "Study Compound", selection.study_compound_uid
+        )
+
         study_element_node = latest_study_value_node.has_study_element.get_or_none(
             uid=selection.study_element_uid
         )
-        if study_element_node is None:
-            raise exceptions.NotFoundException(
-                f"The study element with uid {selection.study_element_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            study_element_node is None, "Study Element", selection.study_element_uid
+        )
 
         # Create new compound selection
         selection_node = StudyCompoundDosing(order=order)
@@ -154,17 +157,21 @@ class StudyCompoundDosingRepository:
             node = NumericValueWithUnitRoot.nodes.get_or_none(
                 uid=selection.dose_value_uid
             )
-            if node is None:
-                raise exceptions.NotFoundException(
-                    f"The selected CT Term for 'dose' with UID '{selection.dose_value_uid}' cannot be found."
-                )
+
+            NotFoundException.raise_if(
+                node is None, "CT Term for 'dose'", field_value=selection.dose_value_uid
+            )
+
             selection_node.has_dose_value.connect(node)
         if selection.dose_frequency_uid:
             node = CTTermRoot.nodes.get_or_none(uid=selection.dose_frequency_uid)
-            if node is None:
-                raise exceptions.NotFoundException(
-                    f"The selected CT Term for 'dose form' with UID '{selection.dose_frequency_uid}' cannot be found."
-                )
+
+            NotFoundException.raise_if(
+                node is None,
+                "CT Term for 'dose form'",
+                field_value=selection.dose_frequency_uid,
+            )
+
             selection_node.has_dose_frequency.connect(node)
 
     def _get_audit_node(
@@ -185,7 +192,7 @@ class StudyCompoundDosingRepository:
         return Delete()
 
     def save(
-        self, study_selection: StudySelectionCompoundDosingsAR, author: str
+        self, study_selection: StudySelectionCompoundDosingsAR, author_id: str
     ) -> None:
         """
         Persist the set of selected study compounds from the aggregate to the database
@@ -202,10 +209,10 @@ class StudyCompoundDosingRepository:
         study_root_node = StudyRoot.nodes.get(uid=study_selection.study_uid)
         latest_study_value_node = study_root_node.latest_value.single()
 
-        if study_root_node.latest_locked.get_or_none() == latest_study_value_node:
-            raise VersioningException(
-                "You cannot add or reorder a study selection when the study is in a locked state."
-            )
+        BusinessLogicException.raise_if(
+            study_root_node.latest_locked.get_or_none() == latest_study_value_node,
+            msg="You cannot add or reorder a study selection when the study is in a locked state.",
+        )
 
         selections_to_remove = []
         selections_to_add = []
@@ -248,7 +255,7 @@ class StudyCompoundDosingRepository:
                 audit_node,
                 last_study_selection_node,
                 study_root_node,
-                author,
+                author_id,
             )
             audit_trail_nodes[selection.study_selection_uid] = audit_node
             if isinstance(audit_node, Delete):
@@ -262,7 +269,7 @@ class StudyCompoundDosingRepository:
                 audit_node = audit_trail_nodes[selection.study_selection_uid]
             else:
                 audit_node = Create()
-                audit_node.user_initials = selection.user_initials
+                audit_node.author_id = selection.author_id
                 audit_node.date = selection.start_date
                 audit_node.save()
                 study_root_node.audit_trail.connect(audit_node)
@@ -276,10 +283,11 @@ class StudyCompoundDosingRepository:
         compound_dosing = study_value_node.has_study_compound_dosing.get_or_none(
             uid=selection_uid
         )
-        if compound_dosing is None:
-            raise exceptions.NotFoundException(
-                f"The study compound dosing with uid {selection_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            compound_dosing is None, "Study Compound Dosing", selection_uid
+        )
+
         return compound_dosing
 
     def _get_selection_with_history(
@@ -328,12 +336,13 @@ class StudyCompoundDosingRepository:
                 labels(asa) AS change_type,
                 asa.date AS start_date,
                 bsa.date AS end_date,
-                asa.user_initials AS user_initials
+                asa.author_id AS author_id
             """,
             {"study_uid": study_uid, "selection_uid": selection_uid},
         )
         result = []
-        for res in helpers.db_result_to_list(specific_audit_trail):
+        for res in utils.db_result_to_list(specific_audit_trail):
+            change_type = ""
             for action in res["change_type"]:
                 if "StudyAction" not in action:
                     change_type = action
@@ -352,7 +361,7 @@ class StudyCompoundDosingRepository:
                     medicinal_product_uid=res["medicinal_product_uid"],
                     dose_value_uid=res["dose_value_uid"],
                     dose_frequency_uid=res["dose_frequency_uid"],
-                    user_initials=res["user_initials"],
+                    author_id=res["author_id"],
                     change_type=change_type,
                     start_date=convert_to_datetime(value=res["start_date"]),
                     end_date=end_date,
@@ -412,13 +421,13 @@ class StudyCompoundDosingRepository:
             dvr.uid AS dose_value_uid,
             df.uid AS dose_frequency_uid,
             sa.date AS start_date,
-            sa.user_initials AS user_initials
+            sa.author_id AS author_id
             ORDER BY order
         """
 
         all_selections = db.cypher_query(query, query_parameters)
         result = []
-        for selection in helpers.db_result_to_list(all_selections):
+        for selection in utils.db_result_to_list(all_selections):
             selection_vo = StudyCompoundDosingVO.from_input_values(
                 study_uid=selection["study_uid"],
                 study_selection_uid=selection["study_compound_dosing_uid"],
@@ -430,7 +439,7 @@ class StudyCompoundDosingRepository:
                 dose_value_uid=selection.get("dose_value_uid"),
                 dose_frequency_uid=selection.get("dose_frequency_uid"),
                 start_date=convert_to_datetime(value=selection["start_date"]),
-                user_initials=selection["user_initials"],
+                author_id=selection["author_id"],
             )
             result.append(selection_vo)
         return tuple(result)

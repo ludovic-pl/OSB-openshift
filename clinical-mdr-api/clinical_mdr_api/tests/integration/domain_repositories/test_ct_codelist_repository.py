@@ -59,7 +59,7 @@ class TestCTCodelistRepository(unittest.TestCase):
                         codelist_attributes = create_random_ct_codelist_attributes_ar(
                             library=library, is_editable=True, catalogue=catalogue
                         )
-                        codelist_attributes.approve(author=current_function_name())
+                        codelist_attributes.approve(author_id=current_function_name())
                         self.codelist_attributes_repo.save(codelist_attributes)
                         codelist_names = create_random_ct_codelist_name_ar(
                             generate_uid_callback=lambda x=codelist_attributes.uid: x,
@@ -67,12 +67,12 @@ class TestCTCodelistRepository(unittest.TestCase):
                             is_editable=True,
                             catalogue=catalogue,
                         )
-                        codelist_names.approve(author=current_function_name())
+                        codelist_names.approve(author_id=current_function_name())
                         self.codelist_names_repo.save(codelist_names)
                         if catalogue == package_catalogue:
-                            codelist_uid_to_package_name[
-                                codelist_attributes.uid
-                            ] = packages
+                            codelist_uid_to_package_name[codelist_attributes.uid] = (
+                                packages
+                            )
                             for package in packages:
                                 self.db.cypher_query(
                                     """

@@ -1,7 +1,7 @@
 <template>
   <v-app-bar color="primary" elevation="2" height="70">
     <v-app-bar-nav-icon
-      v-if="!hideAppBarNavIcon"
+      v-if="!props.hideAppBarNavIcon"
       data-cy="topbar-menu-button"
       elevation="6"
       @click="appStore.drawer = !appStore.drawer"
@@ -14,6 +14,13 @@
         transition="scale-transition"
         width="190"
       />
+      <div
+        v-if="appEnv"
+        class="mr-6 font-weight-black"
+        style="font-size: xx-large"
+      >
+        {{ appEnv }}
+      </div>
     </div>
 
     <v-toolbar-items class="hidden-xs-only">
@@ -25,7 +32,7 @@
         :to="{ name: app.name }"
         variant="text"
       >
-        <v-icon :icon="app.icon" />
+        <v-icon class="mr-1" :icon="app.icon" />
         {{ app.name }}
       </v-btn>
       <v-btn
@@ -128,6 +135,16 @@
             <v-icon>mdi-book-open-outline</v-icon>
           </template>
           <v-list-item-title>{{ $t('Topbar.user_guide') }}</v-list-item-title>
+        </v-list-item>
+        <v-list-item
+          data-cy="topbar-need-help"
+          :href="$config.NEED_HELP_URL"
+          target="_blank"
+        >
+          <template #prepend>
+            <v-icon>mdi-book-open-outline</v-icon>
+          </template>
+          <v-list-item-title>{{ $t('Topbar.need_help') }}</v-list-item-title>
         </v-list-item>
         <v-list-item data-cy="topbar-about" @click="openAboutBox">
           <template #prepend>
@@ -233,125 +250,121 @@
   </v-app-bar>
 </template>
 
-<script>
-import { computed } from 'vue'
-import { useAccessGuard } from '@/composables/accessGuard'
+<script setup>
+import { computed, inject, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { useAccessGuard } from '@/composables/accessGuard'
 import { useStudiesGeneralStore } from '@/stores/studies-general'
 import AboutPage from '@/components/layout/AboutPage.vue'
 import ConfirmDialog from '@/components/tools/ConfirmDialog.vue'
 import SettingsDialog from './SettingsDialog.vue'
 import StudyQuickSelectForm from '@/components/studies/StudyQuickSelectForm.vue'
+import { getAppEnv } from '@/utils/generalUtils'
 
-export default {
-  components: {
-    AboutPage,
-    ConfirmDialog,
-    SettingsDialog,
-    StudyQuickSelectForm,
+const props = defineProps({
+  hideAppBarNavIcon: {
+    type: Boolean,
+    default: false,
   },
-  props: {
-    hideAppBarNavIcon: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  emits: ['backToRoot'],
-  setup() {
-    const appStore = useAppStore()
-    const authStore = useAuthStore()
-    const studiesGeneralStore = useStudiesGeneralStore()
-    const sbLogoUrl = new URL(
-      '../../assets/study_builder_homepage_logo.png',
-      import.meta.url
-    ).href
-    const nnLogoUrl = new URL(
-      '../../assets/nn_logo_rgb_white_small.png',
-      import.meta.url
-    ).href
+})
+const router = useRouter()
+const emit = defineEmits(['backToRoot'])
+const roles = inject('roles')
+const $config = inject('$config')
 
-    return {
-      selectedStudy: computed(() => studiesGeneralStore.selectedStudy),
-      selectedStudyVersion: computed(
-        () => studiesGeneralStore.selectedStudyVersion
-      ),
-      sbLogoUrl,
-      nnLogoUrl,
-      authStore,
-      appStore,
-      ...useAccessGuard(),
-    }
+const appStore = useAppStore()
+const authStore = useAuthStore()
+const studiesGeneralStore = useStudiesGeneralStore()
+const { checkPermission } = useAccessGuard()
+const sbLogoUrl = new URL(
+  '../../assets/study_builder_homepage_logo.png',
+  import.meta.url
+).href
+const nnLogoUrl = new URL(
+  '../../assets/nn_logo_rgb_white_small.png',
+  import.meta.url
+).href
+
+const appEnv = getAppEnv()
+
+const selectedStudy = computed(() => studiesGeneralStore.selectedStudy)
+const selectedStudyVersion = computed(
+  () => studiesGeneralStore.selectedStudyVersion
+)
+
+const apps = [
+  {
+    icon: 'mdi-stethoscope',
+    name: 'Studies',
+    needsAuthentication: true,
   },
-  data() {
-    return {
-      apps: [
-        {
-          icon: 'mdi-stethoscope',
-          name: 'Studies',
-          needsAuthentication: true,
-        },
-        {
-          icon: 'mdi-bookshelf',
-          name: 'Library',
-          needsAuthentication: true,
-        },
-      ],
-      showAboutDialog: false,
-      settingsDialog: false,
-      showSelectForm: false,
-    }
+  {
+    icon: 'mdi-bookshelf',
+    name: 'Library',
+    needsAuthentication: true,
   },
-  computed: {
-    documentationPortalUrl() {
-      return this.$config.DOC_BASE_URL
-    },
-    username() {
-      return this.authStore.userInfo
-        ? this.authStore.userInfo.name
-        : 'Anonymous'
-    },
-    availableApps() {
-      return this.apps.filter(
-        (app) => !app.needsAuthentication || this.isAuthenticated
-      )
-    },
-    isAuthenticated() {
-      return !this.$config.OAUTH_ENABLED || !!this.authStore.userInfo
-    },
-    currentStudyStatus() {
-      if (!this.selectedStudy) {
-        return null
-      }
-      return this.selectedStudy.current_metadata.version_metadata.study_status
-    },
+  {
+    icon: 'mdi-wrench-outline',
+    name: 'Administration',
+    needsAuthentication: true,
+    requiredRole: roles.ADMIN_WRITE,
   },
-  methods: {
-    navigateToRoot() {
-      this.$emit('backToRoot')
-    },
-    openAboutBox() {
-      this.showAboutDialog = true
-    },
-    openSettingsBox() {
-      this.settingsDialog = true
-    },
-    openSelectStudyDialog() {
-      this.showSelectForm = true
-    },
-    redirectToStudyTable() {
-      this.$refs.confirm.cancel()
-      this.$router.push({ name: 'SelectOrAddStudy' })
-    },
-    reloadPage() {
-      const regex = /\/studies\/Study_[\d]+/
-      const newUrl = document.location.href.replace(
-        regex,
-        '/studies/' + this.selectedStudy.uid
-      )
-      document.location.href = newUrl
-    },
-  },
+]
+
+const showAboutDialog = ref(false)
+const settingsDialog = ref(false)
+const showSelectForm = ref(false)
+const confirm = ref()
+
+const documentationPortalUrl = computed(() => {
+  return $config.DOC_BASE_URL
+})
+const username = computed(() => {
+  return authStore.userInfo ? authStore.userInfo.name : 'Anonymous'
+})
+const isAuthenticated = computed(() => {
+  return !$config.OAUTH_ENABLED || !!authStore.userInfo
+})
+const availableApps = computed(() => {
+  return apps.filter(
+    (app) =>
+      !app.needsAuthentication ||
+      (isAuthenticated.value &&
+        (!app.requiredRole || checkPermission(app.requiredRole)))
+  )
+})
+const currentStudyStatus = () => {
+  if (!selectedStudy.value) {
+    return null
+  }
+  return selectedStudy.value.current_metadata.version_metadata.study_status
+}
+
+function navigateToRoot() {
+  emit('backToRoot')
+}
+function openAboutBox() {
+  showAboutDialog.value = true
+}
+function openSettingsBox() {
+  settingsDialog.value = true
+}
+function openSelectStudyDialog() {
+  showSelectForm.value = true
+}
+function redirectToStudyTable() {
+  confirm.value.cancel()
+  router.push({ name: 'SelectOrAddStudy' })
+}
+function reloadPage() {
+  const regex = /\/studies\/Study_[\d]+/
+  const newUrl = document.location.href.replace(
+    regex,
+    '/studies/' + selectedStudy.value.uid
+  )
+  document.location.href = newUrl
 }
 </script>
 

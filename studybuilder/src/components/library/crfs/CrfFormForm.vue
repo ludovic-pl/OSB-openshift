@@ -328,12 +328,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFForms.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFForms.alias_details') },
       ],
@@ -342,12 +340,10 @@ export default {
         {
           name: 'extensions',
           title: this.$t('CRFForms.vendor_extensions'),
-          belowDisplay: true,
         },
         {
           name: 'description',
           title: this.$t('CRFForms.description_details'),
-          belowDisplay: true,
         },
         { name: 'alias', title: this.$t('CRFForms.alias_details') },
         { name: 'change_description', title: this.$t('CRFForms.change_desc') },
@@ -631,6 +627,7 @@ export default {
       const descArray = []
       this.desc.forEach((e) => {
         if (e.uid) {
+          e.change_description = this.$t('CRFForms.description_change_description')
           descArray.push(e)
         } else {
           e.library_name = constants.LIBRARY_SPONSOR
@@ -640,6 +637,7 @@ export default {
       if (!this.engDescription.name) {
         this.engDescription.name = this.form.name
       }
+      this.engDescription.change_description = this.$t('CRFForms.description_change_description')
       descArray.push(this.engDescription)
       this.form.descriptions = descArray
     },

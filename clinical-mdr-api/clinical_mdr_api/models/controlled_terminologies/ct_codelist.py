@@ -1,4 +1,4 @@
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from pydantic import Field
 
@@ -8,14 +8,15 @@ from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_attributes im
 from clinical_mdr_api.domains.controlled_terminologies.ct_codelist_name import (
     CTCodelistNameAR,
 )
-from clinical_mdr_api.models import Library
 from clinical_mdr_api.models.controlled_terminologies.ct_codelist_attributes import (
     CTCodelistAttributes,
 )
 from clinical_mdr_api.models.controlled_terminologies.ct_codelist_name import (
     CTCodelistName,
 )
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.libraries.library import Library
+from clinical_mdr_api.models.utils import BaseModel, PostInputModel
+from common import config
 
 
 class CTCodelist(BaseModel):
@@ -29,9 +30,11 @@ class CTCodelist(BaseModel):
             catalogue_name=ct_codelist_attributes_ar.ct_codelist_vo.catalogue_name,
             codelist_uid=ct_codelist_attributes_ar.uid,
             parent_codelist_uid=ct_codelist_attributes_ar._ct_codelist_attributes_vo.parent_codelist_uid,
-            child_codelist_uids=ct_codelist_attributes_ar._ct_codelist_attributes_vo.child_codelist_uids
-            if ct_codelist_attributes_ar._ct_codelist_attributes_vo.child_codelist_uids
-            else [],
+            child_codelist_uids=(
+                ct_codelist_attributes_ar._ct_codelist_attributes_vo.child_codelist_uids
+                if ct_codelist_attributes_ar._ct_codelist_attributes_vo.child_codelist_uids
+                else []
+            ),
             name=ct_codelist_attributes_ar.name,
             submission_value=ct_codelist_attributes_ar.ct_codelist_vo.submission_value,
             nci_preferred_name=ct_codelist_attributes_ar.ct_codelist_vo.preferred_term,
@@ -47,151 +50,59 @@ class CTCodelist(BaseModel):
             ),
         )
 
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
+    catalogue_name: Annotated[str, Field()]
 
-    codelist_uid: str = Field(
-        ...,
-        title="codelist_uid",
-        description="",
-    )
+    codelist_uid: Annotated[str, Field()]
 
-    parent_codelist_uid: str | None = Field(
-        None, title="parent_codelist_uid", description="", nullable=True
-    )
+    parent_codelist_uid: Annotated[str | None, Field(nullable=True)] = None
 
-    child_codelist_uids: list[str] = Field(
-        [],
-        title="child_codelist_uids",
-        description="",
-    )
+    child_codelist_uids: Annotated[list[str], Field()] = []
 
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
+    name: Annotated[str, Field()]
 
-    submission_value: str = Field(
-        ...,
-        title="submission_value",
-        description="",
-    )
+    submission_value: Annotated[str, Field()]
 
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
+    nci_preferred_name: Annotated[str, Field()]
 
-    definition: str = Field(
-        ...,
-        title="definition",
-        description="",
-    )
+    definition: Annotated[str, Field()]
 
-    extensible: bool = Field(
-        ...,
-        title="extensible",
-        description="",
-    )
+    extensible: Annotated[bool, Field()]
 
-    sponsor_preferred_name: str = Field(
-        ...,
-        title="sponsor_preferred_name",
-        description="",
-    )
+    sponsor_preferred_name: Annotated[str, Field()]
 
-    template_parameter: bool = Field(
-        ...,
-        title="template_parameter",
-        description="",
-    )
+    template_parameter: Annotated[bool, Field()]
 
     library_name: str
-    possible_actions: list[str] = Field(
-        [],
-        description=(
-            "Holds those actions that can be performed on the CTCodelistAttributes. "
-            "Actions are: 'approve', 'edit', 'new_version'."
+    possible_actions: Annotated[
+        list[str],
+        Field(
+            description=(
+                "Holds those actions that can be performed on the CTCodelistAttributes. "
+                "Actions are: 'approve', 'edit', 'new_version'."
+            )
         ),
-    )
+    ] = []
 
 
-class CTCodelistTermInput(BaseModel):
-    term_uid: str = Field(
-        ...,
-        title="term_uid",
-        description="",
-    )
-    order: int | None = Field(
-        999999,
-        title="order",
-        description="",
-    )
+class CTCodelistTermInput(PostInputModel):
+    term_uid: Annotated[str, Field(min_length=1)]
+    order: Annotated[
+        int | None, Field(nullable=True, gt=0, lt=config.MAX_INT_NEO4J)
+    ] = 999999
 
 
-class CTCodelistCreateInput(BaseModel):
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
-
-    name: str = Field(
-        ...,
-        title="name",
-        description="",
-    )
-
-    submission_value: str = Field(
-        ...,
-        title="submission_value",
-        description="",
-    )
-
-    nci_preferred_name: str = Field(
-        ...,
-        title="nci_preferred_name",
-        description="",
-    )
-
-    definition: str = Field(
-        ...,
-        title="definition",
-        description="",
-    )
-
-    extensible: bool = Field(
-        ...,
-        title="extensible",
-        description="",
-    )
-
-    sponsor_preferred_name: str = Field(
-        ...,
-        title="sponsor_preferred_name",
-        description="",
-    )
-
-    template_parameter: bool = Field(
-        ...,
-        title="template_parameter",
-        description="",
-    )
-
-    parent_codelist_uid: str | None = Field(
-        None,
-        title="parent_codelist_uid",
-        description="",
-    )
-
+class CTCodelistCreateInput(PostInputModel):
+    catalogue_name: Annotated[str, Field(min_length=1)]
+    name: Annotated[str, Field(min_length=1)]
+    submission_value: Annotated[str, Field(min_length=1)]
+    nci_preferred_name: Annotated[str, Field(min_length=1)]
+    definition: Annotated[str, Field(min_length=1)]
+    extensible: bool
+    sponsor_preferred_name: Annotated[str, Field(min_length=1)]
+    template_parameter: bool
+    parent_codelist_uid: Annotated[str | None, Field(min_length=1)]
     terms: list[CTCodelistTermInput]
-
-    library_name: str
+    library_name: Annotated[str, Field(min_length=1)]
 
 
 class CTCodelistNameAndAttributes(BaseModel):
@@ -219,38 +130,16 @@ class CTCodelistNameAndAttributes(BaseModel):
 
         return codelist_name_and_attributes
 
-    catalogue_name: str = Field(
-        ...,
-        title="catalogue_name",
-        description="",
-    )
+    catalogue_name: Annotated[str, Field()]
 
-    codelist_uid: str = Field(
-        ...,
-        title="codelist_uid",
-        description="",
-    )
+    codelist_uid: Annotated[str, Field()]
 
-    parent_codelist_uid: str = Field(
-        None, title="parent_codelist_uid", description="", nullable=True
-    )
+    parent_codelist_uid: Annotated[str | None, Field(nullable=True)]
 
-    child_codelist_uids: list[Any] = Field(
-        [],
-        title="child_codelist_uids",
-        description="",
-    )
+    child_codelist_uids: Annotated[list[Any], Field()] = []
 
-    library_name: str | None = Field(None, nullable=True)
+    library_name: Annotated[str | None, Field(nullable=True)] = None
 
-    name: CTCodelistName = Field(
-        ...,
-        title="CTCodelistName",
-        description="",
-    )
+    name: Annotated[CTCodelistName, Field()]
 
-    attributes: CTCodelistAttributes = Field(
-        ...,
-        title="CTCodelistAttributes",
-        description="",
-    )
+    attributes: Annotated[CTCodelistAttributes, Field()]

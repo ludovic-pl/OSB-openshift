@@ -15,23 +15,23 @@ from functools import reduce
 import pytest
 from fastapi.testclient import TestClient
 
-from clinical_mdr_api import models
 from clinical_mdr_api.main import app
+from clinical_mdr_api.models.controlled_terminologies.ct_term import CTTerm
 from clinical_mdr_api.tests.integration.utils.api import (
-    drop_db,
     inject_and_clear_db,
     inject_base_data,
 )
 from clinical_mdr_api.tests.integration.utils.utils import TestUtils
+from clinical_mdr_api.tests.utils.checks import assert_response_status_code
 
 log = logging.getLogger(__name__)
 
 # Global variables shared between fixtures and tests
-ct_term_dosage: models.CTTerm
-ct_term_delivery_device: models.CTTerm
-ct_term_dose_frequency: models.CTTerm
-ct_term_dispenser: models.CTTerm
-ct_term_roa: models.CTTerm
+ct_term_dosage: CTTerm
+ct_term_delivery_device: CTTerm
+ct_term_dose_frequency: CTTerm
+ct_term_dispenser: CTTerm
+ct_term_roa: CTTerm
 
 
 @pytest.fixture(scope="module")
@@ -82,8 +82,6 @@ def test_data():
         )
 
     yield
-
-    drop_db(db_name)
 
 
 @pytest.mark.parametrize(
@@ -172,7 +170,7 @@ def test_codelist_filtering_on_terms(api_client):
     )
     res = response.json()
 
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     assert len(res["items"]) == 1
     assert res["items"][0]["codelist_uid"] == "C66737"
@@ -200,7 +198,7 @@ def test_retire_unused_term(api_client):
         f"ct/terms/{term_to_remove_and_retire.term_uid}/attributes"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["codelists"]) == 1
     assert res["codelists"][0]["codelist_uid"] == codelist.codelist_uid
 
@@ -208,44 +206,44 @@ def test_retire_unused_term(api_client):
     response = api_client.delete(
         f"/ct/codelists/{codelist.codelist_uid}/terms/{term_to_remove_and_retire.term_uid}"
     )
-    assert response.status_code == 201
+    assert_response_status_code(response, 201)
 
     # fetch the removed term, ensure it's not part of any codelist
     response = api_client.get(
         f"ct/terms/{term_to_remove_and_retire.term_uid}/attributes"
     )
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["codelists"]) == 0
 
     # fetch the codelist terms and check that there is only one term
     response = api_client.get("ct/terms?codelist_name=RetireCodelist")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 1
 
     # retire the removed term attributes and names
     response = api_client.delete(
         f"/ct/terms/{term_to_remove_and_retire.term_uid}/attributes/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.delete(
         f"/ct/terms/{term_to_remove_and_retire.term_uid}/names/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # retire the remaining term attributes and names
     response = api_client.delete(
         f"/ct/terms/{term_to_retire.term_uid}/attributes/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     response = api_client.delete(
         f"/ct/terms/{term_to_retire.term_uid}/names/activations"
     )
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
 
     # fetch codelist terms and check that there is still one term
     response = api_client.get("ct/terms?codelist_name=RetireCodelist")
     res = response.json()
-    assert response.status_code == 200
+    assert_response_status_code(response, 200)
     assert len(res["items"]) == 1

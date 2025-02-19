@@ -1,9 +1,5 @@
-from consumer_api.shared.common import (
-    db_pagination_clause,
-    db_sort_clause,
-    query,
-    validate_page_number_and_page_size,
-)
+from common.utils import validate_page_number_and_page_size
+from consumer_api.shared.common import db_pagination_clause, db_sort_clause, query
 from consumer_api.v2 import models
 
 

@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable, Iterable, Self, Type, TypeVar
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 class StudySelectionBaseVO:
@@ -61,9 +62,7 @@ class StudySelectionBaseAR:
         for order, selection in enumerate(self.study_objects_selection, start=1):
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
-        raise exceptions.NotFoundException(
-            f"The study {self._object_type} with uid '{study_selection_uid}' does not exist"
-        )
+        raise exceptions.NotFoundException(self._object_type, study_selection_uid)
 
     def add_object_selection(
         self,
@@ -116,9 +115,9 @@ class StudySelectionBaseAR:
         self._study_objects_selection = tuple(updated_selection)
 
     # pylint: disable=unused-argument
-    # TODO: Check why user_initials is not used
+    # TODO: Check why author_id is not used
     def set_new_order_for_selection(
-        self, study_selection_uid: str, new_order: int, user_initials: str
+        self, study_selection_uid: str, new_order: int, author_id: str
     ):
         # check if the new order is valid using the robustness principle
         if new_order > len(self.study_objects_selection):
@@ -187,8 +186,23 @@ class StudySelectionBaseAR:
         objects = []
         for selection in self.study_objects_selection:
             object_name = getattr(selection, self._object_name_field, None)
-            if object_name and object_name in objects:
-                raise exceptions.ValidationException(
-                    f"There is already a study selection to that {self._object_type} ({object_name})"
-                )
+            exceptions.AlreadyExistsException.raise_if(
+                object_name and object_name in objects,
+                msg=f"There is already a Study Selection to the {self._object_type} with Name '{object_name}'.",
+            )
             objects.append(object_name)
+
+
+class SoAItemType(Enum):
+    STUDY_ACTIVITY_SCHEDULE = "StudyActivitySchedule"
+    STUDY_ACTIVITY = "StudyActivity"
+    STUDY_ACTIVITY_INSTANCE = "StudyActivityInstance"
+    STUDY_ACTIVITY_SUBGROUP = "StudyActivitySubGroup"
+    STUDY_ACTIVITY_GROUP = "StudyActivityGroup"
+    STUDY_SOA_GROUP = "StudySoAGroup"
+    STUDY_EPOCH = "StudyEpoch"
+    STUDY_VISIT = "StudyVisit"
+    STUDY_SOA_FOOTNOTE = "StudySoAFootnote"
+
+
+SOA_ITEM_TYPES = {it.value for it in SoAItemType}

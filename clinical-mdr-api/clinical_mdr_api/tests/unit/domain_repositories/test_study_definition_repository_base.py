@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import AbstractSet, Any, Callable, Generic, Sequence, TypeVar, cast
 from unittest.mock import patch
 
-from clinical_mdr_api.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
 from clinical_mdr_api.domain_repositories.models.study_field import StudyBooleanField
 from clinical_mdr_api.domain_repositories.study_definitions.study_definition_repository import (
     StudyDefinitionRepository,
@@ -24,7 +23,6 @@ from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import 
     StudyIdentificationMetadataVO,
     StudyStatus,
 )
-from clinical_mdr_api.exceptions import MDRApiBaseException
 from clinical_mdr_api.models.study_selections.study import (
     StudyPreferredTimeUnit,
     StudySoaPreferencesInput,
@@ -33,6 +31,8 @@ from clinical_mdr_api.models.utils import GenericFilteringReturn
 from clinical_mdr_api.repositories._utils import FilterOperator
 from clinical_mdr_api.services._utils import service_level_generic_filtering
 from clinical_mdr_api.tests.unit.domain.utils import random_str
+from common.config import DEFAULT_STUDY_FIELD_CONFIG_FILE
+from common.exceptions import BusinessLogicException
 
 T = TypeVar("T")
 
@@ -192,15 +192,19 @@ class StudyDefinitionRepositoryFake(StudyDefinitionRepository):
     ) -> None:
         # we do primitive form of optimistic locking (which works only if we assume single threaded processing)
         assert snapshot.uid is not None
-        if additional_closure != self._simulated_db.find_by_id(snapshot.uid):
-            raise MDRApiBaseException("Optimistic lock failure")
+        BusinessLogicException.raise_if(
+            additional_closure != self._simulated_db.find_by_id(snapshot.uid),
+            msg="Optimistic lock failure",
+        )
         self._simulated_db.save(snapshot)
 
     def _create(self, snapshot: StudyDefinitionSnapshot) -> None:
         # we do primitive uniqueness check on key (works only in single threaded environment)
         assert snapshot.uid is not None
-        if self._simulated_db.find_by_id(snapshot.uid):
-            raise MDRApiBaseException("Attempt to create a study with non-unique uid.")
+        BusinessLogicException.raise_if(
+            self._simulated_db.find_by_id(snapshot.uid),
+            msg="Attempt to create a study with non-unique uid.",
+        )
         self._simulated_db.save(snapshot)
 
     def _retrieve_all_snapshots(
@@ -393,7 +397,7 @@ class TestStudyDefinitionsRepositoryBase(unittest.TestCase):
                     study_title="new_study_title", study_short_title="study_short_title"
                 ),
             )
-            study.lock(version_description=random_str(), version_author=random_str())
+            study.lock(version_description=random_str(), author_id=random_str())
             study.unlock()
             TestStudyDefinitionsRepositoryBase.make_random_study_edit(study)
         if random.random() < 0.667:
@@ -409,9 +413,7 @@ class TestStudyDefinitionsRepositoryBase(unittest.TestCase):
                         study_short_title="study_short_title",
                     ),
                 )
-                study.lock(
-                    version_description=random_str(), version_author=random_str()
-                )
+                study.lock(version_description=random_str(), author_id=random_str())
         return study
 
     def test__save__new_instance__results(self):

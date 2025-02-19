@@ -1,5 +1,4 @@
 from clinical_mdr_api.domains.concepts.utils import TargetType
-from clinical_mdr_api.exceptions import BusinessLogicException
 from clinical_mdr_api.models.concepts.odms.odm_condition import OdmCondition
 from clinical_mdr_api.models.concepts.odms.odm_form import OdmForm
 from clinical_mdr_api.models.concepts.odms.odm_item import OdmItem
@@ -37,6 +36,7 @@ from clinical_mdr_api.services.controlled_terminologies.ct_codelist_attributes i
 from clinical_mdr_api.services.controlled_terminologies.ct_term_attributes import (
     CTTermAttributesService,
 )
+from common.exceptions import BusinessLogicException
 
 
 class OdmDataExtractor:
@@ -120,7 +120,7 @@ class OdmDataExtractor:
             self.set_unit_definitions_of_items(self.odm_items)
             self.set_codelists_of_items(self.odm_items)
         else:
-            raise BusinessLogicException("Requested target type not supported.")
+            raise BusinessLogicException(msg="Requested target type not supported.")
 
         self.target_uid = target_uid
 

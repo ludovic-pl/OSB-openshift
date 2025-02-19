@@ -2,8 +2,9 @@ import datetime
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Iterable, Self
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domains._utils import normalize_string
+from clinical_mdr_api.services.user_info import UserInfoService
+from clinical_mdr_api.utils import normalize_string
+from common import exceptions
 
 
 @dataclass(frozen=True)
@@ -21,7 +22,8 @@ class StudySelectionObjectiveVO:
     is_instance: bool
     # Study selection Versioning
     start_date: datetime.datetime
-    user_initials: str | None
+    author_id: str | None
+    author_username: str | None = None
     accepted_version: bool = False
 
     @classmethod
@@ -31,7 +33,7 @@ class StudySelectionObjectiveVO:
         objective_version: str,
         objective_level_uid: str | None,
         objective_level_order: int | None,
-        user_initials: str,
+        author_id: str,
         study_uid: str | None = None,
         study_selection_uid: str | None = None,
         is_instance: bool = True,
@@ -57,7 +59,8 @@ class StudySelectionObjectiveVO:
             study_selection_uid=normalize_string(study_selection_uid),
             objective_level_uid=normalize_string(objective_level_uid),
             objective_level_order=objective_level_order,
-            user_initials=normalize_string(user_initials),
+            author_id=normalize_string(author_id),
+            author_username=UserInfoService.get_author_username_from_id(author_id),
             accepted_version=accepted_version,
         )
 
@@ -67,17 +70,15 @@ class StudySelectionObjectiveVO:
         ct_term_level_exist_callback: Callable[[str], bool] = (lambda _: True),
     ) -> None:
         # Checks if there exists a objective which is approved with objective_uid
-        if not objective_exist_callback(normalize_string(self.objective_uid)):
-            raise exceptions.ValidationException(
-                f"There is no approved objective identified by provided uid ({self.objective_uid})"
-            )
-        if (
+        exceptions.BusinessLogicException.raise_if_not(
+            objective_exist_callback(normalize_string(self.objective_uid)),
+            msg=f"There is no approved Objective with UID '{self.objective_uid}'.",
+        )
+        exceptions.BusinessLogicException.raise_if(
             not ct_term_level_exist_callback(self.objective_level_uid)
-            and self.objective_level_uid
-        ):
-            raise exceptions.ValidationException(
-                f"There is no approved objective level identified by provided term uid ({self.objective_level_uid})"
-            )
+            and self.objective_level_uid,
+            msg=f"There is no approved Objective Level with UID '{self.objective_level_uid}'.",
+        )
 
     def update_version(self, objective_version: str):
         return replace(self, objective_version=objective_version)
@@ -121,9 +122,7 @@ class StudySelectionObjectivesAR:
         for order, selection in enumerate(self.study_objectives_selection, start=1):
             if selection.study_selection_uid == study_selection_uid:
                 return selection, order
-        raise exceptions.NotFoundException(
-            f"The study objective with uid ({study_selection_uid}) does not exist"
-        )
+        raise exceptions.NotFoundException("Study Objective", study_selection_uid)
 
     def add_objective_selection(
         self,
@@ -175,7 +174,7 @@ class StudySelectionObjectivesAR:
         self._study_objectives_selection = tuple(updated_selection)
 
     def set_new_order_for_selection(
-        self, study_selection_uid: str, new_order: int, user_initials: str
+        self, study_selection_uid: str, new_order: int, author_id: str
     ):
         # check if the new order is valid using the robustness principle
         if new_order > len(self.study_objectives_selection):
@@ -192,7 +191,7 @@ class StudySelectionObjectivesAR:
         selected_value = StudySelectionObjectiveVO.from_input_values(
             objective_uid=selected_value.objective_uid,
             objective_level_uid=selected_value.objective_level_uid,
-            user_initials=user_initials,
+            author_id=author_id,
             study_selection_uid=selected_value.study_selection_uid,
             objective_level_order=selected_value.objective_level_order,
             objective_version=selected_value.objective_version,
@@ -230,7 +229,7 @@ class StudySelectionObjectivesAR:
                             updated_selections.append(selection)
                         except AttributeError as exc:
                             raise exceptions.BusinessLogicException(
-                                "It is not possible to put a Secondary Objective above a Primary Objective."
+                                msg="It is not possible to put a Secondary Objective above a Primary Objective."
                             ) from exc
                 else:
                     if (
@@ -300,8 +299,8 @@ class StudySelectionObjectivesAR:
     def validate(self):
         objectives = []
         for selection in self.study_objectives_selection:
-            if selection.objective_uid in objectives:
-                raise exceptions.ValidationException(
-                    f"There is already a study selection to that objective ({selection.objective_uid})"
-                )
+            exceptions.AlreadyExistsException.raise_if(
+                selection.objective_uid in objectives,
+                msg=f"There is already a study selection to the Objective with UID '{selection.objective_uid}'.",
+            )
             objectives.append(selection.objective_uid)

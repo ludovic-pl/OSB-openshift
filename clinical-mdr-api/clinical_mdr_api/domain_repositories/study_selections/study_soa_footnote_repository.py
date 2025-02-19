@@ -2,9 +2,7 @@ import datetime
 
 from neomodel import db
 
-from clinical_mdr_api import exceptions
-from clinical_mdr_api.domain_repositories._utils.helpers import db_result_to_list
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
+from clinical_mdr_api import utils
 from clinical_mdr_api.domain_repositories.models.study import StudyRoot
 from clinical_mdr_api.domain_repositories.models.study_audit_trail import (
     Create,
@@ -26,13 +24,18 @@ from clinical_mdr_api.domain_repositories.models.syntax import (
 from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import (
     StudyStatus,
 )
+from clinical_mdr_api.domains.study_selections.study_selection_base import SoAItemType
 from clinical_mdr_api.domains.study_selections.study_soa_footnote import (
     ReferencedItemVO,
-    SoAItemType,
     StudySoAFootnoteVO,
     StudySoAFootnoteVOHistory,
 )
-from clinical_mdr_api.exceptions import ValidationException
+from common.exceptions import (
+    BusinessLogicException,
+    NotFoundException,
+    ValidationException,
+)
+from common.utils import convert_to_datetime
 
 
 class StudySoAFootnoteRepository:
@@ -115,7 +118,7 @@ class StudySoAFootnoteRepository:
                 footnote_template.version as footnote_template_version,
                 sa.date AS modified_date,
                 end_date,
-                sa.user_initials AS user_initials,
+                sa.author_id AS author_id,
                 sa.status AS status,
                 labels(sa) AS change_type,
                 apoc.coll.toSet(referenced_study_activities) AS referenced_study_activities,
@@ -219,7 +222,7 @@ class StudySoAFootnoteRepository:
             footnote_number=selection.get("footnote_number"),
             uid=selection.get("uid"),
             modified=convert_to_datetime(value=selection.get("modified_date")),
-            author=selection.get("user_initials"),
+            author_id=selection.get("author_id"),
             status=StudyStatus(selection.get("status")),
             accepted_version=selection.get("accepted_version"),
         )
@@ -243,11 +246,13 @@ class StudySoAFootnoteRepository:
             footnote_number=selection.get("footnote_number"),
             uid=selection.get("uid"),
             start_date=convert_to_datetime(value=selection.get("modified_date")),
-            end_date=convert_to_datetime(value=selection.get("end_date"))
-            if selection.get("end_date")
-            else None,
+            end_date=(
+                convert_to_datetime(value=selection.get("end_date"))
+                if selection.get("end_date")
+                else None
+            ),
             change_type=change_type,
-            author=selection.get("user_initials"),
+            author_id=selection.get("author_id"),
             status=StudyStatus(selection.get("status")),
             accepted_version=selection.get("accepted_version"),
         )
@@ -296,7 +301,7 @@ class StudySoAFootnoteRepository:
         query += self.order_by_footnote_number()
         all_study_soa_footnotes = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in db_result_to_list(all_study_soa_footnotes):
+        for selection in utils.db_result_to_list(all_study_soa_footnotes):
             selection_vo = self.create_vo_from_db_output(selection=selection)
             all_selections.append(selection_vo)
         return all_selections
@@ -324,15 +329,14 @@ class StudySoAFootnoteRepository:
 
         db_ret = db.cypher_query(query, query_parameters)
 
-        soa_footnote = db_result_to_list(db_ret)
-        if len(soa_footnote) == 0:
-            raise exceptions.NotFoundException(
-                f"StudySoAFootnote with uid {uid} does not exist."
-            )
-        if len(soa_footnote) > 1:
-            raise exceptions.ValidationException(
-                f"Returned more than one StudySoAFootnote with uid {uid}"
-            )
+        soa_footnote = utils.db_result_to_list(db_ret)
+
+        NotFoundException.raise_if(len(soa_footnote) == 0, "Study SoA Footnote", uid)
+
+        BusinessLogicException.raise_if(
+            len(soa_footnote) > 1,
+            msg=f"Returned more than one StudySoAFootnote with uid {uid}",
+        )
 
         selection_vo = self.create_vo_from_db_output(selection=soa_footnote[0])
         return selection_vo
@@ -340,10 +344,12 @@ class StudySoAFootnoteRepository:
     def save(self, soa_footnote_vo: StudySoAFootnoteVO, create: bool = True):
         study_root = StudyRoot.nodes.get(uid=soa_footnote_vo.study_uid)
         study_value = study_root.latest_value.get_or_none()
-        if study_value is None:
-            raise ValidationException(
-                f"Study ({soa_footnote_vo.study_uid}) doesn't exist"
-            )
+
+        BusinessLogicException.raise_if(
+            study_value is None,
+            msg=f"Study with UID '{soa_footnote_vo.study_uid}' doesn't exist.",
+        )
+
         soa_footnote_node = StudySoAFootnote(
             uid=soa_footnote_vo.uid,
             footnote_number=soa_footnote_vo.footnote_number,
@@ -367,7 +373,7 @@ class StudySoAFootnoteRepository:
                         "has_version|version": soa_footnote_vo.footnote_version,
                     }
                 )
-                .get_or_none()[1]
+                .get_or_none()[0]
             )
             soa_footnote_node.has_footnote.connect(selected_footnote)
         # link to selected footnote template if there's no specific version specified
@@ -392,7 +398,7 @@ class StudySoAFootnoteRepository:
                         "has_version|version": soa_footnote_vo.footnote_template_version,
                     }
                 )
-                .get_or_none()[1]
+                .get_or_none()[0]
             )
             soa_footnote_node.has_footnote_template.connect(selected_footnote_template)
         not_found_items = []
@@ -490,11 +496,13 @@ class StudySoAFootnoteRepository:
                     )
                 else:
                     not_found_items.append(referenced_item)
-        if not_found_items:
-            raise ValidationException(
-                f"The following referenced nodes were not found "
-                f"{[not_found_item.item_name if not_found_item.item_name else not_found_item.item_uid for not_found_item in not_found_items]}"
-            )
+
+        ValidationException.raise_if(
+            not_found_items,
+            msg=f"The following referenced nodes were not found "
+            f"{[not_found_item.item_name if not_found_item.item_name else not_found_item.item_uid for not_found_item in not_found_items]}",
+        )
+
         if create:
             self.manage_versioning_create(
                 study_root=study_root,
@@ -538,7 +546,7 @@ class StudySoAFootnoteRepository:
         query += self.order_by_date()
         all_study_soa_footnotes = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in db_result_to_list(all_study_soa_footnotes):
+        for selection in utils.db_result_to_list(all_study_soa_footnotes):
             selection_vo = self.create_vo_history_from_db_output(selection=selection)
             all_selections.append(selection_vo)
         return all_selections
@@ -554,7 +562,7 @@ class StudySoAFootnoteRepository:
         query += self.order_by_date()
         all_study_soa_footnotes = db.cypher_query(query, query_parameters)
         all_selections = []
-        for selection in db_result_to_list(all_study_soa_footnotes):
+        for selection in utils.db_result_to_list(all_study_soa_footnotes):
             selection_vo = self.create_vo_history_from_db_output(selection=selection)
             all_selections.append(selection_vo)
         return all_selections
@@ -568,7 +576,7 @@ class StudySoAFootnoteRepository:
         action = Create(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_soa_footnote_vo.status.value,
-            user_initials=study_soa_footnote_vo.author,
+            author_id=study_soa_footnote_vo.author_id,
         )
         action.save()
         action.has_after.connect(new_node)
@@ -584,7 +592,7 @@ class StudySoAFootnoteRepository:
         action = Edit(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_soa_footnote_vo.status.value,
-            user_initials=study_soa_footnote_vo.author,
+            author_id=study_soa_footnote_vo.author_id,
         )
         action.save()
         action.has_before.connect(previous_node)
@@ -601,7 +609,7 @@ class StudySoAFootnoteRepository:
         action = Delete(
             date=datetime.datetime.now(datetime.timezone.utc),
             status=study_soa_footnote_vo.status.value,
-            user_initials=study_soa_footnote_vo.author,
+            author_id=study_soa_footnote_vo.author_id,
         )
         action.save()
         action.has_before.connect(previous_node)

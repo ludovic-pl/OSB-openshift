@@ -236,13 +236,13 @@ class CTTermNameRepository(CTTermGenericRepository[CTTermNameAR]):
                 'CREATE (codelist_root)-[had_term:HAD_TERM]->(term_root)
                 SET had_term.start_date=has_term.start_date
                 SET had_term.end_date=datetime()
-                SET had_term.user_initials=$user_initials
+                SET had_term.author_id=$author_id
                 SET had_term.order=has_term.order
                 DELETE has_term
                 CREATE (codelist_root)-[new_has_term:HAS_TERM]->(term_root)
                 SET new_has_term.start_date=datetime()
                 SET new_has_term.end_date=NULL
-                SET new_has_term.user_initials=$user_initials
+                SET new_has_term.author_id=$author_id
                 SET new_has_term.order=$order'
             ], 
             '',
@@ -251,7 +251,7 @@ class CTTermNameRepository(CTTermGenericRepository[CTTermNameAR]):
                 order: $order,
                 codelist_root: codelist_root,
                 term_root: term_root,
-                user_initials: $user_initials
+                author_id: $author_id
             })
             YIELD value
             RETURN value            
@@ -276,7 +276,7 @@ class CTTermNameRepository(CTTermGenericRepository[CTTermNameAR]):
                     ].codelist_uid,
                     "term_uid": versioned_object.uid,
                     "order": versioned_object.ct_term_vo.codelists[0].order,
-                    "user_initials": versioned_object.item_metadata.user_initials,
+                    "author_id": versioned_object.item_metadata.author_id,
                 },
             )
             db.cypher_query(

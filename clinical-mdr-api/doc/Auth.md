@@ -131,9 +131,9 @@ with a different identity provider.
   - Later you will need to revisit this menu to add client applications one-by-one in *Authorized client 
     applications* section.
 - **App roles**: All roles clinical-mdr-api uses shall be listed here, so later in *Enterprise applications* -> 
-  *Users and groups* these roles can be assigned to different groups. (*Azure AD Free* subscription does not allow 
+  *Users and groups* these roles can be assigned to different groups. (*Azure AD Free* subscription doesn't allow 
   granting roles to groups, so users can shall be granted each role one by one - as we do in our sandbox tenant.)
-  Configuring app roles can be skipped if Role-based Access Control is not required, and should be disabled with the
+  Configuring app roles can be skipped if Role-based Access Control is not required, and can be disabled with the
   `OAUTH_RBAC_ENABLED=false` environment variable.
 
 | Display name   | Description                                   | Allowed member types      | Value         |
@@ -305,7 +305,7 @@ The *validate_token* dependency uses *authlib* Python library to validate:
   - *aud*ience is checked, must match `OAUTH_API_APP_ID` the id of the registered clinical-mdr-api application.
 - Then saves user-related information to a request-bound context object.
 
-Currently, clinical-mdr-api does not require any scopes to be claimed in the access token.
+Currently, clinical-mdr-api doesn't require any scopes to be claimed in the access token.
 
 
 ## Role-based access control
@@ -320,7 +320,7 @@ We have `Study` `Library` and `Admin` prefixes, with `Read` or `Write` suffix.
 For endpoint dealing with a library items, the required role starts 
 with the `Library` prefix, endpoints related to studies get the `Study` 
 prefix, and administrative endpoints may get the `Admin` prefix in the future. If an 
-endpoint just reads but does not alter any object, the role gets suffiexed with 
+endpoint just reads but doesn't alter any object, the role gets suffiexed with 
 `Read`, and when the endpoint does modification or execute an action, the 
 role get suffixed with `Write`.
 

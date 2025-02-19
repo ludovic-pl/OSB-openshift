@@ -2,7 +2,11 @@ import unittest
 
 from neomodel import db
 
-from clinical_mdr_api import models
+from clinical_mdr_api.models.study_selections.study_selection import (
+    StudyActivityScheduleBatchInput,
+    StudyActivityScheduleCreateInput,
+    StudyActivityScheduleDeleteInput,
+)
 from clinical_mdr_api.services.studies.study_activity_schedule import (
     StudyActivityScheduleService,
 )
@@ -49,7 +53,7 @@ class StudyActivityScheduleTestCase(unittest.TestCase):
         service = StudyActivityScheduleService()
         schedule = service.create(
             "study_root",
-            models.StudyActivityScheduleCreateInput(
+            StudyActivityScheduleCreateInput(
                 study_activity_uid=sa1.study_activity_uid, study_visit_uid=baseline.uid
             ),
         )
@@ -86,16 +90,16 @@ class StudyActivityScheduleTestCase(unittest.TestCase):
         service.handle_batch_operations(
             "study_root",
             [
-                models.StudyActivityScheduleBatchInput(
+                StudyActivityScheduleBatchInput(
                     method="POST",
-                    content=models.StudyActivityScheduleCreateInput(
+                    content=StudyActivityScheduleCreateInput(
                         study_activity_uid=sa1.study_activity_uid,
                         study_visit_uid=baseline.uid,
                     ),
                 ),
-                models.StudyActivityScheduleBatchInput(
+                StudyActivityScheduleBatchInput(
                     method="POST",
-                    content=models.StudyActivityScheduleCreateInput(
+                    content=StudyActivityScheduleCreateInput(
                         study_activity_uid=sa2.study_activity_uid,
                         study_visit_uid=baseline.uid,
                     ),
@@ -108,15 +112,15 @@ class StudyActivityScheduleTestCase(unittest.TestCase):
         service.handle_batch_operations(
             "study_root",
             [
-                models.StudyActivityScheduleBatchInput(
+                StudyActivityScheduleBatchInput(
                     method="DELETE",
-                    content=models.StudyActivityScheduleDeleteInput(
+                    content=StudyActivityScheduleDeleteInput(
                         uid=schedules[0].study_activity_schedule_uid
                     ),
                 ),
-                models.StudyActivityScheduleBatchInput(
+                StudyActivityScheduleBatchInput(
                     method="DELETE",
-                    content=models.StudyActivityScheduleDeleteInput(
+                    content=StudyActivityScheduleDeleteInput(
                         uid=schedules[1].study_activity_schedule_uid
                     ),
                 ),

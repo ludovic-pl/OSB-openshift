@@ -25,8 +25,8 @@ export_study_event = """<?xml version="1.0" encoding="utf-8"?>
                                 <prefix:nameOne>test value</prefix:nameOne>
                             </FormDef>
                             <ItemGroupDef OID="oid1" Name="name1" Repeating="No" Purpose="purpose1" SASDatasetName="sas_dataset_name1" Domain="code_submission_value1:preferred_term1|code_submission_value2:preferred_term2" osb:version="1.0" osb:instruction="instruction1" osb:sponsorInstruction="sponsor_instruction1">
-                                <osb:DomainColor>code_submission_value1:#bfffff;</osb:DomainColor>
-                                <osb:DomainColor>code_submission_value2:#ffff96;</osb:DomainColor>
+                                <osb:DomainColor>code_submission_value1:#bfffff !important;</osb:DomainColor>
+                                <osb:DomainColor>code_submission_value2:#ffff96 !important;</osb:DomainColor>
                                 <Description>
                                     <TranslatedText xml:lang="en" osb:version="1.0">description1</TranslatedText>
                                 </Description>
@@ -97,8 +97,8 @@ export_form = """<?xml version="1.0" encoding="utf-8"?>
                 <prefix:nameOne>test value</prefix:nameOne>
             </FormDef>
             <ItemGroupDef OID="oid1" Name="name1" Repeating="No" Purpose="purpose1" SASDatasetName="sas_dataset_name1" Domain="code_submission_value1:preferred_term1|code_submission_value2:preferred_term2" osb:version="1.0" osb:instruction="instruction1" osb:sponsorInstruction="sponsor_instruction1">
-                <osb:DomainColor>code_submission_value1:#bfffff;</osb:DomainColor>
-                <osb:DomainColor>code_submission_value2:#ffff96;</osb:DomainColor>
+                <osb:DomainColor>code_submission_value1:#bfffff !important;</osb:DomainColor>
+                <osb:DomainColor>code_submission_value2:#ffff96 !important;</osb:DomainColor>
                 <Description>
                     <TranslatedText xml:lang="en" osb:version="1.0">description1</TranslatedText>
                 </Description>
@@ -161,8 +161,8 @@ export_item_group = """<?xml version="1.0" encoding="utf-8"?>
         </BasicDefinitions>
         <MetaDataVersion OID="MDV.0.1" Name="MDV.0.1" Description="Draft version">
             <ItemGroupDef OID="oid1" Name="name1" Repeating="No" Purpose="purpose1" SASDatasetName="sas_dataset_name1" Domain="code_submission_value1:preferred_term1|code_submission_value2:preferred_term2" osb:version="1.0" osb:instruction="instruction1" osb:sponsorInstruction="sponsor_instruction1">
-                <osb:DomainColor>code_submission_value1:#bfffff;</osb:DomainColor>
-                <osb:DomainColor>code_submission_value2:#ffff96;</osb:DomainColor>
+                <osb:DomainColor>code_submission_value1:#bfffff !important;</osb:DomainColor>
+                <osb:DomainColor>code_submission_value2:#ffff96 !important;</osb:DomainColor>
                 <Description>
                     <TranslatedText xml:lang="en" osb:version="1.0">description1</TranslatedText>
                 </Description>
@@ -268,8 +268,8 @@ export_with_csv = """<?xml version="1.0" encoding="utf-8"?>
                 <Alias Name="sponsor_instruction1" Context="ImplementationNotes" />
             </FormDef>
             <ItemGroupDef OID="oid1" Name="name1" Repeating="No" Purpose="purpose1" SASDatasetName="sas_dataset_name1" Domain="code_submission_value1:preferred_term1|code_submission_value2:preferred_term2" osb:version="1.0" CompletionInstructions="instruction1" ImplementationNotes="sponsor_instruction1">
-                <DomainColor>code_submission_value1:#bfffff;</DomainColor>
-                <DomainColor>code_submission_value2:#ffff96;</DomainColor>
+                <DomainColor>code_submission_value1:#bfffff !important;</DomainColor>
+                <DomainColor>code_submission_value2:#ffff96 !important;</DomainColor>
                 <Description>
                     <TranslatedText xml:lang="en" osb:version="1.0">description1</TranslatedText>
                 </Description>
@@ -412,6 +412,7 @@ import_input1 = """<?xml version="1.0" encoding="utf-8"?>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">Informed Consent and Demography form</TranslatedText>
                         </Description>
+                        <Alias Name="name1" Context="context1" />
                         <ItemGroupRef ItemGroupOID="G.DM.IC" Mandatory="Yes" OrderNumber="1" osb:locked="Yes" clinspark:connectivity="Yes" />
                         <ItemGroupRef ItemGroupOID="G.DM.DM" Mandatory="Yes" OrderNumber="2" osb:locked="No" clinspark:connectivity="Yes" />
                     </FormDef>
@@ -419,11 +420,12 @@ import_input1 = """<?xml version="1.0" encoding="utf-8"?>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">Vital signs form</TranslatedText>
                         </Description>
+                        <Alias Name="name1" Context="context1" />
                         <ItemGroupRef ItemGroupOID="G.VS.VS" Mandatory="Yes" OrderNumber="1" osb:locked="Yes" />
                         <ItemGroupRef ItemGroupOID="G.VS.BPP" Mandatory="Yes" OrderNumber="2" osb:locked="Yes" />
                     </FormDef>
                     <ItemGroupDef OID="G.VS.BPP" Name="Blood pressure and pulse" Repeating="No" Purpose="Tabulation" SASDatasetName="VITALSIGNSBPP" Domain="VS:Vital Signs Domain" osb:version="1.0" osb:instruction="item group instruction" osb:sponsorInstruction="item group sponsor instruction" osb:gr="ig1">
-                        <osb:DomainColor>VS:#bfffff;</osb:DomainColor>
+                        <osb:DomainColor>VS:#bfffff !important;</osb:DomainColor>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">Blood pressure and pulse</TranslatedText>
                         </Description>
@@ -433,9 +435,10 @@ import_input1 = """<?xml version="1.0" encoding="utf-8"?>
                         <ItemRef ItemOID="I.LATERALITY" Mandatory="Yes" OrderNumber="4" osb:sdv="Yes" />
                         <ItemRef ItemOID="I.LOC" Mandatory="Yes" OrderNumber="5" osb:sdv="Yes" />
                         <ItemRef ItemOID="I.PULSE" Mandatory="Yes" OrderNumber="6" osb:sdv="Yes" />
+                        <Alias Name="name1" Context="context1" />
                     </ItemGroupDef>
-                    <ItemGroupDef OID="G.DM.DM" Name="General Demography " Repeating="No" Purpose="Tabulation" SASDatasetName="DEMOG" Domain="DM:Demographics Domain" osb:version="1.0" osb:instruction="item group instruction" osb:sponsorInstruction="item group sponsor instruction" osb:gr="ig2">
-                        <osb:DomainColor>DM:#bfffff;</osb:DomainColor>
+                    <ItemGroupDef OID="G.DM.DM" Name="General Demography" Repeating="No" Purpose="Tabulation" SASDatasetName="DEMOG" Domain="DM:Demographics Domain" osb:version="1.0" osb:instruction="item group instruction" osb:sponsorInstruction="item group sponsor instruction" osb:gr="ig2">
+                        <osb:DomainColor>DM:#bfffff !important;</osb:DomainColor>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">General Demographic item group</TranslatedText>
                         </Description>
@@ -449,9 +452,10 @@ import_input1 = """<?xml version="1.0" encoding="utf-8"?>
                         <ItemRef ItemOID="I.RACEOTH" Mandatory="Yes" OrderNumber="8" osb:sdv="Yes" />
                         <ItemRef ItemOID="I.SUBJID" Mandatory="Yes" OrderNumber="9" osb:sdv="Yes" />
                         <ItemRef ItemOID="I.PREVSUBJ" Mandatory="Yes" OrderNumber="10" osb:sdv="Yes" />
+                        <Alias Name="name2" Context="context2" />
                     </ItemGroupDef>
                     <ItemGroupDef OID="G.DM.IC" Name="Informed Consent" Repeating="No" Purpose="Tabulation" SASDatasetName="DEMOG" Domain="DM:Demographics Domain" osb:version="1.0" osb:instruction="item group instruction" osb:sponsorInstruction="item group sponsor instruction" osb:gr="ig3">
-                        <osb:DomainColor>DM:#bfffff;</osb:DomainColor>
+                        <osb:DomainColor>DM:#bfffff !important;</osb:DomainColor>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">Informed Consent item group</TranslatedText>
                         </Description>
@@ -464,7 +468,7 @@ import_input1 = """<?xml version="1.0" encoding="utf-8"?>
                         <ItemRef ItemOID="I.RFICTIMLAR2" Mandatory="Yes" OrderNumber="7" osb:sdv="Yes" />
                     </ItemGroupDef>
                     <ItemGroupDef OID="G.VS.VS" Name="Vital Signs" Repeating="Yes" Purpose="Tabulation" SASDatasetName="VITALSIGNS" Domain="VS:Vital Signs Domain" osb:version="1.0" osb:instruction="item group instruction" osb:sponsorInstruction="item group sponsor instruction" osb:gr="ig4">
-                        <osb:DomainColor>VS:#bfffff;</osb:DomainColor>
+                        <osb:DomainColor>VS:#bfffff !important;</osb:DomainColor>
                         <Description>
                             <TranslatedText xml:lang="en" osb:version="0.1">Vital signs</TranslatedText>
                         </Description>
@@ -729,7 +733,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorNamespace_000001",
             "name": "CLINSPARK",
@@ -755,7 +759,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_namespace2",
             "name": "OSB",
@@ -845,7 +849,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000006",
             "name": "allows",
@@ -870,7 +874,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000001",
             "name": "allowsMultiChoice",
@@ -895,7 +899,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000008",
             "name": "connectivity",
@@ -920,7 +924,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000005",
             "name": "dataEntryRequired",
@@ -945,7 +949,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000003",
             "name": "gr",
@@ -970,7 +974,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000007",
             "name": "locked",
@@ -995,7 +999,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000004",
             "name": "sdv",
@@ -1020,7 +1024,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000002",
             "name": "someAttr",
@@ -1046,7 +1050,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorElement_000001",
             "name": "Sometag",
@@ -1079,7 +1083,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_element2",
             "name": "nameTwo",
@@ -1104,7 +1108,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmStudyEvent_000001",
             "name": "ODM version 1.3.2 with DoB",
@@ -1141,7 +1145,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000001",
             "name": "Informed Consent and Demography",
@@ -1161,7 +1165,14 @@ import_output1 = {
                     "version": "1.0",
                 }
             ],
-            "aliases": [],
+            "aliases": [
+                {
+                    "uid": "OdmAlias_000001",
+                    "context": "context1",
+                    "name": "name1",
+                    "version": "1.0",
+                }
+            ],
             "activity_groups": [],
             "item_groups": [
                 {
@@ -1195,7 +1206,7 @@ import_output1 = {
                 {
                     "uid": "OdmItemGroup_000002",
                     "oid": "G.DM.DM",
-                    "name": "General Demography ",
+                    "name": "General Demography",
                     "order_number": 2,
                     "mandatory": "Yes",
                     "collection_exception_condition_oid": "",
@@ -1240,7 +1251,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000002",
             "name": "Vital Signs",
@@ -1260,7 +1271,14 @@ import_output1 = {
                     "version": "1.0",
                 }
             ],
-            "aliases": [],
+            "aliases": [
+                {
+                    "uid": "OdmAlias_000001",
+                    "context": "context1",
+                    "name": "name1",
+                    "version": "1.0",
+                }
+            ],
             "activity_groups": [],
             "item_groups": [
                 {
@@ -1325,7 +1343,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000001",
             "name": "Blood pressure and pulse",
@@ -1348,7 +1366,14 @@ import_output1 = {
                     "version": "1.0",
                 }
             ],
-            "aliases": [],
+            "aliases": [
+                {
+                    "uid": "OdmAlias_000001",
+                    "context": "context1",
+                    "name": "name1",
+                    "version": "1.0",
+                }
+            ],
             "sdtm_domains": [],
             "activity_subgroups": [],
             "items": [
@@ -1530,10 +1555,10 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000002",
-            "name": "General Demography ",
+            "name": "General Demography",
             "library_name": "Sponsor",
             "oid": "G.DM.DM",
             "repeating": "No",
@@ -1553,7 +1578,14 @@ import_output1 = {
                     "version": "1.0",
                 }
             ],
-            "aliases": [],
+            "aliases": [
+                {
+                    "uid": "OdmAlias_000002",
+                    "context": "context2",
+                    "name": "name2",
+                    "version": "1.0",
+                }
+            ],
             "sdtm_domains": [],
             "activity_subgroups": [],
             "items": [
@@ -1827,7 +1859,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000003",
             "name": "Informed Consent",
@@ -2049,7 +2081,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000004",
             "name": "Vital Signs",
@@ -2173,7 +2205,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000001",
             "name": "Age",
@@ -2264,7 +2296,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000002",
             "name": "Anatomical Location",
@@ -2328,7 +2360,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000003",
             "name": "Date informed consent obtained",
@@ -2368,7 +2400,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000004",
             "name": "Date informed consent obtained by Parents/Legally Acceptable Representative (LAR) Only to be completed in countries where Informed Consent from both parents is required [de-activated]",
@@ -2408,7 +2440,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000005",
             "name": "Date informed consent obtained by Parents/Legally Acceptable Representative (LAR) [de-activated]",
@@ -2448,7 +2480,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000006",
             "name": "Date of birth",
@@ -2488,7 +2520,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000007",
             "name": "Date of birth (only for Argus interface) [hidden]",
@@ -2528,7 +2560,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000008",
             "name": "Date of examination",
@@ -2568,7 +2600,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000009",
             "name": "Diastolic blood pressure",
@@ -2621,7 +2653,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000010",
             "name": "Ethnicity",
@@ -2661,7 +2693,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000011",
             "name": "Informed Consent TIME obtained by Parents/Legally Acceptable Representative (LAR) [de-activated]",
@@ -2701,7 +2733,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000012",
             "name": "Informed Consent Time obtained by Parents/Legally Acceptable Representative (LAR) Only to be completed in countries where Informed Consent from both parents is required [de-activated]",
@@ -2741,7 +2773,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000013",
             "name": "Laterality",
@@ -2781,7 +2813,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000014",
             "name": "Position",
@@ -2821,7 +2853,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000015",
             "name": "Previous Subject No.",
@@ -2861,7 +2893,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000016",
             "name": "Pulse",
@@ -2914,7 +2946,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000017",
             "name": "Race",
@@ -2954,7 +2986,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000018",
             "name": "Race other",
@@ -2994,7 +3026,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000019",
             "name": "Sex [de-activated]",
@@ -3034,7 +3066,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000020",
             "name": "Sex [read-only]",
@@ -3074,7 +3106,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000021",
             "name": "Study ID",
@@ -3128,7 +3160,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000022",
             "name": "Subject No. [read-only]",
@@ -3168,7 +3200,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000023",
             "name": "Systolic blood pressure",
@@ -3221,7 +3253,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000024",
             "name": "Time informed consent obtained",
@@ -3263,7 +3295,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmCondition_000001",
             "name": "Condition1",
@@ -3296,7 +3328,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmCondition_000002",
             "name": "Condition2",
@@ -3349,7 +3381,7 @@ import_output1 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmMethod_000001",
             "name": "Method1",
@@ -3426,7 +3458,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorNamespace_000001",
             "name": "CS",
@@ -3451,7 +3483,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_namespace2",
             "name": "OSB",
@@ -3488,7 +3520,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000001",
             "name": "newAttribute",
@@ -3515,7 +3547,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorElement_000001",
             "name": "nameOne",
@@ -3538,7 +3570,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_element2",
             "name": "nameTwo",
@@ -3563,7 +3595,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmStudyEvent_000001",
             "name": "ODM version 1.3.2 with DoB",
@@ -3592,7 +3624,7 @@ import_output2 = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000001",
             "name": "name1",
@@ -4547,7 +4579,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_namespace1",
             "name": "nameOne",
@@ -4649,7 +4681,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000002",
             "name": "clinAttribute",
@@ -4674,7 +4706,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000004",
             "name": "clinRefAttribute",
@@ -4699,7 +4731,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000003",
             "name": "clinVendorElementAttribute",
@@ -4723,7 +4755,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_attribute5",
             "name": "nameFive",
@@ -4750,7 +4782,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "name": "nameFour",
             "change_description": "Approved version",
             "uid": "odm_vendor_attribute4",
@@ -4781,7 +4813,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_attribute3",
             "name": "nameThree",
@@ -4812,7 +4844,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorAttribute_000001",
             "name": "newClinAttribute",
@@ -4839,7 +4871,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmVendorElement_000001",
             "name": "ClinTag",
@@ -4872,7 +4904,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "odm_vendor_element1",
             "name": "nameOne",
@@ -4916,7 +4948,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmStudyEvent_000001",
             "name": "Global Standards CRF Library",
@@ -4977,7 +5009,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000005",
             "name": "Administration of <Investigational medicinal product> 1",
@@ -5037,7 +5069,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000003",
             "name": "Body Measurements (with BMI) 1",
@@ -5048,12 +5080,12 @@ clinspark_output = {
             "scope": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000057",
+                    "uid": "OdmDescription_000059",
                     "name": "Body Measurements form including weight, height and BMI calculation. Expected use for screening visit.",
                     "language": "ENG",
                     "description": "Body Measurements form including weight, height and BMI calculation. Expected use for screening visit.",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -5080,7 +5112,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000002",
             "name": "Demography 1",
@@ -5113,7 +5145,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000001",
             "name": "Informed Consent 1",
@@ -5181,7 +5213,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmForm_000004",
             "name": "Vital Signs (Single Measurement) 1",
@@ -5216,7 +5248,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000007",
             "name": "Administration of <Investigational medicinal product> 1",
@@ -5230,12 +5262,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000056",
+                    "uid": "OdmDescription_000058",
                     "name": "Exposure as Collected",
                     "language": "ENG",
                     "description": "Exposure as Collected",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -5492,7 +5524,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000003",
             "name": "Body Measurements 1",
@@ -5506,12 +5538,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000054",
+                    "uid": "OdmDescription_000055",
                     "name": "Body Measurements",
                     "language": "ENG",
                     "description": "Body Measurements",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -5614,7 +5646,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000002",
             "name": "Demography 1",
@@ -5628,12 +5660,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000053",
+                    "uid": "OdmDescription_000054",
                     "name": "Demographics",
                     "language": "ENG",
                     "description": "Demographics",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -5778,7 +5810,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000001",
             "name": "Informed Consent 1",
@@ -5885,7 +5917,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000008",
             "name": "Post dose 1",
@@ -5955,7 +5987,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000006",
             "name": "Preparation for dosing 1",
@@ -6053,7 +6085,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000005",
             "name": "Prescribed dose of <Investigational medicinal product> 1",
@@ -6067,12 +6099,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000056",
+                    "uid": "OdmDescription_000057",
                     "name": "Exposure as Collected",
                     "language": "ENG",
                     "description": "Exposure as Collected",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6203,7 +6235,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItemGroup_000004",
             "name": "Vital Signs 1",
@@ -6217,12 +6249,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000055",
+                    "uid": "OdmDescription_000056",
                     "name": "Vital Signs",
                     "language": "ENG",
                     "description": "Vital Signs",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6313,7 +6345,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000019",
             "name": "DM Ethnicity 1",
@@ -6334,7 +6366,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Ethnicity",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6353,7 +6385,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000014",
             "name": "DM Race - American Indian Or Alaska Native 1",
@@ -6374,7 +6406,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Race - American Indian Or Alaska Native",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6393,7 +6425,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000015",
             "name": "DM Race - Asian 1",
@@ -6414,7 +6446,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Race - Asian",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6433,7 +6465,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000016",
             "name": "DM Race - Black Or African American 1",
@@ -6454,7 +6486,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Race - Black Or African American",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6473,7 +6505,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000017",
             "name": "DM Race - Native Hawaiian Or Other Pacific Islander 1",
@@ -6494,7 +6526,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Race - Native Hawaiian Or Other Pacific Islander",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6513,7 +6545,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000018",
             "name": "DM Race - White 1",
@@ -6534,7 +6566,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Race - White",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6553,7 +6585,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000013",
             "name": "DM Sex 1",
@@ -6574,7 +6606,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Sex",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6615,7 +6647,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000012",
             "name": "DM_age_AGECOLL 1",
@@ -6636,7 +6668,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Age",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6668,7 +6700,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000020",
             "name": "DM_previous _subject_number_PREVSUBJ 1",
@@ -6689,7 +6721,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6708,7 +6740,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000001",
             "name": "DS_DSCAT 1",
@@ -6729,7 +6761,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6778,7 +6810,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000002",
             "name": "DS_DSDECOD 1",
@@ -6799,7 +6831,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6896,7 +6928,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000004",
             "name": "DS_inf_consent_DSSTDTC 1",
@@ -6917,7 +6949,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -6936,7 +6968,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000030",
             "name": "EC_<IMP>_ECTRT 1",
@@ -6952,12 +6984,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000030",
+                    "uid": "OdmDescription_000031",
                     "name": "<Investigational medicinal product>",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7006,7 +7038,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000027",
             "name": "EC_ECCAT 1",
@@ -7022,12 +7054,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000027",
+                    "uid": "OdmDescription_000028",
                     "name": "ECCAT",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7060,7 +7092,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000028",
             "name": "EC_ECMOOD 1",
@@ -7076,12 +7108,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000028",
+                    "uid": "OdmDescription_000029",
                     "name": "ECMOOD",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7122,7 +7154,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000029",
             "name": "EC_ECPRESP 1",
@@ -7138,12 +7170,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000029",
+                    "uid": "OdmDescription_000030",
                     "name": "ECPRESP",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7176,7 +7208,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000039",
             "name": "EC_adm_imp_ECOCCUR 1",
@@ -7192,12 +7224,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000039",
+                    "uid": "OdmDescription_000040",
                     "name": "Has the investigational medicinal product been administered to the subject?",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7238,7 +7270,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000050",
             "name": "EC_admin_by_eS 1",
@@ -7254,12 +7286,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000050",
+                    "uid": "OdmDescription_000051",
                     "name": "Administered by",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7278,7 +7310,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000042",
             "name": "EC_bleed_no_ECXB 1",
@@ -7294,12 +7326,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000042",
+                    "uid": "OdmDescription_000043",
                     "name": "Bleeding episode no.",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7318,7 +7350,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000051",
             "name": "EC_check_by_eS 1",
@@ -7334,12 +7366,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000051",
+                    "uid": "OdmDescription_000052",
                     "name": "Checked by",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7358,7 +7390,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000052",
             "name": "EC_comment_eS 1",
@@ -7374,12 +7406,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000052",
+                    "uid": "OdmDescription_000053",
                     "name": "Comment",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7398,7 +7430,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000031",
             "name": "EC_datetime_prescription_ECSTDTC 1",
@@ -7414,12 +7446,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000031",
+                    "uid": "OdmDescription_000032",
                     "name": "Start date and time of prescription",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7438,7 +7470,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000046",
             "name": "EC_dose_ECDOSE 1",
@@ -7454,12 +7486,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000046",
+                    "uid": "OdmDescription_000047",
                     "name": "Actual Dose",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7478,7 +7510,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000033",
             "name": "EC_dose_form_ECDOSFRM 1",
@@ -7494,12 +7526,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000033",
+                    "uid": "OdmDescription_000034",
                     "name": "Dose form",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7540,7 +7572,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000036",
             "name": "EC_dun_eS 1",
@@ -7556,12 +7588,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000036",
+                    "uid": "OdmDescription_000037",
                     "name": "DUN (Dispensing Unit No.)",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7580,7 +7612,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000045",
             "name": "EC_end_datetime_ECENDTC 1",
@@ -7596,12 +7628,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000045",
+                    "uid": "OdmDescription_000046",
                     "name": "End date and time of administration",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7620,7 +7652,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000049",
             "name": "EC_inj_site_ECLOC 1",
@@ -7636,12 +7668,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000049",
+                    "uid": "OdmDescription_000050",
                     "name": "Injection site",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7690,7 +7722,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000048",
             "name": "EC_laterality_ECLAT 1",
@@ -7706,12 +7738,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000048",
+                    "uid": "OdmDescription_000049",
                     "name": "Laterality",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7752,7 +7784,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000035",
             "name": "EC_morph_inj_site_eS 1",
@@ -7768,12 +7800,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000035",
+                    "uid": "OdmDescription_000036",
                     "name": "Morphology of injection site",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7792,7 +7824,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000037",
             "name": "EC_no_inj_eS 1",
@@ -7808,12 +7840,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000037",
+                    "uid": "OdmDescription_000038",
                     "name": "Number of injections",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7832,7 +7864,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000032",
             "name": "EC_prescribed_dose_ECDOSE 1",
@@ -7848,12 +7880,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000032",
+                    "uid": "OdmDescription_000033",
                     "name": "Prescribed dose",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7872,7 +7904,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000034",
             "name": "EC_req_met_eS 1",
@@ -7888,12 +7920,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000034",
+                    "uid": "OdmDescription_000035",
                     "name": "Requirements for dosing met?",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7934,7 +7966,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000047",
             "name": "EC_route_ECROUTE 1",
@@ -7950,12 +7982,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000047",
+                    "uid": "OdmDescription_000048",
                     "name": "Route",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -7996,7 +8028,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000026",
             "name": "EC_seq_no_ECREFID 1",
@@ -8012,12 +8044,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000026",
+                    "uid": "OdmDescription_000027",
                     "name": "Seq. no.",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8036,7 +8068,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000040",
             "name": "EC_specify_reason_ECREASOC 1",
@@ -8052,12 +8084,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000040",
+                    "uid": "OdmDescription_000041",
                     "name": "Specify reason",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8076,7 +8108,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000044",
             "name": "EC_start_datetime_ECSTDTC 1",
@@ -8092,12 +8124,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000044",
+                    "uid": "OdmDescription_000045",
                     "name": "Start date and time of administration",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8116,7 +8148,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000043",
             "name": "EC_surgery_no_ECPR 1",
@@ -8132,12 +8164,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000043",
+                    "uid": "OdmDescription_000044",
                     "name": "Surgery no.",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8156,7 +8188,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000041",
             "name": "EC_type_of_treatment_ECSCAT 1",
@@ -8172,12 +8204,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000041",
+                    "uid": "OdmDescription_000042",
                     "name": "Type of treatment",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8250,7 +8282,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000038",
             "name": "EC_volume_eS 1",
@@ -8266,12 +8298,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000038",
+                    "uid": "OdmDescription_000039",
                     "name": "Volume administered",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8303,7 +8335,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000005",
             "name": "ICFNOTES_eS 1",
@@ -8324,7 +8356,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8343,7 +8375,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000003",
             "name": "ICFVER_eS 1",
@@ -8364,7 +8396,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8383,7 +8415,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000011",
             "name": "VS_BMI_VSORRES-VSTESTCD 1",
@@ -8404,7 +8436,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8436,7 +8468,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000007",
             "name": "VS_VSCAT 1",
@@ -8457,7 +8489,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8498,7 +8530,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000021",
             "name": "VS_VSCAT 2",
@@ -8514,12 +8546,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000008",
+                    "uid": "OdmDescription_000022",
                     "name": "VSCAT",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8560,7 +8592,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000008",
             "name": "VS_date and time of exam_VSDTC 1",
@@ -8581,7 +8613,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8600,7 +8632,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000022",
             "name": "VS_date of exam_VSDTC 1",
@@ -8616,12 +8648,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000022",
+                    "uid": "OdmDescription_000023",
                     "name": "Date of examination",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8640,7 +8672,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000024",
             "name": "VS_diast_blood_pres_ORRES_DIABP 1",
@@ -8656,12 +8688,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000024",
+                    "uid": "OdmDescription_000025",
                     "name": "Diastolic blood pressure",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8693,7 +8725,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000006",
             "name": "VS_fasting_FASTING 1",
@@ -8714,7 +8746,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8755,7 +8787,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000009",
             "name": "VS_height_VSTESTCD-VSORRES 1",
@@ -8776,7 +8808,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8808,7 +8840,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000025",
             "name": "VS_pulse_ORRES_PULSE 1",
@@ -8824,12 +8856,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000025",
+                    "uid": "OdmDescription_000026",
                     "name": "Pulse",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8848,7 +8880,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000023",
             "name": "VS_syst_blood_pres_ORRES_SYSBP 1",
@@ -8864,12 +8896,12 @@ clinspark_output = {
             "comment": None,
             "descriptions": [
                 {
-                    "uid": "OdmDescription_000023",
+                    "uid": "OdmDescription_000024",
                     "name": "Systolic blood pressure",
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8901,7 +8933,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmItem_000010",
             "name": "VS_weight_VSTESTCD-VSORRES 1",
@@ -8922,7 +8954,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Please update this description",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],
@@ -8957,7 +8989,7 @@ clinspark_output = {
             "end_date": None,
             "status": "Final",
             "version": "1.0",
-            "user_initials": "TODO user initials",
+            "author_username": "unknown-user@example.com",
             "change_description": "Approved version",
             "uid": "OdmMethod_000001",
             "name": "BMEA_03_GD_BMI",
@@ -8979,7 +9011,7 @@ clinspark_output = {
                     "language": "ENG",
                     "description": "Calculation of BMI based on height and weight",
                     "instruction": "Please update this instruction",
-                    "sponsor_instruction": None,
+                    "sponsor_instruction": "Please update this sponsor instruction",
                     "version": "1.0",
                 }
             ],

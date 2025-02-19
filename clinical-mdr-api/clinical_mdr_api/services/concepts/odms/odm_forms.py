@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.form_repository import (
     FormRepository,
 )
@@ -26,18 +25,16 @@ from clinical_mdr_api.models.concepts.odms.odm_form import (
     OdmFormPostInput,
     OdmFormVersion,
 )
-from clinical_mdr_api.services._utils import (
-    get_input_or_new_value,
-    normalize_string,
-    to_dict,
-)
+from clinical_mdr_api.services._utils import get_input_or_new_value
 from clinical_mdr_api.services.concepts.odms.odm_descriptions import (
     OdmDescriptionService,
 )
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
-from clinical_mdr_api.utils import strtobool
+from clinical_mdr_api.utils import normalize_string, to_dict
+from common.exceptions import BusinessLogicException, NotFoundException
+from common.utils import strtobool
 
 
 class OdmFormService(OdmGenericService[OdmFormAR]):
@@ -68,7 +65,7 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
         self, concept_input: OdmFormPostInput, library
     ) -> OdmFormAR:
         return OdmFormAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmFormVO.from_repository_values(
                 oid=concept_input.oid,
                 name=concept_input.name,
@@ -88,6 +85,7 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
             odm_object_exists_callback=self._repos.odm_form_repository.odm_object_exists,
             find_term_callback=self._repos.ct_term_attributes_repository.find_by_uid,
             odm_description_exists_by_callback=self._repos.odm_description_repository.exists_by,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
 
@@ -95,7 +93,7 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
         self, item: OdmFormAR, concept_edit_input: OdmFormPatchInput
     ) -> OdmFormAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmFormVO.from_repository_values(
                 oid=concept_edit_input.oid,
@@ -114,6 +112,7 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
             odm_object_exists_callback=self._repos.odm_form_repository.odm_object_exists,
             find_term_callback=self._repos.ct_term_attributes_repository.find_by_uid,
             odm_description_exists_by_callback=self._repos.odm_description_repository.exists_by,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
         return item
@@ -121,11 +120,13 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     @db.transaction
     def create_with_relations(self, concept_input: OdmFormPostInput) -> OdmForm:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else OdmDescriptionService()
+                .non_transactional_create(concept_input=description)
+                .uid
+            )
             for description in concept_input.descriptions
         ]
 
@@ -151,15 +152,21 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
         self, uid: str, concept_edit_input: OdmFormPatchInput
     ) -> OdmForm:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_edit(uid=description.uid, concept_edit_input=description)
-            .uid
-            if isinstance(description, OdmDescriptionBatchPatchInput)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else (
+                    OdmDescriptionService()
+                    .non_transactional_edit(
+                        uid=description.uid, concept_edit_input=description
+                    )
+                    .uid
+                    if isinstance(description, OdmDescriptionBatchPatchInput)
+                    else OdmDescriptionService()
+                    .non_transactional_create(concept_input=description)
+                    .uid
+                )
+            )
             for description in concept_edit_input.descriptions
         ]
 
@@ -190,8 +197,10 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     ) -> OdmForm:
         odm_form_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         if override:
             self._repos.odm_form_repository.remove_relation(
@@ -231,8 +240,10 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     ) -> OdmForm:
         odm_form_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         if override:
             self._repos.odm_form_repository.remove_relation(
@@ -292,8 +303,10 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     ) -> OdmForm:
         odm_form_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.are_elements_vendor_compatible(
             odm_vendor_relation_post_input, VendorAttributeCompatibleType.FORM_DEF
@@ -335,8 +348,10 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     ) -> OdmForm:
         odm_form_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.fail_if_these_attributes_cannot_be_added(
             input_attributes=odm_vendor_relation_post_input,
@@ -374,8 +389,10 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
     ) -> OdmForm:
         odm_form_ar = self._find_by_uid_or_raise_not_found(normalize_string(uid))
 
-        if odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED:
-            raise exceptions.BusinessLogicException(self.OBJECT_IS_INACTIVE)
+        BusinessLogicException.raise_if(
+            odm_form_ar.item_metadata.status == LibraryItemStatus.RETIRED,
+            msg=self.OBJECT_IS_INACTIVE,
+        )
 
         self.fail_if_these_attributes_cannot_be_added(
             odm_vendor_relation_post_input,
@@ -424,10 +441,11 @@ class OdmFormService(OdmGenericService[OdmFormAR]):
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_form_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Form identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_form_repository.exists_by("uid", uid, True),
+            "ODM Form",
+            uid,
+        )
 
         return self._repos.odm_form_repository.get_active_relationships(
             uid, ["form_ref"]

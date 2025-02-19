@@ -9,7 +9,6 @@ from clinical_mdr_api.domain_repositories.library_item_repository import (
     LibraryItemRepositoryImplBase,
 )
 from clinical_mdr_api.domain_repositories.models._utils import (
-    convert_to_datetime,
     format_generic_header_values,
 )
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
@@ -39,14 +38,16 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
-from clinical_mdr_api.models import DictionaryCodelist
+from clinical_mdr_api.models.dictionaries.dictionary_codelist import DictionaryCodelist
 from clinical_mdr_api.repositories._utils import (
-    ComparisonOperator,
     CypherQueryBuilder,
     FilterDict,
     FilterOperator,
     sb_clear_cache,
+    validate_filters_and_add_search_string,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.utils import convert_to_datetime
 
 
 class DictionaryCodelistGenericRepository(
@@ -90,7 +91,10 @@ class DictionaryCodelistGenericRepository(
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=codelist_dict.get("change_description"),
                 status=LibraryItemStatus(codelist_dict.get("status")),
-                author=codelist_dict.get("user_initials"),
+                author_id=codelist_dict.get("author_id"),
+                author_username=UserInfoService.get_author_username_from_id(
+                    codelist_dict.get("author_id")
+                ),
                 start_date=convert_to_datetime(value=codelist_dict.get("start_date")),
                 end_date=None,
                 major_version=int(major),
@@ -112,15 +116,13 @@ class DictionaryCodelistGenericRepository(
             has_term_relationship: CodelistTermRelationship = (
                 root.has_term.relationship(dictionary_term)
             )
-            current_terms.append(
-                (dictionary_term.uid, has_term_relationship.user_initials)
-            )
+            current_terms.append((dictionary_term.uid, has_term_relationship.author_id))
         for dictionary_term in root.had_term.all():
             had_term_relationship: CodelistTermRelationship = (
                 root.had_term.relationship(dictionary_term)
             )
             previous_terms.append(
-                (dictionary_term.uid, had_term_relationship.user_initials)
+                (dictionary_term.uid, had_term_relationship.author_id)
             )
 
         return DictionaryCodelistAR.from_repository_values(
@@ -174,6 +176,13 @@ class DictionaryCodelistGenericRepository(
                     WITH collect(hv) as hvs
                     RETURN last(hvs) AS version_rel
                 }
+            WITH *
+                CALL {
+                    WITH version_rel
+                    OPTIONAL MATCH (author: User)
+                    WHERE author.user_id = version_rel.author_id
+                    RETURN author
+                }
             WITH
                 codelist_uid,
                 name,
@@ -185,7 +194,8 @@ class DictionaryCodelistGenericRepository(
                 version_rel.status AS status,
                 version_rel.version AS version,
                 version_rel.change_description AS change_description,
-                version_rel.user_initials AS user_initials,
+                version_rel.author_id AS author_id,
+                coalesce(author.username, version_rel.author_id) AS author_username,
                 has_terms AS current_terms,
                 had_terms AS previous_terms
         """
@@ -274,7 +284,7 @@ class DictionaryCodelistGenericRepository(
         search_string: str | None = "",
         filter_by: dict | None = None,
         filter_operator: FilterOperator | None = FilterOperator.AND,
-        result_count: int = 10,
+        page_size: int = 10,
     ) -> list[str]:
         # Match clause
         match_clause = self.generic_match_clause(dictionary_type=library)
@@ -283,13 +293,9 @@ class DictionaryCodelistGenericRepository(
         alias_clause = self.generic_alias_clause()
 
         # Add header field name to filter_by, to filter with a CONTAINS pattern
-        if search_string != "":
-            if filter_by is None:
-                filter_by = {}
-            filter_by[field_name] = {
-                "v": [search_string],
-                "op": ComparisonOperator.CONTAINS,
-            }
+        filter_by = validate_filters_and_add_search_string(
+            search_string, field_name, filter_by
+        )
 
         # Use Cypher query class to use reusable helper methods
         query = CypherQueryBuilder(
@@ -300,7 +306,7 @@ class DictionaryCodelistGenericRepository(
         )
 
         query.full_query = query.build_header_query(
-            header_alias=field_name, result_count=result_count
+            header_alias=field_name, page_size=page_size
         )
         result_array, _ = query.execute()
 
@@ -394,7 +400,7 @@ class DictionaryCodelistGenericRepository(
                     {
                         "start_date": datetime.now(timezone.utc),
                         "end_date": None,
-                        "user_initials": added_term[1],
+                        "author_id": added_term[1],
                     },
                 )
 
@@ -414,7 +420,7 @@ class DictionaryCodelistGenericRepository(
                     {
                         "start_date": has_term_relationship.start_date,
                         "end_date": datetime.now(timezone.utc),
-                        "user_initials": removed_term[1],
+                        "author_id": removed_term[1],
                     },
                 )
                 # removing HAS_TERM relationship as term was removed from codelist

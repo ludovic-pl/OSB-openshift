@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="px-4">
     <div class="page-title d-flex align-center">
       {{ $t('DataModels.cdash') }}
       <HelpButton />

@@ -11,7 +11,7 @@ from clinical_mdr_api.domain_repositories.models.standard_data_model import (
 
 def get_sponsor_model_info_from_dataset_class(
     dataset_class_node: SponsorModelDatasetClassInstance,
-) -> (str, str):
+) -> tuple[str, str]:
     sponsor_model: SponsorModelValue = (
         dataset_class_node.has_dataset_class.get_or_none()
     )
@@ -22,9 +22,9 @@ def get_sponsor_model_info_from_dataset_class(
             sponsor_model.has_sponsor_model_version.single()
         )
         sponsor_model_name = sponsor_model.name
-        rels: Sequence[
-            VersionRelationship
-        ] = sponsor_model.has_sponsor_model_version.all_relationships(data_model_ig)
+        rels: Sequence[VersionRelationship] = (
+            sponsor_model.has_sponsor_model_version.all_relationships(data_model_ig)
+        )
         sponsor_model_version = rels[0].version
 
     return sponsor_model_name, sponsor_model_version
@@ -32,7 +32,7 @@ def get_sponsor_model_info_from_dataset_class(
 
 def get_sponsor_model_info_from_dataset(
     dataset_node: SponsorModelDatasetInstance, return_ordinal: bool = True
-) -> (str, str, int):
+) -> tuple[str, str, int]:
     sponsor_model: SponsorModelValue = dataset_node.has_dataset.get_or_none()
     sponsor_model_name = None
     sponsor_model_version = None
@@ -42,9 +42,9 @@ def get_sponsor_model_info_from_dataset(
             sponsor_model.has_sponsor_model_version.single()
         )
         sponsor_model_name = sponsor_model.name
-        rels: Sequence[
-            VersionRelationship
-        ] = sponsor_model.has_sponsor_model_version.all_relationships(data_model_ig)
+        rels: Sequence[VersionRelationship] = (
+            sponsor_model.has_sponsor_model_version.all_relationships(data_model_ig)
+        )
         sponsor_model_version = rels[0].version
 
         if return_ordinal:

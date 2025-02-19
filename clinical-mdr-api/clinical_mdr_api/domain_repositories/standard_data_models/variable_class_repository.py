@@ -5,10 +5,10 @@ from clinical_mdr_api.domain_repositories.models.standard_data_model import (
 from clinical_mdr_api.domain_repositories.standard_data_models.standard_data_model_repository import (
     StandardDataModelRepository,
 )
-from clinical_mdr_api.exceptions import ValidationException
 from clinical_mdr_api.models.standard_data_models.variable_class import (
     VariableClass as VariableClassAPIModel,
 )
+from common.exceptions import ValidationException
 
 
 class VariableClassRepository(StandardDataModelRepository):
@@ -45,29 +45,30 @@ class VariableClassRepository(StandardDataModelRepository):
             filter_parameters.append(filter_by_dataset_class_name)
             filter_query_parameters["dataset_class_name"] = dataset_class_name
 
-        if kwargs.get("data_model_name") and kwargs.get("data_model_version"):
-            data_model_name = kwargs.get("data_model_name")
-            data_model_version = kwargs.get("data_model_version")
+        ValidationException.raise_if(
+            not kwargs.get("data_model_name") or not kwargs.get("data_model_version"),
+            msg="Please provide data_model_name and data_model_version params",
+        )
 
-            filter_by_data_model_uid = "data_model_root.uid = $data_model_name"
-            filter_parameters.append(filter_by_data_model_uid)
+        data_model_name = kwargs.get("data_model_name")
+        data_model_version = kwargs.get("data_model_version")
 
-            filter_by_data_model_version = (
-                "data_model_value.version_number = $data_model_version"
-            )
-            filter_parameters.append(filter_by_data_model_version)
+        filter_by_data_model_uid = "data_model_root.uid = $data_model_name"
+        filter_parameters.append(filter_by_data_model_uid)
 
-            filter_by_has_class_variable_version = (
-                "has_class_variable_rel.version_number = $data_model_version"
-            )
-            filter_parameters.append(filter_by_has_class_variable_version)
+        filter_by_data_model_version = (
+            "data_model_value.version_number = $data_model_version"
+        )
+        filter_parameters.append(filter_by_data_model_version)
 
-            filter_query_parameters["data_model_name"] = data_model_name
-            filter_query_parameters["data_model_version"] = data_model_version
-        else:
-            raise ValidationException(
-                "Please provide data_model_name and data_model_version params"
-            )
+        filter_by_has_class_variable_version = (
+            "has_class_variable_rel.version_number = $data_model_version"
+        )
+        filter_parameters.append(filter_by_has_class_variable_version)
+
+        filter_query_parameters["data_model_name"] = data_model_name
+        filter_query_parameters["data_model_version"] = data_model_version
+
         extended_filter_statements = " AND ".join(filter_parameters)
         if filter_statements_from_standard != "":
             if len(extended_filter_statements) > 0:

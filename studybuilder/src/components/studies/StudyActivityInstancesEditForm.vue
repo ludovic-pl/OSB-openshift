@@ -18,16 +18,22 @@
           readonly
           disabled
         />
+        <v-alert
+          v-if="selected.length > 1"
+          density="compact"
+          type="info"
+          rounded="lg"
+          class="text-white mb-2 ml-1 mr-1"
+          :text="$t('StudyActivityInstances.multiple_select_info')"
+        />
         <v-data-table
           v-model="selected"
           :headers="headers"
           :items="instances"
           item-value="uid"
           show-select
-          select-strategy="single"
           @filter="getAvailableInstances()"
         >
-          <template #bottom />
           <template #[`item.details`]="{ item }">
             <div v-html="item.details" />
           </template>
@@ -51,6 +57,7 @@ import SimpleFormDialog from '@/components/tools/SimpleFormDialog.vue'
 import statuses from '@/constants/statuses'
 import activities from '@/api/activities'
 import _isEmpty from 'lodash/isEmpty'
+import study from '@/api/study'
 
 const eventBusEmit = inject('eventBusEmit')
 const { t } = useI18n()
@@ -95,7 +102,7 @@ onMounted(() => {
   getAvailableInstances()
 })
 
-function getAvailableInstances() {
+async function getAvailableInstances() {
   if (!_isEmpty(props.editedActivity)) {
     const params = {
       activity_names: [props.editedActivity.activity.name],
@@ -108,8 +115,9 @@ function getAvailableInstances() {
       filters: {
         status: { v: [statuses.FINAL] },
       },
+      page_size: 0
     }
-    activities.get(params, 'activity-instances').then((resp) => {
+    await activities.get(params, 'activity-instances').then((resp) => {
       instances.value = transformInstances(resp.data.items)
       if (props.editedActivity.activity_instance) {
         selected.value.push(
@@ -120,6 +128,17 @@ function getAvailableInstances() {
         )
       }
     })
+    if(instances.value.length > 1) {
+      const par = {
+        filters: {
+          'activity.uid':{ "v": [props.editedActivity.activity.uid], "op": "co"}
+        }
+      }
+      study.getStudyActivityInstances(selectedStudy.value.uid, par).then((resp) => {
+        const uidsToRemove = resp.data.items.map(el => el.activity_instance.uid).filter(el => el !== selected.value[0])
+        instances.value = instances.value.filter(instance => uidsToRemove.indexOf(instance.uid) === -1)
+      })
+    }
   }
 }
 function transformInstances(instances) {
@@ -156,6 +175,13 @@ function getActivityState(activity) {
   }
 }
 function submit() {
+  if (selected.value.length === 1) {
+    setSingleActivityInstance()
+  } else {
+    setMultipleActivityInstances()
+  }
+}
+function setSingleActivityInstance() {
   const data = {
     activity_instance_uid: selected.value[0],
     study_activity_uid: props.editedActivity.study_activity_uid,
@@ -172,6 +198,29 @@ function submit() {
       () => {
         eventBusEmit('notification', {
           msg: t('StudyActivityInstances.instance_updated'),
+          type: 'success',
+        })
+        close()
+      },
+      () => {
+        form.value.working = false
+      }
+    )
+}
+function setMultipleActivityInstances() {
+  const data = {
+    activity_instance_uids: selected.value,
+    study_activity_uid: props.editedActivity.study_activity_uid,
+  }
+  activitiesStore
+    .batchSelectStudyActivityInstances(
+      selectedStudy.value.uid,
+      data
+    )
+    .then(
+      () => {
+        eventBusEmit('notification', {
+          msg: t('StudyActivityInstances.instance_created'),
           type: 'success',
         })
         close()

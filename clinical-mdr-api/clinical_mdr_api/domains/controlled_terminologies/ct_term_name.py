@@ -2,13 +2,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import AbstractSet, Callable, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemAggregateRootBase,
     LibraryItemMetadataVO,
     LibraryItemStatus,
     LibraryVO,
     ObjectAction,
+)
+from common.exceptions import (
+    AlreadyExistsException,
+    BusinessLogicException,
+    ValidationException,
 )
 
 
@@ -67,21 +71,23 @@ class CTTermNameVO:
         ] = lambda x, y: False,
     ) -> Self:
         for codelist in codelists:
-            if not codelist_exists_callback(codelist.codelist_uid):
-                raise exceptions.ValidationException(
-                    f"There is no codelist identified by provided codelist uid ({ codelist.codelist_uid})"
-                )
-        if not catalogue_exists_callback(catalogue_name):
-            raise exceptions.ValidationException(
-                f"There is no catalogue identified by provided catalogue name ({catalogue_name})"
+            ValidationException.raise_if_not(
+                codelist_exists_callback(codelist.codelist_uid),
+                msg=f"Codelist with UID '{ codelist.codelist_uid}' doesn't exist.",
             )
+        BusinessLogicException.raise_if_not(
+            catalogue_exists_callback(catalogue_name),
+            msg=f"Catalogue with Name '{catalogue_name}' doesn't exist.",
+        )
+        AlreadyExistsException.raise_if(
+            term_exists_by_name_in_codelists_callback(
+                name, [codelist.codelist_uid for codelist in codelists]
+            ),
+            "CT Term Name",
+            name,
+            "Name",
+        )
 
-        if term_exists_by_name_in_codelists_callback(
-            name, [codelist.codelist_uid for codelist in codelists]
-        ):
-            raise exceptions.ValidationException(
-                f"CTTermName with name ({name}) already exists"
-            )
         ct_term_name_vo = cls(
             codelists=codelists,
             catalogue_name=catalogue_name,
@@ -127,19 +133,19 @@ class CTTermNameAR(LibraryItemAggregateRootBase):
     def from_input_values(
         cls,
         *,
-        author: str,
+        author_id: str,
         ct_term_name_vo: CTTermNameVO,
         library: LibraryVO,
         start_date: datetime | None = None,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
     ) -> Self:
         item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
-            author=author, start_date=start_date
+            author_id=author_id, start_date=start_date
         )
-        if not library.is_editable:
-            raise exceptions.BusinessLogicException(
-                f"The library with the name='{library.name}' does not allow to create objects."
-            )
+        BusinessLogicException.raise_if_not(
+            library.is_editable,
+            msg=f"Library with Name '{library.name}' doesn't allow creation of objects.",
+        )
         return cls(
             _uid=generate_uid_callback(),
             _item_metadata=item_metadata,
@@ -149,7 +155,7 @@ class CTTermNameAR(LibraryItemAggregateRootBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         ct_term_vo: CTTermNameVO,
         term_exists_by_name_in_codelists_callback: Callable[[str, list[str]], bool],
@@ -157,25 +163,27 @@ class CTTermNameAR(LibraryItemAggregateRootBase):
         """
         Creates a new draft version for the object.
         """
-        if (
+        AlreadyExistsException.raise_if(
             term_exists_by_name_in_codelists_callback(
                 ct_term_vo.name,
                 [codelist.codelist_uid for codelist in self.ct_term_vo.codelists],
             )
-            and self.ct_term_vo.name != ct_term_vo.name
-        ):
-            raise exceptions.ValidationException(
-                f"CTTermName with name ({ct_term_vo.name}) already exists."
-            )
+            and self.ct_term_vo.name != ct_term_vo.name,
+            "CT Term Name",
+            ct_term_vo.name,
+            "Name",
+        )
         if self._ct_term_name_vo != ct_term_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._ct_term_name_vo = ct_term_vo
 
-    def create_new_version(self, author: str) -> None:
+    def create_new_version(self, author_id: str) -> None:
         """
         Puts object into DRAFT status with relevant changes to version numbers.
         """
-        super()._create_new_version(author=author)
+        super()._create_new_version(author_id=author_id)
 
     def get_possible_actions(self) -> AbstractSet[ObjectAction]:
         """

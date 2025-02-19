@@ -318,7 +318,7 @@ export default {
         { title: this.$t('_global.modified'), key: 'start_date', width: '10%' },
         {
           title: this.$t('_global.modified_by'),
-          key: 'user_initials',
+          key: 'author_username',
           width: '10%',
         },
       ],

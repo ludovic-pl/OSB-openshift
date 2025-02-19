@@ -1,6 +1,5 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.models.study import StudyValue
 from clinical_mdr_api.domain_repositories.models.study_selections import (
     StudyActivityInstruction,
@@ -10,6 +9,7 @@ from clinical_mdr_api.domain_repositories.study_selections import base
 from clinical_mdr_api.domains.study_selections.study_activity_instruction import (
     StudyActivityInstructionVO,
 )
+from common.exceptions import NotFoundException
 
 
 class StudyActivityInstructionRepository(base.StudySelectionRepository):
@@ -26,29 +26,35 @@ class StudyActivityInstructionRepository(base.StudySelectionRepository):
             activity_instruction_uid=activity_instruction_value.get_root_uid_by_latest(),
             activity_instruction_name=activity_instruction_value.name,
             start_date=study_action.date,
-            user_initials=study_action.user_initials,
+            author_id=study_action.author_id,
         )
 
     def perform_save(
         self,
         study_value_node: StudyValue,
         selection_vo: StudyActivityInstructionVO,
-        author: str,
+        author_id: str,
     ):
         study_activity_node = study_value_node.has_study_activity.get_or_none(
             uid=selection_vo.study_activity_uid
         )
-        if study_activity_node is None:
-            raise exceptions.NotFoundException(
-                f"The study activity with uid {selection_vo.study_activity_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            study_activity_node is None,
+            "Study Activity",
+            selection_vo.study_activity_uid,
+        )
+
         activity_instruction_root_node = ActivityInstructionRoot.nodes.get_or_none(
             uid=selection_vo.activity_instruction_uid
         )
-        if activity_instruction_root_node is None:
-            raise exceptions.NotFoundException(
-                f"The activity instruction with uid {selection_vo.activity_instruction_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            activity_instruction_root_node is None,
+            "Study Activity Instruction",
+            selection_vo.activity_instruction_uid,
+        )
+
         activity_instruction_value_node = (
             activity_instruction_root_node.latest_final.single()
         )
@@ -89,10 +95,11 @@ class StudyActivityInstructionRepository(base.StudySelectionRepository):
         node = study_value_node.has_study_activity_instruction.get_or_none(
             uid=selection_uid
         )
-        if node is None:
-            raise exceptions.NotFoundException(
-                f"The study activity instruction with uid {selection_uid} was not found"
-            )
+
+        NotFoundException.raise_if(
+            node is None, "Study Activity Instruction", selection_uid
+        )
+
         return node
 
     def _get_selection_with_history(

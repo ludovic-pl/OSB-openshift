@@ -6,7 +6,6 @@ from clinical_mdr_api.domain_repositories._generic_repository_interface import (
 from clinical_mdr_api.domain_repositories.controlled_terminologies.ct_codelist_generic_repository import (
     CTCodelistGenericRepository,
 )
-from clinical_mdr_api.domain_repositories.models._utils import convert_to_datetime
 from clinical_mdr_api.domain_repositories.models.controlled_terminology import (
     CTCodelistNameRoot,
     CTCodelistNameValue,
@@ -30,6 +29,8 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemStatus,
     LibraryVO,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.utils import convert_to_datetime
 
 
 class CTCodelistNameRepository(CTCodelistGenericRepository[CTCodelistNameAR]):
@@ -69,7 +70,10 @@ class CTCodelistNameRepository(CTCodelistGenericRepository[CTCodelistNameAR]):
             item_metadata=LibraryItemMetadataVO.from_repository_values(
                 change_description=rel_data.get("change_description"),
                 status=LibraryItemStatus(rel_data.get("status")),
-                author=rel_data.get("user_initials"),
+                author_id=rel_data.get("author_id"),
+                author_username=UserInfoService.get_author_username_from_id(
+                    rel_data.get("author_id")
+                ),
                 start_date=convert_to_datetime(value=rel_data.get("start_date")),
                 end_date=None,
                 major_version=int(major),

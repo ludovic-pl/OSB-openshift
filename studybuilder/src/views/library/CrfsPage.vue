@@ -52,7 +52,6 @@
       <v-window-item value="crf-tree">
         <CrfTreeMain
           :key="`crf-tree-${tabKeys['crf-tree']}`"
-          @redirect-to-page="redirectToPage"
         />
       </v-window-item>
       <v-window-item value="odm-viewer">

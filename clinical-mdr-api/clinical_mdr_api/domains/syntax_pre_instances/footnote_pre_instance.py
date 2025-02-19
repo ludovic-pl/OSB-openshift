@@ -82,7 +82,7 @@ class FootnotePreInstanceAR(PreInstanceAR):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         library: LibraryVO,
         template: ParametrizedTemplateVO,
         generate_uid_callback: Callable[[], str] | None = (lambda: None),
@@ -95,7 +95,9 @@ class FootnotePreInstanceAR(PreInstanceAR):
         activity_groups: list[SimpleNameModel] | None = None,
         activity_subgroups: list[SimpleNameModel] | None = None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         generated_uid = generate_uid_callback()
 

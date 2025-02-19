@@ -1,11 +1,9 @@
 from neomodel import db
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domain_repositories.concepts.odms.method_repository import (
     MethodRepository,
 )
 from clinical_mdr_api.domains.concepts.odms.method import OdmMethodAR, OdmMethodVO
-from clinical_mdr_api.domains.versioned_object_aggregate import VersioningException
 from clinical_mdr_api.models.concepts.odms.odm_description import (
     OdmDescriptionBatchPatchInput,
 )
@@ -28,6 +26,7 @@ from clinical_mdr_api.services.concepts.odms.odm_formal_expressions import (
 from clinical_mdr_api.services.concepts.odms.odm_generic_service import (
     OdmGenericService,
 )
+from common.exceptions import NotFoundException
 
 
 class OdmMethodService(OdmGenericService[OdmMethodAR]):
@@ -49,7 +48,7 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
         self, concept_input: OdmMethodPostInput, library
     ) -> OdmMethodAR:
         return OdmMethodAR.from_input_values(
-            author=self.user_initials,
+            author_id=self.author_id,
             concept_vo=OdmMethodVO.from_repository_values(
                 oid=concept_input.oid,
                 name=concept_input.name,
@@ -63,6 +62,7 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
             odm_object_exists_callback=self._repos.odm_method_repository.odm_object_exists,
             find_odm_formal_expression_callback=self._repos.odm_formal_expression_repository.find_by_uid_2,
             find_odm_description_callback=self._repos.odm_description_repository.find_by_uid_2,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
 
@@ -70,7 +70,7 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
         self, item: OdmMethodAR, concept_edit_input: OdmMethodPatchInput
     ) -> OdmMethodAR:
         item.edit_draft(
-            author=self.user_initials,
+            author_id=self.author_id,
             change_description=concept_edit_input.change_description,
             concept_vo=OdmMethodVO.from_repository_values(
                 oid=concept_edit_input.oid,
@@ -83,6 +83,7 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
             odm_object_exists_callback=self._repos.odm_method_repository.odm_object_exists,
             find_odm_formal_expression_callback=self._repos.odm_formal_expression_repository.find_by_uid_2,
             find_odm_description_callback=self._repos.odm_description_repository.find_by_uid_2,
+            get_odm_description_parent_uids_callback=self._repos.odm_description_repository.get_parent_uids,
             odm_alias_exists_by_callback=self._repos.odm_alias_repository.exists_by,
         )
         return item
@@ -90,20 +91,24 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
     @db.transaction
     def create_with_relations(self, concept_input: OdmMethodPostInput) -> OdmMethod:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else OdmDescriptionService()
+                .non_transactional_create(concept_input=description)
+                .uid
+            )
             for description in concept_input.descriptions
         ]
 
         formal_expression_uids = [
-            formal_expression
-            if isinstance(formal_expression, str)
-            else OdmFormalExpressionService()
-            .non_transactional_create(concept_input=formal_expression)
-            .uid
+            (
+                formal_expression
+                if isinstance(formal_expression, str)
+                else OdmFormalExpressionService()
+                .non_transactional_create(concept_input=formal_expression)
+                .uid
+            )
             for formal_expression in concept_input.formal_expressions
         ]
 
@@ -128,30 +133,40 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
         self, uid: str, concept_edit_input: OdmMethodPatchInput
     ) -> OdmMethod:
         description_uids = [
-            description
-            if isinstance(description, str)
-            else OdmDescriptionService()
-            .non_transactional_edit(uid=description.uid, concept_edit_input=description)
-            .uid
-            if isinstance(description, OdmDescriptionBatchPatchInput)
-            else OdmDescriptionService()
-            .non_transactional_create(concept_input=description)
-            .uid
+            (
+                description
+                if isinstance(description, str)
+                else (
+                    OdmDescriptionService()
+                    .non_transactional_edit(
+                        uid=description.uid, concept_edit_input=description
+                    )
+                    .uid
+                    if isinstance(description, OdmDescriptionBatchPatchInput)
+                    else OdmDescriptionService()
+                    .non_transactional_create(concept_input=description)
+                    .uid
+                )
+            )
             for description in concept_edit_input.descriptions
         ]
 
         formal_expression_uids = [
-            formal_expression
-            if isinstance(formal_expression, str)
-            else OdmFormalExpressionService()
-            .non_transactional_edit(
-                uid=formal_expression.uid, concept_edit_input=formal_expression
+            (
+                formal_expression
+                if isinstance(formal_expression, str)
+                else (
+                    OdmFormalExpressionService()
+                    .non_transactional_edit(
+                        uid=formal_expression.uid, concept_edit_input=formal_expression
+                    )
+                    .uid
+                    if isinstance(formal_expression, OdmFormalExpressionBatchPatchInput)
+                    else OdmFormalExpressionService()
+                    .non_transactional_create(concept_input=formal_expression)
+                    .uid
+                )
             )
-            .uid
-            if isinstance(formal_expression, OdmFormalExpressionBatchPatchInput)
-            else OdmFormalExpressionService()
-            .non_transactional_create(concept_input=formal_expression)
-            .uid
             for formal_expression in concept_edit_input.formal_expressions
         ]
 
@@ -173,30 +188,30 @@ class OdmMethodService(OdmGenericService[OdmMethodAR]):
         )
 
     @db.transaction
-    def soft_delete(self, uid: str):
+    def soft_delete(self, uid: str, cascade_delete: bool = False):
         """
         Works exactly as the parent soft_delete method.
         However, after deleting the ODM Method, it also sets all method_oid that use this ODM Method to null.
 
         This method is temporary and should be removed when the database relationship between ODM Method and its reference nodes is ready.
         """
-        try:
-            method = self._find_by_uid_or_raise_not_found(uid, for_update=True)
-            method.soft_delete()
-            self.repository.save(method)
+        method = self._find_by_uid_or_raise_not_found(uid, for_update=True)
+        method.soft_delete()
+        self.repository.save(method)
 
-            self._repos.odm_method_repository.set_all_method_oid_properties_to_null(
-                method.concept_vo.oid
-            )
+        if cascade_delete:
+            self.cascade_delete(method)
 
-        except VersioningException as e:
-            raise exceptions.BusinessLogicException(e.msg)
+        self._repos.odm_method_repository.set_all_method_oid_properties_to_null(
+            method.concept_vo.oid
+        )
 
     @db.transaction
     def get_active_relationships(self, uid: str):
-        if not self._repos.odm_method_repository.exists_by("uid", uid, True):
-            raise exceptions.NotFoundException(
-                f"ODM Method identified by uid ({uid}) does not exist."
-            )
+        NotFoundException.raise_if_not(
+            self._repos.odm_method_repository.exists_by("uid", uid, True),
+            "ODM Method",
+            uid,
+        )
 
         return self._repos.odm_method_repository.get_active_relationships(uid, [])

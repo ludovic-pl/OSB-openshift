@@ -1,13 +1,15 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Query
 
-from clinical_mdr_api.models.error import ErrorResponse
 from clinical_mdr_api.models.listings.listings_study import StudyMetadataListingModel
 from clinical_mdr_api.models.utils import PrettyJSONResponse
-from clinical_mdr_api.oauth import rbac
 from clinical_mdr_api.routers import _generic_descriptions
 from clinical_mdr_api.services.listings.listings_study import (
     StudyMetadataListingService,
 )
+from common.auth import rbac
+from common.models.error import ErrorResponse
 
 # Prefixed with "/listings"
 router = APIRouter()
@@ -32,18 +34,21 @@ router = APIRouter()
     },
 )
 def get_study_metadata(
-    project_id: str = Query(None, description="Project ID of study requested"),
-    study_number: str = Query(None, description="Study number of study requested"),
-    subpart_acronym: str = Query(
-        None, description="subpart, if exists, of study requested"
-    ),
-    study_value_version: str | None = _generic_descriptions.STUDY_VALUE_VERSION_QUERY,
-    datetime: str
-    | None = Query(
-        None,
-        description=r"If specified, study data with latest released version of specified datetime is returned. "
-        r"format in YYYY-MM-DDThh:mm:ssZ. ",
-    ),
+    project_id: Annotated[str, Query(description="Project ID of study requested")],
+    study_number: Annotated[str, Query(description="Study number of study requested")],
+    subpart_acronym: Annotated[
+        str, Query(description="subpart, if exists, of study requested")
+    ] = None,
+    study_value_version: Annotated[
+        str | None, _generic_descriptions.STUDY_VALUE_VERSION_QUERY
+    ] = None,
+    datetime: Annotated[
+        str | None,
+        Query(
+            description=r"If specified, study data with latest released version of specified datetime is returned. "
+            r"format in YYYY-MM-DDThh:mm:ssZ. ",
+        ),
+    ] = None,
 ):
     study_metadata_listing_service = StudyMetadataListingService()
     return study_metadata_listing_service.get_study_metadata(

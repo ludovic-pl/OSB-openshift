@@ -5,7 +5,6 @@ from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 from neomodel import db
 
-from clinical_mdr_api import config
 from clinical_mdr_api.domain_repositories.generic_repository import (
     RepositoryClosureData,
 )
@@ -15,8 +14,9 @@ from clinical_mdr_api.domain_repositories.models.clinical_programme import (
 from clinical_mdr_api.domains.clinical_programmes.clinical_programme import (
     ClinicalProgrammeAR,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException, NotFoundException
 from clinical_mdr_api.repositories._utils import sb_clear_cache
+from common import config
+from common.exceptions import BusinessLogicException, NotFoundException
 
 
 class ClinicalProgrammeRepository:
@@ -50,13 +50,13 @@ class ClinicalProgrammeRepository:
     @cached(cache=cache_store_item_by_uid, key=get_hashkey, lock=lock_store_item_by_uid)
     def find_by_uid(self, uid: str) -> ClinicalProgrammeAR:
         clinical_programme = ClinicalProgramme.nodes.get_or_none(uid=uid)
-        if clinical_programme:
-            return ClinicalProgrammeAR.from_input_values(
-                name=clinical_programme.name,
-                generate_uid_callback=lambda: clinical_programme.uid,
-            )
 
-        raise NotFoundException(f"Clinical Programme with UID ({uid}) doesn't exist.")
+        NotFoundException.raise_if_not(clinical_programme, "Clinical Programme", uid)
+
+        return ClinicalProgrammeAR.from_input_values(
+            name=clinical_programme.name,
+            generate_uid_callback=lambda: clinical_programme.uid,
+        )
 
     def delete_by_uid(self, uid: str) -> None:
         clinical_programme: ClinicalProgramme = ClinicalProgramme.nodes.get_or_none(
@@ -64,10 +64,10 @@ class ClinicalProgrammeRepository:
         )
 
         if clinical_programme:
-            if self.is_used_in_projects(uid):
-                raise BusinessLogicException(
-                    f"Cannot delete Clinical Programme with UID ({uid}) because it is used by projects."
-                )
+            BusinessLogicException.raise_if(
+                self.is_used_in_projects(uid),
+                msg=f"Cannot delete Clinical Programme with UID '{uid}' because it is used by projects.",
+            )
 
             clinical_programme.delete()
 
@@ -99,15 +99,14 @@ class ClinicalProgrammeRepository:
                 uid=clinical_programme_ar.uid
             )
 
-            if not clinical_programme:
-                raise NotFoundException(
-                    f"Clinical Programme with UID ({clinical_programme_ar.uid}) doesn't exist."
-                )
+            NotFoundException.raise_if_not(
+                clinical_programme, "Clinical Programme", clinical_programme_ar.uid
+            )
 
-            if self.is_used_in_projects(clinical_programme_ar.uid):
-                raise BusinessLogicException(
-                    f"Cannot update Clinical Programme with UID ({clinical_programme_ar.uid}) because it is used by projects."
-                )
+            BusinessLogicException.raise_if(
+                self.is_used_in_projects(clinical_programme_ar.uid),
+                msg=f"Cannot update Clinical Programme with UID '{clinical_programme_ar.uid}' because it is used by projects.",
+            )
 
             clinical_programme.name = clinical_programme_ar.name
             clinical_programme.save()

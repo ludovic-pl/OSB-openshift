@@ -7,7 +7,7 @@ from clinical_mdr_api.domains.versioned_object_aggregate import (
     LibraryItemMetadataVO,
     LibraryVO,
 )
-from clinical_mdr_api.exceptions import BusinessLogicException
+from common.exceptions import AlreadyExistsException, BusinessLogicException
 
 
 @dataclass(frozen=True)
@@ -54,11 +54,11 @@ class OdmVendorElementVO(ConceptVO):
                 "ODM Vendor Element",
             )
 
-            if not find_odm_vendor_element_callback(self.vendor_namespace_uid):
-                raise BusinessLogicException(
-                    "ODM Vendor Element tried to connect to non-existent concepts "
-                    f"[('Concept Name: ODM Vendor Namespace', 'uids: ({self.vendor_namespace_uid})')]."
-                )
+            BusinessLogicException.raise_if_not(
+                find_odm_vendor_element_callback(self.vendor_namespace_uid),
+                msg="ODM Vendor Element tried to connect to non-existent concepts "
+                f"[('Concept Name: ODM Vendor Namespace', 'uids: ({self.vendor_namespace_uid})')].",
+            )
 
         odm_vendor_element, _ = find_odm_vendor_element_callback(
             filter_by={
@@ -66,10 +66,10 @@ class OdmVendorElementVO(ConceptVO):
                 "vendor_namespace_uid": {"v": [self.vendor_namespace_uid], "op": "eq"},
             }
         )
-        if odm_vendor_element:
-            raise BusinessLogicException(
-                f"ODM Vendor Element with ['name: {self.name}'] already exists."
-            )
+
+        AlreadyExistsException.raise_if(
+            odm_vendor_element, "ODM Vendor Element", self.name, "Name"
+        )
 
 
 @dataclass
@@ -102,7 +102,7 @@ class OdmVendorElementAR(OdmARBase):
     @classmethod
     def from_input_values(
         cls,
-        author: str,
+        author_id: str,
         concept_vo: OdmVendorElementVO,
         library: LibraryVO,
         generate_uid_callback: Callable[[], str | None] = (lambda: None),
@@ -113,7 +113,9 @@ class OdmVendorElementAR(OdmARBase):
             [dict], tuple[list["OdmVendorElementAR"], int] | None
         ] = lambda _: None,
     ) -> Self:
-        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(author=author)
+        item_metadata = LibraryItemMetadataVO.get_initial_item_metadata(
+            author_id=author_id
+        )
 
         concept_vo.validate(
             odm_vendor_namespace_exists_by_callback=odm_vendor_namespace_exists_by_callback,
@@ -129,7 +131,7 @@ class OdmVendorElementAR(OdmARBase):
 
     def edit_draft(
         self,
-        author: str,
+        author_id: str,
         change_description: str | None,
         concept_vo: OdmVendorElementVO,
         concept_exists_by_callback: Callable[
@@ -141,7 +143,9 @@ class OdmVendorElementAR(OdmARBase):
         """
 
         if self._concept_vo != concept_vo:
-            super()._edit_draft(change_description=change_description, author=author)
+            super()._edit_draft(
+                change_description=change_description, author_id=author_id
+            )
             self._concept_vo = concept_vo
 
 

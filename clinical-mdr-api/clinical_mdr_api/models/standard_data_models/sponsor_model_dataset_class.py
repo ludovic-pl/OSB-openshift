@@ -1,73 +1,45 @@
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import Field
 
 from clinical_mdr_api.domains.standard_data_models.sponsor_model_dataset_class import (
     SponsorModelDatasetClassAR,
 )
-from clinical_mdr_api.models import Library
+from clinical_mdr_api.models.libraries.library import Library
 from clinical_mdr_api.models.standard_data_models.sponsor_model import SponsorModelBase
-from clinical_mdr_api.models.utils import BaseModel
+from clinical_mdr_api.models.utils import InputModel
 
 
 class SponsorModelDatasetClass(SponsorModelBase):
     class Config:
         orm_mode = True
 
-    uid: str = Field(
-        None,
-        title="uid",
-        description="",
-        source="uid",
-    )
-    library_name: str = Field(
-        None,
-        title="library_name",
-        description="",
-        source="has_library.name",
-    )
-    is_basic_std: bool | None = Field(
-        None,
-        title="is_basic_std",
-        source="has_sponsor_model_instance.is_basic_std",
-        nullable=True,
-    )
-    xml_path: str | None = Field(
-        None,
-        title="xml_path",
-        source="has_sponsor_model_instance.xml_path",
-        nullable=True,
-    )
-    xml_title: str | None = Field(
-        None,
-        title="xml_title",
-        source="has_sponsor_model_instance.xml_title",
-        nullable=True,
-    )
-    structure: str | None = Field(
-        None,
-        title="structure",
-        source="has_sponsor_model_instance.structure",
-        nullable=True,
-    )
-    purpose: str | None = Field(
-        None,
-        title="purpose",
-        source="has_sponsor_model_instance.purpose",
-        nullable=True,
-    )
-    comment: str | None = Field(
-        None,
-        title="comment",
-        source="has_sponsor_model_instance.comment",
-        nullable=True,
-    )
-    label: str | None = Field(
-        None,
-        title="label",
-        source="has_sponsor_model_instance.label",
-        nullable=True,
-    )
+    uid: Annotated[str | None, Field(source="uid", nullable=True)] = None
+    library_name: Annotated[
+        str | None, Field(source="has_library.name", nullable=True)
+    ] = None
+    is_basic_std: Annotated[
+        bool | None,
+        Field(source="has_sponsor_model_instance.is_basic_std", nullable=True),
+    ] = None
+    xml_path: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.xml_path", nullable=True)
+    ] = None
+    xml_title: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.xml_title", nullable=True)
+    ] = None
+    structure: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.structure", nullable=True)
+    ] = None
+    purpose: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.purpose", nullable=True)
+    ] = None
+    comment: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.comment", nullable=True)
+    ] = None
+    label: Annotated[
+        str | None, Field(source="has_sponsor_model_instance.label", nullable=True)
+    ] = None
 
     @classmethod
     def from_sponsor_model_dataset_class_ar(
@@ -89,27 +61,29 @@ class SponsorModelDatasetClass(SponsorModelBase):
         )
 
 
-class SponsorModelDatasetClassInput(BaseModel):
-    dataset_class_uid: str = Field(
-        ..., title="uid", description="Unique identifier of the dataset class"
-    )
-    sponsor_model_name: str = Field(
-        ...,
-        title="sponsor_model_name",
-        description="Name of the sponsor model in which to create the dataset class. E.g sdtmig_sponsormodel...",
-    )
-    sponsor_model_version_number: str = Field(
-        ...,
-        title="sponsor_model_version_number",
-        description="Version number of the sponsor model in which to create the dataset class",
-    )
-    is_basic_std: bool = Field(None, title="is_basic_std", description="")
-    xml_path: str = Field(None, title="xml_path", description="")
-    xml_title: str = Field(None, title="xml_title", description="")
-    structure: str = Field(None, title="structure", description="")
-    purpose: str = Field(None, title="purpose", description="")
-    comment: str = Field(None, title="comment", description="")
-    label: str = Field(None, title="label", description="")
-    library_name: str | None = Field(
-        "CDISC", title="library_name", description="Defaults to CDISC"
-    )
+class SponsorModelDatasetClassInput(InputModel):
+    dataset_class_uid: Annotated[str, Field(min_length=1)]
+    sponsor_model_name: Annotated[
+        str,
+        Field(
+            description="Name of the sponsor model in which to create the dataset class. E.g sdtmig_sponsormodel...",
+            min_length=1,
+        ),
+    ]
+    sponsor_model_version_number: Annotated[
+        str,
+        Field(
+            description="Version number of the sponsor model in which to create the dataset class",
+            min_length=1,
+        ),
+    ]
+    is_basic_std: bool | None = None
+    xml_path: str | None = None
+    xml_title: str | None = None
+    structure: str | None = None
+    purpose: str | None = None
+    comment: str | None = None
+    label: str | None = None
+    library_name: Annotated[
+        str | None, Field(description="Defaults to CDISC", min_length=1)
+    ] = "CDISC"

@@ -50,7 +50,7 @@ History of Breast Neoplasms",20,,,
 "FIND_CAT_DEF","C-SSRS BASELINE/SCREENING FIND_CAT","C-SSRS Baseline/Screening","Columbia-Suicide Severity Rating Scale (C-SSRS), Baseline/Screening Version, Version 1/14/09 (Posner, K.; Brent, D.; Lucas, C.; Gould, M.; Stanley, B.; Brown, G.; Fisher, P.; Zelazny, J.; Burke, A.; Oquendo, M.; Mann, J.)",1,,,
 "FIND_CAT_DEF","C-SSRS CHILDREN'S BASELINE FIND_CAT","C-SSRS Children's Baseline","Columbia-Suicide Severity Rating Scale (C-SSRS) Children's Baseline Version 6/23/2010 (Posner, K.; Brent, D.; Lucas, C.; Gould, M.; Stanley, B.; Brown, G.; Fisher, P.; Zelazny, J.; Burke, A.; Oquendo, M.; Mann, J.; copyright 2008 The Research Foundation for Mental Hygiene, Inc.).
 ",1,,,
-"FIND_CAT_DEF","C-SSRS CHILDREN'S SINCE LAST VISIT FIND_CAT","C-SSRS Children's Since Last Visit",,1,,,
+"FIND_CAT_DEF","C-SSRS CHILDREN'S SINCE LAST VISIT FIND_CAT","C-SSRS Children's Since Last Visit","Columbia-Suicide Severity Rating Scale Children's Since Last Visit Questionnaire",1,,,
 "FIND_CAT_DEF","C-SSRS SINCE LAST VISIT  FIND_CAT","C-SSRS Since Last Visit","Columbia-Suicide Severity Rating Scale Since Last Visit Questionnaire
 ",217,,,
 "FIND_CAT_DEF","C-SSRS SINCE LAST VISIT EVALUATION FIND_CAT","C-SSRS Since Last Visit Evaluation","C-SSRS Since Last Visit Evaluation",1,,,
@@ -353,7 +353,7 @@ NCI preferred term: Sleep Polysomnography Domain
 But somni is the latin word for sleep, so to put sleep in front of polysomnography makes no sense.",1615,,,
 "FIND_CAT_DEF","PREFERRED TERM PRE-EVALUATION FIND_CAT","PREFERRED TERM PRE-EVALUATION","PREFERRED TERM PRE-EVALUATION FOR ADJUDICATION",1,,,
 "FIND_CAT_DEF","PREGNANCY AND DELIVERY FIND_CAT","Pregnancy and Delivery","Pregnancy and Delivery",1616,,,
-"FIND_CAT_DEF","PREGNANCY SCAN FIND_CAT","Pregnancy Scan",,1,,,
+"FIND_CAT_DEF","PREGNANCY SCAN FIND_CAT","Pregnancy Scan","Finding category, Pregnancy Scan",1,,,
 "FIND_CAT_DEF","PREGNANCY TEST FIND_CAT","Pregnancy Test","Finding category, Pregnancy test",1616,,,
 "FIND_CAT_DEF","PRO QUESTIONNAIRES FIND_CAT","PRO questionnaires","PRO questionnaires",1616,,,
 "FIND_CAT_DEF","PROFILES FIND_CAT","Profiles","Profiles",1616,,,

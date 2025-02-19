@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Callable, MutableSequence, Self
 
-from clinical_mdr_api import exceptions
 from clinical_mdr_api.domains.study_definition_aggregates._utils import (
     default_failure_callback_for_variable,
 )
@@ -24,6 +23,8 @@ from clinical_mdr_api.domains.study_definition_aggregates.study_metadata import 
     StudyStatus,
     StudyVersionMetadataVO,
 )
+from clinical_mdr_api.services.user_info import UserInfoService
+from common.exceptions import BusinessLogicException, ValidationException
 
 
 @dataclass
@@ -74,9 +75,9 @@ class StudyDefinitionSnapshot:
         japanese_trial_registry_number_jrct: str | None = None
         japanese_trial_registry_number_jrct_null_value_code: str | None = None
         national_medical_products_administration_nmpa_number: str | None = None
-        national_medical_products_administration_nmpa_number_null_value_code: str | None = (
-            None
-        )
+        national_medical_products_administration_nmpa_number_null_value_code: (
+            str | None
+        ) = None
         eudamed_srn_number: str | None = None
         eudamed_srn_number_null_value_code: str | None = None
         investigational_device_exemption_ide_number: str | None = None
@@ -332,10 +333,9 @@ class StudyDefinitionAR:
 
     def _can_edit_metadata(self, raise_error: bool = False) -> bool:
         if self.current_metadata.ver_metadata.study_status != StudyStatus.DRAFT:
-            if raise_error:
-                raise exceptions.ValidationException(
-                    f"Study {self.uid}: not in DRAFT state - edit not allowed."
-                )
+            BusinessLogicException.raise_if(
+                raise_error, msg=f"Study with UID '{self.uid}' isn't in DRAFT state."
+            )
             return False
         return True
 
@@ -396,7 +396,7 @@ class StudyDefinitionAR:
         study_short_title_exists_callback: Callable[
             [str], bool
         ] = default_failure_callback_for_variable("study_short_title"),
-        author: str | None = None,
+        author_id: str | None = None,
         is_subpart: bool = False,
         previous_is_subpart: bool = False,
         updatable_subpart: bool = False,
@@ -407,18 +407,18 @@ class StudyDefinitionAR:
             study_status=StudyStatus.DRAFT,
             version_number=None,
             version_timestamp=datetime.now(timezone.utc),
-            version_author=author,
+            version_author=UserInfoService.get_author_username_from_id(author_id),
         )
 
         # If nothing is set, we return an error.
-        if not (
-            new_id_metadata is not None
-            or new_high_level_study_design is not None
-            or new_study_population is not None
-            or new_study_intervention is not None
-            or new_study_description is not None
-        ):
-            raise AssertionError("No data to patch was provided.")
+        ValidationException.raise_if(
+            new_id_metadata is None
+            and new_high_level_study_design is None
+            and new_study_population is None
+            and new_study_intervention is None
+            and new_study_description is None,
+            msg="No data to patch was provided.",
+        )
 
         # otherwise the call is pointless
         if new_id_metadata is not None:
@@ -480,9 +480,11 @@ class StudyDefinitionAR:
                 new_id_metadata = StudyIdentificationMetadataVO(
                     _study_id_prefix=self.current_metadata.id_metadata.study_id_prefix,  # here comes the substitution
                     project_number=new_id_metadata.project_number,
-                    study_number=new_id_metadata.study_number
-                    if is_subpart or previous_is_subpart
-                    else self.current_metadata.id_metadata.study_number,
+                    study_number=(
+                        new_id_metadata.study_number
+                        if is_subpart or previous_is_subpart
+                        else self.current_metadata.id_metadata.study_number
+                    ),
                     subpart_id=new_id_metadata.subpart_id,
                     study_acronym=new_id_metadata.study_acronym,
                     study_subpart_acronym=new_id_metadata.study_subpart_acronym,
@@ -635,17 +637,17 @@ class StudyDefinitionAR:
             )
 
     def release(
-        self, change_description: str | None, author: str | None = None
+        self, change_description: str | None, author_id: str | None = None
     ) -> None:
         """
         Creates new RELEASED version of study metadata (replacing previous one if exists).
         Only allowed if current state of Study is DRAFT. Current state of the study remains DRAFT.
         """
         current_metadata = self.current_metadata
-        if current_metadata.ver_metadata.study_status != StudyStatus.DRAFT:
-            raise exceptions.ValidationException(
-                f"Study {self.uid}: not in DRAFT state - release not allowed."
-            )
+        BusinessLogicException.raise_if(
+            current_metadata.ver_metadata.study_status != StudyStatus.DRAFT,
+            msg=f"Study with UID '{self.uid}' isn't in DRAFT state.",
+        )
 
         # we update timestamp on draft metadata (to avoid having draft older then release)
         self._draft_metadata = StudyMetadataVO(
@@ -656,7 +658,7 @@ class StudyDefinitionAR:
                 study_status=StudyStatus.DRAFT,
                 version_timestamp=datetime.now(timezone.utc),
                 version_number=None,
-                version_author=author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_intervention=current_metadata.study_intervention,
             study_description=current_metadata.study_description,
@@ -674,30 +676,33 @@ class StudyDefinitionAR:
             ver_metadata=StudyVersionMetadataVO(
                 study_status=StudyStatus.RELEASED,
                 version_description=change_description,
-                version_number=Decimal("0.1")
-                if not version_number
-                else version_number + Decimal("0.1"),
+                version_number=(
+                    Decimal("0.1")
+                    if not version_number
+                    else version_number + Decimal("0.1")
+                ),
                 version_timestamp=self.current_metadata.ver_metadata.version_timestamp,
-                version_author=author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_intervention=current_metadata.study_intervention,
             study_description=current_metadata.study_description,
         )
 
-    def lock(self, version_description: str, version_author: str) -> None:
+    def lock(self, version_description: str, author_id: str) -> None:
         current_metadata = self.current_metadata
-        if current_metadata.ver_metadata.study_status != StudyStatus.DRAFT:
-            raise exceptions.ValidationException(
-                f"Study {self.uid}: not in DRAFT state - lock not allowed."
-            )
+        ValidationException.raise_if(
+            current_metadata.ver_metadata.study_status != StudyStatus.DRAFT,
+            msg=f"Study with UID '{self.uid}' isn't in DRAFT state.",
+        )
 
-        if not self.study_parent_part_uid and (
-            current_metadata.id_metadata.study_number is None
-            or current_metadata.study_description.study_title is None
-        ):
-            raise exceptions.ValidationException(
-                f"Study {self.uid}: Both study number and study title must be set before locking."
-            )
+        BusinessLogicException.raise_if(
+            not self.study_parent_part_uid
+            and (
+                current_metadata.id_metadata.study_number is None
+                or current_metadata.study_description.study_title is None
+            ),
+            msg="Both study number and study title must be set before locking.",
+        )
         version_number = Decimal(len(self._locked_metadata_versions) + 1)
         # and replace released metadata
         self._released_metadata = StudyMetadataVO(
@@ -709,7 +714,7 @@ class StudyDefinitionAR:
                 version_number=version_number,
                 version_timestamp=datetime.now(timezone.utc),
                 version_description=version_description,
-                version_author=version_author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_intervention=current_metadata.study_intervention,
             study_description=current_metadata.study_description,
@@ -725,7 +730,7 @@ class StudyDefinitionAR:
                 version_number=version_number,
                 version_timestamp=datetime.now(timezone.utc),
                 version_description=version_description,
-                version_author=version_author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_intervention=current_metadata.study_intervention,
             study_description=current_metadata.study_description,
@@ -734,12 +739,12 @@ class StudyDefinitionAR:
         # append that version to the list
         self._locked_metadata_versions.append(locked_metadata)
 
-    def unlock(self, author: str | None = None) -> None:
+    def unlock(self, author_id: str | None = None) -> None:
         current_metadata = self.current_metadata
-        if current_metadata.ver_metadata.study_status != StudyStatus.LOCKED:
-            raise exceptions.ValidationException(
-                f"Study {self.uid}: not in LOCKED state - unlock not allowed."
-            )
+        BusinessLogicException.raise_if(
+            current_metadata.ver_metadata.study_status != StudyStatus.LOCKED,
+            msg=f"Study with UID '{self.uid}' isn't in LOCKED state.",
+        )
 
         # it just takes to create a draft version
         self._draft_metadata = StudyMetadataVO(
@@ -749,21 +754,21 @@ class StudyDefinitionAR:
             ver_metadata=StudyVersionMetadataVO(
                 study_status=StudyStatus.DRAFT,
                 version_timestamp=datetime.now(timezone.utc),
-                version_author=author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_intervention=current_metadata.study_intervention,
             study_description=current_metadata.study_description,
         )
 
     def mark_deleted(self) -> None:
-        if self.latest_locked_metadata is not None:
-            raise exceptions.ValidationException(
-                f"Study {self.uid}: cannot delete a StudyDefinition having some locked versions."
-            )
-        if self.study_subpart_uids:
-            raise exceptions.BusinessLogicException(
-                f"Study {self.uid}: cannot delete a Study having Study Subparts: {self.study_subpart_uids}."
-            )
+        BusinessLogicException.raise_if(
+            self.latest_locked_metadata is not None,
+            msg=f"Study {self.uid}: cannot delete a StudyDefinition having some locked versions.",
+        )
+        BusinessLogicException.raise_if(
+            self.study_subpart_uids,
+            msg=f"Study {self.uid}: cannot delete a Study having Study Subparts: {self.study_subpart_uids}.",
+        )
         self._deleted = True
 
     @property
@@ -804,10 +809,10 @@ class StudyDefinitionAR:
     def get_specific_locked_metadata_version(
         self, version_number: int
     ) -> StudyMetadataVO:
-        if version_number > len(self._locked_metadata_versions):
-            raise exceptions.ValidationException(
-                f"Study {self.uid} has no locked version with number {version_number}"
-            )
+        ValidationException.raise_if(
+            version_number > len(self._locked_metadata_versions),
+            msg=f"Study with UID '{self.uid}' has no locked version with number '{version_number}'.",
+        )
         return self._locked_metadata_versions[version_number - 1]
 
     # it would be nice to factor it out to a super class (since we consider each aggregate having this closure)
@@ -909,9 +914,9 @@ class StudyDefinitionAR:
             for config_item in FieldConfiguration.default_field_config():
                 if config_item.study_field_grouping not in study_metadata_dict:
                     study_metadata_dict[config_item.study_field_grouping] = {}
-                    meta_classes[
-                        config_item.study_field_grouping
-                    ] = config_item.study_value_object_class
+                    meta_classes[config_item.study_field_grouping] = (
+                        config_item.study_value_object_class
+                    )
                 study_metadata_dict[config_item.study_field_grouping][
                     config_item.study_field_name
                 ] = getattr(study_metadata_snapshot, config_item.study_field_name)
@@ -1097,7 +1102,7 @@ class StudyDefinitionAR:
         study_short_title_exists_callback: Callable[
             [str], bool
         ] = default_failure_callback_for_variable("study_short_title"),
-        author: str | None = None,
+        author_id: str | None = None,
         is_subpart: bool = False,
     ) -> Self:
         """
@@ -1224,7 +1229,7 @@ class StudyDefinitionAR:
                 study_status=StudyStatus.DRAFT,
                 version_number=None,
                 version_timestamp=datetime.now(timezone.utc),
-                version_author=author,
+                version_author=UserInfoService.get_author_username_from_id(author_id),
             ),
             study_description=initial_study_description,
         )
