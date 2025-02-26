@@ -7,6 +7,9 @@ FROM $PYTHON_IMAGE AS build-stage
 ARG NEO4J_DOWNLOAD_URL=https://dist.neo4j.org/neo4j-enterprise-5.19.0-unix.tar.gz
 ARG NEO4J_CHECKSUM=6dc5af32f8e01f1cb8f8618d1314d91713172db14f53c695b77ca733ff504356
 
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
+
 ## Install required system packages, for clinical-mdr-api as well
 RUN apt-get update \
     && apt-get -y install \
