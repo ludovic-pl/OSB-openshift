@@ -3,8 +3,9 @@ ARG NODE_IMAGE=node:lts-alpine
 # build stage
 FROM $NODE_IMAGE AS build-stage
 
-RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
-RUN update-ca-certificates
+RUN cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem  >> /etc/ssl/certs/ca-certificates.crt
+RUN cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem ./cert_sanofi.pem
+RUN yarn config set cafile ./cert_sanofi.pem
 
 RUN yarn global add typescript jest
 
@@ -26,8 +27,7 @@ RUN yarn run build-minimal
 # production stage
 FROM $NGINX_IMAGE AS neodash
 
-RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
-RUN update-ca-certificates
+RUN cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem  >> /etc/ssl/certs/ca-certificates.crt
 
 RUN apk upgrade
 

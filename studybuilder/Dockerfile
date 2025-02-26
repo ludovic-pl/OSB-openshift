@@ -24,8 +24,7 @@ RUN test ! -r /app/config/nginx/default.conf || rm -f /app/config/nginx/default.
 ## Production stage
 FROM $NGINX_IMAGE as prod-stage
 
-RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
-RUN update-ca-certificates
+RUN cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem  >> /etc/ssl/certs/ca-certificates.crt
 
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY --from=build-stage /app/sbom.md /usr/share/nginx/html
