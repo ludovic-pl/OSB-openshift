@@ -4,6 +4,9 @@ ARG TARGET=dev
 # Start with a slim Python 3.13.0 base image, creating a shared base stage
 FROM python:3.13.0-slim AS common-stage
 
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
+
 # Update package lists, upgrade installed packages and install required system packages
 RUN apt-get update \
     && apt-get -y upgrade \
