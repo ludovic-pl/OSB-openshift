@@ -3,6 +3,9 @@ ARG NODE_IMAGE=node:lts-alpine
 # build stage
 FROM $NODE_IMAGE AS build-stage
 
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
+
 RUN yarn global add typescript jest
 
 # Run update
@@ -22,6 +25,10 @@ RUN yarn run build-minimal
 
 # production stage
 FROM $NGINX_IMAGE AS neodash
+
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
+
 RUN apk upgrade
 
 ENV NGINX_PORT=5005
