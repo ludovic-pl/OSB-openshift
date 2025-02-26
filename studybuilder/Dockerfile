@@ -4,8 +4,9 @@ ARG NODE_IMAGE=node:lts-alpine
 ## Build stage
 FROM $NODE_IMAGE as build-stage
 
-RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
-RUN update-ca-certificates
+RUN cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem  >> /etc/ssl/certs/ca-certificates.crt
+RUN cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem ./cert_sanofi.pem
+RUN yarn config set cafile ./cert_sanofi.pem
 
 WORKDIR /app
 
