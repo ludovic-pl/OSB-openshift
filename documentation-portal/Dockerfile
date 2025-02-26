@@ -4,6 +4,9 @@ ARG NODE_IMAGE=node:lts-alpine
 ## Build stage
 FROM $NODE_IMAGE as build-stage
 
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
+
 WORKDIR /app
 
 ## Install Node packages
@@ -25,6 +28,9 @@ RUN yarn docs:build
 
 ## Production stage
 FROM $NGINX_IMAGE as production-stage
+
+RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN update-ca-certificates
 
 COPY --from=build-stage /app/docs/.vuepress/dist /usr/share/nginx/html
 COPY --from=build-stage /app/build.json /usr/share/nginx/html
