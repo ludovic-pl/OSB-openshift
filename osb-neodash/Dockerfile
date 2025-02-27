@@ -6,6 +6,7 @@ FROM $NODE_IMAGE AS build-stage
 RUN cat /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem  >> /etc/ssl/certs/ca-certificates.crt
 RUN cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem ./cert_sanofi.pem
 RUN yarn config set cafile ./cert_sanofi.pem
+RUN npm config set cafile ./cert_sanofi.pem
 ENV NODE_EXTRA_CA_CERTS=./cert_sanofi.pem
 
 RUN yarn global add typescript jest
