@@ -8,6 +8,7 @@ ARG NEO4J_DOWNLOAD_URL=https://dist.neo4j.org/neo4j-enterprise-5.19.0-unix.tar.g
 ARG NEO4J_CHECKSUM=6dc5af32f8e01f1cb8f8618d1314d91713172db14f53c695b77ca733ff504356
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
+RUN cp /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /tmp/cert_sanofi.pem
 RUN update-ca-certificates
 
 ## Install required system packages, for clinical-mdr-api as well
@@ -167,7 +168,7 @@ RUN [ "x$UID" = "x1000" ] || { \
     ;}
 
 # Install APOC plugin
-RUN wget --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins/apoc.jar \
+RUN wget --ca-certificate=/tmp/cert_sanofi.pem --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins/apoc.jar \
     https://github.com/neo4j/apoc/releases/download/5.19.0/apoc-5.19.0-core.jar
 
 # Copy database backup from build stage
