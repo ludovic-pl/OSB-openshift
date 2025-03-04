@@ -134,6 +134,13 @@ spec:
         io.kompose.service: database
     spec:
       containers:
+        - resources:
+          limits:
+            cpu: '4'
+            memory: 12Gi
+          requests:
+            cpu: 2
+            memory: 8Gi
         - env:
             - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
               value: "yes"
@@ -186,6 +193,13 @@ spec:
         io.kompose.service: documentation
     spec:
       containers:
+        - resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
         - image: e2e-metadata-doc
           name: documentation
       restartPolicy: Always
@@ -214,6 +228,13 @@ spec:
         io.kompose.service: frontend
     spec:
       containers:
+        - resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+          requests:
+            cpu: 2
+            memory: 2Gi
         - env:
             - name: API_BASE_URL
               value: http://api:5003
@@ -257,6 +278,13 @@ spec:
         io.kompose.service: neodash
     spec:
       containers:
+        - resources:
+          limits:
+            cpu: '2'
+            memory: 4Gi
+          requests:
+            cpu: 2
+            memory: 2Gi
         - env:
             - name: NGINX_PORT
               value: "5007"
