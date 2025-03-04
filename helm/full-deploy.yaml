@@ -30,6 +30,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: api
     spec:
@@ -80,6 +81,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: consumerapi
     spec:
@@ -127,6 +129,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: database
     spec:
@@ -178,6 +181,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: documentation
     spec:
@@ -205,6 +209,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: frontend
     spec:
@@ -247,6 +252,7 @@ spec:
       annotations:
         kompose.cmd: kompose convert -o helm/
         kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
       labels:
         io.kompose.service: neodash
     spec:
