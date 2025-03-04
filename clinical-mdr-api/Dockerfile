@@ -19,28 +19,32 @@ ARG UID=1000
 ARG USER=appuser
 ENV USER=$USER
 # Create the non-root user with the specified UID and home directory
-RUN useradd --home-dir /home/"$USER" --user-group --create-home --uid "$UID" "$USER"
+RUN useradd --home-dir /home/"$USER" --user-group --create-home --uid "$UID" "$USER" -G 0
+RUN chgrp -R 0 /home/"$USER" && \
+    chmod -R g=u /home/"$USER"
 
 # Set the working directory to /app for the project files
 WORKDIR /app
 
 # Copy all files from the build context (current directory) into the container's /app directory
 COPY ./ ./
+RUN chgrp -R 0 ./ && \
+    chmod -R g=u ./
 
 # Begin the production stage
 FROM common-stage AS prod-stage
 # Remove test directories, install only production dependencies with Pipenv and byte-code compile application
 RUN echo "Building prod-stage" 1>&2 \
     && rm -r clinical_mdr_api/tests consumer_api/tests \
-    && pipenv sync \
-    && rm -rf ~/.cache \
+    && pipenv sync --system \
+    && pipenv --clear \
     && python -m compileall -f -j 0 .
 
 # Begin the development stage
 FROM common-stage AS dev-stage
 USER $USER
 # Install all dependencies with Pipenv
-RUN echo "Building dev-stage" 1>&2 && pipenv sync --dev && rm -rf ~/.cache
+RUN echo "Building dev-stage" 1>&2 && pipenv sync --dev --system && pipenv --clear
 
 # Select either the production or development stage to build the final image based on TARGET
 FROM ${TARGET}-stage AS final-stage
