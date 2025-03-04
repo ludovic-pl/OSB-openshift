@@ -35,6 +35,25 @@ COPY config/nginx/sb-config.sh /docker-entrypoint.d/
 COPY --from=build-stage /app/config/config.json /opt/
 COPY scripts/update-config.awk /opt/
 
+RUN chgrp -R 0 /var/cache/nginx && \
+    chmod -R g=u /var/cache/nginx
+RUN chgrp -R 0 /var/log/nginx && \
+    chmod -R g=u /var/log/nginx
+RUN chgrp -R 0 /etc/nginx/ && \
+    chmod -R g=u /etc/nginx/
+RUN chgrp -R 0 /usr/share/nginx/ && \
+    chmod -R g=u /usr/share/nginx/
+RUN chgrp -R 0 /docker-entrypoint.d/ && \
+    chmod -R g=u /docker-entrypoint.d/
+RUN chgrp -R 0 /opt/config.json && \
+    chmod -R g=u /opt/config.json
+RUN chgrp -R 0 /opt/update-config.awk && \
+    chmod -R g=u /opt/update-config.awk
+RUN touch /var/run/nginx.pid && \
+    chown -R nginx:0 /var/run/nginx.pid
+RUN chmod +x /docker-entrypoint.d/config-entrypoint.sh  && \
+    chmod +x /docker-entrypoint.d/message-entrypoint.sh
+
 ARG PORT=5005
 EXPOSE $PORT
 

@@ -187,8 +187,12 @@ ENV NEO4J_AUTH=neo4j/changeme1234 \
 # Volume attachment point: if an empty volume is mounted, it gets populated with the pre-built database from the image
 VOLUME /data
 
-# run as non root user
-USER $USER
+
+RUN chgrp -R 0 /neo4j && \
+    chmod -R g=u /neo4j
+
+RUN chgrp -R 0 /var/lib/neo4j && \
+    chmod -R g=u /var/lib/neo4j
 
 HEALTHCHECK --start-period=60s --timeout=3s --interval=10s --retries=3 \
     CMD wget --quiet --spider --timeout 2 --tries 1 "http://localhost:7474/" || exit 1

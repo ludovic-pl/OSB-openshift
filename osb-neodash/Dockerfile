@@ -40,16 +40,20 @@ COPY --from=build-stage /conf/default.conf.template /etc/nginx/templates/
 COPY --from=build-stage /scripts/config-entrypoint.sh /docker-entrypoint.d/config-entrypoint.sh
 COPY --from=build-stage /scripts/message-entrypoint.sh /docker-entrypoint.d/message-entrypoint.sh
 
-RUN chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d && \
-    chown -R nginx:nginx /etc/nginx/templates && \
-    chown -R nginx:nginx /docker-entrypoint.d/config-entrypoint.sh && \
-    chmod +x /docker-entrypoint.d/config-entrypoint.sh  && \
-    chmod +x /docker-entrypoint.d/message-entrypoint.sh
+RUN chgrp -R 0 /var/cache/nginx && \
+    chmod -R g=u /var/cache/nginx
+RUN chgrp -R 0 /var/log/nginx && \
+    chmod -R g=u /var/log/nginx
+RUN chgrp -R 0 /etc/nginx/ && \
+    chmod -R g=u /etc/nginx/
+RUN chgrp -R 0 /usr/share/nginx/ && \
+    chmod -R g=u /usr/share/nginx/
+RUN chgrp -R 0 /docker-entrypoint.d/ && \
+    chmod -R g=u /docker-entrypoint.d/
 RUN touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
-RUN chown -R nginx:nginx /usr/share/nginx/html/
+    chown -R nginx:0 /var/run/nginx.pid
+RUN chmod +x /docker-entrypoint.d/config-entrypoint.sh  && \
+    chmod +x /docker-entrypoint.d/message-entrypoint.sh
 
 ## Launch webserver as non-root user.
 USER nginx
