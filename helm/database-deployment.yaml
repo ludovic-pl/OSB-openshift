@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+  labels:
+    io.kompose.service: database
+  name: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: database
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o helm/
+        kompose.version: 1.35.0 (HEAD)
+      labels:
+        io.kompose.service: database
+    spec:
+      containers:
+        - env:
+            - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
+              value: "yes"
+            - name: NEO4J_server_bolt_advertised__address
+              value: localhost:5002
+            - name: NEO4J_server_default__advertised__address
+              value: localhost
+            - name: NEO4J_server_default__listen__address
+              value: 0.0.0.0
+            - name: NEO4J_server_http_advertised__address
+              value: localhost:5001
+            - name: NEO4J_server_memory_heap_initial__size
+              value: 2G
+            - name: NEO4J_server_memory_heap_max__size
+              value: 2G
+            - name: NEO4J_server_memory_pagecache_size
+              value: 1G
+          image: e2e-metadata-db
+          name: database
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      restartPolicy: Always
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+  labels:
+    io.kompose.service: documentation
+  name: documentation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: documentation
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o helm/
+        kompose.version: 1.35.0 (HEAD)
+      labels:
+        io.kompose.service: documentation
+    spec:
+      containers:
+        - image: e2e-metadata-doc
+          name: documentation
+      restartPolicy: Always

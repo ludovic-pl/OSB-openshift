@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+  labels:
+    io.kompose.service: api
+  name: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: api
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o helm/
+        kompose.version: 1.35.0 (HEAD)
+      labels:
+        io.kompose.service: api
+    spec:
+      containers:
+        - env:
+            - name: ALLOW_ORIGIN_REGEX
+              value: .*
+            - name: MS_GRAPH_GROUPS_QUERY
+            - name: MS_GRAPH_INTEGRATION_ENABLED
+            - name: NEO4J_DSN
+              value: bolt://neo4j:changeme1234@database:7687/mdrdb
+            - name: OAUTH_API_APP_ID
+            - name: OAUTH_API_APP_SECRET
+            - name: OAUTH_APP_ID
+            - name: OAUTH_APP_SECRET
+            - name: OAUTH_CLIENT_ID
+            - name: OAUTH_ENABLED
+              value: "False"
+            - name: OAUTH_METADATA_URL
+            - name: OAUTH_RBAC_ENABLED
+              value: "False"
+            - name: OAUTH_SWAGGER_APP_ID
+            - name: OIDC_METADATA_DOCUMENT
+            - name: UVICORN_PORT
+              value: "5003"
+            - name: UVICORN_ROOT_PATH
+              value: /api
+          image: e2e-metadata-api
+          name: api
+      restartPolicy: Always
