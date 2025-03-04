@@ -51,8 +51,7 @@ RUN chgrp -R 0 /opt/update-config.awk && \
     chmod -R g=u /opt/update-config.awk
 RUN touch /var/run/nginx.pid && \
     chown -R nginx:0 /var/run/nginx.pid
-RUN chmod +x /docker-entrypoint.d/config-entrypoint.sh  && \
-    chmod +x /docker-entrypoint.d/message-entrypoint.sh
+RUN chmod +x /docker-entrypoint.d/sb-config.sh
 
 ARG PORT=5005
 EXPOSE $PORT
