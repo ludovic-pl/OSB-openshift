@@ -49,7 +49,8 @@ RUN chgrp -R 0 /usr/share/nginx/ && \
 RUN chgrp -R 0 /docker-entrypoint.d/ && \
     chmod -R g=u /docker-entrypoint.d/
 RUN touch /var/run/nginx.pid && \
-    chown -R nginx:0 /var/run/nginx.pid
+    chgrp -R 0 /var/run/nginx.pid && \
+    chmod -R g=u /var/run/nginx.pid
 
 ARG PORT=5006
 ENV PORT=$PORT
