@@ -20,16 +20,12 @@ ARG USER=appuser
 ENV USER=$USER
 # Create the non-root user with the specified UID and home directory
 RUN useradd --home-dir /home/"$USER" --user-group --create-home --uid "$UID" "$USER" -G 0
-RUN chgrp -R 0 /home/"$USER" && \
-    chmod -R g=u /home/"$USER"
 
 # Set the working directory to /app for the project files
 WORKDIR /app
 
 # Copy all files from the build context (current directory) into the container's /app directory
 COPY ./ ./
-RUN chgrp -R 0 /app && \
-    chmod -R g=u /app
 
 # Begin the production stage
 FROM common-stage AS prod-stage
@@ -66,6 +62,12 @@ ENV BUILD_NUMBER="$BUILD_NUMBER" \
 
 # Expose port 8000 for the Uvicorn application
 EXPOSE $UVICORN_PORT
+
+
+RUN chgrp -R 0 /home/"$USER" && \
+    chmod -R g=u /home/"$USER"
+RUN chgrp -R 0 /app && \
+    chmod -R g=u /app
 
 # Define a health check to verify that the application is responding at the health check endpoint
 HEALTHCHECK --start-period=60s --timeout=3s --interval=10s --retries=2 CMD \
