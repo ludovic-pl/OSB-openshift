@@ -198,10 +198,10 @@ spec:
           resources:
             limits:
               cpu: '500m'
-              memory: 2Gi
+              memory: 1Gi
             requests:
               cpu: '500m'
-              memory: 2Gi
+              memory: 1Gi
       restartPolicy: Always
 ---
 apiVersion: apps/v1
@@ -245,10 +245,10 @@ spec:
           resources:
             limits:
               cpu: '500m'
-              memory: 2Gi
+              memory: 1Gi
             requests:
               cpu: '500m'
-              memory: 2Gi
+              memory: 1Gi
           ports:
             - containerPort: 5005
               protocol: TCP
