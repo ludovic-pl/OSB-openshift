@@ -14,13 +14,6 @@ RUN apt-get update \
     && pip install --upgrade pip pipenv wheel \
     && apt-get clean && rm -rf /var/lib/apt/lists && rm -rf ~/.cache
 
-# Define a non-root user ID and name
-ARG UID=1000
-ARG USER=appuser
-ENV USER=$USER
-# Create the non-root user with the specified UID and home directory
-RUN useradd --home-dir /home/"$USER" --user-group --create-home --uid "$UID" "$USER" -G 0
-
 # Set the working directory to /app for the project files
 WORKDIR /app
 
@@ -38,7 +31,6 @@ RUN echo "Building prod-stage" 1>&2 \
 
 # Begin the development stage
 FROM common-stage AS dev-stage
-USER $USER
 # Install all dependencies with Pipenv
 RUN echo "Building dev-stage" 1>&2 && pipenv sync --dev --system && pipenv --clear
 
@@ -63,9 +55,6 @@ ENV BUILD_NUMBER="$BUILD_NUMBER" \
 # Expose port 8000 for the Uvicorn application
 EXPOSE $UVICORN_PORT
 
-
-RUN chgrp -R 0 /home/"$USER" && \
-    chmod -R g=u /home/"$USER"
 RUN chgrp -R 0 /app && \
     chmod -R g=u /app
 
