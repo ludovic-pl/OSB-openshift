@@ -188,8 +188,8 @@ ENV NEO4J_AUTH=neo4j/changeme1234 \
 VOLUME /data
 
 
-RUN chgrp -R 0 /neo4j && \
-    chmod -R g=u /neo4j
+RUN chgrp -R 0 /data && \
+    chmod -R g=u /data
 
 RUN chgrp -R 0 /var/lib/neo4j && \
     chmod -R g=u /var/lib/neo4j
