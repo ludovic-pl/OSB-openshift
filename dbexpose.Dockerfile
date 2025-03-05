@@ -29,7 +29,7 @@ RUN wget --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins
 COPY --from=$DBDATA --chown=$USER:$GROUP /neo4j/data/backup /data/backup
 
 # Set up default environment variables
-ENV NEO4J_AUTH=neo4j/$NEO4J_MDR_AUTH_PASSWORD \
+ENV NEO4J_AUTH=neo4j/"$NEO4J_MDR_AUTH_PASSWORD" \
     NEO4J_apoc_trigger_enabled="true" \
     NEO4J_apoc_import_file_enabled="true" \
     NEO4J_apoc_export_file_enabled="true" \
