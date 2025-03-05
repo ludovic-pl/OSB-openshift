@@ -66,8 +66,6 @@ ENV BUILD_NUMBER="$BUILD_NUMBER" \
 
 # Expose port 8000 for the Uvicorn application
 EXPOSE $UVICORN_PORT
-RUN chgrp -R 0 /.local && \
-    chmod -R g=u /.local
 
 # Define a health check to verify that the application is responding at the health check endpoint
 HEALTHCHECK --start-period=60s --timeout=3s --interval=10s --retries=2 CMD \
