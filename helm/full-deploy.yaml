@@ -155,8 +155,8 @@ spec:
           name: database
           resources:
             limits:
-              cpu: '4'
-              memory: 12Gi
+              cpu: '2'
+              memory: 8Gi
             requests:
               cpu: '2'
               memory: 8Gi
@@ -197,10 +197,10 @@ spec:
           name: documentation
           resources:
             limits:
-              cpu: '2'
-              memory: 4Gi
+              cpu: '500m'
+              memory: 2Gi
             requests:
-              cpu: '1'
+              cpu: '500m'
               memory: 2Gi
       restartPolicy: Always
 ---
@@ -244,10 +244,10 @@ spec:
           name: frontend
           resources:
             limits:
-              cpu: '2'
-              memory: 4Gi
+              cpu: '500m'
+              memory: 2Gi
             requests:
-              cpu: '2'
+              cpu: '500m'
               memory: 2Gi
           ports:
             - containerPort: 5005
