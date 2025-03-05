@@ -1,0 +1,8 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-dbdata
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true

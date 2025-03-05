@@ -1,0 +1,30 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: osb-neodash
+  namespace: 
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'e2e-metadata-neodash:latest'
+  resources:
+    limits:
+      cpu: '4'
+      memory: 4Gi
+    requests:
+      cpu: '2'
+      memory: 2Gi
+  strategy:
+    type: Docker
+    dockerStrategy:
+      env:
+        - name: NODE_OPTIONS
+          value: '--max_old_space_size=2048'
+      dockerfilePath: Dockerfile
+  source:
+    type: Git
+    git:
+      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+    contextDir: /osb-neodash
+  mountTrustedCA: true

@@ -1,0 +1,24 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: osb-api
+  namespace: 
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'e2e-metadata-api:latest'
+  resources: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      env:
+        - name: TARGET
+          value: prod
+      dockerfilePath: Dockerfile
+  source:
+    type: Git
+    git:
+      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+    contextDir: /clinical-mdr-api
+  mountTrustedCA: true
