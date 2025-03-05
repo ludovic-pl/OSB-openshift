@@ -58,6 +58,10 @@ EXPOSE $UVICORN_PORT
 RUN chgrp -R 0 /app && \
     chmod -R g=u /app
 
+RUN mkdir /.local
+RUN chgrp -R 0 /.local && \
+    chmod -R g=u /.local
+
 # Define a health check to verify that the application is responding at the health check endpoint
 HEALTHCHECK --start-period=60s --timeout=3s --interval=10s --retries=2 CMD \
     curl --fail --silent --show-error --max-time 2 \
