@@ -151,7 +151,7 @@ spec:
               value: 2G
             - name: NEO4J_server_memory_pagecache_size
               value: 1G
-          image: e2e-metadata-db
+          image: e2e-metadata-dbexpose
           name: database
           resources:
             limits:
