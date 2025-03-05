@@ -332,10 +332,10 @@ spec:
   ports:
     - name: "5002"
       port: 5002
-      targetPort: "7687"
+      targetPort: 7687
     - name: "5001"
       port: 5001
-      targetPort: "7474"
+      targetPort: 7474
   selector:
     io.kompose.service: database
 ---
@@ -352,7 +352,7 @@ spec:
   ports:
     - name: "5007"
       port: 5007
-      targetPort: "5007"
+      targetPort: 5007
   selector:
     io.kompose.service: neodash
 ---
@@ -369,6 +369,6 @@ spec:
   ports:
     - name: "5005"
       port: 5005
-      targetPort: "5005"
+      targetPort: 5005
   selector:
     io.kompose.service: frontend
