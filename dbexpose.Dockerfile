@@ -11,6 +11,7 @@ ARG GROUP=neo4j
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
+RUN ls -la
 RUN NEO4J_PWD=$(cat ./neo4j-pwd)
 
 
