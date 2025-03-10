@@ -11,7 +11,6 @@ ARG GROUP=neo4j
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
-RUN echo $neo4jpwd
 
 
 # Match id of neo4j user with the current user on the host for correct premissions of db dumps mounted folder
@@ -36,7 +35,6 @@ ENV NEO4J_AUTH=neo4j/${neo4jpwd} \
     NEO4J_dbms_databases_seed__from__uri__providers="URLConnectionSeedProvider" \
     NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb OPTIONS {existingData: 'use', seedURI:'file:///data/backup/mdrdockerdb.backup'} WAIT 60 SECONDS"
 
-RUN echo ${NEO4J_AUTH}
 # Volume attachment point: if an empty volume is mounted, it gets populated with the pre-built database from the image
 VOLUME /data
 
