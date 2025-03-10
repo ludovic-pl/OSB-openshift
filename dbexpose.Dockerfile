@@ -5,13 +5,13 @@ ARG NEO4J_IMAGE=neo4j:5.19.0-enterprise
 FROM $NEO4J_IMAGE AS production-stage
 
 ARG DBDATA
-ARG NEO4J_MDR_AUTH_PASSWORD="changeme1234"
 ARG UID=1000
 ARG USER=neo4j
 ARG GROUP=neo4j
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
+RUN NEO4J_PWD=$(cat ./neo4j-pwd)
 
 
 # Match id of neo4j user with the current user on the host for correct premissions of db dumps mounted folder
@@ -29,13 +29,14 @@ RUN wget --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins
 COPY --from=$DBDATA --chown=$USER:$GROUP /neo4j/data/backup /data/backup
 
 # Set up default environment variables
-ENV NEO4J_AUTH=neo4j/${NEO4J_MDR_AUTH_PASSWORD} \
+ENV NEO4J_AUTH=neo4j/${NEO4J_PWD} \
     NEO4J_apoc_trigger_enabled="true" \
     NEO4J_apoc_import_file_enabled="true" \
     NEO4J_apoc_export_file_enabled="true" \
     NEO4J_dbms_databases_seed__from__uri__providers="URLConnectionSeedProvider" \
     NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb OPTIONS {existingData: 'use', seedURI:'file:///data/backup/mdrdockerdb.backup'} WAIT 60 SECONDS"
 
+RUN echo ${NEO4J_AUTH}
 # Volume attachment point: if an empty volume is mounted, it gets populated with the pre-built database from the image
 VOLUME /data
 
