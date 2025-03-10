@@ -11,9 +11,7 @@ ARG GROUP=neo4j
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
-RUN ls -la
-RUN ls -la ./pwd
-RUN NEO4J_PWD=$(cat ./pwd/neo4j-pwd)
+RUN echo $neo4jpwd
 
 
 # Match id of neo4j user with the current user on the host for correct premissions of db dumps mounted folder
