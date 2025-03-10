@@ -18,6 +18,12 @@ spec:
   strategy:
     type: Docker
     dockerStrategy:
+      env:
+        - name: neo4jpwd
+          valueFrom:
+            secretKeyRef:
+              name: neo4j-pwd
+              key: NEO4J_MDR_AUTH_PASSWORD
       dockerfilePath: dbdata.Dockerfile
       buildArgs:
         - name: NEO4J_IMAGE
