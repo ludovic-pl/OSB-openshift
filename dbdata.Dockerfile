@@ -13,7 +13,6 @@ ARG NEO4J_server_memory_pagecache_size="2G"
 ARG reportDate="2024-01-05 14:54:32 +0100"
 
 ARG CDISC_DATA_DIR="mdr_standards_import/container_booting/"
-ARG NEO4J_MDR_AUTH_PASSWORD="changeme1234"
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
@@ -49,7 +48,7 @@ ENV NEO4J_MDR_BOLT_PORT=7687 \
     NEO4J_CDISC_IMPORT_BOLT_PORT=7687 \
     NEO4J_CDISC_IMPORT_HOST=localhost \
     NEO4J_CDISC_IMPORT_AUTH_USER=neo4j \
-    NEO4J_CDISC_IMPORT_AUTH_PASSWORD=$NEO4J_MDR_AUTH_PASSWORD \
+    NEO4J_CDISC_IMPORT_AUTH_PASSWORD=$neo4jpwd \
     NEO4J_CDISC_IMPORT_DATABASE=cdisc-import \
     NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
 
@@ -97,7 +96,7 @@ COPY ./studybuilder-import studybuilder-import
 COPY ./clinical-mdr-api clinical-mdr-api
 
 # Environment variables for api
-ENV NEO4J_DSN="bolt://${NEO4J_MDR_AUTH_USER}:${NEO4J_MDR_AUTH_PASSWORD}@localhost:7687/" \
+ENV NEO4J_DSN="bolt://${NEO4J_MDR_AUTH_USER}:${neo4jpwd}@localhost:7687/" \
     NEO4J_DATABASE=mdrdb \
     OAUTH_ENABLED=false \
     ALLOW_ORIGIN_REGEX=".*" \
@@ -108,7 +107,7 @@ ENV NEO4J_DSN="bolt://${NEO4J_MDR_AUTH_USER}:${NEO4J_MDR_AUTH_PASSWORD}@localhos
 COPY ./studybuilder-import/.env.import studybuilder-import/.env
 
 # Start Neo4j then run init and import
-RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$NEO4J_MDR_AUTH_PASSWORD" \
+RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$neo4jpwd" \
     # start neo4j server
     && /neo4j/bin/neo4j console --verbose & neo4j_pid=$! \
     && trap "kill -TERM $neo4j_pid" EXIT \
@@ -138,7 +137,7 @@ RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$NEO4J_MDR_AUTH_PASSWORD" 
     # stop the api
     && sleep 10 && kill -INT $api_pid && wait $api_pid \
     # get database name
-    && dbName=$(/neo4j/bin/cypher-shell -u "$NEO4J_MDR_AUTH_USER" -p "$NEO4J_MDR_AUTH_PASSWORD" -a "neo4j://localhost:$NEO4J_MDR_BOLT_PORT" "SHOW ALIASES FOR DATABASE YIELD * WHERE name=\"$NEO4J_MDR_DATABASE\" RETURN database;" | tail -n 1 | tr -d '"') && echo $dbName \
+    && dbName=$(/neo4j/bin/cypher-shell -u "$NEO4J_MDR_AUTH_USER" -p "$neo4jpwd" -a "neo4j://localhost:$NEO4J_MDR_BOLT_PORT" "SHOW ALIASES FOR DATABASE YIELD * WHERE name=\"$NEO4J_MDR_DATABASE\" RETURN database;" | tail -n 1 | tr -d '"') && echo $dbName \
     # run backup of database
     && mkdir -p /neo4j/data/backup/ \
     && sleep 10 && /neo4j/bin/neo4j-admin database backup --to-path=/neo4j/data/backup/ --type=FULL $dbName --compress=false \
