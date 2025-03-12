@@ -50,7 +50,8 @@ RUN chgrp -R 0 /opt/config.json && \
 RUN chgrp -R 0 /opt/update-config.awk && \
     chmod -R g=u /opt/update-config.awk
 RUN touch /var/run/nginx.pid && \
-    chown -R nginx:0 /var/run/nginx.pid
+    chgrp -R 0 /var/run/nginx.pid && \
+    chmod -R g=u /var/run/nginx.pid
 RUN chmod +x /docker-entrypoint.d/sb-config.sh
 
 ARG PORT=5005
