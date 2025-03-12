@@ -28,11 +28,6 @@ spec:
       buildArgs:
         - name: NEO4J_IMAGE
           value: 'neo4j:5.19.0-enterprise'
-        - name: NEO4J_MDR_AUTH_PASSWORD
-          valueFrom:
-            configMapKeyRef:
-              name: neo4j-pwd
-              key: NEO4J_MDR_AUTH_PASSWORD
         - name: NEO4J_server_memory_heap_initial__size
           value: 3G
         - name: NEO4J_server_memory_heap_max__size
