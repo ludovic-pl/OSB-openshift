@@ -60,6 +60,13 @@ spec:
               value: /api
           image: e2e-metadata-api
           name: api
+          resources:
+            limits:
+              cpu: '500m'
+              memory: 1Gi
+            requests:
+              cpu: '500m'
+              memory: 1Gi
       restartPolicy: Always
 ---
 apiVersion: apps/v1
@@ -106,6 +113,13 @@ spec:
               value: /consumer-api
           image: e2e-metadata-api
           name: consumerapi
+          resources:
+            limits:
+              cpu: '500m'
+              memory: 1Gi
+            requests:
+              cpu: '500m'
+              memory: 1Gi
       restartPolicy: Always
 ---
 apiVersion: apps/v1
@@ -229,12 +243,6 @@ spec:
     spec:
       containers:
         - env:
-            - name: API_BASE_URL
-              value: http://api:5003
-            - name: DOC_BASE_URL
-              value: http://documentation
-            - name: NEODASH_BASE_URL
-              value: http://neodash:5007
             - name: OAUTH_API_APP_ID
             - name: OAUTH_ENABLED
               value: "false"
@@ -309,11 +317,11 @@ spec:
           name: neodash
           resources:
             limits:
-              cpu: '2'
-              memory: 4Gi
+              cpu: '500m'
+              memory: 1Gi
             requests:
-              cpu: '2'
-              memory: 2Gi
+              cpu: '500m'
+              memory: 1Gi
           ports:
             - containerPort: 5007
               protocol: TCP

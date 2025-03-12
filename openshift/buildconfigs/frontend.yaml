@@ -1,14 +1,20 @@
 kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
-  name: osb-doc
+  name: osb-frontend
   namespace: 
 spec:
   output:
     to:
       kind: ImageStreamTag
-      name: 'e2e-metadata-doc:latest'
-  resources: {}
+      name: 'e2e-metadata-frontend:latest'
+  resources:
+    limits:
+      cpu: '2'
+      memory: 4Gi
+    requests:
+      cpu: '2'
+      memory: 2Gi
   strategy:
     type: Docker
     dockerStrategy:
@@ -17,5 +23,5 @@ spec:
     type: Git
     git:
       uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
-    contextDir: /documentation-portal
+    contextDir: /studybuilder
   mountTrustedCA: true

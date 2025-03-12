@@ -1,0 +1,53 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-api
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-dbdata
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-dbexpose
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-doc
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-frontend
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-neodash
+  namespace: 
+spec:
+  lookupPolicy:
+    local: true

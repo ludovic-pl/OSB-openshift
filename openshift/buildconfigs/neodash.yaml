@@ -10,7 +10,7 @@ spec:
       name: 'e2e-metadata-neodash:latest'
   resources:
     limits:
-      cpu: '4'
+      cpu: '2'
       memory: 4Gi
     requests:
       cpu: '2'
