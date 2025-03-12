@@ -16,7 +16,6 @@ ARG CDISC_DATA_DIR="mdr_standards_import/container_booting/"
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
-RUN echo $neo4jpwd
 
 ## Install required system packages, for clinical-mdr-api as well
 RUN apt-get update \
