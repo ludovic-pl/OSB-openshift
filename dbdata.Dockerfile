@@ -83,8 +83,6 @@ COPY ./mdr-standards-import mdr-standards-import
 # Copy environment file for mdr-standards-import
 COPY ./studybuilder-import/.env.import mdr-standards-import/.env
 
-
-
 # Install dependencies for studybuilder-import and clinical-mdr-api
 COPY ./studybuilder-import/Pipfile* studybuilder-import/
 COPY ./clinical-mdr-api/Pipfile* clinical-mdr-api/
@@ -132,7 +130,7 @@ RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$neo4jpwd" \
     && { cd ../clinical-mdr-api && pipenv run uvicorn --host 127.0.0.1 --port 8000 --log-level info clinical_mdr_api.main:app & api_pid=$! ;} \
     # wait until 8000/tcp is open
     && while ! netstat -tna | grep 'LISTEN\>' | grep -q '8000\>'; do sleep 2; done \
-    && set -x \
+    # && set -x \
     # imports
     && sleep 10 && cd ../studybuilder-import && pipenv run import_all && pipenv run import_dummydata && pipenv run import_feature_flags && pipenv run activities \
     # stop the api

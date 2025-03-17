@@ -111,7 +111,7 @@ COPY ./studybuilder-import/.env.import studybuilder-import/.env
 # Start Neo4j then run init and import
 RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$NEO4J_MDR_AUTH_PASSWORD" \
     # start neo4j server
-    && /neo4j/bin/neo4j console --verbose & neo4j_pid=$! \
+    && /neo4j/bin/neo4j console & neo4j_pid=$! \
     && trap "kill -TERM $neo4j_pid" EXIT \
     # wait until 7474/tcp is open
     && while ! netstat -tna | grep 'LISTEN\>' | grep -q '7474\>'; do sleep 2; done \
@@ -184,15 +184,14 @@ ENV NEO4J_AUTH=neo4j/changeme1234 \
     NEO4J_dbms_databases_seed__from__uri__providers="URLConnectionSeedProvider" \
     NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb OPTIONS {existingData: 'use', seedURI:'file:///data/backup/mdrdockerdb.backup'} WAIT 60 SECONDS"
 
-# Volume attachment point: if an empty volume is mounted, it gets populated with the pre-built database from the image
-VOLUME /data
-
-
 RUN chgrp -R 0 /data && \
     chmod -R g=u /data
 
 RUN chgrp -R 0 /var/lib/neo4j && \
     chmod -R g=u /var/lib/neo4j
+
+# Volume attachment point: if an empty volume is mounted, it gets populated with the pre-built database from the image
+VOLUME /data
 
 HEALTHCHECK --start-period=60s --timeout=3s --interval=10s --retries=3 \
     CMD wget --quiet --spider --timeout 2 --tries 1 "http://localhost:7474/" || exit 1
