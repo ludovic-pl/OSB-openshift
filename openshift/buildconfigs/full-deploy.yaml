@@ -2,8 +2,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-api
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -27,8 +26,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbdata
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -79,8 +77,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbexpose
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -129,8 +126,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-doc
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -151,8 +147,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-frontend
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -179,8 +174,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-neodash
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
