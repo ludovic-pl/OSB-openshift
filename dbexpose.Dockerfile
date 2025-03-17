@@ -35,7 +35,6 @@ ENV NEO4J_AUTH=neo4j/${neo4jpwd} \
     NEO4J_dbms_databases_seed__from__uri__providers="URLConnectionSeedProvider" \
     NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb OPTIONS {existingData: 'use', seedURI:'file:///data/backup/mdrdockerdb.backup'} WAIT 60 SECONDS"
 
-
 RUN chgrp -R 0 /data && \
     chmod -R g=u /data
 

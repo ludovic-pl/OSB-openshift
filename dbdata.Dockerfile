@@ -108,7 +108,7 @@ COPY ./studybuilder-import/.env.import studybuilder-import/.env
 # Start Neo4j then run init and import
 RUN /neo4j/bin/neo4j-admin dbms set-initial-password "$neo4jpwd" \
     # start neo4j server
-    && /neo4j/bin/neo4j console --verbose & neo4j_pid=$! \
+    && /neo4j/bin/neo4j console & neo4j_pid=$! \
     && trap "kill -TERM $neo4j_pid" EXIT \
     # wait until 7474/tcp is open
     && while ! netstat -tna | grep 'LISTEN\>' | grep -q '7474\>'; do sleep 2; done \
