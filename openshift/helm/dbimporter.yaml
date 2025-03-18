@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+  labels:
+    io.kompose.service: dbimporter
+  name: dbimporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: dbimporter
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o helm/
+        kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
+      labels:
+        io.kompose.service: dbimporter
+    spec:
+      containers:
+        - env:
+            - name: neo4jpwd
+              valueFrom:
+                secretKeyRef:
+                  name: neo4j-pwd
+                  key: NEO4J_MDR_AUTH_PASSWORD
+            - name: NEO4J_MDR_BOLT_PORT
+              value: "7687"
+            - name: NEO4J_MDR_HTTP_PORT
+              value: "7474"
+            - name: NEO4J_MDR_HTTPS_PORT
+              value: "7473"
+            - name: NEO4J_MDR_HOST
+              value: database.climber-scale-24121953.svc.cluster.local
+            - name: NEO4J_MDR_AUTH_USER
+              value: neo4j
+            - name: NEO4J_MDR_DATABASE
+              value: mdrdb
+            - name: NEO4J_MDR_DATABASE_DBNAME
+              value: mdrdockerdb
+            - name: NEO4J_MDR_AUTH_PASSWORD
+              value: $neo4jpwd
+            - name: NEO4J_CDISC_IMPORT_BOLT_PORT
+              value: "7687"
+            - name: NEO4J_CDISC_IMPORT_HOST
+              value: database.climber-scale-24121953.svc.cluster.localètrg
+            - name: NEO4J_CDISC_IMPORT_AUTH_USER
+              value: neo4j
+            - name: NEO4J_CDISC_IMPORT_AUTH_PASSWORD
+              value: $neo4jpwd
+            - name: NEO4J_CDISC_IMPORT_DATABASE
+              value: cdisc-import
+            - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
+              value: yes
+          image: e2e-metadata-dbimporter
+          name: dbimporter
+          resources:
+            limits:
+              cpu: '2'
+              memory: 4Gi
+            requests:
+              cpu: '2'
+              memory: 4Gi
+      restartPolicy: Always

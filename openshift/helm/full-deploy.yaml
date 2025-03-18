@@ -116,8 +116,6 @@ spec:
         - env:
             - name: ALLOW_ORIGIN_REGEX
               value: .*
-            - name: NEO4J_DSN
-              value: bolt://neo4j:changeme1234@database:7687/mdrdb
             - name: OAUTH_API_APP_ID
             - name: OAUTH_ENABLED
               value: "False"
@@ -131,6 +129,21 @@ spec:
               value: "5008"
             - name: UVICORN_ROOT_PATH
               value: /consumer-api
+            - name: neo4jpwd
+              valueFrom:
+                secretKeyRef:
+                  name: neo4j-pwd
+                  key: NEO4J_MDR_AUTH_PASSWORD
+            - name: NEO4J_MDR_BOLT_PORT
+              value: '7687'
+            - name: NEO4J_MDR_HOST
+              value: database.climber-scale-24121953.svc.cluster.local
+            - name: NEO4J_MDR_AUTH_USER
+              value: neo4j
+            - name: NEO4J_MDR_AUTH_PASSWORD
+              value: $(neo4jpwd)
+            - name: NEO4J_DSN
+              value: bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/mdrdb
           image: e2e-metadata-api
           name: consumerapi
           resources:

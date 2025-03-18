@@ -1,0 +1,46 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: osb-dbimporter
+  namespace: 
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: 'e2e-metadata-dbimporter:latest'
+  resources:
+    limits:
+      cpu: '4'
+      memory: 12Gi
+    requests:
+      cpu: '2'
+      memory: 8Gi
+  strategy:
+    type: Docker
+    dockerStrategy:
+      env:
+        - name: neo4jpwd
+          valueFrom:
+            secretKeyRef:
+              name: neo4j-pwd
+              key: NEO4J_MDR_AUTH_PASSWORD
+      dockerfilePath: dbdata.Dockerfile
+      buildArgs:
+        - name: NEO4J_IMAGE
+          value: 'neo4j:5.19.0-enterprise'
+        - name: NEO4J_server_memory_heap_initial__size
+          value: 3G
+        - name: NEO4J_server_memory_heap_max__size
+          value: 3G
+        - name: NEO4J_server_memory_pagecache_size
+          value: 2G
+        - name: CDISC_DATA_DIR
+          value: mdr_standards_import/container_booting/
+        - name: UID
+          value: '1000'
+  source:
+    type: Git
+    git:
+      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+    contextDir: /
+  mountTrustedCA: true
