@@ -24,7 +24,7 @@ spec:
             secretKeyRef:
               name: neo4j-pwd
               key: NEO4J_MDR_AUTH_PASSWORD
-      dockerfilePath: dbdata.Dockerfile
+      dockerfilePath: dbimporter.Dockerfile
       buildArgs:
         - name: NEO4J_IMAGE
           value: 'neo4j:5.19.0-enterprise'
