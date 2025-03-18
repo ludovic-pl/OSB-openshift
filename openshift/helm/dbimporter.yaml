@@ -58,6 +58,8 @@ spec:
               value: cdisc-import
             - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
               value: yes
+            - name: NEO4J_DSN
+              value: bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/mdrdb
           image: e2e-metadata-dbimporter
           name: dbimporter
           resources:

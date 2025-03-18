@@ -75,14 +75,6 @@ RUN cd studybuilder-import && pipenv sync --system \
 COPY ./studybuilder-import studybuilder-import
 COPY ./clinical-mdr-api clinical-mdr-api
 
-# Environment variables for api
-ENV NEO4J_DSN="bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/mdrdb" \
-    NEO4J_DATABASE=mdrdb \
-    OAUTH_ENABLED=false \
-    ALLOW_ORIGIN_REGEX=".*" \
-    TRACING_DISABLED="true" \
-    LOG_LEVEL="WARN"
-
 # Set up environments for studybuilder-import
 COPY ./studybuilder-import/.env.import studybuilder-import/.env
 
