@@ -61,5 +61,8 @@ COPY ./studybuilder-import/.env.import studybuilder-import/.env
 
 RUN chgrp -R 0 /import && \
     chmod -R g=u /import
+RUN mkdir /.local
+RUN chgrp -R 0 /.local && \
+    chmod -R g=u /.local
 
 CMD [ "sh", "./default_neo4j.sh" ]
