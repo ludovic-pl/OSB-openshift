@@ -2,7 +2,8 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-api
-  namespace: 
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
@@ -11,7 +12,8 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-dbdata
-  namespace: 
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
@@ -20,7 +22,18 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-dbexpose
-  namespace: 
+  labels:
+    latest: ''
+spec:
+  lookupPolicy:
+    local: true
+---
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+metadata:
+  name: e2e-metadata-dbimporter
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
@@ -29,7 +42,8 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-doc
-  namespace: 
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
@@ -38,7 +52,8 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-frontend
-  namespace: 
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
@@ -47,7 +62,8 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
   name: e2e-metadata-neodash
-  namespace: 
+  labels:
+    latest: ''
 spec:
   lookupPolicy:
     local: true
