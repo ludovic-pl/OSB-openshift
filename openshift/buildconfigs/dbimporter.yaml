@@ -2,7 +2,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbimporter
-  namespace: 
 spec:
   output:
     to:
@@ -10,11 +9,11 @@ spec:
       name: 'e2e-metadata-dbimporter:latest'
   resources:
     limits:
-      cpu: '4'
-      memory: 12Gi
+      cpu: '2'
+      memory: 4Gi
     requests:
       cpu: '2'
-      memory: 8Gi
+      memory: 4Gi
   strategy:
     type: Docker
     dockerStrategy:
