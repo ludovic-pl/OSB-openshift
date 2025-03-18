@@ -47,42 +47,19 @@ ARG NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
 WORKDIR /import
 
 COPY ./default_neo4j.sh .
-
-# Copy Pipfiles
-COPY ./neo4j-mdr-db/Pipfile* neo4j-mdr-db/
-COPY ./mdr-standards-import/Pipfile* mdr-standards-import/
-
-# Install dependencies for neo4j-mdr-db and mdr-standards-import
-RUN cd neo4j-mdr-db && pipenv sync --system \
-    && cd ../mdr-standards-import && pipenv sync --system \
-    && rm -rf ~/.cache
-
 # Copy program files for neo4j-mdr-db and mdr-standards-import
 COPY ./neo4j-mdr-db neo4j-mdr-db
 COPY ./mdr-standards-import mdr-standards-import
+COPY ./studybuilder-import studybuilder-import
+COPY ./clinical-mdr-api clinical-mdr-api
 
 # Copy environment file for mdr-standards-import
 COPY ./studybuilder-import/.env.import mdr-standards-import/.env
-
-# Install dependencies for studybuilder-import and clinical-mdr-api
-COPY ./studybuilder-import/Pipfile* studybuilder-import/
-COPY ./clinical-mdr-api/Pipfile* clinical-mdr-api/
-RUN cd studybuilder-import && pipenv sync --system \
-    && cd ../clinical-mdr-api && pipenv sync --system \
-    && rm -rf ~/.cache
-
-# Copy program files for studybuilder-import and clinical-mdr-api
-COPY ./studybuilder-import studybuilder-import
-COPY ./clinical-mdr-api clinical-mdr-api
 
 # Set up environments for studybuilder-import
 COPY ./studybuilder-import/.env.import studybuilder-import/.env
 
 RUN chgrp -R 0 /import && \
     chmod -R g=u /import
-
-RUN mkdir /.local
-RUN chgrp -R 0 /.local && \
-    chmod -R g=u /.local
 
 CMD [ "sh", "./default_neo4j.sh" ]
