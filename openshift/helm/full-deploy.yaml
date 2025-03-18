@@ -26,6 +26,10 @@ spec:
     matchLabels:
       io.kompose.service: api
   template:
+    volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: data
     metadata:
       annotations:
         kompose.cmd: kompose convert -o helm/
@@ -40,8 +44,6 @@ spec:
               value: .*
             - name: MS_GRAPH_GROUPS_QUERY
             - name: MS_GRAPH_INTEGRATION_ENABLED
-            - name: NEO4J_DSN
-              value: bolt://neo4j:changeme1234@database:7687/mdrdb
             - name: OAUTH_API_APP_ID
             - name: OAUTH_API_APP_SECRET
             - name: OAUTH_APP_ID
@@ -58,8 +60,26 @@ spec:
               value: "5003"
             - name: UVICORN_ROOT_PATH
               value: /api
+            - name: neo4jpwd
+              valueFrom:
+                secretKeyRef:
+                  name: neo4j-pwd
+                  key: NEO4J_MDR_AUTH_PASSWORD
+            - name: NEO4J_MDR_BOLT_PORT
+              value: '7687'
+            - name: NEO4J_MDR_HOST
+              value: database.climber-scale-24121953.svc.cluster.local
+            - name: NEO4J_MDR_AUTH_USER
+              value: neo4j
+            - name: NEO4J_MDR_AUTH_PASSWORD
+              value: $(neo4jpwd)
+            - name: NEO4J_DSN
+              value: bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/mdrdb
           image: e2e-metadata-api
           name: api
+          volumeMounts:
+            - mountPath: /data
+              name: data
           resources:
             limits:
               cpu: '500m'
@@ -123,7 +143,7 @@ spec:
       restartPolicy: Always
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: Pod
 metadata:
   annotations:
     kompose.cmd: kompose convert -o helm/
@@ -152,13 +172,13 @@ spec:
             - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
               value: "yes"
             - name: NEO4J_server_bolt_advertised__address
-              value: localhost:5002
+              value: :5002
             - name: NEO4J_server_default__advertised__address
-              value: localhost
+              value: database.climber-scale-24121953.svc.cluster.local
             - name: NEO4J_server_default__listen__address
               value: 0.0.0.0
             - name: NEO4J_server_http_advertised__address
-              value: localhost:5001
+              value: :5001
             - name: NEO4J_server_memory_heap_initial__size
               value: 2G
             - name: NEO4J_server_memory_heap_max__size
@@ -248,6 +268,22 @@ spec:
               value: "false"
             - name: OAUTH_METADATA_URL
             - name: OAUTH_UI_APP_ID
+            - name: API_HOST
+              value: api.climber-scale-24121953.svc.cluster.local
+            - name: API_PORT
+              value: "5003"
+            - name: CONSUMER_API_HOST
+              value: consumerapi.climber-scale-24121953.svc.cluster.local
+            - name: CONSUMER_API_PORT
+              value: "5008"
+            - name: DOC_HOST
+              value: documentation.climber-scale-24121953.svc.cluster.local
+            - name: DOC_PORT
+              value: "5006"
+            - name: NEODASH_HOST
+              value: neodash.climber-scale-24121953.svc.cluster.local
+            - name: NEODASH_PORT
+              value: "5007"
           image: e2e-metadata-frontend
           name: frontend
           resources:
