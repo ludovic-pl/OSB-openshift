@@ -15,12 +15,6 @@ RUN update-ca-certificates
 RUN wget --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins/apoc.jar \
     https://github.com/neo4j/apoc/releases/download/5.19.0/apoc-5.19.0-core.jar
 
-RUN neo4j_conf=/neo4j/conf/neo4j.conf \
-    && echo "server.memory.heap.initial_size=$NEO4J_server_memory_heap_initial__size" >> $neo4j_conf \
-    && echo "server.memory.heap.max_size=$NEO4J_server_memory_heap_max__size" >> $neo4j_conf \
-    && echo "server.memory.pagecache.size=$NEO4J_server_memory_pagecache_size" >> $neo4j_conf \
-    && echo 'dbms.security.procedures.unrestricted=algo.*,apoc.*' >> $neo4j_conf
-
 # Set up default environment variables
 ENV NEO4J_AUTH=neo4j/${neo4jpwd} \
     NEO4J_apoc_trigger_enabled="true" \
