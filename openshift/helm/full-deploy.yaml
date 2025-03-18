@@ -156,7 +156,7 @@ spec:
       restartPolicy: Always
 ---
 apiVersion: apps/v1
-kind: Pod
+kind: Deployment
 metadata:
   annotations:
     kompose.cmd: kompose convert -o helm/
