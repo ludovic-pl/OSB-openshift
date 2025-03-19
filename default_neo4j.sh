@@ -30,7 +30,7 @@ cd ../neo4j-mdr-db && pipenv sync && pipenv run update_ct_stats
 cd ../clinical-mdr-api
 pipenv sync
 echo "Starting API"
-pipenv run uvicorn --host 127.0.0.1 --port 8000 --log-level info clinical_mdr_api.main:app
+pipenv run uvicorn --host 127.0.0.1 --port 8000 --log-level info clinical_mdr_api.main:app &
 # wait until 8000/tcp is open
 while ! netstat -tna | grep 'LISTEN>' | grep -q '8000>'
 do 
