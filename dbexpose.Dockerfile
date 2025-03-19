@@ -4,16 +4,28 @@ ARG NEO4J_IMAGE=neo4j:5.19.0-enterprise
 # Copy database directory from build-stage to the official neo4j docker image
 FROM $NEO4J_IMAGE AS production-stage
 
-ARG NEO4J_server_memory_heap_initial__size="3G"
-ARG NEO4J_server_memory_heap_max__size="3G"
-ARG NEO4J_server_memory_pagecache_size="2G"
+ARG DBDATA
+ARG UID=1000
+ARG USER=neo4j
+ARG GROUP=neo4j
 
 RUN cp -v /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem /usr/local/share/ca-certificates/custom-cert.crt
 RUN update-ca-certificates
 
+
+# Match id of neo4j user with the current user on the host for correct premissions of db dumps mounted folder
+RUN [ "x$UID" = "x1000" ] || { \
+    echo "Changing uid & gid of neo4j user to $UID" \
+    && usermod --uid "$UID" "neo4j" \
+    && groupmod --gid "$UID" "neo4j" \
+    ;}
+
 # Install APOC plugin
 RUN wget --quiet --timeout 60 --tries 2 --output-document /var/lib/neo4j/plugins/apoc.jar \
     https://github.com/neo4j/apoc/releases/download/5.19.0/apoc-5.19.0-core.jar
+
+# Copy database backup from build stage
+COPY --from=$DBDATA --chown=$USER:$GROUP /neo4j/data/backup /osb/backup
 
 # Set up default environment variables
 ENV NEO4J_AUTH=neo4j/${neo4jpwd} \
@@ -21,10 +33,13 @@ ENV NEO4J_AUTH=neo4j/${neo4jpwd} \
     NEO4J_apoc_import_file_enabled="true" \
     NEO4J_apoc_export_file_enabled="true" \
     NEO4J_dbms_databases_seed__from__uri__providers="URLConnectionSeedProvider" \
-    NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb"
+    NEO4J_apoc_initializer_system_1="CREATE DATABASE mdrdb OPTIONS {existingData: 'use', seedURI:'file:///osb/backup/mdrdockerdb.backup'} WAIT 60 SECONDS"
 
 RUN chgrp -R 0 /data && \
     chmod -R g=u /data
+
+RUN chgrp -R 0 /osb && \
+    chmod -R g=u /osb
 
 RUN chgrp -R 0 /var/lib/neo4j && \
     chmod -R g=u /var/lib/neo4j
