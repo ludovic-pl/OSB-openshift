@@ -4,6 +4,11 @@ reportDate="2024-01-05 14:54:32 +0100"
 # init database
 echo "Initializing database"
 cd neo4j-mdr-db && pipenv sync && pipenv run init_neo4j
+# start API
+cd ../clinical-mdr-api
+pipenv sync
+echo "Starting API"
+pipenv run uvicorn --host 127.0.0.1 --port 8000 --log-level info clinical_mdr_api.main:app &
 # import neodash reports
 mkdir -p neodash_reports/import && FILES="neodash/neodash_reports/*.json"
 
@@ -26,11 +31,6 @@ cd ../mdr-standards-import && pipenv sync && pipenv run bulk_import "IMPORT" "pa
 # update CT package stats
 echo "Updating CT package stats"
 cd ../neo4j-mdr-db && pipenv sync && pipenv run update_ct_stats 
-# start API
-cd ../clinical-mdr-api
-pipenv sync
-echo "Starting API"
-pipenv run uvicorn --host 127.0.0.1 --port 8000 --log-level info clinical_mdr_api.main:app &
 # wait until 8000/tcp is open
 while ! netstat -tna | grep 'LISTEN>' | grep -q '8000>'
 do 
