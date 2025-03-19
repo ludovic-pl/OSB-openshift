@@ -193,11 +193,13 @@ spec:
             - name: NEO4J_server_http_advertised__address
               value: :5001
             - name: NEO4J_server_memory_heap_initial__size
-              value: 2G
+              value: 3G
             - name: NEO4J_server_memory_heap_max__size
-              value: 2G
+              value: 3G
             - name: NEO4J_server_memory_pagecache_size
-              value: 1G
+              value: 2G
+            - name: NEO4J_dbms_security_procedures_unrestricted
+              value: algo.*,apoc.*
           image: e2e-metadata-dbexpose
           name: database
           resources:

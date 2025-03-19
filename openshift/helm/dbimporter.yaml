@@ -31,11 +31,11 @@ spec:
                   name: neo4j-pwd
                   key: NEO4J_MDR_AUTH_PASSWORD
             - name: NEO4J_MDR_BOLT_PORT
-              value: "7687"
+              value: '7687'
             - name: NEO4J_MDR_HTTP_PORT
-              value: "7474"
+              value: '7474'
             - name: NEO4J_MDR_HTTPS_PORT
-              value: "7473"
+              value: '7473'
             - name: NEO4J_MDR_HOST
               value: database.climber-scale-24121953.svc.cluster.local
             - name: NEO4J_MDR_AUTH_USER
@@ -45,21 +45,31 @@ spec:
             - name: NEO4J_MDR_DATABASE_DBNAME
               value: mdrdockerdb
             - name: NEO4J_MDR_AUTH_PASSWORD
-              value: $neo4jpwd
+              value: $(neo4jpwd)
             - name: NEO4J_CDISC_IMPORT_BOLT_PORT
-              value: "7687"
+              value: '7687'
             - name: NEO4J_CDISC_IMPORT_HOST
-              value: database.climber-scale-24121953.svc.cluster.localètrg
+              value: database.climber-scale-24121953.svc.cluster.local
             - name: NEO4J_CDISC_IMPORT_AUTH_USER
               value: neo4j
             - name: NEO4J_CDISC_IMPORT_AUTH_PASSWORD
-              value: $neo4jpwd
+              value: $(neo4jpwd)
             - name: NEO4J_CDISC_IMPORT_DATABASE
               value: cdisc-import
             - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
-              value: yes
+              value: 'yes'
+            - name: CDISC_DATA_DIR
+              value: mdr_standards_import/container_booting/
+            - name: OAUTH_ENABLED
+              value: 'false'
+            - name: ALLOW_ORIGIN_REGEX
+              value: .*
+            - name: TRACING_DISABLED
+              value: 'true'
+            - name: LOG_LEVEL
+              value: WARN
             - name: NEO4J_DSN
-              value: bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/mdrdb
+              value: bolt://$(NEO4J_MDR_AUTH_USER):$(NEO4J_MDR_AUTH_PASSWORD)@$(NEO4J_MDR_HOST):$(NEO4J_MDR_BOLT_PORT)/
           image: e2e-metadata-dbimporter
           name: dbimporter
           resources:

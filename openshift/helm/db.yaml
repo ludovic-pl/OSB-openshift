@@ -1,0 +1,74 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 32Gi
+  volumeMode: Filesystem
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+  labels:
+    io.kompose.service: database
+  name: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: database
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o helm/
+        kompose.version: 1.35.0 (HEAD)
+        alpha.image.policy.openshift.io/resolve-names: '*'
+      labels:
+        io.kompose.service: database
+    spec:
+      containers:
+        - env:
+            - name: NEO4J_ACCEPT_LICENSE_AGREEMENT
+              value: "yes"
+            - name: NEO4J_server_bolt_advertised__address
+              value: :5002
+            - name: NEO4J_server_default__advertised__address
+              value: database.climber-scale-24121953.svc.cluster.local
+            - name: NEO4J_server_default__listen__address
+              value: 0.0.0.0
+            - name: NEO4J_server_http_advertised__address
+              value: :5001
+            - name: NEO4J_server_memory_heap_initial__size
+              value: 3G
+            - name: NEO4J_server_memory_heap_max__size
+              value: 3G
+            - name: NEO4J_server_memory_pagecache_size
+              value: 2G
+            - name: NEO4J_dbms_security_procedures_unrestricted
+              value: algo.*,apoc.*
+          image: e2e-metadata-dbexpose
+          name: database
+          resources:
+            limits:
+              cpu: '2'
+              memory: 8Gi
+            requests:
+              cpu: '2'
+              memory: 8Gi
+          volumeMounts:
+            - mountPath: /data
+              name: data
+      restartPolicy: Always
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data
