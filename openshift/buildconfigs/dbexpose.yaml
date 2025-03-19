@@ -28,16 +28,6 @@ spec:
       buildArgs:
         - name: NEO4J_IMAGE
           value: 'neo4j:5.19.0-enterprise'
-        - name: NEO4J_server_memory_heap_initial__size
-          value: 3G
-        - name: NEO4J_server_memory_heap_max__size
-          value: 3G
-        - name: NEO4J_server_memory_pagecache_size
-          value: 2G
-        - name: CDISC_DATA_DIR
-          value: mdr_standards_import/container_booting/
-        - name: UID
-          value: '1000'
         - name: DBDATA
           value: >-
             image-registry.openshift-image-registry.svc:5000/e2e-metadata-osb-cert/e2e-metadata-dbdata
