@@ -2,7 +2,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-api
-  namespace: 
 spec:
   output:
     to:
@@ -19,7 +18,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /clinical-mdr-api
   mountTrustedCA: true
 ---
@@ -27,8 +26,7 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbdata
-  namespace: 
-spec:
+  spec:
   output:
     to:
       kind: ImageStreamTag
@@ -66,7 +64,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /
   mountTrustedCA: true
 ---
@@ -74,7 +72,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbexpose
-  namespace: 
 spec:
   output:
     to:
@@ -116,7 +113,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /
   mountTrustedCA: true
 ---
@@ -124,7 +121,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-dbimporter
-  namespace: 
 spec:
   output:
     to:
@@ -163,7 +159,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /
   mountTrustedCA: true
 ---
@@ -171,7 +167,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-doc
-  namespace: 
 spec:
   output:
     to:
@@ -185,7 +180,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /documentation-portal
   mountTrustedCA: true
 ---
@@ -193,7 +188,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-frontend
-  namespace: 
 spec:
   output:
     to:
@@ -213,7 +207,7 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /studybuilder
   mountTrustedCA: true
 ---
@@ -221,7 +215,6 @@ kind: BuildConfig
 apiVersion: build.openshift.io/v1
 metadata:
   name: osb-neodash
-  namespace: 
 spec:
   output:
     to:
@@ -244,6 +237,6 @@ spec:
   source:
     type: Git
     git:
-      uri: 'https://github.com/ludovic-pl/OSB-openshift.git'
+      uri: <git_url>
     contextDir: /osb-neodash
   mountTrustedCA: true

@@ -31,16 +31,6 @@ spec:
 kind: ImageStream
 apiVersion: image.openshift.io/v1
 metadata:
-  name: e2e-metadata-dbimporter
-  labels:
-    latest: ''
-spec:
-  lookupPolicy:
-    local: true
----
-kind: ImageStream
-apiVersion: image.openshift.io/v1
-metadata:
   name: e2e-metadata-doc
   labels:
     latest: ''

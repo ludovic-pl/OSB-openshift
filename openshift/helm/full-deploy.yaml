@@ -378,56 +378,131 @@ spec:
               protocol: TCP
       restartPolicy: Always
 ---
-apiVersion: v1
 kind: Service
+apiVersion: v1
 metadata:
+  name: api
+  labels:
+    io.kompose.service: api
+  annotations:
+    kompose.cmd: kompose convert --chart
+    kompose.version: 1.35.0 (9532ceef3)
+spec:
+  ports:
+    - name: '5003'
+      protocol: TCP
+      port: 5003
+      targetPort: 5003
+  selector:
+    io.kompose.service: api
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: api-swagger
+  labels:
+    io.kompose.service: api
+  annotations:
+    kompose.cmd: kompose convert --chart
+    kompose.version: 1.35.0 (9532ceef3)
+spec:
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5003
+  selector:
+    io.kompose.service: api
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: consumerapi
+  labels:
+    io.kompose.service: consumerapi
+  annotations:
+    kompose.cmd: kompose convert --chart
+    kompose.version: 1.35.0 (9532ceef3)
+spec:
+  ports:
+    - name: '5008'
+      protocol: TCP
+      port: 5008
+      targetPort: 5008
+  selector:
+    io.kompose.service: consumerapi
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: database
+  labels:
+    io.kompose.service: database
   annotations:
     kompose.cmd: kompose convert -o helm/
     kompose.version: 1.35.0 (HEAD)
-  labels:
-    io.kompose.service: database
-  name: database
 spec:
   ports:
-    - name: "5002"
-      port: 5002
+    - name: '7687'
+      protocol: TCP
+      port: 7687
       targetPort: 7687
-    - name: "5001"
-      port: 5001
+    - name: '7474'
+      protocol: TCP
+      port: 7474
       targetPort: 7474
   selector:
     io.kompose.service: database
 ---
-apiVersion: v1
 kind: Service
+apiVersion: v1
 metadata:
-  annotations:
-    kompose.cmd: kompose convert -o helm/
-    kompose.version: 1.35.0 (HEAD)
+  name: documentation
   labels:
-    io.kompose.service: neodash
-  name: neodash
+    io.kompose.service: documentation
+  annotations:
+    kompose.cmd: kompose convert --chart
+    kompose.version: 1.35.0 (9532ceef3)
 spec:
   ports:
-    - name: "5007"
-      port: 5007
-      targetPort: 5007
+    - name: '5006'
+      protocol: TCP
+      port: 5006
+      targetPort: 5006
   selector:
-    io.kompose.service: neodash
+    io.kompose.service: documentation
 ---
-apiVersion: v1
 kind: Service
+apiVersion: v1
 metadata:
-  annotations:
-    kompose.cmd: kompose convert -o helm/
-    kompose.version: 1.35.0 (HEAD)
+  name: frontend
   labels:
     io.kompose.service: frontend
-  name: frontend
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
 spec:
   ports:
-    - name: "5005"
+    - name: '5005'
+      protocol: TCP
       port: 5005
       targetPort: 5005
   selector:
     io.kompose.service: frontend
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: neodash
+  labels:
+    io.kompose.service: neodash
+  annotations:
+    kompose.cmd: kompose convert -o helm/
+    kompose.version: 1.35.0 (HEAD)
+spec:
+  ports:
+    - name: '5007'
+      protocol: TCP
+      port: 5007
+      targetPort: 5007
+  selector:
+    io.kompose.service: neodash
